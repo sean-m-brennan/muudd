@@ -1,0 +1,3 @@
+name: muudd
+dependencies:
+  - python==3.11.*
