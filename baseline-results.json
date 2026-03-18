@@ -1,0 +1,10 @@
+{
+  "identity_convergence_s": 74.148732,
+  "identity_peers_admitted": 8,
+  "reputation_stability_stddev": 0.0,
+  "reputation_peers_tracked": 5,
+  "negotiation_rtt_mean_s": 76.39099908196721,
+  "negotiation_rtt_count": 244,
+  "bandwidth_overhead_fraction": 0.11787662464992903,
+  "protocol_bytes_total": 3537097
+}

@@ -1,0 +1,6 @@
+name: polite
+dependencies:
+  - python==3.12.*
+  - tensorflow
+  - rust
+  - rust-src

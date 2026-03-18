@@ -1,1 +1,6 @@
 /.idea/
+/doc/research/muudd.bib
+/lib/polite/target/
+/lib/polite/doc/research/polite.bib
+/lib/polite/Cargo.lock
+/lib/polite/.idea/
