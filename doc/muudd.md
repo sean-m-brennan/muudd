@@ -45,6 +45,11 @@ But our current tech is unsustainable, our supply chains tenuous and fragile. Ou
 
 ## Research
 
+- [Hardware Design](hardware_design.md) -- standalone mesh nodes, radio technologies (Private LTE, P2P Wireless)
+- [Software Architecture](software_architecture.md) -- unikernel OS, routing, Unix philosophy, system knowledge model
+- [Verifiable Infrastructure](verifiable_infrastructure.md) -- open-source reviewability, supply chain tracking, reputation at risk
+- [Device Model](device_model.md) -- end-user devices, trust posture, network access model
+- [Audience Profile](audience_profile.md) -- target community characteristics and social structure
 - [Anonymous Communication](anonymous_communication.md) -- anonymous routing and communication privacy
 - [Decentralized Mesh Network for Rural Appalachian Connectivity](rural-network.md) -- real-world mesh network deployment framework
 - [Simulating a Community Mesh Network](../docs/network_simulation.md) -- open-source simulation tools and integration
