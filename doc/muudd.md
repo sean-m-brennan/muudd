@@ -1,3 +1,5 @@
+*[Sustainable Space](../../doc/sustainable_space.md) > MUUDD*
+
 # Mesh-routed User-owned User-controlled Dynamic Domains (MUUDD)
 
 ## Biblically-aligned networks, or software as God intended
@@ -40,3 +42,20 @@ But our current tech is unsustainable, our supply chains tenuous and fragile. Ou
 [^2]: Romans 3:23
 
 [^3]: Paraphrasing Frank Herbert's *Dune*
+
+## Research
+
+- [Anonymous Communication](anonymous_communication.md) -- anonymous routing and communication privacy
+- [Decentralized Mesh Network for Rural Appalachian Connectivity](rural-network.md) -- real-world mesh network deployment framework
+- [Simulating a Community Mesh Network](../docs/network_simulation.md) -- open-source simulation tools and integration
+- [MUUDD System Simulation: Terrain to Asteroid Belt](../docs/system-simulation.md) -- unified simulation from terrestrial to space mesh
+- [Space Protocol Timeouts](../docs/space-protocol-timeouts.md) -- protocol timeout catalogue for deep-space latency
+
+## Sub-Domains
+
+- [AutonomousTrust](../lib/autonomous_trust/doc/autonomous_trust.md) -- cooperative computing with trust-based Byzantine fault tolerance
+- [Polite](../lib/polite/doc/polite.md) -- shared civil protocols and social governance for space habitats
+
+## Software
+
+See [README](../README.md) for build and development instructions.

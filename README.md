@@ -4,8 +4,10 @@ Decentralized, trust-based communications infrastructure for building resilient 
 
 ### Research
 
+See [MUUDD research documentation](doc/muudd.md) for the full research index.
+
 - [MUUDD: Biblically-aligned Networks](doc/muudd.md)
-- [Decentralized Mesh Network for Rural Appalachian Connectivity](doc/network.md)
-- [Simulating a Community Mesh Network: Open-Source Tools and Integration](doc/network_simulation.md)
-- [MUUDD System Simulation: Terrain to Asteroid Belt](doc/system-simulation.md)
+- [Decentralized Mesh Network for Rural Appalachian Connectivity](doc/rural-network.md)
+- [Simulating a Community Mesh Network: Open-Source Tools and Integration](docs/network_simulation.md)
+- [MUUDD System Simulation: Terrain to Asteroid Belt](docs/system-simulation.md)
 

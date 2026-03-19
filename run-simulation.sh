@@ -172,7 +172,7 @@ print(f'Path-loss CSV written to: $CSV_FILE')
 }
 
 # ---------------------------------------------------------------------------
-# Validate SPLAT! results against network.md link budgets
+# Validate SPLAT! results against rural-network.md link budgets
 # ---------------------------------------------------------------------------
 validate_results() {
     info "Validating path-loss results ..."

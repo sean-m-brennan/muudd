@@ -1,3 +1,5 @@
+*[Sustainable Space](../../../doc/sustainable_space.md) > [MUUDD](muudd.md) > Rural Network*
+
 # Decentralized Mesh Network for Rural Appalachian Connectivity
 
 A technical framework for deploying community-owned mesh radio networks in mountainous, low-density terrain where traditional broadband economics fail — designed as the physical layer complement to the MUUDD software stack and AutonomousTrust protocol.
