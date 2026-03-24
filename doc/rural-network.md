@@ -51,6 +51,22 @@ Braxton County receives approximately 44 inches (1,120 mm) of precipitation annu
 - **Lightning** exposure is elevated on ridgetop sites. All hilltop installations require proper grounding, surge suppression on all cable entries, and galvanic isolation of antenna feeds.
 - **Temperature range:** -15°F to 100°F (-26°C to 38°C). Electronics enclosures require ventilation for summer heat and battery chemistry must tolerate winter cold.
 
+### Current Broadband Infrastructure (FCC BDC, June 2025)
+
+FCC Broadband Data Collection filings as of June 2025 show the following wired broadband availability in Braxton County:
+
+| Location | Provider | Technology | Down/Up (Mbps) | Coverage |
+|----------|----------|------------|----------------|----------|
+| Sutton | Frontier | Fiber (FTTH) | up to 5000/5000 | Address-dependent |
+| Gassaway | Frontier | Fiber (FTTH) | up to 7000/7000 | Address-dependent |
+| Burnsville | Frontier | Fiber (FTTH) | up to 7000/7000 | Address-dependent |
+| Flatwoods | Shentel | Cable (HFC) | up to 1000/35 | ~63% of homes |
+| County-wide | Various | All wired | — | Fiber <1% of homes |
+
+Notably, fiber-to-the-home service is available in the **valley towns** (Sutton, Gassaway, Burnsville) via Frontier, while the I-79 corridor at Flatwoods has only Shentel cable. This inverts the common assumption that interstate corridors have the best broadband infrastructure. For the mesh network design, this means fiber gateway nodes are best placed at valley relay sites in the towns, not at ridgetop relays near the interstate.
+
+West Virginia received $1.21 billion in BEAD (Broadband Equity, Access, and Deployment) program funding in 2025. Frontier was awarded $6.3 million for 2,531 WV fiber locations and Shentel $1.1 million for 809 locations; county-level allocations have not been published.
+
 ## RF Propagation in Mountainous Terrain
 
 ### Fresnel Zone Clearance
@@ -357,7 +373,7 @@ Gateway nodes provide the mesh network's connection to the broader internet. Two
 
 #### Variant A: Fiber Gateway
 
-Located where fiber, cable, or high-capacity cellular service is available — typically in or near towns (Sutton, Flatwoods, Burnsville).
+Located where fiber, cable, or high-capacity cellular service is available — per FCC BDC data, this means Sutton, Gassaway, and Burnsville (Frontier fiber), and Flatwoods (Shentel cable). Flatwoods has cable only, not fiber, despite its I-79 location.
 
 **Bill of Materials (additional to Hilltop or Valley Relay):**
 
@@ -426,13 +442,14 @@ A gateway node is essentially a hilltop or valley relay with an internet uplink 
 The primary network architecture exploits the ridge system as a natural backbone corridor. Hilltop relays placed along major ridgelines form a **chain topology** with redundant cross-links:
 
 ```
-    [Gateway-Flatwoods]          ☆ = Starlink uplink
-          |  (fiber)
     [Hilltop-1: Powell Mtn ☆]---[Hilltop-2: Otter Creek Ridge]
           |         \                    |
-    [Valley-Sutton]  [Valley-Centralia] [Valley-Burnsville ☆]
+    [Valley-Sutton 🔌]  [Valley-Centralia] [Valley-Burnsville 🔌]
        |    \            |                |      \
      [HH] [HH]        [HH]            [HH]    [HH]
+
+    🔌 = Fiber gateway (Frontier FTTH)
+    ☆  = Starlink uplink
 ```
 
 Each hilltop relay connects to at least **two other hilltop relays**, creating loop redundancy in the backbone. If any single hilltop node fails, traffic reroutes through the alternate backbone path.
@@ -464,7 +481,7 @@ For the Braxton County service area (516 sq mi, ~3,465 underserved locations):
 
 - **Ridgetop backbone:** Major ridges in the county span approximately 80 linear miles. At 5 km (3.1 mi) spacing, this requires **~26 hilltop relays**.
 - **Valley relays:** With approximately 15 major hollows and valley systems, averaging 3 relays per valley, this requires **~45 valley relays**.
-- **Gateways:** 3–4 gateway nodes at fiber-connected locations (Flatwoods/I-79 corridor, Sutton, Gassaway, Burnsville).
+- **Gateways:** 3–4 gateway nodes at broadband-connected valley locations. Per FCC BDC (June 2025): Sutton, Gassaway, and Burnsville have Frontier fiber; Flatwoods has Shentel cable. Gateway nodes are valley relays with wired uplinks, not hilltop relays.
 - **Household endpoints:** One per connected household. At 70% deployment of 3,465 underserved locations: **~2,425 endpoints**.
 
 ### Worked Example: Sutton–Burnsville–Flatwoods Triangle
