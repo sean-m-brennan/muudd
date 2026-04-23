@@ -1,0 +1,19 @@
+[package]
+name = "two_communities_demo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "two_communities_demo"
+path = "src/main.rs"
+
+[dependencies]
+kc-core = { workspace = true }
+kc-identity = { workspace = true }
+kc-ceremony = { workspace = true }
+kc-archive = { workspace = true }
+jiff = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -7,13 +7,12 @@
 pub mod lookup;
 pub mod view;
 
-// Uncomment these re-exports once lookup and view modules are populated in later tasks
-// pub use lookup::lookup;
-// pub use view::{
-//     DelegationSummary, InterAdmissionSummary, InterNonAdmissionSummary,
-//     IntraRiteSummary, RecognitionStanding, RejectionSummary, ReputationView,
-//     WitnessSummary,
-// };
+pub use lookup::lookup;
+pub use view::{
+    DelegationSummary, InterAdmissionSummary, InterNonAdmissionSummary,
+    IntraRiteSummary, RecognitionStanding, RejectionSummary, ReputationView,
+    WitnessSummary,
+};
 
 #[cfg(test)]
 mod tests;

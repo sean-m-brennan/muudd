@@ -21,7 +21,7 @@ Anonymity is a distinct communication design goal from trust-based identity. Thi
 - [muudd.md](muudd.md) — Core MUUDD architecture that anonymous communication layers would extend
 - [network.md](rural-network.md) — Mesh network topology constrains anonymity routing options
 - [network_simulation.md](../docs/network_simulation.md) — Simulation framework for testing anonymity properties
-- [doc/social_framework.md](../lib/polite/doc/social_framework.md) — The "enshrine dissent" social technology requires anonymous communication infrastructure
+- [doc/social_framework.md](../lib/kith-covenant/doc/social_framework.md) — The "enshrine dissent" social technology requires anonymous communication infrastructure
 
 ## References
 

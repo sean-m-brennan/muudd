@@ -14,4 +14,6 @@ kc-core = { workspace = true }
 kc-identity = { workspace = true }
 kc-ceremony = { workspace = true }
 kc-archive = { workspace = true }
+kc-reputation = { workspace = true }
 pyo3 = { workspace = true }
+jiff = { workspace = true }

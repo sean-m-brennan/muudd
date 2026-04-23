@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # Run the kith-covenant MVP test suite.
 #
-# Runs every crate in the workspace except kc-pyo3 (Python-binding cdylib;
-# builds via maturin in Phase 7, has no Rust tests of its own yet), then
-# executes the two_communities_demo binary as an end-to-end smoke test.
+# Expects the kith-covenant conda env to be active. Create + activate first:
 #
-# Pass extra cargo args on the command line, e.g.:
+#   conda env create -f environment.yaml
+#   conda activate kith-covenant
+#   ./run-tests.sh
+#
+# That env provides cargo/rustc (conda rust), maturin, and pytest. If any of
+# those is missing the script errors early with an instruction.
+#
+# Pass extra cargo-test args on the command line, e.g.:
 #   ./run-tests.sh --quiet
 #   ./run-tests.sh -p kc-core
 #   ./run-tests.sh -- --nocapture
@@ -15,23 +20,42 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Load cargo/rustc from ~/.cargo/env if rustup installed them outside PATH.
-if ! command -v cargo >/dev/null 2>&1 && [ -f "$HOME/.cargo/env" ]; then
-    # shellcheck disable=SC1091
-    . "$HOME/.cargo/env"
-fi
+require() {
+    local name=$1
+    if ! command -v "$name" >/dev/null 2>&1; then
+        echo "error: '$name' not found on PATH." >&2
+        echo "       Activate the kith-covenant conda env first:" >&2
+        echo "         conda env create -f environment.yaml  # first time only" >&2
+        echo "         conda activate kith-covenant" >&2
+        exit 1
+    fi
+}
 
-if ! command -v cargo >/dev/null 2>&1; then
-    echo "cargo not found. Install Rust via https://rustup.rs/" >&2
-    exit 1
-fi
+require cargo
+require python
+require maturin
+require pytest
 
 echo "=== cargo test --workspace --exclude kc-pyo3 ==="
 cargo test --workspace --exclude kc-pyo3 "$@"
 
 echo
 echo "=== two_communities_demo end-to-end smoke test ==="
-cargo run --quiet -p two_communities_demo
+cargo run --quiet -p two_communities_demo >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== kith_covenant._core (PyO3 build via maturin) ==="
+maturin develop --quiet
+
+echo
+echo "=== pytest src/python/tests/ ==="
+pytest src/python/tests/
+
+echo
+echo "=== python src/python/examples/two_communities_demo.py ==="
+python src/python/examples/two_communities_demo.py >/dev/null
+echo "  ✓ exit 0"
 
 echo
 echo "=== all checks passed ==="

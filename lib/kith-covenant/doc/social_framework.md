@@ -1,4 +1,4 @@
-*[Sustainable Space](../../../../../doc/sustainable_space.md) > [MUUDD](../../../doc/muudd.md) > [Polite](polite.md) > Social Framework*
+*[Sustainable Space](../../../../../doc/sustainable_space.md) > [MUUDD](../../../doc/muudd.md) > [Kith-Covenant](kith_covenant.md) > Social Framework*
 
 # Social Framework for Space Habitats
 

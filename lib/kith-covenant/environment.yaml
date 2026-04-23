@@ -1,6 +1,9 @@
-name: polite
+name: kith-covenant
+channels:
+  - conda-forge
 dependencies:
-  - python==3.12.*
-  - tensorflow
+  - python==3.13.*
   - rust
   - rust-src
+  - maturin
+  - pytest

@@ -1,7 +1,7 @@
 //! The five-movement recitation. Data type only — signing + sealing live in
 //! the `intra` submodule. Movement content is community-supplied: the
 //! protocol records *that* the movements were recited, not *what* their
-//! substrate is. See doc/research/recognition_protocols.md.
+//! substrate is. See doc/background/recognition_protocols.md.
 
 use kc_core::{DidKey, Timestamp};
 use serde::{Deserialize, Serialize};

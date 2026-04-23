@@ -1,8 +1,8 @@
-"""Polite event types and evaluator protocol.
+"""Kith-Covenant event types and evaluator protocol.
 
 These frozen dataclasses are the stable interface between the AT
-simulator and Polite policy evaluation.  Policies reason about events,
-never raw AT Message objects.
+simulator and Kith-Covenant policy evaluation.  Policies reason about
+events, never raw AT Message objects.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from polite.policy import PolitePolicy
+    from kith_covenant.policy import KithCovenantPolicy
 
 
 @dataclass(frozen=True)
@@ -44,12 +44,12 @@ class NegotiationOutcome:
 
 @dataclass(frozen=True)
 class EvaluatorResult:
-    policy: PolitePolicy
+    policy: KithCovenantPolicy
     observer_report: dict
     metrics_report: dict
     fitness_score: float
 
 
 @runtime_checkable
-class PoliteEvaluatorProtocol(Protocol):
-    def evaluate(self, policy: PolitePolicy) -> EvaluatorResult: ...
+class KithCovenantEvaluatorProtocol(Protocol):
+    def evaluate(self, policy: KithCovenantPolicy) -> EvaluatorResult: ...

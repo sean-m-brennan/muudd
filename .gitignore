@@ -1,7 +1,11 @@
 /.idea/
+/master-environ.yaml
 /doc/research/muudd.bib
-/lib/polite/target/
-/lib/polite/doc/research/polite.bib
-/lib/polite/Cargo.lock
-/lib/polite/.idea/
+/lib/kith-covenant/target/
+/lib/kith-covenant/doc/research/kith_covenant.bib
+/lib/kith-covenant/Cargo.lock
+/lib/kith-covenant/.idea/
 /doc/MUUDD.pdf
+/**/__pycache__/
+/lib/kith-covenant/doc/*.pdf
+/docs/

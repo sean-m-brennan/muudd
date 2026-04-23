@@ -15,7 +15,6 @@ use super::runner::{InterCredentialingOutcome, InterCredentialingRunner, Partici
 
 struct Community {
     community: Signed<CommunityIdentity>,
-    root_priv: PrivKey,
     envoy_did: DidKey,
     envoy_priv: PrivKey,
     intra_record: Signed<IntraCommunityRiteRecord>,
@@ -101,7 +100,7 @@ fn mk_community(name: &str, now: Timestamp) -> Community {
         )
         .unwrap();
 
-    Community { community, root_priv, envoy_did, envoy_priv, intra_record }
+    Community { community, envoy_did, envoy_priv, intra_record }
 }
 
 fn claims_for(community_did: &DidKey, envoy_did: &DidKey, envoy_priv: &PrivKey, now: Timestamp) -> Vec<Signed<super::AntiSpiralFeatureClaim>> {

@@ -10,7 +10,7 @@ use kc_core::{Cid, DidKey, Timestamp};
 use serde::{Deserialize, Serialize};
 
 /// The five anti-spiral features a community's substrate must supply for
-/// inter-community admission. See whitepaper §3 and research/noticeable_hand.md.
+/// inter-community admission. See whitepaper §3 and background/noticeable_hand.md.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AntiSpiralFeature {
     /// Universal fallen-actor anthropology: every community member (and

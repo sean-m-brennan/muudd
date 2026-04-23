@@ -51,6 +51,8 @@ But our current tech is unsustainable, our supply chains tenuous and fragile. Ou
 - [Device Model](device_model.md) -- end-user devices, trust posture, network access model
 - [Audience Profile](audience_profile.md) -- target community characteristics and social structure
 - [Anonymous Communication](anonymous_communication.md) -- anonymous routing and communication privacy
+- [The Case for Decentralized Communications](decentralization_momentum.md) -- 2024-2026 trends validating MUUDD's premises: shutdowns, censorship, stealth digital ID, and the rise of mesh networking
+- [Infrastructure Independence](decentralization_momentum_alt.md) -- the same case framed around preparedness, disaster recovery, community self-reliance, and digital sovereignty
 - [Decentralized Mesh Network for Rural Appalachian Connectivity](rural-network.md) -- real-world mesh network deployment framework
 - [Simulating a Community Mesh Network](../docs/network_simulation.md) -- open-source simulation tools and integration
 - [MUUDD System Simulation: Terrain to Asteroid Belt](../docs/system-simulation.md) -- unified simulation from terrestrial to space mesh
@@ -59,7 +61,7 @@ But our current tech is unsustainable, our supply chains tenuous and fragile. Ou
 ## Sub-Domains
 
 - [AutonomousTrust](../lib/autonomous_trust/doc/autonomous_trust.md) -- cooperative computing with trust-based Byzantine fault tolerance
-- [Polite](../lib/polite/doc/polite.md) -- shared civil protocols and social governance for space habitats
+- [Kith-Covenant](../lib/kith-covenant/doc/kith_covenant.md) -- shared civil protocols and social governance for space habitats
 
 ## Software
 
