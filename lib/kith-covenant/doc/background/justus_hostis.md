@@ -325,6 +325,34 @@ combination blocks the purity spiral:
    own substrate, or the fifth movement becomes a performative
    ritual without interior ground.
 
+   **Non-ultimacy as assertion does no work.** Stated only as a
+   founding-document claim, the fifth feature is unfalsifiable —
+   any compact at any historical period can declare non-ultimacy
+   and continue to act in every operational moment as if it were
+   the ultimate. The Jacobin Cult of the Supreme Being formally
+   acknowledged a transcendent reference; this did not prevent it
+   from executing the insufficiently virtuous in the name of that
+   reference. For the feature to function as load-bearing, the
+   compact must **demonstrate** non-ultimacy in observable
+   practice, not merely assert it. The mechanism is the
+   **substrate-deference test** developed in
+   [capture_resistance.md "The substrate-deference test"](capture_resistance.md#2-the-substrate-deference-test-operationalizing-non-ultimacy):
+   the compact maintains a **compact-incapable list** of matters
+   it structurally will not decide (member communities' internal
+   theology and governance, the content of recognition statements
+   after compact-formation, the truth-claims of any member's
+   tradition) and observes a **structured-fast cadence** during
+   which compact-level mediations, sanctions, and decisions are
+   suspended on all but life-critical commons. Erosion of either —
+   exceptions multiplying in the compact-incapable list, the
+   structured-fast period shrinking under pragmatic argument — is
+   the earliest legible sign that the compact is drifting toward
+   ultimacy, even when no individual exception is obviously
+   illegitimate. The test is therefore both **operational**
+   (it forms and maintains the disposition non-ultimacy requires)
+   and **diagnostic** (its erosion is observable as early-stage
+   capture).
+
 **What the five-feature formulation accomplishes that the bare
 "anchor above self" formulation did not:**
 

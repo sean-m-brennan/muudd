@@ -1,4 +1,4 @@
-*[Sustainable Space](../../../../../doc/sustainable_space.md) > [MUUDD](../../../doc/muudd.md) > [Kith-Covenant](kith_covenant.md) > Whitepaper*
+*[Sustainable Space](../../../../../../doc/sustainable_space.md) > [MUUDD](../../../../doc/muudd.md) > [Kith-Covenant](../kith_covenant.md) > Whitepaper*
 
 # Kith-Covenant: A Protocol for Cooperation Among Communities That Do Not Share Ends
 
@@ -136,7 +136,7 @@ B**. The glossary is in **Appendix C**. The seven-holes research agenda is in
 **Appendix D**. The bibliography and primary-source register are at the end.
 
 The research corpus this whitepaper consolidates is indexed in the sibling
-[`kith_covenant.md`](kith_covenant.md); the per-thread development is in
+[`kith_covenant.md`](../kith_covenant.md); the per-thread development is in
 [`research/`](research/) and [`architecture/`](architecture/). This whitepaper
 is the single-entry-point synthesis for the reader who wants the complete
 picture in one narrative; the corpus remains the authoritative development.
@@ -181,7 +181,7 @@ every belligerent is a potential victim of every prohibited act.
 ### 2.2 Where kith-covenant sits
 
 Kith-covenant is one layer in a larger stack. The layer below it,
-[autonomous-trust (AT)](../../autonomous_trust/README.md), supplies
+[autonomous-trust (AT)](../../../autonomous_trust/README.md), supplies
 anonymous-identity primitives, peer-voted admission, and reputation consensus
 among peers inside one trust boundary. That is what the inside of a working
 community needs. It is not what is needed across unconnected communities. At
@@ -224,7 +224,7 @@ compact. Muudd handles the communication substrate below.
 Nothing in kith-covenant replaces AT; everything builds on it. The interface
 between the two — what crosses the boundary, on whose authority, with what
 protections — is specified in
-[`background/reputation_bridges.md`](background/reputation_bridges.md) and
+[`background/reputation_bridges.md`](../background/reputation_bridges.md) and
 summarized in §9.7 below.
 
 ### 2.3 Scope — full compact vs. thin-functional domain
@@ -574,7 +574,7 @@ own substrate, which is where the mechanism is historically attested to
 carry load. The rite requires bodily co-presence — the cost mechanism
 demands it. Sample filled-in language for a range of traditions, edge cases,
 and the *open/closed-materialism* distinction for atheists are in
-[`background/recognition_protocols.md`](background/recognition_protocols.md).
+[`background/recognition_protocols.md`](../background/recognition_protocols.md).
 
 **Inter-community layer: thin grammar and credentialing.** What crosses the
 compact's boundary is not joint recitation but a thin procedural grammar of
@@ -1389,7 +1389,7 @@ eliminate the vulnerability. External state coercion is out of scope.
   test-cases gap flagged in our skeptical critique.
 - **Integration harness** against autonomous-trust for live-AT message
   traffic observation (see
-  [`architecture/policy-evaluation.md`](architecture/policy-evaluation.md)
+  [`architecture/policy-evaluation.md`](../architecture/policy-evaluation.md)
   for the concrete early instance).
 - **Falsification criteria.** What observable outcomes in pilot
   deployments would count as kith-covenant failing? We flag this as
@@ -1513,7 +1513,7 @@ mature — the arguments are in place, the historical basis is drawn, the
 mechanisms are specified, and the open questions are honestly scoped. The
 architecture set decomposes the software. The early policy-evaluation
 framework
-([`architecture/policy-evaluation.md`](architecture/policy-evaluation.md))
+([`architecture/policy-evaluation.md`](../architecture/policy-evaluation.md))
 is a concrete instance of attestation and audit-commons mechanisms,
 already usable as a substrate for incremental engineering. What remains
 is the iterative engineering:
@@ -1543,10 +1543,10 @@ The substrate finding in §3 draws on the following full-compact cases.
 Each entry gives the founding context, the load-bearing mechanism, the
 substrate or transcendent-moral-authority anchor, the decay mode, and the
 design lesson we carry forward. Detailed development is in
-[`background/historical_cases.md`](background/historical_cases.md) and
-[`background/christendom_cases.md`](background/christendom_cases.md); the
+[`background/historical_cases.md`](../background/historical_cases.md) and
+[`background/christendom_cases.md`](../background/christendom_cases.md); the
 *sangha* regimes are developed in
-[`background/buddhist_sangha.md`](background/buddhist_sangha.md).
+[`background/buddhist_sangha.md`](../background/buddhist_sangha.md).
 
 ### A.1 Peace of Westphalia (1648) — *jus publicum Europaeum*
 
@@ -2041,7 +2041,7 @@ worth naming directly.
   communication spectrum, navigational data, the knowledge archive, and
   rescue infrastructure are the five commons whose governance the
   compact must carry. Analysis in
-  [`background/commons_federation.md`](background/commons_federation.md).
+  [`background/commons_federation.md`](../background/commons_federation.md).
 - **Physics as transparency.** Radar visibility, intercepted
   transmissions, and orbital mechanics make concealment difficult.
   Visible capability and open-carry posture become the norm, bounding

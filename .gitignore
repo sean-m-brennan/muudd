@@ -7,5 +7,5 @@
 /lib/kith-covenant/.idea/
 /doc/MUUDD.pdf
 /**/__pycache__/
-/lib/kith-covenant/doc/*.pdf
+/lib/kith-covenant/doc/**/*.pdf
 /docs/

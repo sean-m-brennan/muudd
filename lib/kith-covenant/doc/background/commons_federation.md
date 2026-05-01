@@ -457,6 +457,82 @@ mechanism from [liminal_institutions.md](liminal_institutions.md));
 violation, making the long-term cost of defection exceed the
 short-term benefit even after accounting for the delay advantage.
 
+### Light-lag-honest decision classes
+
+The eventual-consistency framing above treats light-lag as a
+**governance latency** problem: the wider compact will *eventually*
+recognize what has happened locally, and disputes are reconciled
+under the deliberative process when communication is restored.
+[capture_resistance.md "Light-lag-honest decision classes"](capture_resistance.md#5-light-lag-honest-decision-classes)
+reframes the same physical fact as a **capture vulnerability**: a
+faction can complete a capture before the wider compact has the
+information needed to recognize it; eventual consistency means the
+network will eventually disapprove of the capture but cannot
+*prevent* it within the operational window the captor has.
+
+The strengthening move is to formalize **which classes of decision
+can be made within light-lag and which structurally cannot**, with
+**cryptographic enforcement** of the distinction.
+
+**First-class decisions** — local operational choices, commons
+drawdowns within pre-agreed thresholds, mediator-pool internal
+procedure, life-critical-commons response, intra-community
+governance — are valid when made by an authorized local body
+acting within its envelope. These are the decisions eventual
+consistency was always intended to handle, and nothing about the
+present analysis changes their treatment.
+
+**Second-class decisions** — new mediations begun, sanctions
+imposed, designations made (anathema, *hostis humani generis*),
+compact-level amendments, modification of the compact-incapable
+list ([justus_hostis.md](justus_hostis.md#non-ultimacy-of-the-political-community-anti-spiral-feature),
+[capture_resistance.md "Substrate-deference test"](capture_resistance.md#2-the-substrate-deference-test-operationalizing-non-ultimacy)),
+amendment of the recognition-statement five movements (which the
+recognition protocol forbids in any case), reclassification of
+decisions between the two classes — produce **protocol artifacts
+that fail to validate without inputs from the wider network**. A
+faction acting unilaterally in the second class is not merely
+producing an outcome that the wider network will later disapprove
+of; it is producing an outcome that the protocol itself flags as
+illegitimate the moment validation is attempted, and the audit
+commons surfaces the attempted-but-invalid action.
+
+The cryptographic mechanism is straightforward: second-class
+decisions produce signed records whose validation requires
+multi-party signature from a quorum spanning multiple communities
+at multiple distances, with the quorum requirement tuned so that
+no single AU-region's faction can satisfy it alone. The signatures
+must arrive within a defined latency window; signatures arriving
+later are accepted only if the decision has been re-issued within
+the window. This makes second-class decisions *impossible to
+fait-accompli* without faking signatures from communities the
+captor does not control — which is the protocol-level violation
+the audit commons surfaces immediately.
+
+The classification of decision types — which class which decision
+falls into — is a **constitutional-layer commitment**, set at
+compact-formation, modifiable only through the same heavyweight
+procedure that the recognition statement itself requires. A faction
+attempting to capture the compact by reclassifying decisions from
+second to first class is attempting an obvious protocol amendment,
+which is itself a second-class decision. The classification is
+self-protecting in this specific structural sense: the only path to
+weakening the protection is itself protected by the protection.
+
+This refinement of the eventual-consistency model preserves
+local autonomy for decisions that genuinely require it (where
+light-lag would make centralized adjudication useless) while
+foreclosing the capture vector for decisions that are not local
+in their consequences (where unilateral action by a faction can
+inflict damage the wider compact cannot reverse). The CAP-theorem
+trade in §"Split-brain scenarios" above is preserved for first-class
+decisions and **inverted** for second-class decisions: the protocol
+chooses consistency over availability for the latter category,
+because the cost of inconsistent second-class decisions
+(unrepudiable but illegitimate sanctions; faked anathema
+designations; amendments that the wider compact never authorized)
+exceeds the cost of unavailability during partition.
+
 ---
 
 ## The tragedy-of-the-virtues problem

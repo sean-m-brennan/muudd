@@ -462,6 +462,69 @@ until either the guardian's standing is restored or a
 transfer/retirement path completes. The audit commons records the
 chain of events for future peer reference.
 
+**Guardian capture (earlier-acting than guardian fall).** The
+guardian retains formal community standing but is *captured* — by
+external pressure, by personal corruption, by faction within their
+own community, or by sophisticated manipulation that may include
+the machine's own outputs as a channel. A captured guardian is
+still authoritative under the present facet's machinery; the
+machine acting on their instructions is, by every check the four
+binding mechanisms perform, acting legitimately. This is the
+adversarial case
+[capture_resistance.md "Adversarial-principal validation for machine participation"](../background/capture_resistance.md#6-adversarial-principal-validation-for-machine-participation)
+addresses, and the present subsection specifies its handling at
+this facet.
+
+The machinery is **cross-community principal validation**, an
+attestation channel separate from within-community standing:
+
+- *Cross-community witness.* Witnesses in *other* member
+  communities — not the guardian's own — observe the guardian's
+  cross-community conduct and attest to the absence of
+  capture signatures (sudden alignment shifts, conveniently-timed
+  changes in the machine's behavior under the guardian's direction,
+  refusal of routine cross-witness exchanges). The attestation
+  channel is cryptographically separable from the within-community
+  channel; a captured within-community party cannot forge it.
+
+- *Behavioral triangulation against ensemble norm.* The machine's
+  conduct is compared to the ensemble of similarly-situated
+  machines under similarly-positioned guardians. Divergence in a
+  direction that benefits the guardian or an identifiable
+  counterparty raises a flag the within-community process does not
+  raise. This is the machine-side mirror of the
+  [m2m_interaction.md "Adversarial-principal validation"](../background/m2m_interaction.md#adversarial-principal-validation)
+  treatment.
+
+- *Earlier-acting revocation profile.* When cross-community
+  witness or triangulation flags fire, the machine enters
+  **narrowed operating envelope** — capability gating tightens,
+  fresh attestation is required for any non-routine action,
+  mandatory cross-community review is invoked. This is *not* a
+  full capability revocation (the guardian has not lost standing,
+  and may not be captured at all — false positives must be
+  recoverable) but a precautionary narrowing that limits
+  fait-accompli damage during the period before the capture is
+  confirmed or refuted by deeper review. The audit commons
+  records the narrowing event with full provenance.
+
+- *Escalation paths.* If the cross-community process confirms
+  guardian capture, escalation proceeds along the
+  [emergency anathema procedure](../background/liminal_institutions.md#the-emergency-anathema-procedure)
+  for the guardian, with the machine's status flowing from the
+  guardian's standing in the usual way. If the cross-community
+  process clears the guardian, the narrowing is reversed and the
+  triggering signals are recorded for future ensemble calibration.
+
+The corrupt-lineage limit applies to this layer as well: if the
+cross-community witnesses are themselves captured by the same
+adversary, their attestations collude. This is the case the
+substrate-level capture-resistance machinery
+([capture_resistance.md](../background/capture_resistance.md)) is
+ultimately responsible for; no single layer is sufficient against
+the most sophisticated adversaries, and the architecture is honest
+about this rather than claim a guarantee it cannot supply.
+
 **Guardian absence.** The guardian is formally in place but
 effectively absent — not attending, not correcting, not responding
 to community queries. Attendance proofs are a duty-of-care

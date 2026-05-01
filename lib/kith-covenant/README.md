@@ -92,7 +92,7 @@ protocol shape, not the embodied practice.
 For technical architecture documentation, see [doc/architecture/](doc/architecture/README.md).
 Key references:
 - [`doc/overview.md`](doc/overview.md) — standalone narrative
-- [`doc/whitepaper.md`](doc/whitepaper.md) — consolidated synthesis
+- [`doc/whitepaper.md`](doc/whitepaper/whitepaper.md) — consolidated synthesis
 - [`doc/architecture/protocol-components.md`](doc/architecture/protocol-components.md) — ten-component decomposition (MVP covers §§1–3)
 
 ## Introduction

@@ -737,6 +737,95 @@ From the historical cases, five principles emerge:
 
 ---
 
+## Manufactured-event resistance: the structured-skepticism protocol
+
+The capture-resistance principles above protect the liminal institution
+itself from sovereignty drift. A complementary capture vector operates
+*through* the liminal institution: a sophisticated adversary deliberately
+generates an event of high interpretive charge — a "first contact" claim,
+an anomalous-physics result, a manufactured rescue need, a sudden
+"rediscovery" of historical interpretation — and exploits the ambient
+community's lack of evaluation discipline to push the interpretation in
+whichever direction benefits the manufacturer. The mediator pool, as the
+compact's standing evaluation competency, is the natural locus for the
+counter-mechanism.
+
+The pattern is documented in Vallée's *Messengers of Deception* (1979)
+across UFO contactee cults, intelligence-agency seeded paranormal
+narratives, and entrepreneurial religious movements; the structural
+analogue in KC's setting is direct, with concrete scenarios catalogued
+in [capture_resistance.md "Manufactured-event resistance protocols"](capture_resistance.md#4-manufactured-event-resistance-protocols).
+What distinguishes manufactured events from genuine ones is not their
+content (the manufacturer can fabricate plausible content) but their
+**provenance and timing**: high interpretive charge,
+conveniently-aligned with one faction's interests, sudden onset,
+originating from witnesses with stake in the interpretation.
+
+The mediator pool is empowered to invoke the **structured-skepticism
+protocol** on its own initiative when an event meets these qualifying
+criteria. The protocol does not prejudge — it does not assume the event
+is manufactured. It imposes structural delay and corroboration
+requirements that buy time for the ambient community to develop
+interpretation, depriving the manufacturer of the loudest-interpreter
+advantage that is the historical pattern's enabling condition.
+
+The protocol's elements:
+
+1. **Structured delay before compact-level action.** The interval scales
+   with interpretive charge — long enough for member communities to
+   develop independent interpretation, short enough that genuine
+   emergencies (rescue, life-critical commons) are not blocked.
+   Life-critical exceptions are explicit and named at protocol-formation;
+   the qualifying-criteria check on the exception itself prevents the
+   manufactured-rescue-need scenario.
+
+2. **Multi-witness corroboration requirement.** The interpretation
+   cannot be advanced by the originating party alone. Witnesses from
+   multiple member communities must independently corroborate the
+   observable facts — separated cleanly from any interpretation of
+   them — before the interpretation enters compact deliberation.
+
+3. **Cross-substrate translation.** The interpretation must be
+   translated into multiple member communities' substrates and the
+   translations compared. An interpretation that survives only in the
+   originating substrate's framing — that fails to render coherently
+   into adjacent substrates — is not necessarily wrong but is
+   structurally suspect, and the structural suspicion is recorded in
+   the audit commons.
+
+4. **Provenance tagging in the audit commons.** The interpretation is
+   tagged with its originator's identity, declared incentives, and the
+   information history of its emergence. Future reference to the
+   interpretation carries this tag.
+
+5. **Stake disclosure.** Parties advancing the interpretation must
+   disclose what they stand to gain from each available framing.
+   Failure to disclose, when interest is later discovered, becomes
+   evidence of bad faith and is itself a designation-relevant event.
+
+The historical model is the canonical Catholic process for evaluating
+apparitions, deliberately slow — alleged apparitions go through years
+or decades of investigation before any authoritative judgment is
+issued, and the great majority are never judged at all. The slowness
+denies the loudest-interpreter advantage by ensuring the interpretation
+must survive a long process during which ambient interpretation can
+develop. The KC analogue need not be that slow; the criterion is
+**long enough that the originating party cannot dominate the framing**,
+calibrated to the event class. For most events this is hours to days;
+for high-charge events of major interpretive consequence it may extend
+to weeks or months.
+
+Mediator-pool internal review checks that the protocol's invocation
+itself is not used as a tactic — a faction attempting to suppress
+legitimate urgent matters by invoking structured skepticism against
+them. The check is procedural (the criteria must be documented
+specifically; invocations are auditable) and substantive (the
+mediator pool's discernment training, per
+[the discernment-training subsection above](#discernment-training),
+includes the distinction between genuine and pretextual invocation).
+
+---
+
 ## Open questions
 
 - What is the **minimum material base** for a liminal institution to

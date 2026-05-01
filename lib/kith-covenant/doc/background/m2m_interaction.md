@@ -483,6 +483,77 @@ absorbable; of a wide-envelope machine it is a compact-level
 emergency, and such emergencies are what the anathema procedure is
 for.
 
+### Adversarial-principal validation
+
+The four detection layers above (continuous attestation, behavioral
+triangulation, principal fallback, envelope bounding) all
+*presuppose* a faithful principal. The corrupt-lineage limit named
+above is one form of the principal-side failure mode; the more
+general case is that the **principal themselves can be captured**,
+by their community's drift, by external pressure, by personal
+corruption, or by sophisticated manipulation that may use the
+machine's own outputs as the manipulation channel (a captured
+principal feeding the machine instructions that further the
+capture). A machine acting on a captured principal's instructions
+is, by the existing four layers, acting legitimately — which is
+exactly what makes the case adversarially attractive.
+
+The fifth detection layer is therefore **adversarial-principal
+validation**, developed in detail in
+[capture_resistance.md "Adversarial-principal validation for machine participation"](capture_resistance.md#6-adversarial-principal-validation-for-machine-participation).
+Principal validity must not rest solely on the principal's own
+attestation or on the principal's own community's attestation. The
+specific elements:
+
+- *Cross-community principal witness.* Continued good standing in
+  the principal's own community is necessary but not sufficient. A
+  separate attestation chain — from witnesses in *other* member
+  communities who have observed the principal's conduct in
+  cross-community interactions — must agree that the principal's
+  current operation does not show capture signatures. The
+  attestation is cryptographically separable from the
+  within-community attestation, so the within-community party
+  cannot forge it.
+
+- *Principal-output triangulation.* The machine's behavior is
+  triangulated against the behavior of similarly-situated machines
+  under similarly-positioned principals. A machine whose conduct
+  begins to diverge from the ensemble in a direction that benefits
+  its principal *or its principal's identifiable counterparty* is
+  flagged. This is the M2M analogue of the manufactured-event
+  resistance protocol in
+  [liminal_institutions.md "Manufactured-event resistance"](liminal_institutions.md#manufactured-event-resistance-the-structured-skepticism-protocol):
+  structural skepticism built into ongoing operation, not invoked
+  only on suspicion.
+
+- *Principal-capture as an earlier-acting state than principal-fall.*
+  The existing
+  [machine-participation.md "Guardian fall"](../architecture/machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions)
+  treatment triggers capability revocation when the principal has
+  lost standing — *after* the capture has progressed to overt
+  failure. The adversarial-principal extension introduces a
+  narrower, earlier-acting form: capability narrowing, fresh
+  attestation requirement, mandatory cross-community review,
+  triggered when capture *signatures* appear in the cross-community
+  witness or triangulation channels even if the principal's own
+  community has not yet acted on the capture.
+
+The corrupt-lineage problem is mitigated but not eliminated by
+this fifth layer. If multiple member communities are themselves
+captured by the same adversary, their cross-community witnesses
+will collude to attest to the principal's good standing, and the
+triangulation ensemble will itself be the captured thing. The
+fallback then is to the **substrate-level capture-resistance**
+machinery — interpretive plurality (which makes whole-community
+capture harder), the substrate-deference test (which makes
+compact-level capture detectable), and the structured-skepticism
+protocol (which slows the resulting decisions enough for outside
+observers to develop interpretation). No single layer is
+sufficient against the most sophisticated adversaries; the
+architecture's claim is that the layers together raise the cost of
+capture and shrink its operational window, not that they make
+capture impossible.
+
 ## Commons interaction under M2M
 
 Commons interaction inherits its governance from the compact's

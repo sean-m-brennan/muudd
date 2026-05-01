@@ -193,14 +193,35 @@ carries four elements:
    developed in [`reputation_bridges.md`](reputation_bridges.md);
    the inter-community layer runs on observed conduct over time,
    not on the affect of a one-shot ceremony.
+5. **Evidence of interpretive plurality within the candidate
+   community.** Per
+   [capture_resistance.md "Interpretive plurality"](capture_resistance.md#1-interpretive-plurality-as-a-structural-requirement-on-members),
+   the candidate must demonstrate **multiple traceable interpretive
+   lineages** of its own substrate, with the divergences visible
+   in the audit commons. Communities are not required to *agree*
+   across their internal lineages — disagreement is the condition
+   that makes the lineages substantive — but they must show that
+   no single faction has cornered the interpretive function. The
+   requirement is not that the candidate be internally
+   conciliar in form; it is that the candidate's interpretive
+   authority not be monopolized by a single living individual or
+   a single closed body whose deliberations are not visible to
+   peers within the community. The Buddhist sangha's tolerance of
+   multiple lineages and the Christian conciliar tradition both
+   demonstrate that this is achievable without dissolving substrate
+   coherence; structurally unitary traditions satisfy the
+   requirement through conciliar processes, polycentric
+   jurisdictions, and the visible accommodation of theological
+   schools within the tradition.
 
 The inter-community layer does not attempt to filter entryists by
 psychological-cost-at-threshold, because the historical record
 does not show that mechanism working at that layer. It filters by
 the longer and more reliable mechanisms that the historical record
-does show: credential-carrying, vouching, observed conduct, and
-the mutual-vulnerability forcing function that makes defection
-visibly expensive.
+does show: credential-carrying, vouching, observed conduct, the
+mutual-vulnerability forcing function that makes defection visibly
+expensive, and the structural-plurality check that makes
+interpretive monopoly visible at threshold.
 
 ### Why this relocation matters
 
@@ -1042,6 +1063,44 @@ Re-affirmation is also triggered by specific events: any member's
 reception (per "The recognition ceremony" above), any reversal of an
 anathema designation, and any major amendment to the compact's
 common-virtue list.
+
+### Tracking ceremony cost across re-affirmation cycles
+
+Recognition ceremonies are load-bearing because of the asymmetric
+psychological cost they impose at recitation
+([above](#asymmetric-psychological-cost-a-closer-look)), but
+ceremonies tend to **ossify into credentials**: the cost decays as
+the ceremony becomes routine, generations inherit the form without
+the cost, and what was meant to bind has become procedural
+formality. This is the third strengthening move identified in
+[capture_resistance.md "Ceremony cost as tracked quantity"](capture_resistance.md#3-ceremony-cost-as-tracked-quantity)
+and is incorporated into the re-affirmation cadence here.
+
+Cost is not directly observable, but **proxies are**: time and
+attention given to preparation, public articulation by the recitant
+of what they are committing to and what they are forgoing by
+committing, witness reports of recitant comportment during the rite,
+content of the anti-spiral-feature examination exchange, and the
+recitant's substantive (rather than rote) responses to challenge
+questions. The audit commons records the proxies; the compact
+surfaces them across cycles to detect erosion.
+
+When the proxies show consistent decay over multiple
+re-affirmation cycles within a member community, the compact's
+response is not anathema (the community has not actively repudiated
+the substrate) but **substantive re-engagement**: a heavier
+re-affirmation cycle in which the compact's witnesses examine more
+demandingly, the recitant prepares longer, and the cost is
+reasserted at the level the original compact-formation required.
+This is a designated rung between ordinary re-affirmation and
+anathema designation, and it has historical precedent in each major
+tradition's renewal practice — the Christian *mission* preached by
+visiting clergy, the Buddhist periodic ordination renewal, the
+Iroquois renewal of the chiefs' titles at each new generation. Each
+tradition has independently discovered that ceremony cost decays
+without reinforcement, and has built reinforcement into ordinary
+practice. Kith-covenant's substantive re-engagement rung is the
+inter-community analogue of that pattern.
 
 ## Recognition, withdrawal, and the anathema
 
