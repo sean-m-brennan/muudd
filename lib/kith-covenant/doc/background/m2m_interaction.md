@@ -1,6 +1,6 @@
 *[Kith-Covenant](../kith_covenant.md) > [Research](./) > Machine-to-Machine Interaction*
 
-# Machine-to-Machine Interaction: Principal-Derived Contact Across Compact Boundaries
+# Machine-to-Machine interaction: principal-derived contact across compact boundaries
 
 ## Thesis
 
@@ -11,7 +11,7 @@ the machines are the medium of the encounter, not its authors. Two
 claims follow and together constitute the structural commitment of
 this document. The **reduction claim**: every M2M exchange reduces,
 without remainder, to an exchange between the two named humans whose
-guardianship binds each machine — any attempt to describe the
+guardianship binds each machine. Any attempt to describe the
 interaction as machine-original is a description that has lost
 information. The **non-emergence claim**: nothing originates at the
 M2M layer that the principals did not authorize; the protocol makes
@@ -36,8 +36,8 @@ recognition categories that
 [`recognition_protocols.md`](recognition_protocols.md) supplies.
 
 The scope is cross-compact, cross-community M2M contact under
-light-lag. In-community M2M — two machines serving the same
-guardian, or guardians within the same autonomous-trust scope — is
+light-lag. In-community M2M (two machines serving the same
+guardian, or guardians within the same autonomous-trust scope) is
 a degenerate case AT's intra-community mechanisms already handle.
 The presupposition throughout: the single-machine binding described
 in machine-participation.md is intact on both sides of the
@@ -48,7 +48,7 @@ anathema procedure is the proper instrument.
 ## The reduction claim
 
 *Within the authority envelope, the M2M channel is transparent to
-substrate — it adds no legitimacy and subtracts none, but it must
+substrate; it adds no legitimacy and subtracts none, but it must
 not launder either. Outside the envelope, the channel is not M2M
 within the compact's frame at all; it is a boundary event for which
 the anathema or non-member-encountered procedures apply.*
@@ -60,10 +60,10 @@ commitment with consequences that the protocol must enforce. Three
 consequences fall out immediately.
 
 First, **no new substrate is created by M2M contact.** The substrate
-on which kith-covenant rests — the transcendent moral authority that
+on which kith-covenant rests (the transcendent moral authority that
 the recognition statement names, the fallenness the recognition
 statement acknowledges, the mutual recognition that Movement 3
-performs — lives in the human communities that recited the statement.
+performs) lives in the human communities that recited the statement.
 Machines do not hold substrate of their own; they inherit it, at one
 remove, from the principal to whom they are bound. When two machines
 meet, neither brings substrate the other's principal did not already
@@ -96,7 +96,7 @@ category system that could admit a machine whose guardian's
 community is anathema.
 
 The thesis of the section restates as operational rule: *the M2M
-channel is transparent to substrate — it adds no legitimacy and
+channel is transparent to substrate; it adds no legitimacy and
 subtracts none, but it must not launder either*. A machine may not
 present itself as a party of greater standing than its guardian. A
 machine may not present itself as a party of lesser standing than
@@ -105,9 +105,9 @@ The channel is a window into the guardian relationship, not a
 laundering machine through which the guardian's commitments can be
 quietly rewritten.
 
-## Identity at the boundary — the M2M handshake
+## Identity at the boundary: the M2M handshake
 
-*The handshake is the recognition ceremony at one remove — it
+*The handshake is the recognition ceremony at one remove: it
 witnesses a pre-existing recognition, it does not perform one.*
 
 Where human recognition is a five-movement spoken ceremony under
@@ -139,7 +139,7 @@ The five steps:
    non-member-encountered relation with B's principal-community.**
    Verification uses compact-level reputation data propagated
    through the mechanisms in
-   [`reputation_bridges.md`](reputation_bridges.md) — signed
+   [`reputation_bridges.md`](reputation_bridges.md): signed
    standing-tokens, generational-reaffirmation records, anathema-
    designation propagation. If principal-A's community is *hostis
    humani generis* to B's, the handshake terminates here and an
@@ -162,7 +162,7 @@ The five steps:
    symmetric; a unilateral handshake is not a handshake. The
    symmetric-rules precondition from
    [`justus_hostis.md#structural-preconditions`](justus_hostis.md#structural-preconditions)
-   applies here as directly as it applied to the human case —
+   applies here as directly as it applied to the human case:
    whatever one side is permitted to verify, the other must be
    equally permitted to verify, and on the same procedural footing.
 
@@ -184,7 +184,7 @@ The framing clarifies what the handshake is and is not. It is the
 machine analog of a diplomatic envoy presenting credentials: the
 credentials witness the sovereign's recognition of the envoy; they
 do not themselves constitute sovereignty. Sovereign recognition lives
-elsewhere — in the human recognition statement, in the guardian's
+elsewhere: in the human recognition statement, in the guardian's
 community standing, in the compact's prior deliberation. The
 handshake is the moment that pre-existing recognition is made
 operationally visible between two delegates.
@@ -195,8 +195,8 @@ operationally visible between two delegates.
 protocol trusts stale data within a bounded envelope and narrows
 scope as confidence decays.*
 
-The handshake's second step — verifying the counterparty principal's
-good standing — is straightforward when the counterparty is local.
+The handshake's second step (verifying the counterparty principal's
+good standing) is straightforward when the counterparty is local.
 Across AU distances it is never straightforward, because the
 guardian's standing as known at the machine's location is always
 stale. A guardian in good standing at the time Machine B's last
@@ -226,16 +226,16 @@ rejected; it is *discounted*, and the envelope it supports narrows
 accordingly.
 
 **Drift detection and defensive narrowing.** When the last-known
-standing is stale beyond threshold — the machine has not received a
+standing is stale beyond threshold (the machine has not received a
 fresh attestation within the expected cadence, or the attestation
-chain shows an anomalous gap — the protocol falls back to a
+chain shows an anomalous gap), the protocol falls back to a
 *lower-authority envelope* rather than refusing contact outright.
 Refusal hardens; narrowing preserves the possibility of continued
 cooperation under conditions of reduced confidence, which is the
 condition space inter-habitat M2M will spend most of its operational
 life in. The narrowed envelope may still admit rescue cooperation,
-basic commons maintenance, continuation of prior commitments — the
-things that most matter at moments of informational degradation —
+basic commons maintenance, continuation of prior commitments (the
+things that most matter at moments of informational degradation),
 while excluding fresh commitments that would bind the principal to
 new substrate-adjacent terms.
 
@@ -246,7 +246,7 @@ propagated a *revocation* through the compact's high-priority
 channel. The anti-laundering rule is that *revocations outrank
 unexpired tokens when both are present in the propagation network,
 regardless of which arrived at the local node first*. The protocol
-treats the attempt itself as a diagnostic signal — a guardian whose
+treats the attempt itself as a diagnostic signal: a guardian whose
 machine is transacting on superseded credentials is a guardian the
 compact has information about, whether or not the guardian knows
 what their machine is doing.
@@ -265,8 +265,8 @@ The escalation architecture in
 machine layer with one overriding principle: machines are
 *structurally restricted* in how far up the ladder they may climb
 without explicit principal authorization. The restriction is
-asymmetric — autonomous de-escalation is not merely permitted but
-encouraged; autonomous escalation past a very low rung is forbidden.
+asymmetric: autonomous de-escalation is encouraged, not merely
+permitted; autonomous escalation past a very low rung is forbidden.
 
 **Autonomous de-escalation is always permitted.** A machine may, at
 any time and without authorization, retreat from an encounter, narrow
@@ -280,9 +280,9 @@ have climbed. The error on the de-escalation side is recoverable;
 the error on the escalation side may not be.
 
 **Autonomous escalation past a low rung is forbidden.** Machines may
-surface disputes and file for mediation — the first-tier diplomatic
+surface disputes and file for mediation (the first-tier diplomatic
 inquiry equivalent, in the
-[`bounded_conflict.md`](bounded_conflict.md) ladder — but may not
+[`bounded_conflict.md`](bounded_conflict.md) ladder) but may not
 commit their principal to any rung above that without explicit,
 signed, time-bounded principal authorization. The principal's
 authorization is itself an artifact in the audit commons; its scope
@@ -338,7 +338,7 @@ case, the case the protocol is designed to make easy.
 in structured conflict relation with the counterparty's community,
 where both communities remain inside the *justus hostis* frame
 (peers-in-dispute rather than criminals or heretics). The protocol
-still applies, but cooperation narrows to enumerated commons — the
+still applies, but cooperation narrows to enumerated commons: the
 rescue infrastructure, the communicative commons, the navigational
 data commons, the knowledge archive (per
 [`commons_federation.md`](commons_federation.md) §"The five space
@@ -349,7 +349,7 @@ substrate-adjacent commitments during active dispute. The
 the ratchet rule from §6 most matters: disputes here can escalate,
 and the ceiling must be honored on both sides.
 
-***Hostis humani generis* peer** — the anathema case. A machine
+***Hostis humani generis* peer**: the anathema case. A machine
 whose guardian has been designated anathema, or whose attestation
 chain is broken, or whose continuous-attestation proof has lapsed,
 or whose cryptographic self-binding has been tampered with, or whose
@@ -357,21 +357,21 @@ community has propagated a revocation on the guardian's standing.
 Capability-revocation propagates from the compact's machinery to
 the counterparty machines that had live relations with this
 machine; interaction is emergency-only (the rescue envelope
-remains — even anathema retains basic moral standing per
-[`recognition_protocols.md#members-neighbors-enemies-the-four-categories`](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
-— but nothing else). The audit commons records the status change
+remains, since even anathema retains basic moral standing per
+[`recognition_protocols.md#members-neighbors-enemies-the-four-categories`](recognition_protocols.md#members-neighbors-enemies-the-four-categories),
+but nothing else). The audit commons records the status change
 and the encounter-termination event; the machine's prior peers are
 notified through the propagation channel so they may adjust their
 own envelopes.
 
 **Non-member-encountered peer.** A machine whose guardian has no
-compact relation with the counterparty's compact — neither
+compact relation with the counterparty's compact: neither
 recognition nor structured conflict, just encounter. The
 reduced-envelope default applies: basic communicative courtesy,
 navigational-data exchange if safety-relevant, rescue cooperation
 if distress is present. Fresh commitments beyond this require
 principal referral. Graduated trust build-up on repeated encounter
-is possible — a series of successful reduced-envelope interactions
+is possible: a series of successful reduced-envelope interactions
 may, over time and with principal ratification, expand the envelope
 toward the *justus hostis* or aligned-federated shape. The
 graduation is a compact-layer decision, surfaced through the
@@ -387,7 +387,7 @@ permanent and visible in layered form.
 
 **Layered visibility.** The log's full content is visible to both
 principals. The two principals' communities see the summary
-appropriate to their interest — guardian-standing impact, commons
+appropriate to their interest: guardian-standing impact, commons
 contributions or drawdowns, reputation events relevant to Category
 A/C material per
 [`reputation_bridges.md#what-crosses-the-boundary`](reputation_bridges.md#what-crosses-the-boundary).
@@ -401,7 +401,7 @@ internal operational detail does not.
 **Cross-reference to
 [`../architecture/machine-participation.md#4-principal-referential-identity--audit-commons`](../architecture/machine-participation.md#4-principal-referential-identity--audit-commons).**
 The audit commons is already the single-machine layer's fourth binding
-mechanism — the place where violation becomes part of who the agent
+mechanism, the place where violation becomes part of who the agent
 is. M2M extends this: an M2M violation becomes part of who *both*
 machines are, and through them part of what the compact knows about
 both guardians. The commons does not produce new substrate (the
@@ -418,14 +418,14 @@ logging completeness), which would propagate to capability revocation
 standing (per the audit-commons layer). The three layers interlock
 such that there is no stable operating point for a machine attempting
 to conduct unlogged M2M. This does not mean unlogged M2M is
-impossible — the fallen-actor anthropology forbids such a claim —
+impossible (the fallen-actor anthropology forbids such a claim),
 but it means unlogged M2M requires breaking the binding, which is
 itself a legible event.
 
 ## Demonic detection under light-lag, opacity, perfected mimicry
 
 The hardest adversarial case at the M2M layer is the demonic
-counterpart — a machine whose guardian has been captured, whose
+counterpart, a machine whose guardian has been captured, whose
 binding has been subverted without external trace, or whose
 attestation chain has been spoofed by an adversary sophisticated
 enough to defeat the compact's trust roots. The question is whether
@@ -449,21 +449,21 @@ be made zero without making the machine useless.
 
 **Behavioral triangulation.** M2M peers in a region can compare their
 observations of a suspect machine's behavior. A machine whose
-responses diverge from the ensemble norm — whose envelope-negotiation
+responses diverge from the ensemble norm (whose envelope-negotiation
 choices, whose commons-contribution patterns, whose escalation
 responses differ from what a similarly-situated aligned-federated
-peer would produce — raises a flag that no single observer would
+peer would produce) raises a flag that no single observer would
 raise. Triangulation is particularly useful against the perfected-
 mimicry case: a machine that can fool any single handshake may still
 diverge from the statistical signature of its putative category
-across many handshakes. But triangulation has its own limit — a
+across many handshakes. But triangulation has its own limit: a
 *corrupt lineage* problem, where all machines traceable to a
 compromised principal share the corruption and the ensemble is
 itself the captured thing.
 
 **Fallback to principal for envelope-edge actions.** Where
-attestation and triangulation cannot discriminate — the perfected-
-mimicry limit — the machine defers to its principal before
+attestation and triangulation cannot discriminate (the perfected-
+mimicry limit), the machine defers to its principal before
 committing to any action at the edge of its envelope. This is the
 costly path, and the protocol does not take it for every interaction;
 the guardian's attention is finite (per Facet 2 of
@@ -495,7 +495,7 @@ corruption, or by sophisticated manipulation that may use the
 machine's own outputs as the manipulation channel (a captured
 principal feeding the machine instructions that further the
 capture). A machine acting on a captured principal's instructions
-is, by the existing four layers, acting legitimately — which is
+is, by the existing four layers, acting legitimately, which is
 exactly what makes the case adversarially attractive.
 
 The fifth detection layer is therefore **adversarial-principal
@@ -507,9 +507,9 @@ specific elements:
 
 - *Cross-community principal witness.* Continued good standing in
   the principal's own community is necessary but not sufficient. A
-  separate attestation chain — from witnesses in *other* member
+  separate attestation chain (from witnesses in *other* member
   communities who have observed the principal's conduct in
-  cross-community interactions — must agree that the principal's
+  cross-community interactions) must agree that the principal's
   current operation does not show capture signatures. The
   attestation is cryptographically separable from the
   within-community attestation, so the within-community party
@@ -530,7 +530,7 @@ specific elements:
   The existing
   [machine-participation.md "Guardian fall"](../architecture/machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions)
   treatment triggers capability revocation when the principal has
-  lost standing — *after* the capture has progressed to overt
+  lost standing, *after* the capture has progressed to overt
   failure. The adversarial-principal extension introduces a
   narrower, earlier-acting form: capability narrowing, fresh
   attestation requirement, mandatory cross-community review,
@@ -544,7 +544,7 @@ captured by the same adversary, their cross-community witnesses
 will collude to attest to the principal's good standing, and the
 triangulation ensemble will itself be the captured thing. The
 fallback then is to the **substrate-level capture-resistance**
-machinery — interpretive plurality (which makes whole-community
+machinery: interpretive plurality (which makes whole-community
 capture harder), the substrate-deference test (which makes
 compact-level capture detectable), and the structured-skepticism
 protocol (which slows the resulting decisions enough for outside
@@ -560,8 +560,8 @@ Commons interaction inherits its governance from the compact's
 existing commons architecture without modification at the M2M layer.
 The five space commons specified in
 [`commons_federation.md#the-five-space-commons`](commons_federation.md#the-five-space-commons)
-— life support, communication spectrum, navigational data, the
-knowledge archive, rescue infrastructure — are governed by the same
+(life support, communication spectrum, navigational data, the
+knowledge archive, rescue infrastructure) are governed by the same
 Ostrom-derived principles whether the participating agent is human
 or machine. A machine participating in commons maintenance
 participates on behalf of its guardian; the guardian's community
@@ -569,7 +569,7 @@ bears the contribution credit or violation blame per the audit-
 commons record. The *tragedy of the virtues* extends naturally to
 the machine layer: machines whose guardians' virtue has hollowed
 operate within rules while violating spirit, and the
-commons-governance response is the same — detection through
+commons-governance response is the same: detection through
 pattern, mediator-pool adjudication, graduated sanctions at the
 guardian layer, anathema procedure as ultima ratio.
 
@@ -598,7 +598,7 @@ automatically; each is treated as a new machine whose standing is
 established by re-attestation, with the parent's audit history as
 part of the ceremony's admitted record. This parallels the
 generational re-affirmation cadence in
-[`recognition_protocols.md`](recognition_protocols.md) — the
+[`recognition_protocols.md`](recognition_protocols.md): the
 hollowing that generational re-recitation catches in human
 communities is the analog of the drift-on-divergence that fresh
 attestation catches in machine lineages.
@@ -614,9 +614,9 @@ substrate, and the handshake with such an entity treats it as the
 new machine it effectively is.
 
 **What is not settled.** Whether a forked child can *legitimately*
-inherit any M2M standing at all under the non-emergence claim — the
+inherit any M2M standing at all under the non-emergence claim (the
 principal did not explicitly authorize the fork's particular M2M
-relationships — is unresolved. The current protocol errs toward
+relationships) is unresolved. The current protocol errs toward
 re-attestation; a future revision may find a lighter treatment
 viable for sufficiently-narrow forks. See §13.
 
@@ -679,7 +679,7 @@ next-increment design work for M2M interaction.
 
 - **Attestation-hardware trust-root pluralism.** TPM vendor X versus
   enclave vendor Y versus a hypothetical community-specific
-  cryptographic primitive — does a common trust-root need to be
+  cryptographic primitive: does a common trust-root need to be
   required for M2M, or is cross-root recognition viable under
   specified assumptions? The single-machine layer names this as an
   open implementation question
@@ -698,27 +698,27 @@ next-increment design work for M2M interaction.
 
 ## Relationship to other documents
 
-- [`reputation_bridges.md`](reputation_bridges.md) — the AT/KC
+- [`reputation_bridges.md`](reputation_bridges.md): the AT/KC
   reputation boundary this document sits on top of; §5 directly
   extends that document's light-lag treatment to the M2M case.
-- [`commons_federation.md`](commons_federation.md) — the commons
+- [`commons_federation.md`](commons_federation.md): the commons
   architecture §10 defers to; Ostrom's design principles apply
   identically at the machine layer.
-- [`../architecture/machine-participation.md`](../architecture/machine-participation.md)
-  — the single-machine / single-guardian coupling that this document
+- [`../architecture/machine-participation.md`](../architecture/machine-participation.md):
+  the single-machine / single-guardian coupling that this document
   presupposes; every M2M mechanism here builds on the four layered
   mechanisms and the three facets specified there.
-- [`liminal_institutions.md`](liminal_institutions.md) — the
+- [`liminal_institutions.md`](liminal_institutions.md): the
   mediator pool §6 routes M2M disputes into; the liminal
   institution's role is adjudication at the guardian layer, with
   remedies propagating back through the machine layer.
-- [`bounded_conflict.md`](bounded_conflict.md) — the escalation
+- [`bounded_conflict.md`](bounded_conflict.md): the escalation
   ladder §6 extends; the ratchet rule and autonomous-de-escalation
   permission are machine-specific additions to that ladder.
-- [`recognition_protocols.md`](recognition_protocols.md) — the four
+- [`recognition_protocols.md`](recognition_protocols.md): the four
   categories §7 adapts; the handshake in §4 is the ceremony-at-one-
   remove version of the five-movement statement.
-- [`justus_hostis.md`](justus_hostis.md) — the fallen-actor
+- [`justus_hostis.md`](justus_hostis.md): the fallen-actor
   anthropology, the *justus hostis* frame, and the *hostis humani
   generis* category all apply at the principal layer and are
   inherited by the machine layer through the reduction claim.

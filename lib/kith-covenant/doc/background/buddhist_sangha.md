@@ -8,7 +8,7 @@
 longevity filter to the case set in
 [historical_cases.md](historical_cases.md) and identified the Buddhist
 *sangha* as "the single sharpest challenge to the strong Christian
-reading" — the longest-running voluntary cross-community network in
+reading": the longest-running voluntary cross-community network in
 the dataset, non-theistic in its philosophical core, and obviously not
 Christian. The open question at the end of that document asked for a
 serious analysis of the sangha on the same metrics the Christian cases
@@ -26,7 +26,7 @@ detailed treatment can be read against them:
    cross-sovereign ecclesiastical authority.
 2. **Treated at this properly specified scale, the sangha splits into
    three distinct regimes with distinct durations, mechanisms, and
-   decay patterns** — the Theravada monastic network across Sri Lanka
+   decay patterns**: the Theravada monastic network across Sri Lanka
    and mainland Southeast Asia, the East Asian Buddhist network
    across China, Korea, and Japan, and the Tibetan Vajrayana network
    across the Tibetan plateau and the Inner Asian steppe. Each has
@@ -34,8 +34,8 @@ detailed treatment can be read against them:
    different mechanisms; each has a different relationship to
    political power.
 3. **The sangha supplies the five anti-spiral features
-   ([justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
-   — substantially on (1), (2), (4), and (5), and in functional-but-not-identical form on (3).**
+   ([justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)),
+   substantially on (1), (2), (4), and (5), and in functional-but-not-identical form on (3).**
    This is a genuine result. Buddhism is not a partial or degraded
    substrate on the anti-spiral features; it supplies them, in
    recognizably different form, with comparable depth to Christianity
@@ -47,10 +47,10 @@ detailed treatment can be read against them:
    weaker form ("Christianity supplies the most complete single
    combination of the features while other traditions supply real
    partial versions") survives and is consistent with the sangha
-   evidence. The Christian-particularist reading's strongest move
-   — the claim that the *specific kind* of cross-polity cooperation
+   evidence. The Christian-particularist reading's strongest move,
+   the claim that the *specific kind* of cross-polity cooperation
    Christendom produced (Westphalia, Hanse, lex mercatoria) has no
-   close Buddhist analogue — also survives, but at the cost of
+   close Buddhist analogue, also survives, but at the cost of
    conceding that the sangha's kind of cross-polity cooperation is
    a real and durable achievement of a different form.
 
@@ -75,13 +75,13 @@ cooperation among nations under a shared federal instrument.
 The sangha does not straightforwardly fit this shape. It is
 simultaneously:
 
-- **A trans-polity institution** — a single religious community whose
+- **A trans-polity institution**: a single religious community whose
   members (monks and nuns under the Vinaya) share an identity that
   persists across sovereign boundaries. Analogously, one does not
   describe the Benedictine order or the Society of Jesus as
   "cross-polity cooperation among the communities they inhabit";
   they are themselves cross-polity institutions.
-- **A mechanism of cross-community cooperation** — lay Buddhist
+- **A mechanism of cross-community cooperation**: lay Buddhist
   communities in separate polities (a Sinhalese kingdom and a Burmese
   kingdom, a Tang-dynasty Chinese court and a Heian-period Japanese
   court, a Tibetan principality and a Mongol khanate) really did
@@ -121,14 +121,14 @@ design question.
 
 A note on voluntariness. Some of the sangha's durability has rested on
 royal patronage, state Buddhism, and state-enforced monastic
-regulation — the Chinese state's control of ordination certificates
+regulation: the Chinese state's control of ordination certificates
 from Tang forward, the Tokugawa temple registration system, the
 Thai *Sangharaja* and state monastic bureaucracy. Inside these
 episodes the sangha is less a voluntary network than a state-licensed
-institution. But its *cross-sovereign* recognition — a Japanese
+institution. But its *cross-sovereign* recognition (a Japanese
 Rinzai monk's ordination is recognized at a Chinese Linji temple, a
 Sri Lankan Theravada monk's ordination is recognized at a Thai
-*wat* — is not itself a state product. The states have recognized
+*wat*) is not itself a state product. The states have recognized
 what the sangha was already doing across their borders, rather than
 constituting it. This is the sense in which the sangha qualifies as
 voluntary cross-community cooperation, even though it has often been
@@ -162,8 +162,8 @@ The Theravada tradition traces itself to the Sthaviravāda ("Teaching of
 the Elders") school, one of the early divisions of the Indian sangha
 that hardened after the Second Council (ca. 383 BCE, Vesali) and again
 after the Third Council (ca. 250 BCE, Pataliputra under Ashoka).
-Ashoka's missionary sending — recorded in the Sri Lankan *Mahavamsa*
-and corroborated by the Edicts of Ashoka — dispatched nine missions to
+Ashoka's missionary sending (recorded in the Sri Lankan *Mahavamsa*
+and corroborated by the Edicts of Ashoka) dispatched nine missions to
 peripheral regions, most durably Mahinda's mission to Sri Lanka
 (mid-3rd c. BCE) and (in later tradition) Sona and Uttara's mission to
 Suvannabhumi (probably Lower Burma / Thai-Malay peninsula).
@@ -172,10 +172,10 @@ Sri Lanka is the hinge. The *Mahavihara* at Anuradhapura preserved the
 Pali canon and the Theravada monastic lineage continuously from
 Mahinda's ordination of the Sinhalese king Devanampiya Tissa
 (ca. 247 BCE) onward. The Pali canon was committed to writing at the
-Fourth Council (ca. 29 BCE, Aluvihare, Sri Lanka) — one of the
+Fourth Council (ca. 29 BCE, Aluvihare, Sri Lanka), one of the
 earliest substantial scriptural corpora in any tradition to be
 written down as a fixed text. From Sri Lanka, Theravada expanded to
-mainland Southeast Asia — Burma, Thailand, Cambodia, Laos — in waves
+mainland Southeast Asia (Burma, Thailand, Cambodia, Laos) in waves
 over the first and second millennia CE, displacing earlier Hindu,
 Mahayana, and tantric Buddhist presences in most of the region by the
 15th century.
@@ -200,7 +200,7 @@ Several institutional elements carry the cooperation load:
 - **The Pali canon.** The *Tipitaka* (Vinaya, Sutta, Abhidhamma) is
   preserved in Pali across all Theravada polities. Scriptural
   disputes among Theravada kingdoms are argued against a common text
-  in a common liturgical language that is nobody's vernacular — an
+  in a common liturgical language that is nobody's vernacular, an
   important neutralization mechanism.
 - **Higher ordination across polities.** *Upasampada* (higher
   ordination) requires a quorum of ten fully ordained monks in a
@@ -218,14 +218,14 @@ Several institutional elements carry the cooperation load:
   modern Sri Lankan monastic fraternity); from Burma in 1802
   (Amarapura Nikaya) and 1864 (Ramanna Nikaya). These episodes are
   the direct empirical instances of the sangha working as a
-  cross-polity cooperation mechanism — when a local community loses
+  cross-polity cooperation mechanism: when a local community loses
   the line, the peer community across the sea supplies the
   reconstitution.
 - **Pilgrimage networks.** Bodh Gaya, the Sri Lankan *Sri Pada*, the
   Burmese Shwedagon, and the Kandy *Dalada Maligawa* (Temple of the
   Sacred Tooth) are supra-polity pilgrimage sites. Royal embassies
-  carrying relics between Buddhist courts — the Sri Lankan Tooth
-  Relic, Burmese tooth relics, Thai Buddha images — were a durable
+  carrying relics between Buddhist courts (the Sri Lankan Tooth
+  Relic, Burmese tooth relics, Thai Buddha images) were a durable
   channel of cross-polity diplomacy conducted through sangha
   intermediaries rather than through lay diplomatic corps.
 - **Royal patron as protector-not-sovereign.** The Theravada doctrine
@@ -260,8 +260,8 @@ separate kingdoms:
   collapsed, as the Sri Lankan re-ordination episodes demonstrate.
 
 The regime did not produce Westphalian political cooperation among
-Theravada kingdoms — they warred with each other in the ordinary way;
-Burma sacked Ayutthaya in 1767 — but it did produce a substrate of
+Theravada kingdoms (they warred with each other in the ordinary way;
+Burma sacked Ayutthaya in 1767) but it did produce a substrate of
 cross-polity religious, scholastic, and scriptural cooperation that
 survived those wars and that continues to function.
 
@@ -271,8 +271,8 @@ The Theravada regime has not decayed in the sense Westphalia or the
 Hanse decayed. It has been stressed repeatedly, and two stress
 episodes deserve naming:
 
-- **Colonial disruption** (18th–20th c.). British colonial government
-  in Ceylon and Burma, French in Indochina, Dutch elsewhere — each
+- **Colonial disruption** (18th-20th c.). British colonial government
+  in Ceylon and Burma, French in Indochina, and Dutch elsewhere each
   reduced the pre-colonial *dhammaraja* state's support for the
   sangha, creating periods of institutional weakness. But colonial
   rule did not destroy the sangha; it damaged the state-sangha
@@ -280,17 +280,17 @@ episodes deserve naming:
   intact. Thai monastic reform (Mongkut's Dhammayutika Nikaya,
   mid-19th c.) and the Burmese revival under the *Sangharaja*
   traditions were contemporaneous responses.
-- **Buddhist nationalism** (20th–21st c.). This is the more serious
+- **Buddhist nationalism** (20th-21st c.). This is the more serious
   stressor and the one that speaks directly to the anti-spiral
   question below. In Sri Lanka, Sinhala-Buddhist nationalism fused
   Theravada identity with ethnic claims, producing the long civil
-  war against the Tamil minority (1983–2009) and a pattern of
+  war against the Tamil minority (1983-2009) and a pattern of
   anti-Muslim violence that continues. In Myanmar, the Ma Ba Tha
   and the 969 Movement have supplied the ideological framework for
   state violence against the Rohingya (the 2017 clearance operations
   being the most visible instance). These are betrayals of the
   anti-spiral features the tradition otherwise supplies, and they
-  are not trivial — they are mass-violence episodes in which
+  are not trivial: they are mass-violence episodes in which
   Buddhist identity functioned as an in-group marker against
   designated out-groups. The parallel with Christian colonial
   selectivity (discussed in
@@ -320,8 +320,8 @@ machinery survives operational disputes.
 Second, **the re-ordination pattern is a useful precedent for
 kith-covenant's reconstitution question** ([exit_and_succession.md](exit_and_succession.md)).
 When a member community loses the local capacity to produce properly
-credentialed successors — analogue of Sri Lanka losing the
-*upasampada* lineage — a peer community across the boundary can
+credentialed successors (analogue of Sri Lanka losing the
+*upasampada* lineage), a peer community across the boundary can
 supply the reconstitution, provided the cross-polity recognition
 machinery is kept working for exactly this purpose.
 
@@ -332,8 +332,8 @@ come from royal authority are legitimate only if the sangha
 recognizes them as consistent with the Vinaya. This is directly
 parallel to the Peace of God's constitution of categories of
 inviolability by ecclesiastical authority against lordly violence
-([historical_cases.md](historical_cases.md#the-peace-of-god-and-truce-of-god))
-— a substrate-holder independent of the sovereign is a structural
+([historical_cases.md](historical_cases.md#the-peace-of-god-and-truce-of-god)).
+A substrate-holder independent of the sovereign is a structural
 necessity for sovereign-transcending cooperation.
 
 Fourth, **Buddhist nationalism is the anti-spiral failure mode
@@ -354,16 +354,16 @@ as an ongoing rather than one-time examination.
 Mahayana Buddhism entered China via the Silk Road in the first
 century CE, with gradual institutional consolidation through the
 Three Kingdoms, Jin, Northern and Southern Dynasties, and Tang
-periods. The key translation phase runs from Kumarajiva (344–413) to
-Xuanzang (602–664) and Yijing (635–713), during which the Chinese
+periods. The key translation phase runs from Kumarajiva (344-413) to
+Xuanzang (602-664) and Yijing (635-713), during which the Chinese
 Buddhist canon was assembled from successive Sanskrit and Prakrit
 translations, reworked in Chinese idiom, and stabilized into what
 became the East Asian Mahayana scriptural corpus.
 
-The East Asian regime is not a single monastic lineage but a
-network of schools — Tiantai, Huayan, Pure Land, Chan (Zen in
+The East Asian regime is a network of schools rather than a single
+monastic lineage: Tiantai, Huayan, Pure Land, Chan (Zen in
 Japanese, Seon in Korean, Thien in Vietnamese), Shingon/Mijiao, and
-Vinaya schools — that share the Chinese Buddhist canon (the
+Vinaya schools. These schools share the Chinese Buddhist canon (the
 *Dazangjing*), the Chinese Vinaya recension (the
 *Dharmaguptaka Vinaya*, the *Sifen Lü*, the most widely used Vinaya
 across China, Korea, Japan, and Vietnam), and the practice of
@@ -380,14 +380,14 @@ polities travel to China (or, in the earlier period, from China to
 India) to receive transmission, to train in established monasteries,
 to copy or receive scriptural authority, and to return to their home
 polities with recognized credentials. This pattern runs from
-Xuanzang's India pilgrimage (629–645) through Ennin's nine-year
-pilgrimage to Tang China (838–847), Dogen's Song China pilgrimage
-(1223–1227), and many others into the Ming and Qing periods.
+Xuanzang's India pilgrimage (629-645) through Ennin's nine-year
+pilgrimage to Tang China (838-847), Dogen's Song China pilgrimage
+(1223-1227), and many others into the Ming and Qing periods.
 
 ### Mechanism
 
 - **The shared East Asian Buddhist canon.** The *Dazangjing* (in
-  multiple successive imperial editions — Kaibao, Qisha, Zhaocheng,
+  multiple successive imperial editions: Kaibao, Qisha, Zhaocheng,
   various Korean *Tripitaka Koreana* editions, Japanese editions)
   provided a common scriptural reference across polities. The
   Goryeo Tripitaka (13th c.), carved on 81,258 wooden blocks at
@@ -399,7 +399,7 @@ pilgrimage to Tang China (838–847), Dogen's Song China pilgrimage
   ordination lineage in principle compatible across China, Korea,
   Japan, and Vietnam.
 - **Dharma transmission certificates (*yinke*, *inka*).** Chan/Zen
-  transmission is explicitly documented — the disciple receives a
+  transmission is explicitly documented: the disciple receives a
   written certification from the master, and the lineage chart
   identifies the unbroken transmission back through named teachers
   to Bodhidharma and ultimately to the Buddha. The certificate is
@@ -409,10 +409,10 @@ pilgrimage to Tang China (838–847), Dogen's Song China pilgrimage
   East Asian Buddhism than in any of the other three regimes under
   examination.
 - **Pilgrimage as the cross-polity cooperation instrument.** The
-  paradigmatic episodes — Xuanzang's India journey, Ennin's nine-year
+  paradigmatic episodes (Xuanzang's India journey, Ennin's nine-year
   residence in Tang China, Dogen's two years in Song China, the
   serial Korean pilgrimages to China through the Goryeo period, the
-  continuing Japanese Obaku transmission from Ming-Qing Fujian — are
+  continuing Japanese Obaku transmission from Ming-Qing Fujian) are
   instances of the cross-polity cooperation regime at work. A monk
   travels, is received, is trained, is examined, receives
   transmission, returns. The receiving polity bears the training
@@ -474,12 +474,12 @@ Multiple major disruption episodes, but none total:
   period. Japanese Buddhism survived but lost its integration with
   the state and with Shinto; it has not recovered the institutional
   density of the pre-Meiji period.
-- **The Joseon-dynasty suppression in Korea (14th–19th c.).**
+- **The Joseon-dynasty suppression in Korea (14th-19th c.).**
   Neo-Confucian Joseon reduced Buddhist institutions, confined them
   mostly to mountain monasteries, and restricted monastic ordination.
   Korean Buddhism persisted but in substantially reduced
   institutional form for five centuries.
-- **The Cultural Revolution (1966–76).** Most remaining Chinese
+- **The Cultural Revolution (1966-76).** Most remaining Chinese
   Buddhist institutions were destroyed or repurposed, monks and
   nuns laicized or imprisoned, texts burned. Partial recovery began
   after 1979 but institutional scope is still well below
@@ -496,7 +496,7 @@ preserved Chinese and Japanese contacts; modern exile and
 post-communist revival rely on the same cross-polity mechanisms the
 network has always used. The East Asian network has sustained its
 cross-polity cooperation function through multiple total political
-inversions — Tang to Song, Song to Yuan, Yuan to Ming, Ming to Qing,
+inversions: Tang to Song, Song to Yuan, Yuan to Ming, Ming to Qing,
 Qing to Republic to PRC; Goryeo to Joseon; Heian to Kamakura to
 Muromachi to Edo to Meiji. This durability through political
 inversion is the regime's most characteristic feature.
@@ -508,8 +508,8 @@ Three lessons.
 First, **a cross-polity cooperation regime organized around
 pilgrimage-for-credentialing is a robust architectural pattern.** A
 credential-issuing community of recognized authority, accessible
-across boundaries, receiving candidates from peripheral polities and
-sending them back credentialed — this is a pattern the East Asian
+across boundaries, that receives candidates from peripheral polities and
+sends them back credentialed, is a pattern the East Asian
 Buddhist network instantiated for over a millennium. The modern
 parallel is the doctoral-degree network among universities
 internationally. Kith-Covenant's recognition protocols
@@ -524,7 +524,7 @@ worth adopting.** The *inka* / *yinke* certificate, combined with
 the lineage chart that names every teacher back to the founder, is a
 credential that carries across polities without requiring a central
 authority. Kith-Covenant's members and mediators might plausibly
-operate under analogous documented-transmission credentials —
+operate under analogous documented-transmission credentials:
 recognition certificates naming the chain from the current bearer
 back through named predecessors to the compact's founding.
 
@@ -535,8 +535,8 @@ network went through at least one total political discontinuity
 the network carried through each of them, often with institutional
 damage but without losing the cross-polity recognition machinery
 itself. Kith-Covenant should design for political inversion of this
-kind — a member polity's state going to pieces and being replaced by
-something else — as a routine expected event rather than a
+kind (a member polity's state going to pieces and being replaced by
+something else) as a routine expected event rather than a
 catastrophic failure.
 
 ---
@@ -546,33 +546,33 @@ catastrophic failure.
 ### Founding context
 
 Buddhism entered Tibet in two waves. The *First Transmission* begins
-under King Trisong Detsen (r. 755–797), with the arrival of
+under King Trisong Detsen (r. 755-797), with the arrival of
 Shantarakshita and the tantric master Padmasambhava, and the founding
 of Samye Monastery (ca. 779), Tibet's first institutional monastery.
 This transmission was interrupted by King Langdarma's persecution
-(ca. 841–842) — the assassination of Langdarma by a Buddhist monk,
+(ca. 841-842). The assassination of Langdarma by a Buddhist monk,
 Lhalung Palgyi Dorje, ended the persecution but also the imperial
 sponsorship. The fragmentary century after Langdarma preserved
 tantric lineages (what became the Nyingma, or "Old School") without
 state institutional support.
 
-The *Second Transmission* (10th–11th c.) re-established institutional
+The *Second Transmission* (10th-11th c.) re-established institutional
 Buddhism in Tibet, largely through the efforts of the translator
-Rinchen Zangpo (958–1055) in western Tibet and the Indian master
-Atisha Dipankara Srijnana (982–1054) in central Tibet. From this
+Rinchen Zangpo (958-1055) in western Tibet and the Indian master
+Atisha Dipankara Srijnana (982-1054) in central Tibet. From this
 transmission came the three main "New Schools": Kadampa (later
 absorbed into Gelug), Sakya, and Kagyu. The Gelug school was founded
-by Tsongkhapa (1357–1419) as a reform of the Kadampa, and became the
+by Tsongkhapa (1357-1419) as a reform of the Kadampa, and became the
 dominant school from the 17th century forward under the institution
 of the Dalai Lama.
 
 Crucially for the cross-polity analysis, Tibetan Buddhism from the
 13th century onward developed the *patron-priest relationship*
-(*yön-chö*, "patron-priest") with non-Tibetan rulers — first with the
+(*yön-chö*, "patron-priest") with non-Tibetan rulers: first with the
 Mongol Yuan court (Sakya Pandita's relationship with Godan Khan, 1244;
 and Phakpa's with Kublai Khan as Imperial Preceptor, from ca. 1260),
 then with the later Mongol khanates (Altan Khan and the Third Dalai
-Lama, 1578 — the event that conferred the title "Dalai Lama" on
+Lama, 1578: the event that conferred the title "Dalai Lama" on
 Sonam Gyatso), the Qing emperors (from Güshi Khan and the Fifth
 Dalai Lama forward), and the Kalmyk, Buryat, and Tuvan Mongolian
 peoples into the modern period.
@@ -590,8 +590,8 @@ peoples into the modern period.
 - **Monastic colleges (*shedra*) and ritual colleges (*dratsang*).**
   Large Tibetan monasteries are federations of colleges specialized
   in scholastic philosophy, tantric ritual, calendrical science, and
-  medicine. The three great Gelug monasteries — Ganden, Sera, and
-  Drepung, all near Lhasa — became the institutional core of Tibetan
+  medicine. The three great Gelug monasteries (Ganden, Sera, and
+  Drepung, all near Lhasa) became the institutional core of Tibetan
   Buddhism, with satellite institutions across Tibet, Mongolia, and
   Inner Asia.
 - **The tulku (*sprul-sku*) system.** From the 13th century forward,
@@ -603,9 +603,9 @@ peoples into the modern period.
   reincarnation claim verified by a specified procedure involving
   prophecies, signs, and formal identification by senior teachers.
   The Dalai Lama and Panchen Lama are the most famous tulku lineages;
-  there are thousands of others. This institution is crucial for the
+  there are thousands of others. This institution matters to the
   cross-polity analysis because *tulku identification crosses
-  political boundaries* — a Dalai Lama can be identified in an area
+  political boundaries*: a Dalai Lama can be identified in an area
   outside the polity the previous one governed, as happened
   repeatedly.
 - **The *yön-chö* relationship across polities.** Sakya Pandita's
@@ -622,10 +622,10 @@ peoples into the modern period.
 - **Shared scholastic curriculum.** Across the four main schools
   (Nyingma, Kagyu, Sakya, Gelug) and across the Tibetan, Mongolian,
   Bhutanese, and Himalayan Buddhist polities, a common core
-  curriculum — the Prajñaparamita literature, the Madhyamaka
-  treatises, the Pramana (epistemology) corpus, the Abhidharma — is
-  taught in Tibetan as the liturgical language, much as Pali works
-  in the Theravada world and Chinese in East Asia.
+  curriculum is taught in Tibetan as the liturgical language, much as
+  Pali works in the Theravada world and Chinese in East Asia. That
+  curriculum comprises the Prajñaparamita literature, the Madhyamaka
+  treatises, the Pramana (epistemology) corpus, and the Abhidharma.
 - **Cross-school tantric transmission.** The *Ris-med* (non-sectarian)
   movement of the 19th century formalized a practice that had always
   existed: senior lamas of one school receive transmissions from
@@ -636,12 +636,12 @@ peoples into the modern period.
 
 ### Output
 
-For roughly 1000–1100 years (counting from the Second Transmission,
+For roughly 1000-1100 years (counting from the Second Transmission,
 ca. 11th c., to the present), the Tibetan Vajrayana network has
 sustained:
 
-- A shared scriptural canon in Tibetan (the *Kangyur* — translated
-  word of the Buddha, 108 volumes; the *Tengyur* — translated
+- A shared scriptural canon in Tibetan (the *Kangyur*, translated
+  word of the Buddha, 108 volumes; the *Tengyur*, translated
   commentaries, 225 volumes) across Tibet, Bhutan, Sikkim, Ladakh,
   Mongolia, Tuva, Buryatia, and Kalmykia;
 - A shared scholastic curriculum taught in Tibetan as liturgical
@@ -674,8 +674,8 @@ One major disruption, still in progress:
   ritual curriculum. The succession question (what happens on the
   Fourteenth Dalai Lama's death, with the PRC contesting
   succession) remains open.
-- **Mongolian disruption (1920s–1990s).** The Soviet-aligned
-  Mongolian People's Republic conducted purges (1937–39 especially)
+- **Mongolian disruption (1920s-1990s).** The Soviet-aligned
+  Mongolian People's Republic conducted purges (1937-39 especially)
   that destroyed most Mongolian Buddhist institutions and killed
   thousands of monks. Buriatia, Kalmykia, and Tuva were similarly
   suppressed. Post-1990 revival is in progress but institutional
@@ -685,9 +685,9 @@ One major disruption, still in progress:
 
 Unlike the Theravada and East Asian regimes, the Tibetan regime
 faces a still-acute existential stress. The cross-polity cooperation
-mechanisms are working — the exile network sustains cross-polity
+mechanisms are working (the exile network sustains cross-polity
 ordination, tulku recognition, and scholastic transmission across
-India, Nepal, Bhutan, and global diaspora communities — but the
+India, Nepal, Bhutan, and global diaspora communities), but the
 regime's center of gravity has been displaced from Tibet itself and
 its continuity is actively contested by a major power.
 
@@ -710,7 +710,7 @@ model of cross-compact substrate cooperation.** A substrate-bearer
 in one community provides recognized authority to a polity in
 another community, without either community's political authority
 absorbing the other's substrate. This is close to what kith-covenant
-needs at the inter-community recognition layer — compact-member
+needs at the inter-community recognition layer: compact-member
 communities recognizing the substrate-authority of other compact
 members without requiring substrate merger. The mechanism is
 patron-priest rather than creed-convergence.
@@ -722,9 +722,9 @@ under the succession window. Kith-Covenant's member communities will
 face analogous succession problems (how does the next generation of
 authorized representatives get recognized across polities whose
 borders have moved, whose governments have changed, whose populations
-have migrated?), and the tulku architecture — prophecy and signs plus
+have migrated?), and the tulku architecture (prophecy and signs plus
 formal identification by senior peers plus confirmation by the
-receiving community — is a working model even if the
+receiving community) is a working model even if the
 reincarnation-specific content does not transfer.
 
 ---
@@ -742,7 +742,7 @@ those metrics.
 - **Theravada regime.** High. Ordination is voluntary both for the
   individual and for the monastery accepting a candidate from
   another polity. Royal patronage is sought but not structurally
-  required (the 11th–19th century Sri Lankan re-ordinations happened
+  required (the 11th-19th century Sri Lankan re-ordinations happened
   *because* a local line had died out, and were arranged by sangha
   leaders and requested from peer polities). The Theravada regime
   has the weakest state-dependence among the three.
@@ -750,9 +750,9 @@ those metrics.
   China were state-regulated from Tang forward; the Tokugawa temple
   registration system (*tera-uke seido*) conscripted Japanese
   Buddhism into state census and surveillance functions. But
-  *cross-polity* recognition — Japanese pilgrimage to China for
+  *cross-polity* recognition (Japanese pilgrimage to China for
   transmission, Korean training at Chinese monasteries, Chinese
-  transmission to Japanese disciples — happened largely outside
+  transmission to Japanese disciples) happened largely outside
   state regulation and was recognized by the state *after* the
   sangha network had accomplished it. The cross-polity voluntariness
   is high even where intra-polity voluntariness was constrained.
@@ -778,23 +778,23 @@ The Christian cases differ on peer-ness: Westphalia is peer
 cooperation among sovereigns, the Hanse is peer cooperation among
 cities, lex mercatoria is peer cooperation among merchants, the
 Iroquois Confederacy is peer cooperation among nations under a
-federal instrument. The Peace of God is different — an ecclesiastical
-authority imposing categories of inviolability — and it sits between
+federal instrument. The Peace of God is different (an ecclesiastical
+authority imposing categories of inviolability) and it sits between
 peer cooperation and hierarchical authority.
 
-- **Theravada regime.** Peer-like at the sangha level — monasteries
+- **Theravada regime.** Peer-like at the sangha level: monasteries
   across Sri Lanka and Southeast Asia are peers, recognizing each
   other's ordinations and supplying each other's quorum requirements
   when needed. At the lay-polity level the peer-ness is mediated:
   the Sinhalese and Burmese kingdoms cooperated via sangha exchange
   rather than as direct political peers.
-- **East Asian regime.** Peer-like at the dharma-transmission level
-  — Chinese, Korean, and Japanese Chan masters recognize each other
+- **East Asian regime.** Peer-like at the dharma-transmission level:
+  Chinese, Korean, and Japanese Chan masters recognize each other
   and exchange transmission across polity boundaries as peers. At
   the polity level, the relationship was often asymmetric (China
   as scholastic source, Korea and Japan as peripheries receiving
   transmission), but this asymmetry is functional rather than
-  hierarchical — it is more like the relationship between the
+  hierarchical: it is more like the relationship between the
   Sorbonne and Oxford in the 13th century than between a metropolis
   and a colony. After the 13th century and particularly from the
   Obaku transmission forward, the transmission flows became
@@ -828,9 +828,9 @@ that most directly affects the Christian-particularist reading.
   Japan's reception in the 6th century). Several near-rupture
   episodes (Huichang 845, Joseon suppression, Meiji, Cultural
   Revolution) but the cross-polity network survived each.
-- **Tibetan regime.** Roughly 1000–1100 years, counting from the
+- **Tibetan regime.** Roughly 1000-1100 years, counting from the
   Second Transmission (11th c.) to the present. One major ongoing
-  disruption (1950–present) that has displaced the center of
+  disruption (1950-present) that has displaced the center of
   gravity to exile.
 
 All three are longer than all the Christian cases individually
@@ -875,7 +875,7 @@ institutional density.
 
 ### Substrate
 
-- **All three regimes.** The substrate is Buddhist — specifically
+- **All three regimes.** The substrate is Buddhist, specifically
   the Dharma (Sanskrit *dharma*, Pali *dhamma*). The *structural
   feature* of the Buddhist substrate is contested relative to the
   "transcendent moral authority pointing to a single ultimate"
@@ -883,7 +883,7 @@ institutional density.
   [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern).
   Buddhism does not have a Creator God. What it has is the Dharma
   as *the nature of reality* that the Buddha *awakened to* (not
-  invented, not given by a Creator — discovered). The Dharma is
+  invented, not given by a Creator, but discovered). The Dharma is
   non-personal but is a single ultimate in the sense required for
   transcendent-moral-authority analysis: it is above any individual,
   above any community, above any polity, and it is what ethical
@@ -904,7 +904,7 @@ institutional density.
   disruption, Buddhist nationalism) are real but the regime
   continues.
 - **East Asian regime.** Multiple severe stress episodes (Huichang,
-  Meiji, Joseon, Cultural Revolution). No terminal decay — the
+  Meiji, Joseon, Cultural Revolution). No terminal decay: the
   cross-polity recognition machinery has survived every episode,
   often in reduced form.
 - **Tibetan regime.** One major ongoing stressor (PRC occupation
@@ -937,12 +937,12 @@ political community.
 
 Buddhist anthropology holds that every sentient being is subject to
 *dukkha* (unsatisfactoriness, suffering) rooted in *kleshas* (mental
-afflictions — ignorance, craving, aversion, conceit, wrong view,
+afflictions: ignorance, craving, aversion, conceit, wrong view,
 doubt, in the standard enumeration). Ignorance (*avidya*) is the root
 klesha; it conditions craving; craving conditions becoming; becoming
 conditions suffering. No sentient being escapes this condition until
-full awakening, and even arhats in the Theravada reading — and more
-pointedly, bodhisattvas on the long path in Mahayana — have only
+full awakening, and even arhats in the Theravada reading (and more
+pointedly, bodhisattvas on the long path in Mahayana) have only
 partially overcome the kleshas.
 
 The doctrine of anatta (no-self) deepens the feature: because there
@@ -983,9 +983,9 @@ This is the feature where Buddhism's internal diversity matters most.
   The Dhammapada is explicit: attachment even to one's own virtue is
   a defilement. Theravada's path is consummated by *nibbana*, which
   is not achieved by merit accumulation but by the cessation of
-  craving — including craving for good outcomes.
-- **Mahayana** extends the move substantially. *Bodhicitta* — the
-  aspiration to awaken for the benefit of all sentient beings — is
+  craving, including craving for good outcomes.
+- **Mahayana** extends the move substantially. *Bodhicitta* (the
+  aspiration to awaken for the benefit of all sentient beings) is
   explicitly gratuitous in the sense that it is not earnable by
   prior merit; it arises as a response to the recognition of the
   suffering of others, and is cultivated through practices that
@@ -995,18 +995,18 @@ This is the feature where Buddhism's internal diversity matters most.
   "my merit."
 - **Pure Land** traditions (particularly Shin Buddhism in Japan)
   develop the feature in a form closest to Christian grace. Shinran
-  (1173–1263) teaches *tariki* (other-power, specifically the power
+  (1173-1263) teaches *tariki* (other-power, specifically the power
   of Amida Buddha's vow) against *jiriki* (self-power, the path of
   merit accumulation). Awakening in the Pure Land is received
   through Amida's vow, not earned. Shin's *akunin shoki* ("evil
-  person, proper object") teaching — that the evildoer is the
-  proper object of Amida's saving vow before the good person —
+  person, proper object") teaching (that the evildoer is the
+  proper object of Amida's saving vow before the good person)
   reads almost exactly as a Buddhist Pauline theology of grace. This
   is the closest structural analogue to the Christian grace doctrine
   in any non-Christian tradition.
 - **Zen** and **Vajrayana** handle the feature through different
   registers. Zen's *shikantaza* or *kensho* is explicitly not a
-  merit-accumulation achievement — it cannot be earned by effort
+  merit-accumulation achievement: it cannot be earned by effort
   alone; masters routinely dismiss students who approach practice
   as merit accumulation. Vajrayana's deity-yoga and guru-devotion
   practices are framed as receptive rather than generative: the
@@ -1029,7 +1029,7 @@ depth.
 from the Christian form.**
 
 This is the feature where Christianity's form is most
-distinctive — Girard's argument that the Cross reveals the scapegoat
+distinctive: Girard's argument that the Cross reveals the scapegoat
 mechanism *as* scapegoating by presenting the innocent victim as
 innocent from God's point of view is a revelation story with specific
 historical content. Buddhism does not have this story.
@@ -1043,8 +1043,8 @@ unanimity. The Christian revelation defuses (c)-(d) by making the
 scapegoat's innocence explicit and theologically central.
 
 Buddhism defuses the same mechanism at an earlier stage. The doctrine
-of anatta — no substantial self, therefore no ultimately substantial
-other — removes the self/other boundary that the scapegoat mechanism
+of anatta (no substantial self, therefore no ultimately substantial
+other) removes the self/other boundary that the scapegoat mechanism
 requires for its target designation. If the apparently guilty
 scapegoat is, from the awakened point of view, not substantially
 different from the community expelling them, then the
@@ -1061,18 +1061,18 @@ Operationally, the disarming includes:
   community, trained as a formal meditation with the direct goal of
   undermining the in-group/out-group boundary.
 - **The bodhisattva vow.** In Mahayana, the bodhisattva takes a vow
-  to save all sentient beings without exception — explicitly
+  to save all sentient beings without exception, explicitly
   including hell beings, explicitly including those who have
   committed the worst acts. The vow structurally forecloses any
   categorization of persons as "beyond compassion."
 - **No eternal hell.** Buddhist cosmology has hells, but even the
-  worst hells are not eternal — rebirth out of them is part of the
+  worst hells are not eternal: rebirth out of them is part of the
   structure of the cosmos. This denies the sacrificial mechanism
   its final move (the permanent designation of the scapegoat as
   beyond the community).
 - **The Jataka literature.** The previous-lives stories of the
   Buddha routinely feature the bodhisattva sacrificing himself for
-  others — including for enemies. The structure is different from
+  others, including for enemies. The structure is different from
   the Cross (these are many voluntary sacrifices by the
   enlightenment-bound bodhisattva, not a single scapegoat
   revelation), but the moral content is close: the innocent one
@@ -1106,8 +1106,8 @@ The practice of metta (loving-kindness) to enemies is one of the most
 formally developed practices in the Buddhist tradition. The
 *Metta Sutta* and the *Visuddhimagga*'s exposition of metta
 meditation are explicit: the practice extends loving-kindness in
-sequence — to oneself, to a benefactor, to a friend, to a neutral
-person, to an enemy — and the practice is held to *fail* if the
+sequence (to oneself, to a benefactor, to a friend, to a neutral
+person, to an enemy) and the practice is held to *fail* if the
 practitioner cannot extend metta to the enemy. The enemy category
 is load-bearing in the practice.
 
@@ -1116,8 +1116,8 @@ but only by love. This is the eternal law."*
 
 Mahayana extends the feature through the bodhisattva commitments
 enumerated above: the bodhisattva has explicitly vowed to save all
-beings including enemies, and the vow is not sentimental but
-structural — the practitioner is to train the mind until the vow
+beings including enemies, and the vow is structural rather than
+sentimental: the practitioner is to train the mind until the vow
 becomes operational.
 
 Tibetan *lojong* ("mind training") practices are organized around
@@ -1136,15 +1136,15 @@ specific "enemy as teacher" framing, arguably more developed.
 
 Buddhist renunciation tradition is structurally built on the
 non-ultimacy of ordinary political and social life. The monk or nun
-*leaves* the household (*pabbajja* — "going forth") in order to
+*leaves* the household (*pabbajja*, "going forth") to
 pursue the Dharma; the act of renunciation is a declaration that the
 household, the polity, and the ordinary social order are not the
 ultimate.
 
 The two-truths doctrine (*sammuti-sacca* / *paramattha-sacca* in
 Theravada; *samvrti-satya* / *paramartha-satya* in Mahayana) codifies
-the feature at the epistemic level: conventional reality — including
-political reality — is not the ultimate truth. This is structurally
+the feature at the epistemic level: conventional reality (including
+political reality) is not the ultimate truth. This is structurally
 parallel to Augustine's two-cities distinction, reached through
 different theoretical apparatus.
 
@@ -1152,7 +1152,7 @@ The Buddhist tradition has been operationally reminded of this
 feature through the *dhammaraja* doctrine in Theravada and the
 *yön-chö* relationship in Tibetan Vajrayana: the king or patron is
 not the ultimate, he is the *servant* of the ultimate. When kings
-overreach — when they attempt to absorb the substrate — the
+overreach (when they attempt to absorb the substrate), the
 tradition resists, sometimes at severe cost. Burmese and Thai
 conflicts between kings and senior monks over Vinaya interpretation
 are recurring, and the sangha has generally preserved its
@@ -1168,9 +1168,9 @@ The sangha supplies the five anti-spiral features. The mapping is
 not identical to the Christian form; features (1), (3), (4), and (5)
 are supplied through different theoretical apparatus, and feature
 (2) is supplied in a form that varies substantially across Buddhist
-schools. But the load-bearing function of the features — blocking the
+schools. But the load-bearing function of the features (blocking the
 purity-spiral failure mode by foreclosing the psychological and
-ontological moves the spiral requires — is performed.
+ontological moves the spiral requires) is performed.
 
 The one feature where Christianity has a distinctive structural
 advantage is (3), scapegoat-revelation. Buddhism supplies an
@@ -1218,9 +1218,9 @@ built on a substrate that supplies the anti-spiral features through
 non-Christian theoretical apparatus. Move (a) fails: the regimes are
 not primarily imperial. Move (b) fails: the regimes outlast the
 Christian cases. Move (c) is available but requires a theological
-move — the claim that Buddhism's supplying of the features indicates
+move, the claim that Buddhism's supplying of the features indicates
 its (partial) participation in a truth Christianity articulates more
-completely — which is coherent within Christian theology (Justin
+completely, which is coherent within Christian theology (Justin
 Martyr's *logos spermatikos*; *Lumen Gentium*'s treatment of
 non-Christian religions) but is not derivable from the historical
 evidence alone.
@@ -1239,8 +1239,8 @@ it.** On the five anti-spiral features, the sangha supplies (1),
 (2), (4), and (5) at depth comparable to Christianity; it supplies
 (3) at lesser depth through a structurally different mechanism. If
 the Christian argument is that the *specific combination* of
-features is most fully supplied by Christianity — not that
-Christianity is the only source — the sangha's handling of (3) is
+features is most fully supplied by Christianity (not that
+Christianity is the only source), the sangha's handling of (3) is
 the evidence most relevant to that claim. The anti-sacrificial
 disarmament in Buddhism operates ontologically; the Christian
 disarmament operates historically-narratively; and the latter may
@@ -1263,7 +1263,7 @@ the Christian-particularist argument.** The sangha's mechanism is a
 trans-polity religious community doing scholastic, ritual, and
 credentialing work across polities, which is structurally closer to
 the Benedictines than to the Hanse. The Christian tradition has
-produced both kinds of cooperation regime — the trans-polity
+produced both kinds of cooperation regime: the trans-polity
 religious orders (Benedictines, Cistercians, Jesuits, Society of
 Jesus, and the papacy as an ecclesiastical authority) *and* the
 cross-polity cooperation frameworks (Westphalia, Hanse, lex
@@ -1373,7 +1373,7 @@ load-bearing.
   claims more cleanly?
 - The Pure Land (Shin) tradition appears to supply grace-over-merit
   in the form most directly analogous to Christian grace. Does it
-  also supply a scapegoat-revelation analogue — Amida's vow as a
+  also supply a scapegoat-revelation analogue, Amida's vow as a
   structural revelation of the unworthiness-of-merit dynamic that
   drives the scapegoat mechanism? This is a non-trivial
   theological-comparative question that would repay direct treatment.
@@ -1392,7 +1392,7 @@ load-bearing.
   check?
 - The three Buddhist regimes (Theravada, East Asian, Tibetan) are
   operationally separate after roughly the 11th century. Do they
-  *recognize* each other as analogous regimes — does a Theravada
+  *recognize* each other as analogous regimes? Does a Theravada
   monastic leader recognize a Tibetan tulku as playing a comparable
   role in his tradition? If not, what does that say about
   cross-compact recognition generally?
@@ -1408,27 +1408,27 @@ load-bearing.
 
 ## Relationship to other documents
 
-- [historical_cases.md](historical_cases.md) — supplies the Christian
+- [historical_cases.md](historical_cases.md): supplies the Christian
   cases template this document parallels. The brief Buddhist
   mention in the transcendent moral authority pattern section
   ("Buddhist Dharma ... confirms the pattern") is now
   supplemented by the full treatment here.
-- [noticeable_hand.md](noticeable_hand.md) — the open question about
+- [noticeable_hand.md](noticeable_hand.md): the open question about
   the sangha that motivated this document. The Buddhist-longevity
   counterweight section in noticeable_hand.md should now reference
   the present document as its underlying evidence.
-- [justus_hostis.md](justus_hostis.md) — supplies the anti-spiral
+- [justus_hostis.md](justus_hostis.md): supplies the anti-spiral
   features formulation this document tests against the sangha
   evidence. The result (the sangha supplies the features) reinforces
   the justus_hostis.md position that the features rather than
   specific theology are the compact requirement.
-- [recognition_protocols.md](recognition_protocols.md) — the
+- [recognition_protocols.md](recognition_protocols.md): the
   pilgrimage-for-credentialing pattern (East Asian) and the
   *yön-chö* cross-polity substrate authority pattern (Tibetan) are
   architectural contributions to the recognition protocols; the
   relevant sections there should cite this document as empirical
   support.
-- [exit_and_succession.md](exit_and_succession.md) — the Theravada
+- [exit_and_succession.md](exit_and_succession.md): the Theravada
   re-ordination pattern (Sri Lanka reconstituted by Burma and
   Thailand three times) is a working precedent for reconstitution
   after line loss, and should be cited there.
@@ -1443,11 +1443,11 @@ Colombo *(2006); Harvey,* An Introduction to Buddhism *(2013); Strong,*
 The Experience of Buddhism: Sources and Interpretations *(2008);
 Heirman & Bumbacher (eds.),* The Spread of Buddhism *(2007).*
 
-*On the Theravada regime specifically:* the *Mahavamsa* (5th–6th c.
+*On the Theravada regime specifically:* the *Mahavamsa* (5th-6th c.
 CE Pali chronicle of Sri Lanka); *Cūḷavaṃsa* (continuations through
 the 19th c.); Walpola Rahula, *History of Buddhism in Ceylon* (1956);
 Heinz Bechert, *Buddhismus, Staat und Gesellschaft in den Ländern des
-Theravada-Buddhismus* (1966–73, 3 vols.); Stanley Tambiah, *World
+Theravada-Buddhismus* (1966-73, 3 vols.); Stanley Tambiah, *World
 Conqueror and World Renouncer* (1976) and *The Buddhist Saints of
 the Forest and the Cult of Amulets* (1984); Anne Blackburn, *Locations
 of Buddhism: Colonialism and Modernity in Sri Lanka* (2010).

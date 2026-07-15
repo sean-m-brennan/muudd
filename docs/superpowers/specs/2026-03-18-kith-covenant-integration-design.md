@@ -1,4 +1,4 @@
-# Phase 4: Kith-Covenant Protocol Hooks — Design Specification
+# Phase 4: Kith-Covenant Protocol Hooks Design Specification
 
 **Date:** 2026-03-18
 **Status:** Approved
@@ -6,7 +6,7 @@
 
 ## Objective
 
-Define the AT ↔ Kith-Covenant interface and build an evaluation framework for group protocol policies. This phase does not implement Kith-Covenant protocols — it creates the scaffolding so that protocol development can proceed with automated feedback.
+Define the AT ↔ Kith-Covenant interface and build an evaluation framework for group protocol policies. This phase does not implement Kith-Covenant protocols. It creates the scaffolding so that protocol development can proceed with automated feedback.
 
 ## Base Paths
 
@@ -21,8 +21,8 @@ All paths in this spec are relative to these roots:
 
 Split-package design with clean ownership boundaries:
 
-- **`lib/kith-covenant/src/python/kith_covenant/`** — Stable interface: event types, policy schema, evaluator protocol. Owned by the Kith-Covenant library. Target for both hand-crafted policies and future ML-generated policies.
-- **`evaluation/kith_covenant/`** — Runtime: AT process plugin (observer), evaluation harness, Docker integration. Owned by the AT simulator.
+- **`lib/kith-covenant/src/python/kith_covenant/`**: Stable interface. Event types, policy schema, evaluator protocol. Owned by the Kith-Covenant library. Target for both hand-crafted policies and future ML-generated policies.
+- **`evaluation/kith_covenant/`**: Runtime. AT process plugin (observer), evaluation harness, Docker integration. Owned by the AT simulator.
 
 The simulator imports from the kith-covenant library. The kith-covenant library has no dependency on AT internals.
 
@@ -45,7 +45,7 @@ Import style: `from kith_covenant.interface import PeerAdmitted, ...` and `from 
 
 ## Event Model
 
-The observer translates raw AT `Message` objects into typed events. These are the stable interface between AT and Kith-Covenant — policies reason about events, never raw messages.
+The observer translates raw AT `Message` objects into typed events. These are the stable interface between AT and Kith-Covenant: policies reason about events, never raw messages.
 
 Defined in `lib/kith-covenant/src/python/kith_covenant/interface.py` as frozen dataclasses:
 
@@ -56,7 +56,7 @@ Defined in `lib/kith-covenant/src/python/kith_covenant/interface.py` as frozen d
 | `NegotiationStarted` | `invitation` | `task_id: str`, `initiator_id: str`, `timestamp: datetime` |
 | `NegotiationOutcome` | `ack` / `nack` | `task_id: str`, `success: bool`, `timestamp: datetime` |
 
-**Ignored message functions:** `request_access`, `peer_accepted` (internal identity protocol steps — only the final `access_granted` matters for policy), `haggle` (intermediate negotiation counter-offer — only the final `ack`/`nack` outcome matters for policy evaluation).
+**Ignored message functions:** `request_access`, `peer_accepted` (internal identity protocol steps; only the final `access_granted` matters for policy), `haggle` (intermediate negotiation counter-offer; only the final `ack`/`nack` outcome matters for policy evaluation).
 
 **Extracting fields from AT messages:**
 - `peer_id`: From `msg.from_whom` (inbound) or `msg.to_whom[0]` (outbound), following the MetricsCollector pattern.
@@ -82,9 +82,9 @@ Defined in `lib/kith-covenant/src/python/kith_covenant/policy.py`. A frozen data
 
 ### Shipped Policies
 
-1. **`NullPolicy`** — All fields `None`/`False`. No rules. Baseline for comparison.
-2. **`PermissivePolicy`** — `min_reputation=0.2`, `cooldown=30s`, `max_group=50`, priority off.
-3. **`StrictPolicy`** — `min_reputation=0.5`, `cooldown=120s`, `max_group=10`, priority on.
+1. **`NullPolicy`**: All fields `None`/`False`. No rules. Baseline for comparison.
+2. **`PermissivePolicy`**: `min_reputation=0.2`, `cooldown=30s`, `max_group=50`, priority off.
+3. **`StrictPolicy`**: `min_reputation=0.5`, `cooldown=120s`, `max_group=10`, priority on.
 
 ### Serialization
 
@@ -92,11 +92,11 @@ Defined in `lib/kith-covenant/src/python/kith_covenant/policy.py`. A frozen data
 
 ### ML Integration Point
 
-The future Transformer generates a dict of these same fields. `KithCovenantPolicy.from_dict(model_output)` closes the loop — no adapter needed.
+The future Transformer generates a dict of these same fields. `KithCovenantPolicy.from_dict(model_output)` closes the loop. No adapter needed.
 
 ## KithCovenantObserver Process
 
-`evaluation/kith_covenant/observer.py`. Registered via `add_worker()`, receives messages via `_TeeQueue`. Passive — reads the message stream but never injects messages.
+`evaluation/kith_covenant/observer.py`. Registered via `add_worker()`, receives messages via `_TeeQueue`. Passive: reads the message stream but never injects messages.
 
 ```python
 class KithCovenantObserver(Process, metaclass=ProcMeta,
@@ -215,7 +215,7 @@ class KithCovenantInstrumentedAT(InstrumentedAT):
                             output_path=self._kith_covenant_output)
 ```
 
-No `run_forever()` override needed — the generalized `_TeeQueue` in the parent class handles fan-out to both observers.
+No `run_forever()` override needed. The generalized `_TeeQueue` in the parent class handles fan-out to both observers.
 
 ## KithCovenantEvaluator
 
@@ -270,7 +270,7 @@ Both backends return `EvaluatorResult`, so comparison across backends is straigh
 
 ## File Layout
 
-### New Files — Kith-Covenant Library (`lib/kith-covenant/`)
+### New Files: Kith-Covenant Library (`lib/kith-covenant/`)
 
 | File | Contents |
 |------|----------|
@@ -278,7 +278,7 @@ Both backends return `EvaluatorResult`, so comparison across backends is straigh
 | `python/kith_covenant/interface.py` | Event dataclasses, `EvaluatorResult`, `KithCovenantEvaluatorProtocol` |
 | `python/kith_covenant/policy.py` | `KithCovenantPolicy`, factory functions, serialization |
 
-### New Files — AT Simulator (`simulator/`)
+### New Files: AT Simulator (`simulator/`)
 
 | File | Contents |
 |------|----------|
@@ -333,4 +333,4 @@ export PYTHONPATH="${KITH_COVENANT_SRC}:${AT_SRC}/autonomous-trust:${AT_SRC}/aut
    └──→ repeat
 ```
 
-Step 5 is future work. This spec delivers steps 1–4.
+Step 5 is future work. This spec delivers steps 1-4.

@@ -5,11 +5,11 @@
 ## Thesis
 
 Every durable cooperation regime in the historical record maintained *liminal
-spaces* — institutions that belonged to no single community but served the
+spaces*: institutions that belonged to no single community but served the
 compact as a whole. The Iroquois Council Fire at Onondaga, the Hanseatic
 Kontore in Novgorod and Bergen, the Delphic oracle's precinct, the medieval
 pie-powder court at a fair under the Peace of God, the capitulatory consulates
-of the Ottoman Empire, the free ports of Danzig and Livorno — all share a
+of the Ottoman Empire, the free ports of Danzig and Livorno, all share a
 structural position: they sit *between* the communities they serve, drawing
 authority from the compact rather than from any member, and their neutrality
 is protected (when it works) by the same sacred substrate that underwrites
@@ -29,19 +29,19 @@ These institutions carry three loads that no member community can carry alone:
    who can detect inauthenticity and maintain continuity across generations.
    Liminal institutions are the natural custodians of the witness role.
 
-3. **Cultivation of discernment** — the capacity to distinguish the
+3. **Cultivation of discernment**: the capacity to distinguish the
    fallen-but-recoverable from the demonic, which is the deepest requirement
    of the anathema designation procedure. This is a virtue,
    not a certification, and it must be cultivated somewhere. The liminal
    institution is that somewhere.
 
-Bilateral cooperation regimes — those without third-party institutions —
+Bilateral cooperation regimes (those without third-party institutions)
 decay faster than trilateral ones because they lack the structural position
 from which mediation, witnessing, and discernment can be exercised without
 factional contamination. The third party need not be powerful; it must be
 *positioned*. Kith-covenant requires liminal institutions, and their design
-is constrained by the same structural requirements — sacred substrate,
-capture resistance, and the refusal to become a sovereign — that constrain
+is constrained by the same structural requirements (sacred substrate,
+capture resistance, and the refusal to become a sovereign) that constrain
 the compact itself.
 
 ---
@@ -53,13 +53,13 @@ the compact itself.
 The Haudenosaunee (Iroquois) Confederacy's central institution was not a
 government but a *fire*. The Council Fire burned at Onondaga, the
 geographically central nation, and the Onondaga were designated
-fire-keepers — not rulers, not legislators, but custodians of the space
+fire-keepers: not rulers, not legislators, but custodians of the space
 in which the other nations deliberated.
 
 The structural insight is precise. Onondaga did not vote first; Onondaga
 did not set the agenda; Onondaga did not command. The fire-keeper's role
 was procedural and sacral: maintain the fire, host the sachems, ensure
-the forms were observed, and — crucially — *hold the wampum records*.
+the forms were observed, and, above all, *hold the wampum records*.
 The custodianship of memory is not a minor administrative function; it is
 the mechanism by which the institution maintains continuity and resists
 capture by the most powerful member. The Seneca and Mohawk, at the
@@ -68,7 +68,7 @@ and the ritual. Power and memory were separated by design.
 
 The Council Fire's authority derived from the Great Law of Peace
 (*Kaianere'kó:wa*) and ultimately from the Creator
-(*Shöñgwa'ya'di:söñ*). Attacks on the fire — literal or metaphorical —
+(*Shöñgwa'ya'di:söñ*). Attacks on the fire (literal or metaphorical)
 were attacks on the sacred compact itself, not merely on one nation's
 property. This sacral protection is not decorative; it is the mechanism
 that prevented the fire-keepers from being conquered, co-opted, or
@@ -76,7 +76,7 @@ simply ignored by stronger nations.
 
 **Decay mode:** The Confederacy's liminal institution did not fail
 internally; it was fractured by an *external* existential conflict.
-During the American Revolution, the Council Fire was divided — some
+During the American Revolution, the Council Fire was divided: some
 nations allied with the British, some with the Americans, and the fire
 was symbolically extinguished. The reconstituted fire at Grand River
 (Ontario) and the continuing fire at Onondaga (New York) are both
@@ -97,7 +97,7 @@ commercial power.
 
 The Kontore's structural position was genuinely liminal. A merchant
 residing in the Peterhof was subject to Hanseatic law, not Novgorodian
-law, but the Peterhof existed only because Novgorod permitted it —
+law, but the Peterhof existed only because Novgorod permitted it,
 and Novgorod permitted it because the trade was valuable. The Kontor
 was neither sovereign nor subject; it was a *guest institution* whose
 continued existence depended on its usefulness to both sides.
@@ -107,11 +107,11 @@ ground** for commercial disputes between merchants of different cities
 (the Kontor's alderman adjudicated). They provided **witness
 infrastructure** for the League's commercial practices (the Kontor
 maintained the records, weights, and measures that made cross-city
-trade legible). And they cultivated **discernment** — the ability to
-distinguish honest traders from fraudsters — through apprenticeship
+trade legible). And they cultivated **discernment** (the ability to
+distinguish honest traders from fraudsters) through apprenticeship
 and reputation networks.
 
-**Funding model:** The Kontore were funded by trade levies — a
+**Funding model:** The Kontore were funded by trade levies: a
 percentage of every transaction passing through the post. This gave them
 material independence from any single city while making them dependent
 on the aggregate trade of the League. The capture vulnerability was
@@ -120,7 +120,7 @@ less important as Russian trade routes changed), the institution
 withered because its funding base dried up.
 
 **Decay mode:** The Kontore did not fall to capture; they fell to
-irrelevance. As the Hanse weakened in the 15th–16th centuries, host
+irrelevance. As the Hanse weakened in the 15th and 16th centuries, host
 cities revoked the Kontore's extraterritorial privileges because the
 League could no longer enforce them. The Steelyard was closed by
 Elizabeth I in 1598. The Peterhof was destroyed by Ivan III in 1494.
@@ -131,8 +131,8 @@ in the economy destroys the institution.
 ### Temple precincts: Delphi and Jerusalem
 
 The oracle at Delphi occupied a precinct that was, in effect,
-international territory within the Greek world. The *amphictyony* — the
-league of twelve tribes that administered Delphi — was not a government;
+international territory within the Greek world. The *amphictyony* (the
+league of twelve tribes that administered Delphi) was not a government;
 it was a custodial body for a sacred institution. Wars between members
 were not forbidden (the amphictyony was no peace league), but attacks
 on Delphi itself, its priests, or travelers to the oracle were *sacred
@@ -141,7 +141,7 @@ offenses* punished by the league collectively.
 The mechanism is structurally identical to the Iroquois Council Fire:
 the institution's protection derives from the sacred substrate, not
 from military power. Delphi had no army. The amphictyony's enforcement
-was collective religious sanction — exclusion from the temple, from the
+was collective religious sanction: exclusion from the temple, from the
 Pythian Games, from the ritual life that gave meaning to the Greek world.
 The penalty for violating Delphic neutrality was not death but
 *excommunication from the sacred commons*.
@@ -156,7 +156,7 @@ of the liminal institution itself, with catastrophic consequences for
 the cooperative framework that depended on it.
 
 **Decay mode:** Both Delphi and the Jerusalem Temple fell to external
-conquest — but in both cases, the conquest was preceded by a period of
+conquest, but in both cases, the conquest was preceded by a period of
 *instrumentalization* in which powerful parties attempted to use the
 sacred institution for factional advantage. Philip II of Macedon
 manipulated the Delphic amphictyony as a pretext for expanding
@@ -169,7 +169,7 @@ a faction.
 
 ### Consular courts and the capitulation system
 
-The Ottoman Empire maintained a system of *capitulations* — treaties
+The Ottoman Empire maintained a system of *capitulations*: treaties
 granting foreign communities (Venetian, Genoese, French, later British
 and others) the right to adjudicate disputes among their own members on
 Ottoman soil, under their own law, through their own consular courts.
@@ -182,7 +182,7 @@ community within the Ottoman context. It was funded by the community it
 served, staffed by community members, and recognized by the Ottoman
 authorities as having jurisdiction over intra-community disputes. It did
 *not* have jurisdiction over disputes between communities or between a
-community and Ottoman subjects — those went to Ottoman courts. The
+community and Ottoman subjects. Those went to Ottoman courts. The
 boundary was clear, and the clarity was the mechanism.
 
 **Decay mode:** The capitulation system decayed when the power
@@ -199,8 +199,8 @@ configuration.
 
 ### Medieval fair courts (pie-powder courts)
 
-The *courts of pie-powder* (from French *pieds poudrés*, "dusty feet"
-— referring to the itinerant merchants who appeared before them) were
+The *courts of pie-powder* (from French *pieds poudrés*, "dusty feet",
+referring to the itinerant merchants who appeared before them) were
 pop-up liminal institutions. They convened at fairs and markets, operated
 under the *lex mercatoria* (merchant law), and dissolved when the fair
 ended. Their jurisdiction was limited to commercial disputes arising at
@@ -211,23 +211,23 @@ The pie-powder court is the purest example of a liminal institution
 that requires almost no permanent infrastructure. It needs: a venue
 (the fair), a recognized adjudicator (often the fair's steward or a
 panel of experienced merchants), a procedure (summary, oral, same-day
-adjudication was the norm — justice delayed was justice denied for a
+adjudication was the norm: justice delayed was justice denied for a
 merchant who needed to be in the next town tomorrow), and a
 reputation-enforcement mechanism (the network of fairs and merchants
 that carried the court's judgments). Everything else is overhead.
 
 **Decay mode:** The pie-powder courts were absorbed by the state. As
-royal courts expanded their jurisdiction in the 14th–16th centuries,
+royal courts expanded their jurisdiction from the 14th to the 16th centuries,
 the separate merchant-law jurisdiction was folded into the common law
 (in England) or the civil law (on the Continent). The lex mercatoria
-survived as a body of principles, but the institutional form — the
-pop-up court under the sacred protection of the fair — was dissolved.
+survived as a body of principles, but the institutional form (the
+pop-up court under the sacred protection of the fair) was dissolved.
 The lesson: liminal institutions that lack permanent structural
 protection are absorbed by permanent institutions.
 
 ### Free ports: Danzig, Livorno, Singapore
 
-The free port is a liminal institution in spatial form — a zone of
+The free port is a liminal institution in spatial form: a zone of
 *suspended sovereignty* where the normal rules of the surrounding
 territory do not fully apply. Danzig (Gdańsk) functioned as a free
 city within the Hanseatic network, with a degree of independence from
@@ -241,7 +241,7 @@ neutral point in the Southeast Asian trade network.
 The common mechanism: the sponsoring authority *gains more from the
 free port's neutrality than it would from direct control*. This is the
 economic logic that underwrites the liminal institution's independence.
-It holds as long as the economic calculation holds — and fails when
+It holds as long as the economic calculation holds, and fails when
 the sponsoring authority decides that control is more valuable than
 neutrality.
 
@@ -265,7 +265,7 @@ Four structural requirements distinguish the two:
 
 **1. Standing without sovereignty.** The institution must have sufficient
 authority to convene parties, adjudicate disputes, maintain records,
-and conduct ceremonies — but it must not possess sovereignty over
+and conduct ceremonies. But it must not possess sovereignty over
 territory, people, or resources beyond what its custodial function
 requires. Sovereignty is the liminal institution's terminal disease;
 every historical case in which a liminal institution accumulated
@@ -286,7 +286,7 @@ institution's material independence.
 **3. Continuity without heredity.** Liminal institutions must persist
 across generations, but their personnel must not become a hereditary
 caste. The Onondaga fire-keepers were selected from specific clans
-by clan mothers — a rotation mechanism that ensured continuity of the
+by clan mothers: a rotation mechanism that ensured continuity of the
 role while preventing any individual lineage from owning it. The
 Hanseatic Kontor aldermen served terms. The Delphic priestesses were
 selected, not bred. Kith-covenant's mediators must be drawn from
@@ -294,12 +294,12 @@ member communities on some rotation basis, serving terms rather than
 lifetimes, and returning to their home communities afterward.
 
 **4. Expertise without inquisition.** The mediator's role requires
-discernment — the ability to distinguish the fallen-but-recoverable
+discernment: the ability to distinguish the fallen-but-recoverable
 from the demonic, the sincere recitation from the hollow one, the
 good-faith dispute from the bad-faith provocation. Discernment is a
 virtue, not a credential; it is cultivated by practice, not conferred
 by examination. But every historical attempt to cultivate discernment
-in a specialized class has risked producing inquisitors — people who
+in a specialized class has risked producing inquisitors: people who
 *enjoy* the exercise of judgment over others, who mistake procedural
 authority for spiritual authority, and who use their position to
 enforce orthodoxy rather than to detect inauthenticity. The antidote
@@ -337,9 +337,9 @@ The minimum viable pool must satisfy three constraints:
   becomes a gatekeeping mechanism.
 
 For a compact of *n* communities, the minimum mediator pool is
-approximately 3*n* — enough for a three-person panel drawn entirely
+approximately 3*n*: enough for a three-person panel drawn entirely
 from non-party communities in any bilateral dispute, with each
-community contributing roughly equally. For small compacts (3–5
+community contributing roughly equally. For small compacts (3 to 5
 communities), every community must contribute at least one mediator,
 and the pool is too small for formal rotation; the pie-powder model
 (ad hoc panels for specific disputes) is more realistic. For larger
@@ -348,7 +348,7 @@ rotation becomes feasible.
 
 ### The protecting-powers analogue
 
-The Geneva Conventions designate *protecting powers* — neutral states
+The Geneva Conventions designate *protecting powers*: neutral states
 that look after the interests of parties to a conflict. The protecting
 power has access to prisoners, inspects detention conditions, and
 forwards communications. It is not an arbitrator; it is a witness with
@@ -358,7 +358,7 @@ Kith-covenant's analogue: for any dispute that reaches the mediation
 stage of the escalation ladder, a non-party community is designated as
 the protecting power for each disputant. The protecting power's role
 is to ensure that the disputant's rights under the common-virtue
-framework are respected during the dispute — that the escalation
+framework are respected during the dispute: that the escalation
 ladder is being climbed correctly, that the disputant has access to
 the mediators, that communications are not interdicted, that the
 dispute is not being used as a pretext for violations of the common
@@ -376,7 +376,7 @@ discernment. Weakness: susceptible to capture by the incumbent
 generation's biases.
 
 **The selection model** (Delphic, some monastic). Mediators are chosen
-by a process that is partly or wholly out of human hands — by lot,
+by a process that is partly or wholly out of human hands: by lot,
 by divination, by discernment of calling. Strength: resists factional
 control. Weakness: the selected person may lack competence; the
 selection mechanism may be corrupted.
@@ -389,7 +389,7 @@ depth of experience.
 Kith-covenant's design should combine elements: a qualified pool
 populated by apprenticeship, selected for specific cases by lot or
 rotation, with term limits that ensure return to the home community.
-The crucial structural feature is that mediators *must return home*.
+The structural feature that matters is that mediators *must return home*.
 A permanent mediator class is the first step toward an inquisitorial
 caste.
 
@@ -402,19 +402,19 @@ The recognition ceremony described in
 who perform four functions:
 
 1. **Hearing.** The witness is present for the recitation and receives
-   it as a speech act — not reading a transcript, not watching a
+   it as a speech act: not reading a transcript, not watching a
    recording, but being physically present for the spoken commitment.
    The asymmetric-psychological-cost mechanism developed in
    recognition_protocols.md depends on the bodily co-presence of
    speaker and witness.
 
-2. **Discernment.** The witness assesses sincerity — not by
+2. **Discernment.** The witness assesses sincerity: not by
    interrogation but by the involuntary signals that spoken commitment
    produces. A hollow recitation is detectable (recognition_protocols.md
    §"Asymmetric psychological cost: a closer look"), and the witness's
    role includes detecting it. This is not a pass/fail examination;
    it is a discernment that may lead to further conversation,
-   re-examination, or — in the limit — a recommendation that the
+   re-examination, or (in the limit) a recommendation that the
    compact not accept the recitation.
 
 3. **Recording.** The witness signs the cryptographic record of the
@@ -427,7 +427,7 @@ who perform four functions:
 4. **Continuity.** The witness carries the memory of the ceremony into
    the future, available for the generational re-affirmation cadence.
    When the next generation re-recites, witnesses from the previous
-   generation (or their successors) provide continuity — they know
+   generation (or their successors) provide continuity: they know
    what was said before and can assess whether the re-affirmation is
    genuine continuation or drift.
 
@@ -437,12 +437,12 @@ Witnesses should be drawn from the mediator pool but need not be the
 same individuals who serve as dispute mediators. The compact may
 designate a witness corps within the broader mediator pool, with its
 own rotation schedule. The key constraint: **witness continuity must
-be maintained alongside rotation**. This means staggered terms — never
-replacing all witnesses simultaneously — so that institutional memory
+be maintained alongside rotation**. This means staggered terms (never
+replacing all witnesses simultaneously) so that institutional memory
 survives across cohorts.
 
 A practical model: for each recognition ceremony, three witnesses are
-required — one drawn from the outgoing cohort (continuity), one from
+required: one drawn from the outgoing cohort (continuity), one from
 the current cohort (institutional presence), and one from a non-mediator
 community delegation (external check). The three-witness structure
 provides redundancy and diversity of perspective.
@@ -455,7 +455,7 @@ The anathema designation procedure in
 [bounded_conflict.md](bounded_conflict.md) is deliberately heavy: four
 conditions must be met, multiple communities must concur, and the
 designation carries severe consequences. This weight is a feature, not
-a bug — it prevents weaponization.
+a bug: it prevents weaponization.
 
 But the open question from bounded_conflict.md is real: **is the
 procedure too heavy for cases where rapid action is genuinely needed?**
@@ -463,13 +463,13 @@ procedure too heavy for cases where rapid action is genuinely needed?**
 Consider the scenario: a community begins actively destroying the
 compact's communication relays (attacking the knowledge commons) or
 systematically harming non-combatants from other communities. The full
-designation procedure takes time — deliberation, examination of
+designation procedure takes time: deliberation, examination of
 evidence, concurrence of multiple communities. Meanwhile, the harm
 continues.
 
 ### Proposal: the interim injunction
 
-The liminal institution may issue an **interim injunction** — a
+The liminal institution may issue an **interim injunction**: a
 temporary restraining order that applies specific protective measures
 *before* full designation is completed. The interim injunction:
 
@@ -482,9 +482,9 @@ temporary restraining order that applies specific protective measures
 - **Expires after a defined period** (proposal: 90 days) unless
   confirmed by the full compact deliberation process.
 - **Triggers mandatory convocation** of the full compact to consider
-  the case — the interim injunction is not an alternative to the full
+  the case: the interim injunction is not an alternative to the full
   procedure but a bridge to it.
-- **Is itself subject to review** — the affected community may
+- **Is itself subject to review**: the affected community may
   challenge the injunction before a different mediator panel. The
   challenge does not suspend the injunction but must be heard within
   a short period (proposal: 14 days).
@@ -509,9 +509,9 @@ emergency power. Three safeguards:
 
 ### Historical precedent
 
-The interim injunction has precedent. The papal interdict — immediate
+The interim injunction has precedent. The papal interdict, immediate
 ecclesiastical sanction (suspension of sacraments for a territory)
-pending full hearing — served exactly this function in medieval
+pending full hearing, served exactly this function in medieval
 Christendom. The Hanseatic emergency boycott (a temporary trade ban
 imposed by a subset of member cities pending the next *Hansetag*) is
 the commercial analogue. Both were subject to misuse; both were
@@ -530,14 +530,14 @@ as shared facilities that belong to no single habitat:
 **Shared docking facilities.** A neutral docking station where ships
 from different habitats can berth, transfer cargo, and exchange
 personnel without entering either habitat's sovereign space. The
-docking facility is the space analogue of the free port — a zone of
+docking facility is the space analogue of the free port: a zone of
 suspended sovereignty governed by compact rules rather than any single
 habitat's law.
 
 **Communication relays.** Relay stations positioned at Lagrange points
 or along high-traffic routes, maintained by the compact rather than by
 individual habitats. These relays are the space analogue of the
-Hanseatic Kontore — neutral infrastructure that enables the trade
+Hanseatic Kontore: neutral infrastructure that enables the trade
 (information, in this case) that makes the compact valuable. Attacks
 on communication relays are attacks on the compact's information
 commons and constitute a violation of the "protection of communicative
@@ -546,7 +546,7 @@ commons" virtue.
 **Emergency rendezvous points.** Pre-designated locations where
 distressed vessels or habitats can seek assistance from any compact
 member. The rendezvous point is protected by the "sanctuary of the
-rescuer" virtue — the duty to render aid regardless of which community
+rescuer" virtue: the duty to render aid regardless of which community
 the distressed party belongs to. The liminal institution's role: maintain
 the rendezvous point's infrastructure, staff it if necessary, and ensure
 that rescue operations are not interdicted or exploited.
@@ -562,7 +562,7 @@ docking station at a Lagrange point is accessible to all habitats in
 the system, but AU-distance travel times mean that a distressed habitat
 cannot reach it quickly. The solution is a network of liminal facilities
 at multiple locations, each maintained by a subset of nearby compact
-members under compact governance — a distributed liminal architecture
+members under compact governance: a distributed liminal architecture
 rather than a single central fire.
 
 ---
@@ -592,8 +592,8 @@ rather than serve the compact.
 **The assessed-contribution model** (modern international
 organizations). Each member community pays an assessed share, typically
 proportional to some measure of capacity (population, economic output,
-resource base). **Capture vulnerability:** the largest contributors —
-the most powerful communities — have structural leverage over the
+resource base). **Capture vulnerability:** the largest contributors
+(the most powerful communities) have structural leverage over the
 institution (the US/UN dynamic is the canonical example).
 
 **The endowment model** (some monasteries, some universities).
@@ -617,8 +617,8 @@ decides.
 
 ## The sacred character of liminal space
 
-Every historical liminal institution in the case set — without
-exception — was *sacred*. The Council Fire was tended under the Great
+Every historical liminal institution in the case set (without
+exception) was *sacred*. The Council Fire was tended under the Great
 Law of Peace; Delphi was Apollo's precinct; the pie-powder court sat
 under the Peace of God; the capitulatory consulates operated within
 the Ottoman *millet* system's recognition of religious community; the
@@ -632,7 +632,7 @@ performed three functions that secular authority cannot replicate:
 category.** An attack on a trading post is a commercial act; an attack
 on a sacred precinct is a violation of the sacred order itself. This
 category-shift raises the cost of violation from "we lose a trading
-partner" to "we offend the substrate" — and the latter cost, for
+partner" to "we offend the substrate", and the latter cost, for
 communities whose oaths rest on the substrate, is existential.
 
 **2. It grounded the institution's authority in something beyond its
@@ -650,7 +650,7 @@ become sovereign because their role was defined by the Great Law, which
 they served rather than authored. The Delphic priestesses did not
 become political actors (for the most part) because their authority
 was oracular, not governmental. The sacred character imposes humility
-on the institution — or, at least, provides the structural resources
+on the institution, or at least provides the structural resources
 by which the compact can demand humility.
 
 For kith-covenant, this means that the compact's liminal institutions
@@ -659,7 +659,7 @@ documents should include a recognition that the institution serves
 the same ultimate that the compact's five-movement recognition ceremony
 names. Attacks on liminal institutions should be treated as violations
 of the "protection of communicative commons" and "reverence for life"
-virtues — not merely as property damage or strategic inconvenience.
+virtues, not merely as property damage or strategic inconvenience.
 
 ---
 
@@ -667,15 +667,15 @@ virtues — not merely as property damage or strategic inconvenience.
 
 The deepest failure mode for a liminal institution is the temptation
 to become a sovereign. The institution accumulates standing,
-personnel, material resources, procedural knowledge, and — if it
-does its job well — moral authority. At some point, the temptation
+personnel, material resources, procedural knowledge, and (if it
+does its job well) moral authority. At some point, the temptation
 arises to convert this accumulated capital into *power over* the
 compact's members rather than *service to* the compact.
 
 ### Historical cases of the sovereignty temptation
 
 **The papacy.** The Bishop of Rome began as a spiritual mediator among
-Christian communities — precisely a liminal institution. Over
+Christian communities: precisely a liminal institution. Over
 centuries, the papacy accumulated temporal power (the Papal States),
 jurisdictional authority (the right to depose kings), and
 institutional infrastructure (the Curia). By the High Middle Ages, the
@@ -684,11 +684,11 @@ sovereigns. The Reformation was, among other things, a rejection of
 the liminal institution's claim to sovereignty.
 
 **The European Union.** The EU began as the European Coal and Steel
-Community — a liminal institution for managing a shared commons
+Community: a liminal institution for managing a shared commons
 (coal and steel production) between former enemies. It has progressively
 accumulated regulatory authority, judicial supremacy (the European
 Court of Justice), quasi-legislative power (the Commission's
-directives), and — most recently — fiscal instruments. Whether the
+directives), and (most recently) fiscal instruments. Whether the
 EU has crossed the line from liminal institution to quasi-sovereign
 is a live political question; that it has moved decisively in that
 direction is not seriously disputed.
@@ -728,8 +728,8 @@ From the historical cases, five principles emerge:
 
 5. **The sacred constraint.** The institution's founding documents
    explicitly state that it serves the compact's substrate, not its
-   own interests. Violation of this constraint — an institution that
-   begins acting in its own interest rather than the compact's — is
+   own interests. Violation of this constraint (an institution that
+   begins acting in its own interest rather than the compact's) is
    grounds for the compact to reconstitute the institution with new
    personnel. This is the compact-level analogue of the *hostis
    humani generis* designation: a liminal institution that has been
@@ -742,9 +742,9 @@ From the historical cases, five principles emerge:
 The capture-resistance principles above protect the liminal institution
 itself from sovereignty drift. A complementary capture vector operates
 *through* the liminal institution: a sophisticated adversary deliberately
-generates an event of high interpretive charge — a "first contact" claim,
+generates an event of high interpretive charge (a "first contact" claim,
 an anomalous-physics result, a manufactured rescue need, a sudden
-"rediscovery" of historical interpretation — and exploits the ambient
+"rediscovery" of historical interpretation) and exploits the ambient
 community's lack of evaluation discipline to push the interpretation in
 whichever direction benefits the manufacturer. The mediator pool, as the
 compact's standing evaluation competency, is the natural locus for the
@@ -763,7 +763,7 @@ originating from witnesses with stake in the interpretation.
 
 The mediator pool is empowered to invoke the **structured-skepticism
 protocol** on its own initiative when an event meets these qualifying
-criteria. The protocol does not prejudge — it does not assume the event
+criteria. The protocol does not prejudge. It does not assume the event
 is manufactured. It imposes structural delay and corroboration
 requirements that buy time for the ambient community to develop
 interpretation, depriving the manufacturer of the loudest-interpreter
@@ -772,7 +772,7 @@ advantage that is the historical pattern's enabling condition.
 The protocol's elements:
 
 1. **Structured delay before compact-level action.** The interval scales
-   with interpretive charge — long enough for member communities to
+   with interpretive charge: long enough for member communities to
    develop independent interpretation, short enough that genuine
    emergencies (rescue, life-critical commons) are not blocked.
    Life-critical exceptions are explicit and named at protocol-formation;
@@ -782,14 +782,14 @@ The protocol's elements:
 2. **Multi-witness corroboration requirement.** The interpretation
    cannot be advanced by the originating party alone. Witnesses from
    multiple member communities must independently corroborate the
-   observable facts — separated cleanly from any interpretation of
-   them — before the interpretation enters compact deliberation.
+   observable facts (separated cleanly from any interpretation of
+   them) before the interpretation enters compact deliberation.
 
 3. **Cross-substrate translation.** The interpretation must be
    translated into multiple member communities' substrates and the
    translations compared. An interpretation that survives only in the
-   originating substrate's framing — that fails to render coherently
-   into adjacent substrates — is not necessarily wrong but is
+   originating substrate's framing (that fails to render coherently
+   into adjacent substrates) is not necessarily wrong but is
    structurally suspect, and the structural suspicion is recorded in
    the audit commons.
 
@@ -804,7 +804,7 @@ The protocol's elements:
    evidence of bad faith and is itself a designation-relevant event.
 
 The historical model is the canonical Catholic process for evaluating
-apparitions, deliberately slow — alleged apparitions go through years
+apparitions, deliberately slow: alleged apparitions go through years
 or decades of investigation before any authoritative judgment is
 issued, and the great majority are never judged at all. The slowness
 denies the loudest-interpreter advantage by ensuring the interpretation
@@ -816,7 +816,7 @@ for high-charge events of major interpretive consequence it may extend
 to weeks or months.
 
 Mediator-pool internal review checks that the protocol's invocation
-itself is not used as a tactic — a faction attempting to suppress
+itself is not used as a tactic: a faction attempting to suppress
 legitimate urgent matters by invoking structured skepticism against
 them. The check is procedural (the criteria must be documented
 specifically; invocations are auditable) and substantive (the
@@ -834,7 +834,7 @@ includes the distinction between genuine and pretextual invocation).
   but material strength invites the sovereignty temptation. Where is the
   viable band?
 
-- Can liminal institutions be **virtualized** — operating through
+- Can liminal institutions be **virtualized**, operating through
   protocol (cryptographic ceremony, distributed records, remote
   mediation) rather than physical space? Or does the
   sacred-substrate finding require physical meeting? The
@@ -843,7 +843,7 @@ includes the distinction between genuine and pretextual invocation).
   co-presence. But does *all* mediation require it?
 
 - How does the compact **reconstitute its liminal institutions** after
-  a catastrophic disruption — war, plague, infrastructure failure, the
+  a catastrophic disruption: war, plague, infrastructure failure, the
   kind of fire-extinguishing event the Iroquois experienced? The
   reconstitution question is shared with
   [exit_and_succession.md](exit_and_succession.md).
@@ -867,8 +867,8 @@ includes the distinction between genuine and pretextual invocation).
 
 - The **jester function** ([jester_and_dissent.md](jester_and_dissent.md))
   is a check on the mediator pool. But who checks the jester? Is there
-  a recursive problem here — each checking institution needs a
-  further checking institution — or does the sacred substrate provide
+  a recursive problem here (each checking institution needs a
+  further checking institution) or does the sacred substrate provide
   the terminal check?
 
 - Can the **interim injunction** mechanism be tested at small scale
@@ -879,39 +879,39 @@ includes the distinction between genuine and pretextual invocation).
 
 ## Relationship to other documents
 
-- [bounded_conflict.md](bounded_conflict.md) — the escalation ladder
+- [bounded_conflict.md](bounded_conflict.md): the escalation ladder
   this document's mediator pool and interim-injunction procedure
   operationalize.
-- [recognition_protocols.md](recognition_protocols.md) — the
+- [recognition_protocols.md](recognition_protocols.md): the
   recognition ceremony whose witness infrastructure this document
   develops.
-- [justus_hostis.md](justus_hostis.md) — the theoretical frame,
+- [justus_hostis.md](justus_hostis.md): the theoretical frame,
   especially the inquisitorial-caste problem and the discernment
   question.
-- [historical_cases.md](historical_cases.md) — the case material this
+- [historical_cases.md](historical_cases.md): the case material this
   document extends (Kontore, Council Fire, lex mercatoria fair courts).
-- [tacit_coordination.md](tacit_coordination.md) — the tacit
+- [tacit_coordination.md](tacit_coordination.md): the tacit
   coordination layer; liminal institutions provide the *explicit*
   coordination infrastructure that the tacit layer backs up.
-- [noticeable_hand.md](noticeable_hand.md) — the theological grounding
+- [noticeable_hand.md](noticeable_hand.md): the theological grounding
   for the sacred character of liminal space.
-- [commons_federation.md](commons_federation.md) — shared
+- [commons_federation.md](commons_federation.md): shared
   resource governance intersects with liminal-institution funding and
   custodianship.
-- [reputation_bridges.md](reputation_bridges.md) — the
-  liminal institution serves as arbiter of reputation disputes.
-- [exit_and_succession.md](exit_and_succession.md) — what
+- [reputation_bridges.md](reputation_bridges.md): the
+  liminal institution is the arbiter of reputation disputes.
+- [exit_and_succession.md](exit_and_succession.md): what
   happens to liminal institutions when a compact splits or dissolves.
-- [jester_and_dissent.md](jester_and_dissent.md) — the
+- [jester_and_dissent.md](jester_and_dissent.md): the
   jester function as a check on the mediator pool.
-- [../social_framework.md](../social_framework.md) — parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md)
-  — the intra-community complement; liminal institutions operate at the
+- [../social_framework.md](../social_framework.md): parent document.
+- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+  the intra-community complement; liminal institutions operate at the
   inter-community layer.
 
 ## References
 
-*To be added — anchor works include Turner,* The Ritual Process *(1969)
+*To be added: anchor works include Turner,* The Ritual Process *(1969)
 and van Gennep,* The Rites of Passage *(1909), both on liminality as a
 structural category; Fenton,* The Great Law and the Longhouse *(1998)
 on the Iroquois Council Fire; Dollinger,* The German Hansa *(1970)

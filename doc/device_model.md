@@ -6,11 +6,11 @@
 
 ## Device Characteristics
 
-<!-- FIXME: describe the end-user device assumptions — wide variety of hardware, high mobility, short range/single hop to mesh -->
+<!-- FIXME: describe the end-user device assumptions: wide variety of hardware, high mobility, short range/single hop to mesh -->
 
 ## Trust Posture
 
-<!-- FIXME: document that devices are initially untrusted and the network is suspicious of the user — trust is earned, not assumed -->
+<!-- FIXME: document that devices are initially untrusted and the network is suspicious of the user: trust is earned, not assumed -->
 
 ## Network Access Model
 

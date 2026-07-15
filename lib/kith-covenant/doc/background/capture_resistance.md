@@ -1,19 +1,19 @@
 *[Sustainable Space](../../../../../../doc/sustainable_space.md) > [MUUDD](../../../../doc/muudd.md) > [Kith-Covenant](../kith_covenant.md) > Capture Resistance*
 
-# Capture Resistance: Architecting Against Instrumentalization
+# Capture resistance: architecting against instrumentalization
 
 ## A note on this document's posture
 
 This document treats capture resistance as a **unified architectural concern** of
 kith-covenant, not as a fragmented set of countermeasures distributed across
 several existing documents. The motivation is
-[control_system_hypothesis.md](control_system_hypothesis.md)'s Component 3 — the
+[control_system_hypothesis.md](control_system_hypothesis.md)'s Component 3: the
 observation, originating in Vallée's *Messengers of Deception* (1979) but
 generalized to any anchor-above-self substrate, that the same machinery enabling
 long-running cooperation is *structurally* exploitable by bad actors who control
 the interpretation of the substrate. Existing kith-covenant components address
-this in fragments — the jester role, audit commons, emergency anathema, exit
-paths — but the general framing of "capture resistance as a substrate-design
+this in fragments (the jester role, audit commons, emergency anathema, exit
+paths), but the general framing of "capture resistance as a substrate-design
 requirement, not an optional safeguard" has not been articulated until now.
 
 The fragmented treatment is not a defect of the prior documents. They each
@@ -45,7 +45,7 @@ when resistance fails locally.
 The implication for protocol design is sharp. Capture-resistance machinery
 must be *always operating*, not invoked only when capture is suspected. Periodic
 audits, post-hoc anathema procedures, and reactive jester reports are
-necessary but not sufficient — they treat capture as exception. The strengthening
+necessary but not sufficient. They treat capture as exception. The strengthening
 moves below treat capture as the standing condition that the substrate's
 operational practice must resist by structural design.
 
@@ -70,8 +70,8 @@ to the host document where its operational specification lives or will live.
 
 **The capture vector.** Capture most often runs through a *monopoly on
 interpretation*. A single faction within a member community gradually becomes
-the canonical interpreter of that community's substrate — its scriptures, its
-sacred narratives, its recognition-statement Movement 1 — and the
+the canonical interpreter of that community's substrate (its scriptures, its
+sacred narratives, its recognition-statement Movement 1), and the
 substrate-deference machinery quietly becomes faction-deference machinery.
 The compact's compact-level non-ultimacy does not help here, because the
 capture has happened *inside* a member community before the protocol layer
@@ -80,14 +80,14 @@ ever sees it.
 **The strengthening move.** Each member community must demonstrate
 **multiple traceable interpretive lineages** of its own substrate, with the
 divergences visible to the compact via the audit commons. Communities are
-not required to *agree* across their internal lineages — disagreement is
-the condition that makes the lineages substantive — but they must
+not required to *agree* across their internal lineages (disagreement is
+the condition that makes the lineages substantive), but they must
 demonstrate that no single faction has cornered the interpretive function.
 
 This is theologically uncomfortable for traditions whose interpretive
 authority is structurally unitary (the Roman Catholic magisterium, certain
 Reformed confessions, hierarchical Orthodox jurisdictions). It is achievable
-in those traditions in modified form — the magisterium has historically
+in those traditions in modified form: the magisterium has historically
 operated under the constraint of conciliar disagreement, the Reformed
 tradition has accommodated multiple confessions and theological schools,
 and Orthodoxy holds a polycentric structure of autocephalous churches.
@@ -119,7 +119,7 @@ and hard to demonstrate.
 
 **The capture vector.** The fifth anti-spiral feature
 ([justus_hostis.md "non-ultimacy of the political community"](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
-holds that the compact must not be ultimate — that it answers to something
+holds that the compact must not be ultimate, that it answers to something
 above itself. Stated as an assertion, this claim is **unfalsifiable**. Any
 compact, in any historical period, can declare non-ultimacy in its founding
 documents and continue to act in every operational moment as if it were the
@@ -131,8 +131,8 @@ the state; this did not prevent the state from acting as ultimate in
 practice. *Non-ultimacy as assertion does no work.*
 
 **Why an operational test is required.** For non-ultimacy to function as a
-load-bearing feature — for the substrate-above-self framework to actually
-prevent the compact from drifting into ultimacy — the compact must
+load-bearing feature (for the substrate-above-self framework to actually
+prevent the compact from drifting into ultimacy), the compact must
 **demonstrate** non-ultimacy, not merely assert it. The demonstration must
 be observable, repeatable, and structurally incorporated into the compact's
 ordinary operation, not reserved for hypothetical moments of capture.
@@ -148,8 +148,8 @@ the matter falls outside what its substrate authorizes it to decide.
 
 The test is therefore: **does the compact, in observable practice,
 encounter and honor the limits its own substrate places on it?** If the
-answer is yes, non-ultimacy is operational. If the answer is no — if every
-matter the compact takes interest in is also a matter the compact decides —
+answer is yes, non-ultimacy is operational. If the answer is no (if every
+matter the compact takes interest in is also a matter the compact decides),
 the compact is behaving as ultimate regardless of its founding language,
 and capture is either complete or in motion.
 
@@ -157,7 +157,7 @@ and capture is either complete or in motion.
 amendment procedures, supermajority requirements, and judicial review are
 all forms of procedural restraint. They constrain *how* a body acts but do
 not constrain *whether* the body is the ultimate authority within its
-domain — they are, structurally, the body's own self-binding rules, which
+domain. They are, structurally, the body's own self-binding rules, which
 can be modified by the body. The substrate-deference test is sharper: it
 asks whether there are matters the compact will not decide *even when its
 own procedures would permit it to do so*, on the grounds that the matter is
@@ -198,7 +198,7 @@ is identical across these forms: an institution that has ceased
 self-restraint cannot easily reinstate it; an institution practiced in
 periodic non-action retains the *capacity* to defer, which is the active
 ingredient in non-ultimacy. For kith-covenant, the analogue is a defined
-period — annual, generational, or both — during which compact-level
+period (annual, generational, or both) during which compact-level
 mediations, sanctions, and decisions are not initiated, only continued
 where life-critical interests require it. The mediator pool, the audit
 commons, and the rescue infrastructure remain operational; the
@@ -207,7 +207,7 @@ deliberative and adjudicative functions pause.
 **The diagnostic value of the test.** Beyond its operational function, the
 substrate-deference test is **diagnostic of capture**. The earliest sign
 that a compact is drifting toward ultimacy is that the deference categories
-and periods begin to erode — exceptions multiply, periods shrink, the
+and periods begin to erode: exceptions multiply, periods shrink, the
 compact-incapable list contracts under pressure of pragmatic argument. The
 contraction is observable. Members and observers can track it; the audit
 commons can record it; the jester function can name it
@@ -223,7 +223,7 @@ operational practice that **forms and maintains** the disposition. A compact
 that periodically and structurally encounters the limits of its own
 authority *acquires the habit* of recognizing those limits in novel cases
 the test did not specifically anticipate. A compact that has never deferred
-loses the capacity to recognize when it should — and capture has nowhere it
+loses the capacity to recognize when it should, and capture has nowhere it
 must stop.
 
 **Routing.** Specified in
@@ -238,7 +238,7 @@ constitutional-layer commitments per
 **The capture vector.** Recognition ceremonies are load-bearing because of
 the asymmetric psychological cost they impose on members
 ([recognition_protocols.md "Asymmetric psychological cost"](recognition_protocols.md#asymmetric-psychological-cost-a-closer-look)).
-That cost is what binds the recitant to the substrate the ceremony names —
+That cost is what binds the recitant to the substrate the ceremony names:
 the body knows; the self-perception updates; the social commitment is
 public and accumulating. But ceremonies tend to **ossify into credentials**:
 the asymmetric cost decays as the ceremony becomes routine, generations
@@ -250,7 +250,7 @@ hollowed.
 
 **The strengthening move.** Track ceremony cost as a measurable quantity
 across recognition events and re-affirmation cycles. The measurement is
-necessarily indirect — psychological cost is not directly observable — but
+necessarily indirect (psychological cost is not directly observable), but
 **proxies are observable**: time and attention given to preparation, public
 articulation of what the recitant is committing to and what they are
 forgoing by committing, witness reports of recitant comportment, content
@@ -262,7 +262,7 @@ ceremony erosion.
 When the proxies show consistent decay over multiple cycles within a
 member community, the compact's response is not anathema (the community
 has not actively rejected the substrate) but **substantive
-re-engagement** — a heavier re-affirmation cycle in which the compact's
+re-engagement**: a heavier re-affirmation cycle in which the compact's
 witnesses examine more demandingly, the recitant prepares longer, and
 the cost is reasserted at the level the original compact-formation
 required. The Christian sacramental tradition's analogue is the periodic
@@ -292,7 +292,7 @@ material into target populations to shape belief; entrepreneurial religious
 movements arranged "spontaneous" miracles. The structural pattern: when an
 ambiguous event of high interpretive charge appears, communities with weak
 event-evaluation discipline tend to interpret it in whichever direction
-the loudest interpreter pushes — and the manufacturer of the event is
+the loudest interpreter pushes, and the manufacturer of the event is
 reliably the loudest interpreter, having had time to prepare framings that
 the ambient community has not.
 
@@ -317,7 +317,7 @@ In KC's setting, the analogue scenarios are concrete:
 events meeting specific criteria: high interpretive charge,
 conveniently-aligned with one faction's interests, sudden onset, and
 originating from witnesses with stake in the interpretation. The protocol
-does not prejudge — it does not assume the event is manufactured. It
+does not prejudge. It does not assume the event is manufactured. It
 imposes structural delay and corroboration requirements that **buy time
 for the ambient community to develop interpretation**, depriving the
 manufacturer of the loudest-interpreter advantage.
@@ -325,7 +325,7 @@ manufacturer of the loudest-interpreter advantage.
 Specific elements:
 
 - *Structured delay before action.* Compact-level decisions in response
-  to qualifying events are delayed by a defined interval — long enough
+  to qualifying events are delayed by a defined interval: long enough
   for member communities to develop independent interpretation, short
   enough that genuine emergencies (rescue, life-critical commons) are
   not blocked. The interval scales with interpretive charge.
@@ -337,8 +337,8 @@ Specific elements:
 - *Cross-substrate translation.* The interpretation must be translated
   into multiple member communities' substrates and the translations
   compared. An interpretation that survives only in the originating
-  substrate's framing — that fails to render coherently into adjacent
-  substrates — is not necessarily wrong but is structurally suspect.
+  substrate's framing (that fails to render coherently into adjacent
+  substrates) is not necessarily wrong but is structurally suspect.
 - *Provenance tagging in the audit commons.* The interpretation is
   tagged with its originator's identity and incentives. Future
   reference to the interpretation carries this tag.
@@ -348,7 +348,7 @@ Specific elements:
   bad faith.
 
 The historical model is the canonical Catholic process for evaluating
-apparitions, which is famously and deliberately slow — alleged
+apparitions, which is famously and deliberately slow: alleged
 apparitions go through years or decades of investigation before any
 authoritative judgment, and most are never judged at all. The slowness
 is the point: the structure denies the loudest-interpreter advantage by
@@ -370,7 +370,7 @@ matters.
 **The capture vector.** At AU-scale distances, a faction within the
 compact can complete a capture before the wider compact has the
 information needed to recognize it. By the time the report of an action
-arrives at the rest of the network, the fait accompli is in place —
+arrives at the rest of the network, the fait accompli is in place:
 treaties signed, commons reallocated, decisions executed. The
 existing treatment in
 [commons_federation.md "Light-lag and eventually-consistent commons"](commons_federation.md#light-lag-and-eventually-consistent-commons)
@@ -382,12 +382,12 @@ might *eventually* recognize that capture has occurred, but cannot
 
 **The strengthening move.** Formalize **which classes of decision can be
 made within light-lag and which structurally cannot**, with cryptographic
-enforcement of the distinction. Decisions of the first class — local
+enforcement of the distinction. Decisions of the first class (local
 operational choices, commons drawdowns within pre-agreed thresholds,
-mediator-pool internal procedure — are valid when made by an authorized
-local body acting within its envelope. Decisions of the second class —
-new mediations begun, sanctions imposed, designations made, compact-level
-amendments — produce **protocol artifacts that fail to validate without
+mediator-pool internal procedure) are valid when made by an authorized
+local body acting within its envelope. Decisions of the second class
+(new mediations begun, sanctions imposed, designations made, compact-level
+amendments) produce **protocol artifacts that fail to validate without
 inputs from the wider network**. A faction acting unilaterally in the
 second class is not merely producing an outcome that the wider network
 will later disapprove of; it is producing an outcome that the protocol
@@ -401,7 +401,7 @@ satisfy it alone. The signatures must arrive within a defined latency
 window of the decision; signatures arriving later are accepted only if
 the decision has been re-issued within the window. This mechanism makes
 second-class decisions *impossible to fait-accompli* without faking
-signatures from communities the captor does not control — which is the
+signatures from communities the captor does not control, which is the
 protocol-level violation the audit commons surfaces immediately.
 
 The classification of decision types (which class which decision falls
@@ -423,10 +423,10 @@ Implemented in the protocol's signature-and-quorum mechanism per
 **The capture vector.**
 [machine-participation.md](../architecture/machine-participation.md)
 specifies machines as derived-substrate parties whose binding flows from
-their named human principal — the guardianship model. The binding's
+their named human principal, the guardianship model. The binding's
 strength depends on the principal being a faithful guardian whose own
 community standing is at stake. But Vallée's Component 3 says **the
-principal can themselves be captured** — by their community's drift, by
+principal can themselves be captured**: by their community's drift, by
 external pressure, by personal corruption, by manipulation through the
 machine's own outputs (a captured principal feeding the machine instructions
 that further the capture). A machine acting on a captured principal's
@@ -447,9 +447,9 @@ Specific elements:
 
 - *Cross-community principal witness.* The principal's continued good
   standing in their own community is necessary but not sufficient. A
-  separate attestation chain — from witnesses in *other* member
+  separate attestation chain (from witnesses in *other* member
   communities who have observed the principal's conduct in
-  cross-community interactions — must agree that the principal's
+  cross-community interactions) must agree that the principal's
   current operation does not show capture signatures. The attestation
   is cryptographically separable from the within-community attestation,
   so the within-community party cannot forge it.
@@ -466,8 +466,8 @@ Specific elements:
   treats the principal's loss of standing as triggering capability
   revocation in their bound machines. The expansion: principal *capture*
   (which may not yet have produced loss of standing) must trigger a
-  narrower, earlier-acting form of revocation — capability narrowing,
-  fresh attestation requirement, mandatory cross-community review —
+  narrower, earlier-acting form of revocation (capability narrowing,
+  fresh attestation requirement, mandatory cross-community review)
   before the capture has progressed to overt failure. The detection
   mechanisms are the cross-community witness and the triangulation
   above.
@@ -529,13 +529,13 @@ understood:
   ([liminal_institutions.md "The emergency anathema procedure"](liminal_institutions.md#the-emergency-anathema-procedure))
   is not a last resort; it is the **escalation outcome** for captured
   members and machines. Its existence is what makes the gentler
-  capture-resistance machinery operationally credible — without an
+  capture-resistance machinery operationally credible: without an
   endpoint, the gentler steps degrade into theater.
 - The **liminal institutions' capture-resistance design principles**
   ([liminal_institutions.md "Capture resistance and the sovereignty temptation"](liminal_institutions.md#capture-resistance-and-the-sovereignty-temptation))
   apply to the compact itself, not just to its mediator pool and
   fire-keepers. Separation of power and memory, term limits, no
-  self-appointment, budget control — the existing principles are the
+  self-appointment, budget control: the existing principles are the
   compact-internal version of what the substrate-deference test is
   the compact-external version of.
 
@@ -611,7 +611,7 @@ bounds damage; it does not eliminate the possibility of damage.
 
 **Capture resistance does not substitute for substrate.** The strengthening
 moves all presuppose that member communities have a substrate worth
-defending — that interpretive plurality is genuine plurality within a
+defending: that interpretive plurality is genuine plurality within a
 real tradition, that ceremony cost reflects genuine commitment, that
 the substrate-deference test is performed before something the compact
 genuinely takes itself to be answerable to. A compact built on hollow
@@ -623,7 +623,7 @@ regardless of how well the protocol is engineered. This is the point of
 the compact is a protector of substrate, not a generator of it.
 
 **Capture resistance is not substrate-neutral.** The architecture
-assumes that capture is a problem — that there is something worth
+assumes that capture is a problem, that there is something worth
 preserving against the captor's interpretation. A philosophical position
 that holds substrates are arbitrary and any captor's interpretation is
 as valid as any other will see capture resistance as nothing more than
@@ -663,7 +663,7 @@ than claim a neutrality it does not have.
 
 - **Can the cross-community principal-witness attestation be itself
   captured?** Move 6 routes principal-validity through witnesses in
-  other communities — but if those communities are themselves captured
+  other communities, but if those communities are themselves captured
   (the corrupt-lineage problem named in
   [m2m_interaction.md "Demonic detection"](m2m_interaction.md#demonic-detection-under-light-lag-opacity-perfected-mimicry)),
   the witness chain is captured too. How does the compact handle the
@@ -675,7 +675,7 @@ than claim a neutrality it does not have.
   becomes a vacation), captured (the compact-incapable list contracts
   under pressure), or weaponized (a faction invokes it to prevent
   legitimate compact action). Each failure mode requires its own
-  mitigation, which itself requires capture-resistance — a regress the
+  mitigation, which itself requires capture-resistance, a regress the
   architecture must terminate somewhere.
 
 - **What is the minimum viable capture-resistance configuration?** The
@@ -694,40 +694,40 @@ than claim a neutrality it does not have.
 
 ## Relationship to other documents
 
-- [control_system_hypothesis.md](control_system_hypothesis.md) — the
+- [control_system_hypothesis.md](control_system_hypothesis.md): the
   parent analysis. Vallée's Component 3 is the specific claim this
   document operationalizes; the six strengthening moves are the
   unified architectural response to "manipulation vulnerabilities are a
   first-order design constraint."
-- [justus_hostis.md](justus_hostis.md) — the anti-spiral features
+- [justus_hostis.md](justus_hostis.md): the anti-spiral features
   (especially non-ultimacy of the political community) that this
   document operationalizes through the substrate-deference test.
-- [recognition_protocols.md](recognition_protocols.md) — the
+- [recognition_protocols.md](recognition_protocols.md): the
   intra-community ceremony and cross-community grammar that move 3
   (ceremony cost) and move 1 (interpretive plurality) extend.
-- [liminal_institutions.md](liminal_institutions.md) — the
+- [liminal_institutions.md](liminal_institutions.md): the
   capture-resistance design principles and emergency anathema procedure
   that the present unification builds on. Move 4
   (manufactured-event resistance) lives operationally here.
-- [commons_federation.md](commons_federation.md) — the
+- [commons_federation.md](commons_federation.md): the
   light-lag and eventually-consistent commons treatment that move 5
   (decision classes) extends with cryptographic enforcement.
-- [m2m_interaction.md](m2m_interaction.md) — the audit commons,
+- [m2m_interaction.md](m2m_interaction.md): the audit commons,
   demonic-detection-under-light-lag treatment, and machine-layer
   reputation flows that move 6 (adversarial-principal validation) extends.
-- [jester_and_dissent.md](jester_and_dissent.md) — the licensed
+- [jester_and_dissent.md](jester_and_dissent.md): the licensed
   truth-teller role that the present unification promotes from
   cultural-dissent affordance to substrate-level capture detector.
-- [exit_and_succession.md](exit_and_succession.md) — exit modes
+- [exit_and_succession.md](exit_and_succession.md): exit modes
   including capture-driven exit; the present unification's failure
   modes connect here when capture-resistance proves insufficient.
-- [reputation_bridges.md](reputation_bridges.md) — reputation flows
+- [reputation_bridges.md](reputation_bridges.md): reputation flows
   that carry ceremony-cost-decay signals and triangulation data
   between member communities.
-- [../architecture/protocol-components.md](../architecture/protocol-components.md) —
+- [../architecture/protocol-components.md](../architecture/protocol-components.md):
   the software-component decomposition that this document amends with
   capture-resistance as a cross-cutting concern.
-- [../architecture/machine-participation.md](../architecture/machine-participation.md) —
+- [../architecture/machine-participation.md](../architecture/machine-participation.md):
   the guardianship model that move 6 extends with adversarial-principal
   validation.
 
@@ -751,7 +751,7 @@ Manufactured-event resistance draws on:
 - The Catholic process for evaluating apparitions: *Normae Sacrae
   Congregationis pro Doctrina Fidei de modo procedendi in iudicandis
   praesumptis apparitionibus ac revelationibus* (1978).
-- Vallée, *Messengers of Deception* (1979) — the documentation of
+- Vallée, *Messengers of Deception* (1979): the documentation of
   deliberate-manufacture cases that motivates the protocol.
 - Intelligence-community analytical tradeoff literature on deception
   detection and adversarial provenance assessment.

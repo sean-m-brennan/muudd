@@ -9,12 +9,12 @@ purpose, do not share identity, and cannot cheaply exit each other's orbit. The
 cleanest theoretical entry into that problem is not to ask "how do strangers come
 to cooperate?" but its inverse: **how have strangers historically come to fight
 each other within limits?** Every structural feature that made conflict bounded
-— mutual recognition, symmetric rules, protected envoys, defined war-aims,
-face-saving exits — becomes, under inversion, a primitive for cooperation that
+(mutual recognition, symmetric rules, protected envoys, defined war-aims,
+face-saving exits) becomes, under inversion, a primitive for cooperation that
 does not require shared ends.
 
 The theoretical anchor for this inversion is the classical and early-modern
-European concept of *justus hostis* — the *just*, or legitimate, *enemy*.
+European concept of *justus hostis*: the *just*, or legitimate, *enemy*.
 
 ## The Concept
 
@@ -22,22 +22,22 @@ European concept of *justus hostis* — the *just*, or legitimate, *enemy*.
 a criminal, heretic, or vermin to be exterminated. The concept has roots in
 Roman public law (where *hostis* denoted a public enemy, distinct from
 *inimicus*, a personal foe) and was elaborated by Grotius (*De Jure Belli ac
-Pacis*, 1625), Vattel (*Le Droit des Gens*, 1758), and — most incisively for
-our purposes — Carl Schmitt in *Der Nomos der Erde* (1950).
+Pacis*, 1625), Vattel (*Le Droit des Gens*, 1758), and, most incisively for
+our purposes, Carl Schmitt in *Der Nomos der Erde* (1950).
 
 Schmitt's insight is that the *form* of an adversary is logically prior to the
 rules of the adversary relationship. If the enemy is treated as a criminal,
-then war becomes police action and there can be no law governing it — only
+then war becomes police action and there can be no law governing it, only
 suppression. If the enemy is treated as a heretic, then war becomes extermination,
 because coexistence with error is itself the wrong. But if the enemy is granted
-the status of *justus hostis* — a legitimate peer whose self-interest is accepted
-as a fact of the world — then a whole apparatus of limits becomes possible:
+the status of *justus hostis*, a legitimate peer whose self-interest is accepted
+as a fact of the world, then a whole apparatus of limits becomes possible:
 envoys, parley, ransom, protected non-combatants, laws of means, and, crucially,
 *an end of the war* at which both sides resume ordinary relations.
 
 Bounded war, in other words, is not achieved by moralizing the combatants. It
 is achieved by *depoliticizing* the question of the enemy's legitimacy. One
-does not have to approve of one's peer in order to recognize them as a peer.
+does not have to approve of one's peer to recognize them as a peer.
 
 ## Structural preconditions
 
@@ -63,12 +63,12 @@ Four conditions appear to be necessary for *justus hostis* to function:
 
 From roughly the Peace of Westphalia (1648) through the long nineteenth century,
 the European state system operationalized *justus hostis* into a working
-institutional order — the *jus publicum Europaeum*. Its characteristic features
+institutional order: the *jus publicum Europaeum*. Its characteristic features
 were:
 
 - **Sovereign equality.** States of wildly unequal power held formally equal
   standing. Recognition, not capability, was the primary currency.
-- **Non-intervention in domestic affairs.** *Cuius regio, eius religio* —
+- **Non-intervention in domestic affairs.** *Cuius regio, eius religio*:
   each sovereign settles its internal order without external policing.
 - **Embassy and diplomatic immunity.** Envoys are inviolable; communication
   channels are protected even during active hostilities.
@@ -85,17 +85,17 @@ required only that they agree on the procedure by which they disagreed.
 
 ## The Sacred Substrate and the Fallen Actor
 
-Every major pillar of the *jus publicum Europaeum* — Westphalia, the Hanseatic
+Every major pillar of the *jus publicum Europaeum* (Westphalia, the Hanseatic
 League, *lex mercatoria*, the codes duello, even the Red Cross of the original
-Geneva convention — emerged within Christendom. The pattern is too persistent
+Geneva convention) emerged within Christendom. The pattern is too persistent
 to be coincidental, and it raises two entangled questions that sit at the
 deepest level of kith-covenant's design: **was shared faith load-bearing, or was
 it merely the cultural medium?** And: **what does kith-covenant's design assume
 about the actors it is trying to bind?**
 
 The short answer to the first is: shared faith was load-bearing, and the
-substrate it supplied had a *specific structural feature* — it pointed
-a single ultimate — a *transcendent moral authority* — to which oaths,
+substrate it supplied had a *specific structural feature*: it pointed
+to a single ultimate, a *transcendent moral authority*, to which oaths,
 recognition, and virtue could refer. The structural feature is what does
 the work; the specific content of the authority (the God of Israel and
 his successors, *Shöñgwa'ya'di:söñ*, *Tengri*, the Dharma, *Kwoth*)
@@ -108,13 +108,13 @@ Christians call God the Father is specifically the answer* is in
 asks the project to follow where the evidence leads. The short answer
 to the second is: kith-covenant must be built on a realistic anthropology in
 which the actors are not rational utility-maximizers and not angels,
-but *fallen* — sinners, in the theological term that is the only one
+but *fallen*: sinners, in the theological term that is the only one
 honest enough to bear the weight. A protocol designed for angels
 fails at first contact; a protocol designed for rational actors fails
 slightly later; a protocol designed for sinners has a chance. (This
 anthropology is, in its developed form, a Christian doctrine. Earlier
-drafts imported it in secular dress — Niebuhr, Solzhenitsyn, Madison
-— but [noticeable_hand.md](noticeable_hand.md) names the source
+drafts imported it in secular dress (Niebuhr, Solzhenitsyn, Madison),
+but [noticeable_hand.md](noticeable_hand.md) names the source
 honestly: the original is more coherent than the imports, and pretending
 otherwise was part of the hedging that document corrects.)
 
@@ -124,7 +124,7 @@ The earlier draft of this section made the weaker claim that "shared
 cosmology" was structurally necessary. The historical comparative work
 in [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)
 strengthens this: the substrate must specifically include a
-*transcendent moral authority* — not just any sacred frame, but one
+*transcendent moral authority*, not just any sacred frame but one
 that points to a single ultimate before which oaths bind and which
 stands in judgment over human conduct. Three observations argue this
 is *structurally* necessary, not merely incidental:
@@ -132,7 +132,7 @@ is *structurally* necessary, not merely incidental:
 - **Oaths were the load-bearing primitive.** Treaties, safe conducts,
   parleys, and merchant contracts all ultimately rested on oaths sworn
   under a transcendent witness. An oath before the same God binds because
-  breaking it is costly in a dimension both parties accept as real — not
+  breaking it is costly in a dimension both parties accept as real, not
   because of enforcement that can be mustered here and now, but because
   *the self that broke the oath is damaged by the breaking*. This is a
   very different mechanism than reputation or deterrence, and it does work
@@ -140,12 +140,12 @@ is *structurally* necessary, not merely incidental:
 - **The enemy-is-peer move requires a common moral horizon.** To recognize
   an opponent as a legitimate peer, one must share enough of a moral
   universe that "legitimacy" has agreed meaning. Christendom provided that
-  horizon even through the Reformation — Catholics and Protestants could
+  horizon even through the Reformation: Catholics and Protestants could
   recognize each other as *wrong-but-Christian* peers in a way that was
   much harder with, e.g., the Ottoman Empire (which was often dealt with
   by a parallel set of norms, not the same set).
 - **Ritual furnishes the procedural form.** Liturgical time, saints' days,
-  fair cycles, the grammar of oaths and feasts — these gave the medieval
+  fair cycles, the grammar of oaths and feasts: these gave the medieval
   and early-modern cooperators a shared *choreography* for encounters.
   Form substitutes for trust among strangers, but the form has to be
   legible to both and has to be perceived as belonging to something larger
@@ -154,8 +154,8 @@ is *structurally* necessary, not merely incidental:
 The Iroquois Confederacy (Haudenosaunee) is the important non-Christian
 counterpoint, and it reinforces rather than refutes the pattern. The Great
 Law of Peace (*Kaianerekowa*) bound six nations through a shared cosmology
-of its own — the Peacemaker's mandate, the Condolence ceremony, the council
-fire — and it produced many of the same structural features (protected
+of its own (the Peacemaker's mandate, the Condolence ceremony, the council
+fire), and it produced many of the same structural features (protected
 envoys, formal parley, symmetric procedure, boundedness of feud). The
 pattern is therefore not "Christianity specifically" but **a shared
 sacred/cosmological frame that makes oaths, recognition, and virtue mean
@@ -166,12 +166,12 @@ did the job as well.
 ### The anthropology the substrate must assume
 
 Cooperation-protocol engineering has historically imported its anthropology
-from economics — actors are self-interested, consistent in preferences,
+from economics: actors are self-interested, consistent in preferences,
 and roughly rational. This anthropology is *useful for some modeling* and
 *structurally wrong as a design premise*. Humans are not rational actors.
-We are — to take the theological word seriously, which the historical
-exemplars took seriously — *sinners*. This is not a pessimistic flourish;
-it is a load-bearing claim about what the protocol must be robust against.
+We are (to take the theological word seriously, which the historical
+exemplars took seriously) *sinners*. This is not a pessimistic flourish;
+it is a load-bearing claim about what the protocol must withstand.
 
 The tradition kith-covenant should draw on here is the Christian realist line
 (Augustine, Niebuhr, Solzhenitsyn), supplemented by Girard's mimetic
@@ -184,15 +184,15 @@ anthropology and the Madisonian design move. The convergent claims:
   built by people who have looked at the historical record plans for it.
 - **Rivalry is structural, not moral.** Girard's mimetic theory holds that
   desire is borrowed from others and rivalry is the near-inevitable result
-  of communities sharing a field of desire. The scapegoat mechanism —
-  resolving communal tension by sacrificing a designated victim — is what
+  of communities sharing a field of desire. The scapegoat mechanism,
+  resolving communal tension by sacrificing a designated victim, is what
   pre-protocol societies evolved to cope with this. Kith-Covenant must not rely
   on that mechanism (it's unjust and eventually collapses into cycles of
   retribution) but must acknowledge the *energy* the mechanism was
   releasing, and provide honest channels for it.
 - **Ambition must be made to counteract ambition.** Madison's insight in
-  *Federalist* 51 — "If men were angels, no government would be necessary"
-  — is the operative design principle. Kith-Covenant should design *so that no
+  *Federalist* 51 ("If men were angels, no government would be necessary")
+  is the operative design principle. Kith-Covenant should design *so that no
   participant's self-interest can be realized except through protocol
   behavior that serves other participants' self-interest too*. This is
   harder than alignment-of-incentives; it is mutual-entanglement of
@@ -217,7 +217,7 @@ the oath-binding work described above but it is not by itself
 sufficient to prevent the characteristic failure mode of
 virtue-oriented communities: the purity spiral. Substrates that
 supply *anchor above self* have produced this failure mode
-repeatedly and at scale — the Jacobin Cult of the Supreme Being
+repeatedly and at scale: the Jacobin Cult of the Supreme Being
 executing the insufficiently virtuous, the Maoist Cultural
 Revolution's denunciation cascades, Stalinist purge logic consuming
 its own old guard, the Puritan witch trials, and the various
@@ -246,9 +246,9 @@ combination blocks the purity spiral:
    and Paul. The feature forecloses the "us-who-are-pure-versus-
    them-who-are-impure" move that purity spirals structurally
    require. Substrates that locate sin or impurity only in a
-   designated out-group — tribalist cosmologies, Nietzschean
+   designated out-group (tribalist cosmologies, Nietzschean
    master/slave moralities, revolutionary ideologies that locate
-   evil in a class or race or ideological faction — fail this
+   evil in a class or race or ideological faction) fail this
    feature by construction and are not candidate substrates for
    kith-covenant membership regardless of whether they acknowledge
    an ultimate.
@@ -260,7 +260,7 @@ combination blocks the purity spiral:
    is itself an obstacle; the Sufi *tawakkul*; the Stoic
    recognition that virtue belongs to the cosmos rather than to
    the virtuous agent). The feature makes competitive
-   virtue-signaling theologically or functionally incoherent — if
+   virtue-signaling theologically or functionally incoherent: if
    virtue is not one's own achievement, there is no status to
    compete for. Substrates that treat virtue as a competitive
    status marker, or that ground self-worth in accumulated
@@ -285,11 +285,11 @@ combination blocks the purity spiral:
    plus teshuva plus the Isaiah servant-songs carry a version of
    the same revelation; mature Sufi traditions of enemy-love and
    suspended judgment supply another version. Whether these
-   partial equivalents are as structurally robust as the Christian
+   partial equivalents are as structurally sound as the Christian
    case is a live question (see [noticeable_hand.md](noticeable_hand.md));
    what is clear is that *some* form of this feature is load-bearing
-   and substrates that lack any form of it — that simply treat
-   victim-selection as healthy communal hygiene — fail decisively.
+   and substrates that lack any form of it, that simply treat
+   victim-selection as healthy communal hygiene, fail decisively.
 
 4. **Enemy-love as operational norm.** Not sentiment, structural
    constraint. The Samaritan parable is the paradigmatic instance:
@@ -306,8 +306,8 @@ combination blocks the purity spiral:
    its tension onto. Substrates that treat outsiders as raw
    material or as categorically less-than fail this feature.
 
-5. **Non-ultimacy of the political community.** The *polis* —
-   and the compact — cannot be the ultimate, because it is not
+5. **Non-ultimacy of the political community.** The *polis*,
+   and the compact, cannot be the ultimate, because it is not
    what the community's commitments are for. The Augustinian
    two-cities formulation is the deepest Christian version; the
    Buddhist renunciation traditions carry an analogous distinction;
@@ -326,7 +326,7 @@ combination blocks the purity spiral:
    ritual without interior ground.
 
    **Non-ultimacy as assertion does no work.** Stated only as a
-   founding-document claim, the fifth feature is unfalsifiable —
+   founding-document claim, the fifth feature is unfalsifiable:
    any compact at any historical period can declare non-ultimacy
    and continue to act in every operational moment as if it were
    the ultimate. The Jacobin Cult of the Supreme Being formally
@@ -343,9 +343,9 @@ combination blocks the purity spiral:
    after compact-formation, the truth-claims of any member's
    tradition) and observes a **structured-fast cadence** during
    which compact-level mediations, sanctions, and decisions are
-   suspended on all but life-critical commons. Erosion of either —
-   exceptions multiplying in the compact-incapable list, the
-   structured-fast period shrinking under pragmatic argument — is
+   suspended on all but life-critical commons. Erosion of either
+   (exceptions multiplying in the compact-incapable list, the
+   structured-fast period shrinking under pragmatic argument) is
    the earliest legible sign that the compact is drifting toward
    ultimacy, even when no individual exception is obviously
    illegitimate. The test is therefore both **operational**
@@ -357,7 +357,7 @@ combination blocks the purity spiral:
 "anchor above self" formulation did not:**
 
 - It supplies a principled basis for excluding substrates that
-  point to an ultimate but lack anti-spiral structure — Jacobin
+  point to an ultimate but lack anti-spiral structure: Jacobin
   sacralized-virtue substrates, Maoist revolutionary-virtue
   substrates, pure-tribalist cosmologies that locate sin only in
   out-groups, Nietzschean will-to-power substrates, and
@@ -374,9 +374,9 @@ combination blocks the purity spiral:
 - It acknowledges honestly that the most complete combination of
   the five features is supplied by historical Christianity
   without thereby requiring Christianity as the compact's
-  substrate. Other traditions — Judaism, Buddhism, Haudenosaunee
+  substrate. Other traditions (Judaism, Buddhism, Haudenosaunee
   practice, mature Sufi Islam, and various indigenous traditions
-  with strong guest/stranger obligations — supply the features
+  with strong guest/stranger obligations) supply the features
   in varying combinations and depths. The compact requires the
   features; it does not require the theology that most fully
   supplies them.
@@ -390,20 +390,20 @@ and "requires acknowledgment of a Creator"). The precise formulation:
 
 **Kith-covenant requires four things of its members' substrate:**
 
-1. **Acknowledgment of a Creator** — a transcendent source of the
+1. **Acknowledgment of a Creator**: a transcendent source of the
    moral order, to whom oaths are ultimately directed and before whom
    the compact's commitments are made. This is a deist minimum: *that*
    a Creator exists, not *what* the Creator looks like. A Christian
    community, a Muslim community, a Hindu community, a Haudenosaunee
    community, and a philosophical-deist community all satisfy the
    requirement despite radically different theologies of the Creator's
-   nature. What the requirement excludes is *closed materialism* — the
+   nature. What the requirement excludes is *closed materialism*: the
    assertion that no transcendent moral source exists and that the
    compact's oaths are therefore binding on nothing beyond the
    participants' contingent willingness.
 
 2. **Pro-human orientation.** The member's substrate must hold that
-   human beings bear inherent dignity — what the Christian tradition
+   human beings bear inherent dignity, what the Christian tradition
    calls *imago Dei*, what other traditions express differently but
    structurally. A substrate that treats humans as raw material,
    expendable means, or objects of domination is incompatible with the
@@ -412,7 +412,7 @@ and "requires acknowledgment of a Creator"). The precise formulation:
    accommodating a Creator-acknowledging but anti-human theology.
 
 3. **Pro-cooperation orientation.** The member's substrate must hold
-   that cooperation across community boundaries is a good — not merely
+   that cooperation across community boundaries is a good, not merely
    a tactical convenience but something consistent with the Creator's
    purposes (however understood). A substrate that holds all outsiders
    as enemies, all inter-community contact as contamination, or all
@@ -444,7 +444,7 @@ that reject the existence of a Creator, that hold anti-human
 orientations, that regard inter-community cooperation as contamination
 rather than a good, or whose substrate lacks any of the five
 anti-spiral features are excluded from full membership. The exclusion
-has real costs — communities that are pro-human and pro-cooperation
+has real costs: communities that are pro-human and pro-cooperation
 but not Creator-acknowledging are filtered out by requirement (1), and
 communities that acknowledge an ultimate and affirm human dignity but
 lack anti-spiral structure (the Jacobin case, the Maoist case, various
@@ -460,7 +460,7 @@ the substrate or the structure without hollowing its own foundations.
 
 **What the compact does *not* require and must not dictate:**
 
-- The **nature of the Creator** — triune, unitary, personal,
+- The **nature of the Creator**: triune, unitary, personal,
   impersonal, immanent, transcendent, or any other characterization
   beyond "exists and is the source of the moral order." First-order
   theology is the member community's own business (see
@@ -487,8 +487,8 @@ business; the latter is not.
 ### The Rawlsian objection and the durability hypothesis
 
 The Rawlsian liberal objects: requiring Creator acknowledgment as a
-condition of full membership violates the principle of *public reason*
-— the principle that a cooperative framework's basic structure must be
+condition of full membership violates the principle of *public reason*,
+the principle that a cooperative framework's basic structure must be
 justifiable without appeal to any particular comprehensive doctrine.
 Rawls argues that justice requires doctrine-neutrality, so that
 communities with radically different worldviews can endorse the
@@ -505,9 +505,9 @@ not an oversight. The counter-hypothesis:
 **Political frameworks that do not embrace a comprehensive doctrine
 do not last.**
 
-Rawls optimizes for justice-at-a-moment — the fairest possible
+Rawls optimizes for justice-at-a-moment, the fairest possible
 framework at the point of formation. Kith-covenant optimizes for
-durability-across-generations — a framework that survives the
+durability-across-generations, a framework that survives the
 stresses of time, power shifts, substrate erosion, and generational
 turnover. The historical evidence from the case set
 ([historical_cases.md](historical_cases.md)) supports the durability
@@ -524,7 +524,7 @@ it points consistently in one direction.
 The Jewish tradition provides the structural model. The Torah
 distinguishes between the full Mosaic law (613 commandments binding
 on Israel) and the **Noahide laws** (seven commandments binding on
-all humanity — the sons of Noah). A non-Israelite living in ancient
+all humanity, the sons of Noah). A non-Israelite living in ancient
 Israel was not required to follow the full Mosaic law; they *were*
 required to follow the Noahide minimum: no murder, no theft, no
 sexual immorality, no blasphemy, no idolatry, no eating flesh torn
@@ -532,23 +532,23 @@ from a living animal, and the obligation to establish courts of
 justice. The Noahide minimum was not an arbitrary barrier; it was the
 **threshold below which the framework could not function**. A
 community that practiced idolatry could not participate in a
-framework whose oaths were sworn before the God of Israel — not
+framework whose oaths were sworn before the God of Israel, not
 because idolators are morally inferior but because their oaths would
 not bind in the way the framework requires.
 
 Kith-covenant's three substrate requirements are the Noahide
 analogue. Creator acknowledgment, pro-human orientation, and
 pro-cooperation orientation are the minimum below which the
-compact's mechanisms — the recognition ceremony, the common virtues,
-the escalation ladder, the anathema procedure — cannot function
+compact's mechanisms (the recognition ceremony, the common virtues,
+the escalation ladder, the anathema procedure) cannot function
 reliably. The compact gives substantial elbow room above this
 minimum: the Creator's nature is unspecified, first-order theology
 is each community's business, observances and narratives are
 unconstrained. But the elbow room does not extend to the point of
 incoherence. **A member who does not hold the substrate will
 ultimately break the compact**, because when their interests conflict
-with the compact's requirements — and they will, because the
-fallen-actor anthropology guarantees it — they lack the
+with the compact's requirements (and they will, because the
+fallen-actor anthropology guarantees it), they lack the
 substrate-level commitment that would resolve the conflict in the
 compact's favor. The oath that is not sworn before something beyond
 the swearer's own interest is an oath that breaks the moment the
@@ -602,7 +602,7 @@ What the substrate *can* do:
 - **Elevate cross-community rescue as shared practice.** By *rescue*
   this document means the concrete act of one community preserving the
   lives of members of another when that other community cannot preserve
-  them itself — answering a distress signal, sending a vessel to a
+  them itself: answering a distress signal, sending a vessel to a
   stricken habitat, sheltering refugees from a collapsed system,
   providing emergency medical aid across borders, evacuating people
   from a disaster their own institutions cannot meet. The category is
@@ -611,7 +611,7 @@ What the substrate *can* do:
   between communities, in extremis*. So defined, rescue is the one
   act in which every community is simultaneously potential donor and
   potential beneficiary, and the symmetry is structural rather than
-  rhetorical — every habitat is one bad day from being the receiver,
+  rhetorical: every habitat is one bad day from being the receiver,
   every Earth community is one disaster from the same. That structural
   symmetry is the substrate from which sacred-equivalent binding power
   can grow without being declared. Kith-Covenant can afford this growth by
@@ -646,7 +646,7 @@ common virtues cannot acquire them by signing the recognition statement.
 
 This is a genuine structural limitation, not a design oversight. The
 compact is a **protector and connector** of communities that already
-meet its preconditions — not a generator of those preconditions from
+meet its preconditions, not a generator of those preconditions from
 scratch. It provides the inter-community infrastructure (the escalation
 ladder, the liminal institutions, the commons governance, the jester
 function) that individual communities cannot provide for themselves,
@@ -665,7 +665,7 @@ Baltic trade network. In every case, the cooperation framework
 organized and protected something that already existed.
 
 The practical implication: kith-covenant's first compacts must be
-formed among communities that *already* meet the preconditions — that
+formed among communities that *already* meet the preconditions: that
 already acknowledge a Creator, already hold pro-human and
 pro-cooperation orientations, and already cultivate the common virtues
 internally. The compact's value proposition to such communities is
@@ -681,29 +681,29 @@ yet had time to emerge. Kith-Covenant therefore needs a material floor that
 functions even for rational-actor-shaped agents and defects-when-it-pays
 agents. Candidate mechanisms:
 
-- **Cryptographic commitment** — signed, auditable, non-repudiable
+- **Cryptographic commitment**: signed, auditable, non-repudiable
   promises. Handles accountability but not the *motivation* to honor
   commitments when enforcement is costly; binds the action, not the self.
-- **Mutual hostage / stake** — deposits, shared infrastructure, entangled
+- **Mutual hostage / stake**: deposits, shared infrastructure, entangled
   supply chains. Creates material incentive but is brittle to large
-  shocks that reset the incentive landscape.
-- **Visible preparedness** ("open-carry" in the kith-covenant README) —
+  shocks that reset the incentives.
+- **Visible preparedness** ("open-carry" in the kith-covenant README):
   participants are visibly heavily armed, not as threat or intimidation,
   but to signal preparedness, determination, and seriousness. Akin to
   "speak softly but carry a big stick." The physics of space (radar
   visibility, intercepted transmissions, orbital mechanics) reinforces
   this: concealment is difficult, so visible capability becomes the
   norm. Open-carry deters casual defection and signals that each party
-  takes the compact seriously enough to maintain enforcement capacity —
+  takes the compact seriously enough to maintain enforcement capacity,
   but it is incomplete against sophisticated agents whose capability
   is not what they display.
-- **Graduated mutual entanglement** — Madison's principle applied at
+- **Graduated mutual entanglement**, Madison's principle applied at
   protocol level: make each party's essential interests reachable only
   through procedures that also serve other parties' essential interests.
 
 These mechanisms work at the floor. They are necessary but not sufficient.
 Above them, if kith-covenant is doing its job, the sacred-equivalent layer grows
-in on its own — and if it does not, kith-covenant has at least produced an
+in on its own, and if it does not, kith-covenant has at least produced an
 honest rational-actor-shaped cooperation that does not pretend to be
 more than it is. The worst outcome is a kith-covenant that claims the binding
 power of the sacred without the substrate that produces it. That is
@@ -717,7 +717,7 @@ transcendent moral authority explicitly, "if for no other reason than
 to antidote entropy." The point is structural, not devotional. Cooperation regimes
 without a transcendent reference drift toward dissolution by their own
 logic, because every internal mechanism is by construction gameable by
-its own participants — and over time, will be gamed. The transcendent
+its own participants, and over time will be gamed. The transcendent
 reference is what allows the compact to recognize when it is *itself*
 drifting; without it, the compact has no Archimedean point from which
 to evaluate its own decay. This consideration shapes
@@ -726,19 +726,19 @@ to evaluate its own decay. This consideration shapes
 ## *Hostis humani generis*: limits of the *justus hostis* frame
 
 Everything to this point has assumed that the adversaries kith-covenant must
-bind are *fallen but recoverable* — sinners who can be wronged into
+bind are *fallen but recoverable*: sinners who can be wronged into
 virtue, who use the protocol in good faith even when they fail it, who
 remain inside the *justus hostis* frame even when they are losing.
 This assumption is necessary as a *default* but it is not universally
 true, and the rest of kith-covenant's design has not adequately addressed
 the cases where it fails. The gap is real: there are actors whose
-orientation toward the compact is not competitive but destructive —
+orientation toward the compact is not competitive but destructive:
 defectors not from this or that commitment but from the compact's
 very premise. The classical Roman legal tradition has the right name
 for this category: ***hostis humani generis***, "enemy of humankind."
-Originally applied to pirates — adversaries who operate outside the
+Originally applied to pirates (adversaries who operate outside the
 system of nations, attacking anyone, protected by none, threatening
-the system as such — the category was extended over the centuries to
+the system as such), the category was extended over the centuries to
 slavers and, in some theorists, to certain ideological actors. It
 names precisely the actors this section concerns, and it substantially
 predates kith-covenant's reconstruction of the problem. The term is used
@@ -748,14 +748,14 @@ English-and-Latin mix.
 A note on the Schmittian connection before developing the category.
 Carl Schmitt's friend/enemy distinction (*Der Begriff des Politischen*,
 1932) holds that the political is constituted by the friend/enemy
-distinction — that politics exists where there is an us-and-them
+distinction, that politics exists where there is an us-and-them
 serious enough to potentially involve killing. The *hostis humani
 generis* category developed below is in part the kith-covenant analogue of
 Schmitt's enemy-pole. *But kith-covenant must depart from Schmitt at a
 critical point*: the friend/enemy distinction is morally subordinate
 to the prior category of *neighbor*. The *justus hostis* tradition's
 deepest insight is that an enemy encountered remains a neighbor within
-the encounter — one who can be fought but who must be fought with
+the encounter: one who can be fought but who must be fought with
 discernment of what they are and what they are not. Even an actor
 designated *hostis humani generis* retains the basic moral standing
 that prevents the compact from inflicting acts that violate the common
@@ -773,8 +773,8 @@ Schmitt's collapse of moral relation onto the friend/enemy axis is
 One clarification to forestall a natural misreading: *neighbor* does
 not mean "all humanity in the abstract." The parable of the Good
 Samaritan, which is the scriptural foundation here, specifically
-identifies the neighbor as the one encountered — the wounded man by
-the side of the road — and the neighbor relation is *actualized by
+identifies the neighbor as the one encountered (the wounded man by
+the side of the road), and the neighbor relation is *actualized by
 encounter*, not extended to the universe of humans one might
 theoretically be responsible for. Nor does the Samaritan treat all
 encountered parties the same: he rescues the victim, not the robber,
@@ -789,23 +789,23 @@ doctrine of the demonic distinguishes *sin* (which any human commits,
 and which is the proper domain of penance, restitution, and return)
 from *the demonic* (active orientation toward the destruction of
 order, which is something different in kind, not merely degree).
-Augustine's *libido dominandi* — the lust for domination that orients
-itself against the very possibility of just order — names what is
+Augustine's *libido dominandi*, the lust for domination that orients
+itself against the very possibility of just order, names what is
 structurally at stake. Plato's tyrant in *Republic* IX names the same
 thing in different terms: a soul ordered against order itself. The
 Pauline language of "principalities and powers" (Ephesians 6) extends
-the category beyond the individual: structural evil — corrupted
-institutions, ideological movements, captured communities — that
+the category beyond the individual: structural evil (corrupted
+institutions, ideological movements, captured communities) that
 exceeds individual malice. The biblical "scoffer" (Proverbs) is the
 domestic case: one who rejects wisdom not by argument but by
 disposition, and whom further argument cannot reach.
 
-Roman law had the practical corollary: *hostis humani generis* — enemy
+Roman law had the practical corollary: *hostis humani generis*, enemy
 of all humankind. Pirates were the original case; the category has
 been variously extended (slavers, in 19th-century usage; certain
 ideological actors, in some 20th-century usage). The legal point was
 that certain adversaries are *outside* the framework of bounded
-conflict altogether — they may be killed without ceremony because
+conflict altogether: they may be killed without ceremony because
 they have placed themselves outside the protections that bounded
 conflict assumes.
 
@@ -830,7 +830,7 @@ seriousness:
   *sliding toward* the next category and may already be there.
 - **Demonic actors.** Actors whose disposition is oriented toward the
   destruction of cooperation as such. They may use the protocol's
-  mechanisms — including its restoration paths — *tactically*, not in
+  mechanisms, including its restoration paths, *tactically*, not in
   good faith. They may mimic legitimate forms (the false prophet
   mimics the prophet, the corrupted institution mimics legitimate
   authority). Their objection is not to particular outcomes within
@@ -842,7 +842,7 @@ The third category is what the existing protocol has not addressed.
 ### Detection: the demon mimics the legitimate
 
 The Christian theological tradition holds that the demonic is not the
-*opposite* of the divine but its *parasite* — Satan is a fallen
+*opposite* of the divine but its *parasite*: Satan is a fallen
 angel, a corrupted good. The practical implication is that demonic
 actors look like *justus hostis* until you examine more carefully.
 This makes detection genuinely hard, and procedural detection alone
@@ -858,7 +858,7 @@ Several signatures are diagnostic but not definitive:
   apparent compliance leaving the spirit more violated than before.
 - **Use of the compact's own categories as weapons.** Designation of
   legitimate opponents as anathema or *hostis humani generis* to
-  capture the protocol for one's own ends — the universalist-decay failure mode
+  capture the protocol for one's own ends: the universalist-decay failure mode
   discussed earlier in this document, but turned into deliberate
   strategy.
 - **Refusal of the substrate.** Active rejection or systematic
@@ -872,8 +872,8 @@ Several signatures are diagnostic but not definitive:
   Costly signals are performed but not really at cost; restitution
   is offered but not really meant.
 
-Discernment of these patterns is itself a *virtue*, not a procedure
-— one cultivated in practicing communities (see
+Discernment of these patterns is itself a *virtue*, not a procedure,
+one cultivated in practicing communities (see
 [justus_hostis.md "the anthropology"](#the-anthropology-the-substrate-must-assume))
 and not reducible to rules. This is one of the deeper reasons kith-covenant
 cannot be purely procedural: distinguishing the demonic from the
@@ -888,25 +888,25 @@ fundamentally destructive are different in kind, and the compact's
 response should differ accordingly. Kith-covenant operationalizes this
 through a **two-tier system**:
 
-**Anathema** (from Greek *ἀνάθεμα* — something devoted to
+**Anathema** (from Greek *ἀνάθεμα*, something devoted to
 destruction; ecclesiastically, formal excommunication from fellowship).
 Anathema is the compact's primary operational category for actors who
 have been formally cut off. The designation procedure is heavy
 (compact-wide deliberation, four conditions, multiple restoration
 attempts having failed), the differential protocol applies (ordinary
 restoration suspended, engagement guarded, expulsion or active
-opposition permitted within the virtue frame), and — crucially — **a
+opposition permitted within the virtue frame), and, crucially, **a
 re-entry path exists.** The anathema is a formal *status imposed by
 the community*, not an ontological judgment about the actor's nature.
 The Church can lift an anathema; excommunication can be reversed
 through repentance and demonstrated change. The overwhelming majority
 of cases that exceed the *justus hostis* frame will be anathema cases.
 
-***Hostis humani generis*** (proper — in its original Roman-law
+***Hostis humani generis*** (proper, in its original Roman-law
 sense). The utterly incorrigible: actors whose orientation toward
 destruction is so fundamental, so sustained, and so resistant to every
 restoration attempt that the question of re-entry does not
-meaningfully arise. Pirates were the original case — not because
+meaningfully arise. Pirates were the original case, not because
 piracy is especially violent but because the pirate has placed himself
 outside *every* cooperative framework, attacking anyone, protected by
 none. The *hostis humani generis* is the actor for whom anathema is
@@ -914,7 +914,7 @@ insufficient because the designation's implicit offer of eventual
 return has no purchase on an actor who has no desire to return.
 
 **This category is *extremely* rare.** The vast majority of actors
-who appear to be *hostis humani generis* are in fact anathema —
+who appear to be *hostis humani generis* are in fact anathema:
 actors who have been formally cut off but for whom return remains
 structurally possible, even if currently unlikely. The distinction
 matters because mislabeling an anathema as *hostis humani generis*
@@ -929,7 +929,7 @@ the presumption should always be toward anathema.
 Kith-Covenant's design must include both the anathema and the *hostis
 humani generis* categories, but their treatment must be unusually
 careful because misuse of either category is the worst single thing
-the compact can do — it is the road to the Inquisition, the Terror,
+the compact can do: it is the road to the Inquisition, the Terror,
 the gulag. Several implications:
 
 - **Both categories are necessary.** Refusing to acknowledge them
@@ -943,7 +943,7 @@ the gulag. Several implications:
   (not unilateral) must have occurred; criteria must be stated. For
   anathema, the designation must be reversible if the actor's conduct
   changes. For *hostis humani generis*, the designation requires
-  an even higher evidentiary threshold — the compact must be able to
+  an even higher evidentiary threshold: the compact must be able to
   demonstrate that the actor's orientation is not merely currently
   destructive but *constitutively* so.
 - **The protocol differs.** For anathema: restoration paths are
@@ -969,10 +969,10 @@ the gulag. Several implications:
   the deepest single danger. Augustine's warning, paraphrased: the
   war against evil can become evil if it is not itself ordered
   toward the good that gives the war its meaning. The designation
-  of anathema — and especially *hostis humani generis* — is the
+  of anathema, and especially *hostis humani generis*, is the
   most dangerous moment in the compact's life. Kith-Covenant must
   include explicit guards against the response to the demonic
-  *becoming* demonic — public deliberation, slow procedure, periodic
+  *becoming* demonic: public deliberation, slow procedure, periodic
   re-examination, willingness to be wrong about past designations.
 - **The presumption is always anathema.** Unless the evidence is
   overwhelming and sustained, the compact should designate anathema,
@@ -1022,11 +1022,11 @@ the defeated enemy retained standing as a peer. The enemy became a criminal
 to be prosecuted, and by extension, war became a matter of suppressing
 criminality rather than bounding conflict between legitimate adversaries.
 The Cold War completed the dissolution by framing the opponent as an
-existential ideological threat — a heretic — rather than a peer.
+existential ideological threat, a heretic, rather than a peer.
 
 **2. The colonial frontier never fit the model.** The *jus publicum* was a
 norm among European powers; outside Europe, the same powers did not grant
-*justus hostis* status to their opponents. This asymmetry was load-bearing —
+*justus hostis* status to their opponents. This asymmetry was load-bearing:
 the classical system only worked because it had an outside in which its
 rules did not apply. When decolonization forced the question of whether
 non-European combatants were legitimate enemies, the system had no
@@ -1042,8 +1042,8 @@ Westphalian principle of non-intervention.
 
 **The common structural cause of all three is the refusal to depoliticize
 the question of the enemy's legitimacy.** Once one's political project
-requires that the opponent be not merely defeated but *corrected* —
-morally, ethnically, or ideologically — the machinery of bounded conflict
+requires that the opponent be not merely defeated but *corrected*,
+morally, ethnically, or ideologically, the machinery of bounded conflict
 loses its premise.
 
 ## Translation to kith-covenant
@@ -1053,12 +1053,12 @@ primitives that do not require shared purpose:
 
 | Conflict-bounding required | Cooperation protocol provides |
 |---|---|
-| Mutual recognition of standing | Baseline sovereign respect — no annihilationist politics between habitats |
+| Mutual recognition of standing | Baseline sovereign respect: no annihilationist politics between habitats |
 | Symmetric rules | Protocols apply equally regardless of habitat size, ideology, wealth |
-| Spatial/temporal bracket | Compartmentalization — disputes don't spill into life-support, rescue, children |
+| Spatial/temporal bracket | Compartmentalization: disputes don't spill into life-support, rescue, children |
 | Shared oath-substrate | Material floor (crypto + stake + transparency + mutual entanglement) plus transcendent moral authority within member communities (per [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern) and [noticeable_hand.md](noticeable_hand.md)); kith-covenant affords emergence and refuses to dictate content but does not pretend the substrate is optional |
-| Protected envoys | Never-target channels and roles — diplomatic, medical, rescue |
-| Defined termination | Every compact has a stated scope and a stated exit — no open-ended entanglement |
+| Protected envoys | Never-target channels and roles: diplomatic, medical, rescue |
+| Defined termination | Every compact has a stated scope and a stated exit: no open-ended entanglement |
 | Jus post bellum | Disputes end in settlements that preserve both parties' standing |
 
 The hardest of these to engineer is the fourth. The others follow from it:
@@ -1083,7 +1083,7 @@ the central open question rather than a side concern.
   kith-covenant implicitly relies on, and what happens at its frontier?
 - Universalist ideologies are the historical solvent of *justus hostis*.
   What, if anything, in kith-covenant's design tends to resist universalist
-  capture — and is universalist capture detectable before it succeeds?
+  capture, and is universalist capture detectable before it succeeds?
 - If Earth is a better test of kith-covenant's viability than space (see
   bounded_conflict.md), which existing Earth communities are the least
   bad candidates to run the first compacts with? What distinguishes a
@@ -1102,25 +1102,25 @@ the central open question rather than a side concern.
 
 ## Relationship to other documents
 
-- [bounded_conflict.md](bounded_conflict.md) — the operational counterpart to
-  this document: escalation ladders, red lines, and the non-negotiable core
-  for inter-habitat disputes.
-- [historical_cases.md](historical_cases.md)  — detailed case
+- [bounded_conflict.md](bounded_conflict.md): the operational counterpart to
+  this document, covering escalation ladders, red lines, and the non-negotiable
+  core for inter-habitat disputes.
+- [historical_cases.md](historical_cases.md): detailed case
   studies of Westphalia, the Hanseatic League, *lex mercatoria*, codes
   duello, and the Iroquois Confederacy, including the decay mode of each.
-- [recognition_protocols.md](recognition_protocols.md)  —
+- [recognition_protocols.md](recognition_protocols.md):
   the minimum viable handshake that instantiates mutual recognition of
   standing in kith-covenant's protocol layer.
-- [../social_framework.md](../social_framework.md) — parent document on
+- [../social_framework.md](../social_framework.md): parent document on
   social technologies for habitat sustainability; kith-covenant's protocols are
   the inter-community layer of that framework.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md)
-  — the intra-community complement to kith-covenant. Kith-Covenant begins where
+- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+  the intra-community complement to kith-covenant. Kith-Covenant begins where
   autonomous_trust ends.
 
 ## References
 
-*To be added — anchor works include Schmitt,* Der Nomos der Erde *(1950)
+*To be added: anchor works include Schmitt,* Der Nomos der Erde *(1950)
 and* Der Begriff des Politischen *(1932); Grotius,* De Jure Belli ac
 Pacis *(1625); Vattel,* Le Droit des Gens *(1758); Augustine,* De
 Civitate Dei *(5th c.); Niebuhr,* The Nature and Destiny of Man *(1941)

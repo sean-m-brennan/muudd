@@ -4,4 +4,4 @@ Technical architecture documentation for the MUUDD decentralized communications 
 
 ## Contents
 
-- [Gateway Uplinks](gateway-uplinks.md) -- Internet egress modeling for rural mesh network simulation
+- [Gateway Uplinks](gateway-uplinks.md): Internet egress modeling for rural mesh network simulation

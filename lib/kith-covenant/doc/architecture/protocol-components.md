@@ -14,7 +14,7 @@ and the working answer to §D "Operational Gaps" in
 > (`kc-core`, `kc-identity`, `kc-ceremony`, `kc-archive`) with Python
 > bindings (`kc-pyo3`). The `examples/two_communities_demo` binary and
 > `src/python/examples/two_communities_demo.py` both exercise the full
-> three-component stack end-to-end — build two communities with real
+> three-component stack end-to-end: build two communities with real
 > Ed25519 keys, run each community's intra-rite, run the inter-community
 > credentialing ceremony with mutual acceptance of the five anti-spiral
 > feature claims, archive every record, verify, roundtrip through JSON,
@@ -32,7 +32,7 @@ and the working answer to §D "Operational Gaps" in
 > **Capture-resistance amendment (2026-04-28).** Following
 > [capture_resistance.md](../background/capture_resistance.md), capture
 > resistance is introduced as a **cross-cutting architectural concern**
-> rather than a single component. Each existing component (§§1–10)
+> rather than a single component. Each existing component (§§1-10)
 > acquires capture-resistance responsibilities specified inline in the
 > sections below, and a new §11 catalogues the unified architectural
 > concern and the implementation work it implies. None of the
@@ -75,21 +75,21 @@ Everything below is organized around those commitments.
 
 ### 1. Identity and standing
 
-- **Community identity** — cryptographic keypair for the community as
+- **Community identity**: cryptographic keypair for the community as
   party, distinct from any individual's key. Must survive leadership
   change within the community; requires a "successor key" mechanism
   so internal rotation does not cost compact standing.
-- **Designated speakers** — signed delegations from the community key
+- **Designated speakers**: signed delegations from the community key
   authorizing specific persons to recite, file, or commit on the
   community's behalf. Revocable.
-- **Witness registry** — identities of individuals qualified to
+- **Witness registry**: identities of individuals qualified to
   witness recognition events, with rotation schedule and continuity
   constraints (per `recognition_protocols.md` "witness continuity").
-- **Quantum-resistant primitives** — given the generational time
+- **Quantum-resistant primitives**: given the generational time
   horizons, identity keys should not rest on schemes vulnerable to
   medium-term cryptographic attack.
 - **Cross-community principal-witness attestation channel**
-  (capture-resistance amendment) — a separate attestation chain
+  (capture-resistance amendment): a separate attestation chain
   for principals (human guardians of derived-substrate machine
   participants and, by extension, designated speakers for human
   members) carried by witnesses in *other* member communities than
@@ -100,7 +100,7 @@ Everything below is organized around those commitments.
   and
   [machine-participation.md "Guardian capture"](machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions).
 - **Interpretive-plurality evidence at recognition**
-  (capture-resistance amendment) — the inter-community
+  (capture-resistance amendment): the inter-community
   credentialing process records evidence of multiple traceable
   interpretive lineages within the candidate community, per
   [recognition_protocols.md "Inter-community layer"](../background/recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing)
@@ -114,20 +114,20 @@ authorization and inter-community grammar," the recognition
 mechanism is split. The software must support both layers and
 must not conflate them.
 
-- **Intra-community ceremony runner** — drives each community's own
+- **Intra-community ceremony runner**: drives each community's own
   five-movement rite as performed on that community's envoys and
   representative machines, collects internal witness attestations,
   seals the intra-community record in the community's own terms. The
   community's own members are the witnesses here; the asymmetric-
   psychological-cost mechanism operates at this layer and requires
   bodily co-presence for the reasons given in `recognition_protocols.md`.
-- **Inter-community credentialing runner** — accepts the sealed
+- **Inter-community credentialing runner**: accepts the sealed
   intra-community record as credential, drives the compact-level
   sequential presentation (each community performs its own rite in
   turn under cross-community witness), produces the anti-spiral-
   feature examination exchange (per `overview.md` §5b item (e) and
   §3b.i), and seals the cross-boundary witness record.
-- **In-person / remote bridge** — intra-community rites require
+- **In-person / remote bridge**: intra-community rites require
   bodily co-presence (the cost mechanism demands it); cross-boundary
   witness may tolerate hybrid forms at interplanetary scale.
   Working design decision: intra-community authorization in person
@@ -135,20 +135,20 @@ must not conflate them.
   physically reachable; cross-boundary witness of intra-community
   generational re-affirmation cryptographically bound + video, with
   in-person confirmation at the nearest practical opportunity.
-- **Recitation archive** — content-addressed, tamper-evident,
+- **Recitation archive**: content-addressed, tamper-evident,
   publicly verifiable at both layers; each community's
   intra-community rite is sealed separately and referenced into the
   inter-community record that the compact holds. Referenced by
   reputation primitives (§6).
-- **Re-affirmation scheduler** — tracks generational cadence per
+- **Re-affirmation scheduler**: tracks generational cadence per
   community; surfaces overdue or imminent intra-community
   re-affirmations; signals cross-boundary witnesses when a member
   community's re-affirmation event is scheduled.
-- **Versioning** — Movement 4 content is each community's own and
+- **Versioning**: Movement 4 content is each community's own and
   versioned per community; the inter-community layer tracks which
   version of each community's rite was witnessed at each admission
   and re-affirmation.
-- **Ceremony-cost proxy tracking** (capture-resistance amendment) —
+- **Ceremony-cost proxy tracking** (capture-resistance amendment):
   recorded proxies for asymmetric psychological cost across
   re-affirmation cycles: preparation time and attention,
   recitant articulation of what is being committed and forgone,
@@ -156,7 +156,7 @@ must not conflate them.
   anti-spiral-feature examination exchange, substantive vs. rote
   responses to challenge questions. Surfaces decay across cycles
   per [recognition_protocols.md "Tracking ceremony cost"](../background/recognition_protocols.md#tracking-ceremony-cost-across-re-affirmation-cycles).
-- **Substantive re-engagement rung** (capture-resistance amendment) —
+- **Substantive re-engagement rung** (capture-resistance amendment):
   a heavier re-affirmation cycle invoked when proxy decay is
   detected, with extended preparation, more demanding examination,
   and reasserted cost. This is a designated state between ordinary
@@ -167,21 +167,21 @@ must not conflate them.
 - **Distributed append-only archive** of compact-level events:
   recognitions, re-affirmations, mediations, designations,
   restorations, exits, reconstitutions.
-- **Replication** — archive content replicated across member
+- **Replication**: archive content replicated across member
   communities; no single community's failure loses the record.
-- **Sealing** — threshold encryption for sealed mediation proceedings,
+- **Sealing**: threshold encryption for sealed mediation proceedings,
   with keys distributed across the mediator pool so no single custodian
-  can unseal early. Deterministic reveal at the 25–30 year mark.
-- **Access control** — public records vs. sealed records vs.
+  can unseal early. Deterministic reveal at the 25-30 year mark.
+- **Access control**: public records vs. sealed records vs.
   restricted records (e.g., reputation details that cross the
   surveillance threshold).
 - **Manufactured-event provenance tagging** (capture-resistance
-  amendment) — records advancing interpretations of high-charge
+  amendment): records advancing interpretations of high-charge
   events carry originator identity, declared incentives,
   information-history of the interpretation's emergence, and
   stake-disclosure entries; used by the structured-skepticism
   protocol per [liminal_institutions.md "Manufactured-event resistance"](../background/liminal_institutions.md#manufactured-event-resistance-the-structured-skepticism-protocol).
-- **Decision-class metadata** (capture-resistance amendment) —
+- **Decision-class metadata** (capture-resistance amendment):
   every compact-level decision record carries explicit
   classification (first-class, valid within light-lag; second-class,
   requiring multi-community quorum signature) per
@@ -192,19 +192,19 @@ must not conflate them.
 
 ### 4. Mediation
 
-- **Mediator pool directory** — identities, rotations, recusals,
+- **Mediator pool directory**: identities, rotations, recusals,
   lineage of training.
-- **Case intake** — disputes filed between communities, classified
+- **Case intake**: disputes filed between communities, classified
   by escalation-ladder rung.
-- **Deliberation support** — async-compatible for light-lag; structured
+- **Deliberation support**: async-compatible for light-lag; structured
   argument submission; evidence packaging; recusal and consent
   tracking.
-- **Interim-injunction issuance** — protocol-level "stop" order with
+- **Interim-injunction issuance**: protocol-level "stop" order with
   enforcement linkage (§9).
-- **Decision publication** — public decisions with mandatory reasoning
+- **Decision publication**: public decisions with mandatory reasoning
   trail; sealed decisions with threshold-reveal.
 - **Structured-skepticism protocol invocation** (capture-resistance
-  amendment) — mediator-pool authority to invoke the protocol on
+  amendment): mediator-pool authority to invoke the protocol on
   events meeting qualifying criteria (high interpretive charge,
   faction-aligned interest, sudden onset, originating from
   stake-holding witnesses). Imposes structural delay,
@@ -216,17 +216,17 @@ must not conflate them.
 
 ### 5. Escalation and designation
 
-- **Ladder state machine** per dispute — virtue-discussion → formal
+- **Ladder state machine** per dispute: virtue-discussion → formal
   complaint → mediation → graduated sanctions → *hostis humani generis*
   designation. Timed transitions where the research specifies them.
-- **Designation procedure** — four-condition test (per
+- **Designation procedure**: four-condition test (per
   `bounded_conflict.md` §"Handling the *hostis humani generis*"),
   quorum rules, review period, emergency-variant handling.
-- **Restitution tracking** — restoration obligations, verification of
+- **Restitution tracking**: restoration obligations, verification of
   completion.
-- **Re-entry procedure** — examination, witnessing, re-recitation
+- **Re-entry procedure**: examination, witnessing, re-recitation
   binding on re-admitted party.
-- **Substantive-re-engagement rung** (capture-resistance amendment) —
+- **Substantive-re-engagement rung** (capture-resistance amendment):
   the new ladder rung between ordinary re-affirmation and anathema
   for ceremony-cost decay cases (per §2 above). Triggered by
   proxy-decay surfacing in the audit commons; applies to a member
@@ -238,47 +238,47 @@ must not conflate them.
 
 ### 6. Reputation bridges
 
-- **Reputation ledger** — what is on the record across the compact:
+- **Reputation ledger**: what is on the record across the compact:
   recitation history, completed mediations, designations (active and
   lifted), restoration completions.
-- **Selective-disclosure primitives** — zero-knowledge proofs for
+- **Selective-disclosure primitives**: zero-knowledge proofs for
   narrow claims (e.g., "this community has no active designation
   against it") without exposing full history.
-- **Decay model** — not pure exponential; step function for dramatic
+- **Decay model**: not pure exponential; step function for dramatic
   violations plus slow decay for minor. See
   `reputation_bridges.md` open question on half-life modeling.
-- **Recitation history as foundational datum** — compact-anchored
+- **Recitation history as foundational datum**: compact-anchored
   reputation root, portable across mediators and disputes.
-- **Surveillance threshold** — configurable disclosure levels for
+- **Surveillance threshold**: configurable disclosure levels for
   internal health indicators; large/powerful communities disclose
   more by default.
 - **Principal-output triangulation data flows**
-  (capture-resistance amendment) — comparison of a machine's
+  (capture-resistance amendment): comparison of a machine's
   conduct against the ensemble of similarly-situated machines
   under similarly-positioned principals. Divergence flags entered
   in the reputation ledger for cross-community review per
   [m2m_interaction.md "Adversarial-principal validation"](../background/m2m_interaction.md#adversarial-principal-validation).
 - **Ceremony-cost decay surfacing** (capture-resistance
-  amendment) — reputation queries surface proxy-decay state
+  amendment): reputation queries surface proxy-decay state
   alongside conventional standing data, so peers and observers
   can see ceremony erosion before it has progressed to formal
   re-engagement or anathema.
 
 ### 7. Commons governance
 
-- **Commons registry** — shared resources (knowledge archive, rescue
+- **Commons registry**: shared resources (knowledge archive, rescue
   capacity, communication relays, navigation beacons) with Ostrom-style
   boundary definitions.
-- **Usage accounting** — consumption, contribution, free-rider
+- **Usage accounting**: consumption, contribution, free-rider
   detection.
-- **Graduated-sanctions ledger** — progression from monitoring to
+- **Graduated-sanctions ledger**: progression from monitoring to
   warning to restriction to exclusion, with restoration paths.
-- **Light-lag-tolerant consensus** — CRDT-like where semantics permit;
+- **Light-lag-tolerant consensus**: CRDT-like where semantics permit;
   BFT-style where they do not. Eventually-consistent governance is
   the baseline assumption (per `commons_federation.md`).
-- **Nested-enterprise support** — hierarchical commons (community-level
+- **Nested-enterprise support**: hierarchical commons (community-level
   → regional → compact-wide) with appropriate authority at each level.
-- **Decision-class enforcement** (capture-resistance amendment) —
+- **Decision-class enforcement** (capture-resistance amendment):
   cryptographic enforcement of the first-class / second-class
   distinction (per §3 metadata above). Second-class decisions
   produce signed records whose validation requires multi-party
@@ -298,37 +298,37 @@ must not conflate them.
 > **Constitutional standing (capture-resistance amendment).** The
 > jester / observer function is **promoted from cultural-dissent
 > affordance to substrate-level capture detector**. Its permission
-> to name what others cannot is what makes early-stage capture —
-> contraction of substrate-deference, decay of ceremony cost,
-> manufactured-event drift, principal-capture signatures — legible
-> before terminal capture. The function operates at the substrate
-> layer (continuous monitoring of capture signatures), not only the
-> protocol layer (post-hoc reporting). Per
+> to name what others cannot is what makes early-stage capture
+> legible before terminal capture: contraction of substrate-deference,
+> decay of ceremony cost, manufactured-event drift, principal-capture
+> signatures. The function operates at the substrate layer (continuous
+> monitoring of capture signatures) as well as the protocol layer
+> (post-hoc reporting). Per
 > [capture_resistance.md "Architectural unification"](../background/capture_resistance.md#architectural-unification),
 > the function's constitutional position is upgraded; its
 > implementation cannot be deferred to "after MVP."
 
-- **Observer corps registry** — declared-perspective reporters,
+- **Observer corps registry**: declared-perspective reporters,
   rotation, cross-community composition requirements to prevent
   narrative capture by the dominant member.
 - **Report publication** with attribution (public reporting) alongside
   whistleblower channel with source protection.
-- **Threshold-held source records** — whistleblower identity
+- **Threshold-held source records**: whistleblower identity
   recoverable only with mediator-panel quorum and only for named
   cause. Source protection must be structurally stronger than
   individual mediator integrity.
-- **Archive access** — observer reports form a durable check on the
+- **Archive access**: observer reports form a durable check on the
   mediator pool; archive must make observer corpus retrievable across
   generations.
-- **Capture-signature monitoring** (capture-resistance amendment) —
+- **Capture-signature monitoring** (capture-resistance amendment):
   the observer corps maintains active monitoring for the legible
   signs of early-stage capture: substrate-deference erosion (shrinking
   compact-incapable list, shortening structured-fast period),
   ceremony-cost proxy decay across multiple member communities,
   manufactured-event patterns, principal-output triangulation
   divergence. Monitoring outputs are reported to the audit commons
-  on a continuous cadence, not only when specific reports are filed.
-- **Substrate-deference reporting** (capture-resistance amendment) —
+  on a continuous cadence rather than only when specific reports are filed.
+- **Substrate-deference reporting** (capture-resistance amendment):
   observer corps maintains the public dashboard tracking
   compact-incapable list state and structured-fast cadence
   observance, making the substrate-deference test's operational
@@ -344,9 +344,9 @@ Three candidate mechanisms, layerable:
   at the directory level: reputation lookups surface the violation; the
   injunction and its defiance are published to the archive
   automatically.
-- **Capability-based access.** Compact-gated resources — rescue
+- **Capability-based access.** Compact-gated resources (rescue
   coordination endpoints, shared navigation, reputation-dependent
-  trade, commons withdrawals — are revocable at protocol level when a
+  trade, commons withdrawals) are revocable at protocol level when a
   community ignores an injunction. The teeth are withdrawal of
   protocol-level services, not external coercion.
 - **Transparency-as-teeth.** Violations are published immediately and
@@ -382,9 +382,9 @@ rather than by an external force:
   adjudicative functions pause. The cadence is part of the
   constitutional layer; observer corps surfaces deviations.
 - **Erosion-detection alerting.** The audit commons surfaces
-  trends in either dimension — exceptions multiplying in the
+  trends in either dimension (exceptions multiplying in the
   compact-incapable list, the structured-fast period contracting
-  under pragmatic argument — to the observer corps and to the
+  under pragmatic argument) to the observer corps and to the
   member communities.
 
 The substrate-deference test is operational and diagnostic
@@ -399,17 +399,17 @@ and developed in
 - **Simulation environment** for adversarial testing: captured-mediator
   scenarios, hollow-recitation drift, coordinated collusion, narrative
   capture of the observer corps, protocol-layer replay attacks.
-- **Earth-pilot configuration** — small-scale deployment mode that can
+- **Earth-pilot configuration**: small-scale deployment mode that can
   actually run with real communities. Necessary for the test-cases gap
   (§D.5 in skeptical_critique).
 - **Integration harness** against `autonomous_trust` for live-AT
   message traffic observation, per
   [policy-evaluation.md](policy-evaluation.md).
-- **Falsification criteria** — what observable outcomes in pilot
+- **Falsification criteria**: what observable outcomes in pilot
   deployments would count as kith-covenant failing? This needs explicit
   design, not implicit.
 - **Capture-resistance scenario simulation** (capture-resistance
-  amendment) — adversarial test categories specifically targeting
+  amendment): adversarial test categories specifically targeting
   the six strengthening moves: faction-monopolizing-interpretation
   within a member community (move 1); compact drift toward
   ultimacy via compact-incapable-list erosion (move 2); ceremony
@@ -425,7 +425,7 @@ and developed in
 ### 11. Capture resistance (cross-cutting)
 
 This is not a separate component but a unified architectural
-concern that runs through §§1–10. The full statement is in
+concern that runs through §§1-10. The full statement is in
 [capture_resistance.md](../background/capture_resistance.md);
 the specifications for its individual moves live in their host
 research documents. The role of this section is to give the
@@ -440,7 +440,7 @@ practice rather than invoked only when capture is suspected. The
 prior fragmentation (jester role for cultural dissent; audit
 commons for forensic record; emergency anathema for crisis
 response) is unified under this commitment, with each fragment's
-constitutional position upgraded as specified above (§§1–10
+constitutional position upgraded as specified above (§§1-10
 inline).
 
 **The six strengthening moves and their component homes.**
@@ -455,11 +455,11 @@ inline).
 | 6. Adversarial-principal validation | Principal-capture detection | §1 (identity), §6 (reputation) | [m2m_interaction.md "Adversarial-principal validation"](../background/m2m_interaction.md#adversarial-principal-validation), [machine-participation.md "Guardian capture"](machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions) |
 
 **Architectural layering.** Capture resistance operates at three
-layers: substrate (member communities' own practices —
+layers: substrate (member communities' own practices:
 interpretive plurality, ceremony cost), compact (kith-covenant's
-mechanisms — substrate-deference, manufactured-event resistance,
+mechanisms: substrate-deference, manufactured-event resistance,
 decision classes, jester-as-detector), and implementation
-(software — audit commons as detection infrastructure,
+(software: audit commons as detection infrastructure,
 cryptographic decision-class enforcement, attestation cadence
 tuned to capture-detection windows). Each layer presupposes
 the others; capture-resistance only works as a layered system.
@@ -483,7 +483,7 @@ None of these is implemented in the current MVP. Their addition
 does not invalidate the existing three-component stack but does
 materially extend the eventual scope.
 
-## Key architectural decisions
+## Architectural decisions
 
 1. **Distributed substrate.** Libp2p-style peer-to-peer with
    content-addressed storage. No distinguished server; no mechanism
@@ -493,7 +493,7 @@ materially extend the eventual scope.
    at the root layer.
 3. **Consensus model.** Compact-wide facts (recognition, designation,
    re-entry) are rare but need durability; most mediations are local
-   to a panel. Probably *not* a single global chain — more likely
+   to a panel. Probably *not* a single global chain: more likely
    per-case chains anchored periodically to a slower, higher-threshold
    compact-level commit.
 4. **Amendability tiers.** Constitutional layer (recognition structure,
@@ -517,18 +517,18 @@ materially extend the eventual scope.
    communities' own practices), the protocol layer (kith-covenant's
    mechanisms), and the implementation layer (software). No single
    component implements capture resistance; each component carries
-   responsibilities specified inline above (§§1–10), and §11
+   responsibilities specified inline above (§§1-10), and §11
    catalogues the unified concern. The implementation must
    refuse the temptation to consolidate capture-resistance into a
-   single subsystem — the consolidation itself becomes a capture
+   single subsystem: the consolidation itself becomes a capture
    target. Distribution of the concern across components is the
    structural defense.
 
 ## Suggested incremental build order
 
 The minimum useful slice, in order. **Capture-resistance work is
-woven through, not appended at the end** — items marked (CR) carry
-capture-resistance responsibilities specified in the inline §§1–10
+woven through, not appended at the end**: items marked (CR) carry
+capture-resistance responsibilities specified in the inline §§1-10
 amendments and unified in §11.
 
 1. **Identity + recognition + archive** (components 1, 2, 3). The
@@ -537,7 +537,7 @@ amendments and unified in §11.
    includes the cross-community principal-witness channel (§1);
    recognition records the interpretive-plurality evidence (§2);
    archive carries decision-class metadata and provenance tags
-   from the start (§3) — adding these later is much harder than
+   from the start (§3): adding these later is much harder than
    designing them in.
 2. **Reputation lookup** (component 6, minimal slice). Once recognition
    events exist in the archive, downstream reputation claims become
@@ -553,7 +553,7 @@ amendments and unified in §11.
    includes the substantive-re-engagement rung between ordinary
    re-affirmation and anathema.
 5. **Enforcement model** (component 9). Should not be deferred
-   further; decisions here shape 1–4 in retrospect. **(CR)**
+   further; decisions here shape 1-4 in retrospect. **(CR)**
    Enforcement includes the substrate-deference test as ongoing
    constitutional operation: compact-incapable list, structured-fast
    cadence, erosion-detection alerting. These are constitutional-layer
@@ -567,9 +567,9 @@ amendments and unified in §11.
    with the substrate-deference dashboard and capture-signature
    monitoring as standing competencies, not optional features.
 7. **Capture-resistance test harness** (component 10, expanded). The
-   six adversarial scenarios — faction-monopolizing-interpretation,
+   six adversarial scenarios (faction-monopolizing-interpretation,
    compact drift toward ultimacy, ceremony hollowing, manufactured-event
-   injection, light-lag fait-accompli, principal-capture — must
+   injection, light-lag fait-accompli, principal-capture) must
    exercise the implementation continuously from the earliest stages.
    This is **continuous, not sequenced**: the test harness exists
    from step 1 and accumulates scenarios as the components are built.
@@ -592,10 +592,10 @@ than buried in subsystem docs:
   is primary? The research docs prefer transparency-as-teeth;
   capability-based access is the strongest at the code layer.
 - **In-person requirement vs. interplanetary scale.** The hybrid
-  proposal in §2 is working but unvalidated. The 3–20 minute
+  proposal in §2 is working but unvalidated. The 3-20 minute
   Earth-Mars light-lag may be tolerable; multi-hour delays to outer
   system are not.
-- **Re-affirmation cadence calibration.** The 25–30 year default lacks
+- **Re-affirmation cadence calibration.** The 25-30 year default lacks
   empirical support. May need to vary by community generational
   rhythm (monastic vs. agricultural vs. other) per
   `recognition_protocols.md` open questions.
@@ -607,18 +607,18 @@ than buried in subsystem docs:
   recusal become infeasible (every mediator is conflicted). Above
   some threshold, coordination fails. Where is the band?
 - **Integration with existing infrastructure.** DIDs, IPFS, libp2p,
-  threshold-cryptography libraries, CRDT libraries — which stacks are
+  threshold-cryptography libraries, CRDT libraries: which stacks are
   mature enough to build on, which need to be built or forked?
 
 ## Relationship to other documents
 
-- [policy-evaluation.md](policy-evaluation.md) — existing architecture
+- [policy-evaluation.md](policy-evaluation.md): existing architecture
   doc covering the AT/kith-covenant evaluation seam; the integration
   point for §5 above.
-- [../research/](../research/) — the research set this document
+- [../research/](../research/): the research set this document
   operationalizes. Each component above corresponds to one or more
   research docs' design commitments.
-- [../kith_covenant.md](../kith_covenant.md) — parent index.
+- [../kith_covenant.md](../kith_covenant.md): parent index.
 - [../background/skeptical_critique.md](../background/skeptical_critique.md)
-  §D — the "Operational Gaps" section that flagged these items; this
+  §D: the "Operational Gaps" section that flagged these items; this
   document is the working response to that section.

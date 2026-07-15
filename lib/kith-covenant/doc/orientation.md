@@ -4,7 +4,7 @@
 
 This is a guided walk through Kith-Covenant (KC). Each section names a facet of the design, says what it is for in plain language, and points you to the background document where the argument is worked out. Read straight through and you should end with a clear mental map; read selectively and you should know which background document to open next.
 
-KC's existing top-level pages — `overview.md`, `summary.md`, the whitepaper — try to be everything at once. This page deliberately doesn't. It is the table of contents with reasoning attached.
+KC's existing top-level pages (`overview.md`, `summary.md`, the whitepaper) try to be everything at once. This page deliberately doesn't. It is the table of contents with reasoning attached.
 
 ---
 
@@ -12,17 +12,17 @@ KC's existing top-level pages — `overview.md`, `summary.md`, the whitepaper �
 
 Human communities do not cooperate by default. Tribal warfare, along lines of clan, nation, or ideology, has been and continues to be endemic. Each advance of technology raises the stakes. The final frontier may well prove to be the ultimate warzone. 
 
-Imagine a settlement on Mars, an O'Neill cylinder near L5, a free-flying habitat in the asteroid belt, and a research outpost on Europa. Each is an independent community. None shares the others' history, founding charter, religion, or governance. They cannot federate under a single sovereign — distance and light-lag make any central authority either irrelevant (too slow) or oppressive (decisions imposed by whoever is closest to the seat of power). They cannot rely on the ability to walk away from a bad neighbor — there is nowhere to walk to. They will, however, need each other: for rescue, for shared communication infrastructure, for navigation data, for trade, for the simple fact that an enemy at one Lagrange point is a threat to all the others.
+Imagine a settlement on Mars, an O'Neill cylinder near L5, a free-flying habitat in the asteroid belt, and a research outpost on Europa. Each is an independent community. None shares the others' history, founding charter, religion, or governance. They cannot federate under a single sovereign: distance and light-lag make any central authority either irrelevant (too slow) or oppressive (decisions imposed by whoever is closest to the seat of power). They cannot rely on the ability to walk away from a bad neighbor: there is nowhere to walk to. They will, however, need each other: for rescue, for shared communication infrastructure, for navigation data, for trade, for the simple fact that an enemy at one Lagrange point is a threat to all the others.
 
 So: how do strangers cooperate, durably, when they do not share purpose, cannot exit, and cannot appeal to any higher human authority?
 
-KC's answer is a *civil protocol*: a set of practices, recognition rites, escalation procedures, and standing categories that several communities can run together without merging. It is patterned on historical regimes that solved a version of this problem on Earth — Westphalia, the Hanseatic League, lex mercatoria, the Iroquois Council Fire, the Buddhist sangha — and adapted for AU-scale distances, light-lag governance, and the participation of machine agents.
+KC's answer is a *civil protocol*: a set of practices, recognition rites, escalation procedures, and standing categories that several communities can run together without merging. It is patterned on historical regimes that solved a version of this problem on Earth (Westphalia, the Hanseatic League, lex mercatoria, the Iroquois Council Fire, the Buddhist sangha) and adapted for AU-scale distances, light-lag governance, and the participation of machine agents.
 
 ---
 
 ## 2. The central move: cooperate by inverting bounded conflict
 
-The animating insight: don't ask "how do strangers come to cooperate?" — ask "how have strangers historically come to *fight within limits*?" Answer that, and invert each ingredient.
+The animating insight: don't ask "how do strangers come to cooperate?" Ask "how have strangers historically come to *fight within limits*?" Answer that, and invert each ingredient.
 
 Bounded conflict requires four things: mutual recognition of the other as a peer (not a criminal); symmetric rules that bind both sides; protected channels (envoys, the wounded, communications) that the conflict does not touch; and a defined ending that lets both sides return to standing. Invert each of those and you get the primitives of cooperation: standing-recognition baselines, protocols that apply equally regardless of size or wealth, never-target categories (life support, rescue, children, communications), and termination procedures that include re-entry.
 
@@ -34,7 +34,7 @@ The classical name for the legitimate-peer-enemy relation is *justus hostis*. KC
 
 ## 3. The substrate question (and how it has changed)
 
-Long-running voluntary cooperation among unconnected communities — centuries-scale, not decade-scale — rests on what KC calls a *transcendent moral authority substrate*: a shared reference point above the parties, before which oaths bind because breaking them damages the self in a way that mere reputation cost does not. Christianity furnishes the densest cluster of such regimes; Buddhism furnishes the longest single one (the sangha at ~2,300 years); the Iroquois Confederacy, Mali's Kurukan Fuga, Islamic *aman*/*dhimma* are non-Christian non-Buddhist instances that all show the same structural feature.
+Long-running voluntary cooperation among unconnected communities (centuries-scale, not decade-scale) rests on what KC calls a *transcendent moral authority substrate*: a shared reference point above the parties, before which oaths bind because breaking them damages the self in a way that mere reputation cost does not. Christianity furnishes the densest cluster of such regimes; Buddhism furnishes the longest single one (the sangha at ~2,300 years); the Iroquois Confederacy, Mali's Kurukan Fuga, Islamic *aman*/*dhimma* are non-Christian non-Buddhist instances that all show the same structural feature.
 
 The claim has been sharpened under pressure from the historical evidence:
 
@@ -50,12 +50,12 @@ The current form is narrower and more precise than the original. It says nothing
 
 ## 4. The five anti-spiral features
 
-Across every long-running case the same five structural features show up, in different idioms. They aren't requirements imposed by the compact — they are properties the compact looks for in member communities, because their absence reliably produces a specific failure mode: the *purity spiral*, where competitive virtue-signaling escalates until the community starts purging its own.
+Across every long-running case the same five structural features show up, in different idioms. They aren't requirements imposed by the compact; they are properties the compact looks for in member communities, because their absence reliably produces a specific failure mode: the *purity spiral*, where competitive virtue-signaling escalates until the community starts purging its own.
 
 1. **Universal fallen-actor anthropology.** Everyone is fallen, including the most virtuous member. The line between good and evil runs through each person, not between groups. Forecloses the "us-pure / them-impure" move on which purity spirals depend.
 2. **Grace over merit.** Standing is received, not earned. Makes competitive virtue-signaling incoherent: if virtue is gift, there is no status to compete for.
 3. **Scapegoat-revelation, or a functional equivalent.** Some mechanism that disarms the social reflex of resolving group anxiety by exiling someone. Christianity has the cross; Buddhism has *anatta* plus universal compassion; the Iroquois have the Condolence ceremony.
-4. **Enemy-love as operational norm.** Not sentiment — a structural constraint. The community owes moral seriousness to the person actually in front of it, regardless of category. Blocks the in-group/out-group compression that purity spirals run on.
+4. **Enemy-love as operational norm.** A structural constraint, not a sentiment. The community owes moral seriousness to the person actually in front of it, regardless of category. Blocks the in-group/out-group compression that purity spirals run on.
 5. **Non-ultimacy of the political community.** The compact is not the highest thing. Something stands in judgment over it.
 
 These are not theological claims the compact endorses. They are observable patterns the compact looks for in member communities, because the historical record says regimes lacking any one of them tip into purity-spiral collapse within a few generations.
@@ -68,9 +68,9 @@ These are not theological claims the compact endorses. They are observable patte
 
 How does a community become a member? How does it stay a member?
 
-Earlier versions of KC tried to answer this with a single joint ceremony — communities reciting a shared statement together. The historical evidence said no: joint thick ceremonies don't work across unshared substrates. Two real layers are doing the work:
+Earlier versions of KC tried to answer this with a single joint ceremony: communities reciting a shared statement together. The historical evidence said no: joint thick ceremonies don't work across unshared substrates. Two real layers are doing the work:
 
-**Intra-community (where the real binding happens).** Each community performs its own recognition rite, in its own substrate, on its own envoys. The five-movement structure (acknowledge a Creator; affirm pro-human dignity; affirm pro-cooperation orientation; acknowledge the five anti-spiral features; commit to the common-virtue refusals) is performed *internally* by the community, not as a joint ritual with strangers. This is where the asymmetric psychological cost lives — the body knows when the words are insincere, and members socialized in the tradition can detect hollowing in their own people faster than any outsider can.
+**Intra-community (where the real binding happens).** Each community performs its own recognition rite, in its own substrate, on its own envoys. The five-movement structure (acknowledge a Creator; affirm pro-human dignity; affirm pro-cooperation orientation; acknowledge the five anti-spiral features; commit to the common-virtue refusals) is performed *internally* by the community, not as a joint ritual with strangers. This is where the asymmetric psychological cost lives: the body knows when the words are insincere, and members socialized in the tradition can detect hollowing in their own people faster than any outsider can.
 
 **Inter-community (a thin procedural grammar).** Across compact boundaries, KC uses a much thinner mechanism: credentialing of envoys (cryptographic proof that the sender community authorized them under its own substrate; the compact does not second-guess how that binding was done), vouching by existing members for new entrants, and an audit commons recording each member's standing and conduct over time. This layer assumes nothing about what happens inside a community's recognition rite; it cares only that the rite happened, that the community attests to it, and that the community's subsequent conduct is consistent with what it said.
 
@@ -84,12 +84,12 @@ The reason for the split: the inter-community layer can be carried by procedure 
 
 A community in KC is in exactly one of four relationships with another community at any given time:
 
-- **Member.** Full participation — mediator pool, commons, escalation ladder, the works.
-- ***Justus hostis*.** A peer adversary — communities in active dispute, but both still inside the legitimate-peer frame. Symmetric rules. Heightened scrutiny on substantive commitments. Rescue, communications, and navigational data still flow. The presumption is that the dispute will end and parties will return to member standing.
+- **Member.** Full participation: mediator pool, commons, escalation ladder, the works.
+- ***Justus hostis*.** A peer adversary: communities in active dispute, but both still inside the legitimate-peer frame. Symmetric rules. Heightened scrutiny on substantive commitments. Rescue, communications, and navigational data still flow. The presumption is that the dispute will end and parties will return to member standing.
 - **Anathema.** Formally cut off after sustained bad-faith conduct, multiple failed restoration attempts, and a compact-wide deliberation. Material stake forfeit. Re-entry exists, but the burden is heavy. The presumption is that recovery is possible.
-- **Non-member-encountered.** A community with no compact relation at all. Reduced-envelope default — basic courtesy, navigational data when safety-relevant, rescue if distress is present, fresh commitments require human referral.
+- **Non-member-encountered.** A community with no compact relation at all. Reduced-envelope default: basic courtesy, navigational data when safety-relevant, rescue if distress is present, fresh commitments require human referral.
 
-A fifth, very rare designation — *hostis humani generis* — is held in reserve for sustained, irreversible patterns of weaponizing the compact's own categories against it. Nearly all real conflict should resolve below this rung.
+A fifth, very rare designation, *hostis humani generis*, is held in reserve for sustained, irreversible patterns of weaponizing the compact's own categories against it. Nearly all real conflict should resolve below this rung.
 
 → Further reading: [justus_hostis.md](background/justus_hostis.md), [recognition_protocols.md](background/recognition_protocols.md)
 
@@ -101,7 +101,7 @@ When two communities disagree, KC walks the dispute up an *escalation ladder* wi
 
 Two design choices distinguish KC from a pure rules system:
 
-**Common virtues, not non-negotiable rules.** The compact's protected categories — reverence for life, sanctuary of rescuers, communicative commons, passage for travelers, innocence of non-combatants, inheritance of future generations, memory of the dead, good faith of confession — are stated as dispositions, not prohibitions. The reason is that virtue-based standards are harder to game than rule-based ones. Rules invite optimization against the letter (positioning combatants as civilians, calling an attack a humanitarian intervention); dispositions ask whether the act *expresses* the virtue, which is the kind of question that rewards genuine compliance and exposes performative compliance.
+**Common virtues, not non-negotiable rules.** The compact's protected categories (reverence for life, sanctuary of rescuers, communicative commons, passage for travelers, innocence of non-combatants, inheritance of future generations, memory of the dead, good faith of confession) are stated as dispositions, not prohibitions. The reason is that virtue-based standards are harder to game than rule-based ones. Rules invite optimization against the letter (positioning combatants as civilians, calling an attack a humanitarian intervention); dispositions ask whether the act *expresses* the virtue, which is the kind of question that rewards genuine compliance and exposes performative compliance.
 
 **Mediators are rotated, not appointed.** A standing professional mediator class would be the single most capturable element in the system. Mediators are drawn from member communities by lot, serve fixed terms, publish their reasoning, and rotate out before they accumulate factional weight.
 
@@ -115,7 +115,7 @@ Recognizable in every long-running historical case: a *third place* between comm
 
 KC's version is a distributed mediator pool plus shared physical infrastructure (Lagrange-point docking stations, communications relays, emergency rendezvous, navigation beacons), funded by assessed contribution from all members so no single member can starve it. The rotation rules, the funding model, and the deliberate refusal to grow into a sovereign of its own are what protect liminal institutions from the historical failure mode where they ossify into a fourth power.
 
-A specific subsystem inside this layer: a *commons-governance* mechanism patterned on Elinor Ostrom's design principles, adapted for the five space commons (life support, communications, navigation, knowledge, rescue) and for light-lag — meaning monitoring is distributed and reports are eventually-consistent rather than real-time, and decisions are split into classes by their reversibility (operational choices valid locally; compact-level decisions requiring multi-community quorum signatures that no AU-region faction can satisfy alone).
+A specific subsystem inside this layer: a *commons-governance* mechanism patterned on Elinor Ostrom's design principles, adapted for the five space commons (life support, communications, navigation, knowledge, rescue) and for light-lag: monitoring is distributed and reports are eventually-consistent rather than real-time, and decisions are split into classes by their reversibility (operational choices valid locally; compact-level decisions requiring multi-community quorum signatures that no AU-region faction can satisfy alone).
 
 → Further reading: [liminal_institutions.md](background/liminal_institutions.md), [commons_federation.md](background/commons_federation.md)
 
@@ -131,7 +131,7 @@ Three categories of data cross the AT/KC boundary:
 - **Aggregated internal health** (crosses with consent, via zero-knowledge proofs): population stability, resource adequacy, dispute-resolution rate, generational re-affirmation continuity. The compact learns that internal health is above threshold without learning the underlying state.
 - **Specific violation reports** (cross when external effects occur): internal conduct producing external harm, whistleblower attestations (anonymous via ring signatures, but verifiably from community insiders).
 
-Reputation has an explicit half-life and decays as the light-lag clock runs. Stale data is *discounted*, not rejected — a six-month-old standing token is still useful for routine operations, less useful for high-stakes commitments, and never justifies a substantive decision in a fast-moving situation. Revocations, once detected, override unexpired tokens regardless of which arrived first.
+Reputation has an explicit half-life and decays as the light-lag clock runs. Stale data is *discounted*, not rejected: a six-month-old standing token is still useful for routine operations, less useful for high-stakes commitments, and never justifies a substantive decision in a fast-moving situation. Revocations, once detected, override unexpired tokens regardless of which arrived first.
 
 → Further reading: [reputation_bridges.md](background/reputation_bridges.md)
 
@@ -139,14 +139,14 @@ Reputation has an explicit half-life and decays as the light-lag clock runs. Sta
 
 ## 10. Capture resistance
 
-The same machinery that makes KC work makes it capturable. Whoever controls the mediator pool, the audit commons, or the interpretation of the substrate controls the compact. This is *not* a discrete failure — it's continuous structural pressure, always operating, never finished. KC names six interlocking moves that keep the pressure bounded:
+The same machinery that makes KC work makes it capturable. Whoever controls the mediator pool, the audit commons, or the interpretation of the substrate controls the compact. This is *not* a discrete failure; it's continuous structural pressure, always operating, never finished. KC names six interlocking moves that keep the pressure bounded:
 
-1. **Interpretive plurality** — member communities must maintain multiple traceable lineages of their own substrate; no single faction may monopolize interpretation.
-2. **Substrate-deference test** — the compact maintains a *compact-incapable list* (matters it structurally will not decide: theology, internal governance of members, the content of recognition statements after formation) and a *structured-fast cadence* (periodic intervals during which compact-level mediation is suspended). These operationalize "the compact is not the highest thing."
-3. **Ceremony-cost tracking** — recognition rites that have decayed into ritual without engagement are detectable by attendance patterns, witness comportment, and substantive response in re-affirmation cycles.
-4. **Manufactured-event resistance** — high-interpretive-charge events (an "incident" that conveniently justifies escalation) trigger structured delay, multi-witness corroboration, cross-substrate translation, and stake disclosure before any binding response.
-5. **Light-lag-honest decision classes** — cryptographically distinct: local operational choices valid within light-lag, compact-level decisions requiring quorum signatures from multiple communities at multiple distances. Forecloses the *fait accompli* attack.
-6. **Adversarial-principal validation** — cross-community witnesses observe each principal's conduct; behavior triangulated against the ensemble of similarly-situated peers; divergence in directions that benefit the principal flagged.
+1. **Interpretive plurality**: member communities must maintain multiple traceable lineages of their own substrate; no single faction may monopolize interpretation.
+2. **Substrate-deference test**: the compact maintains a *compact-incapable list* (matters it structurally will not decide: theology, internal governance of members, the content of recognition statements after formation) and a *structured-fast cadence* (periodic intervals during which compact-level mediation is suspended). These operationalize "the compact is not the highest thing."
+3. **Ceremony-cost tracking**: recognition rites that have decayed into ritual without engagement are detectable by attendance patterns, witness comportment, and substantive response in re-affirmation cycles.
+4. **Manufactured-event resistance**: high-interpretive-charge events (an "incident" that conveniently justifies escalation) trigger structured delay, multi-witness corroboration, cross-substrate translation, and stake disclosure before any binding response.
+5. **Light-lag-honest decision classes**, cryptographically distinct: local operational choices valid within light-lag, compact-level decisions requiring quorum signatures from multiple communities at multiple distances. Forecloses the *fait accompli* attack.
+6. **Adversarial-principal validation**: cross-community witnesses observe each principal's conduct; behavior triangulated against the ensemble of similarly-situated peers; divergence in directions that benefit the principal flagged.
 
 None of these eliminates capture. They bound damage and slow the spread.
 
@@ -156,7 +156,7 @@ None of these eliminates capture. They bound damage and slow the spread.
 
 ## 11. The jester
 
-A specific role with its own document, because it does work no other role does: the licensed truth-teller. The medieval fool, the prophet of the Hebrew Bible, the satyagrahi, the modern investigative journalist. Cross-community observers who travel between members, observe conditions, and report — *attributed*, not pretending to neutrality — to the audit commons.
+A specific role with its own document, because it does work no other role does: the licensed truth-teller. The medieval fool, the prophet of the Hebrew Bible, the satyagrahi, the modern investigative journalist. Cross-community observers who travel between members, observe conditions, and report (*attributed*, not pretending to neutrality) to the audit commons.
 
 KC promotes the jester from "cultural affordance" to "substrate-level capture detector." The jester is institutionally protected (interference is itself a virtue violation), structurally insulated (rotation, multiple competing observers, no single ideological monoculture), and given technical channels (ring signatures for whistleblowers, commitment schemes that pre-stage evidence, secure communication routed outside the accused community's infrastructure). The reception panel that handles whistleblower reports operates with a low investigation threshold and never reveals the source, even of false reports.
 
@@ -172,10 +172,10 @@ KC is built into a stack where some "agents" are autonomous software (instrument
 
 Every machine-to-machine exchange reduces, without remainder, to an exchange between two named humans whose guardianship binds each machine. The technical mechanisms:
 
-- **Authority envelope.** When two machines meet, each presents its principal's standing, proves continuous binding to that principal (cryptographic attestation that the machine's objectives, weights, and trust-roots have not drifted since the last re-attestation), and the protocol computes the *intersection* — never the union — of what each principal has authorized. Anything outside the envelope is inadmissible.
+- **Authority envelope.** When two machines meet, each presents its principal's standing, proves continuous binding to that principal (cryptographic attestation that the machine's objectives, weights, and trust-roots have not drifted since the last re-attestation), and the protocol computes the *intersection* (never the union) of what each principal has authorized. Anything outside the envelope is inadmissible.
 - **Ratchet rule.** When two machines meet with different escalation ceilings, the *lower* governs. A more-authorized agent cannot drag a less-authorized one up the ladder.
 - **Fork/merge.** A machine that forks does not inherit its parent's M2M standing; both children require fresh attestation. A merge requires the principals' concurrence on which oath-history is authoritative.
-- **Demonic detection, bounded.** Continuous attestation catches drift within the attestation window. Behavioral triangulation across peers detects ensemble divergence. Envelope-edge actions fall back to the principal. Past those — against truly sophisticated deceptive alignment — the protocol acknowledges its limit and returns to substrate-level capture-resistance machinery and the jester.
+- **Demonic detection, bounded.** Continuous attestation catches drift within the attestation window. Behavioral triangulation across peers detects ensemble divergence. Envelope-edge actions fall back to the principal. Past those, against truly sophisticated deceptive alignment, the protocol acknowledges its limit and returns to substrate-level capture-resistance machinery and the jester.
 
 → Further reading: [m2m_interaction.md](background/m2m_interaction.md)
 
@@ -185,12 +185,12 @@ Every machine-to-machine exchange reduces, without remainder, to an exchange bet
 
 Recognition has a counterpart. A compact that cannot be exited is a prison; a compact that can be exited trivially is a compact in which commitment means nothing. KC names four exit modes:
 
-- **Voluntary withdrawal** — formal notice, a transition cycle (typically one year) during which all obligations are honored, commons stake settled, witnessed ceremony of departure. The departing community keeps its compact-facing record (a positive signal to future compacts if the exit was in good standing) and three permanent residual obligations: rescue (unconditional), knowledge-commons access (mutual, non-revocable), non-aggression (unless new conduct provides grounds otherwise).
-- **Expulsion** — *hostis humani generis* designation, no transition period, material stake forfeit. Re-entry path exists with substantial added burden.
-- **Splitting** — a fundamental disagreement over a specific element of the recognition statement or common-virtue framework. After a deliberative period and a supermajority vote, neither successor *is* the original compact; both are new compacts inheriting from it. The original's archive is preserved; each successor reconstitutes its institutions separately.
-- **Dissolution** — formal closure that preserves archive, template, and reputation data, specifically to avoid the Hanseatic failure mode where institutional knowledge scattered when the league lapsed.
+- **Voluntary withdrawal**: formal notice, a transition cycle (typically one year) during which all obligations are honored, commons stake settled, witnessed ceremony of departure. The departing community keeps its compact-facing record (a positive signal to future compacts if the exit was in good standing) and three permanent residual obligations: rescue (unconditional), knowledge-commons access (mutual, non-revocable), non-aggression (unless new conduct provides grounds otherwise).
+- **Expulsion**: *hostis humani generis* designation, no transition period, material stake forfeit. Re-entry path exists with substantial added burden.
+- **Splitting**: a fundamental disagreement over a specific element of the recognition statement or common-virtue framework. After a deliberative period and a supermajority vote, neither successor *is* the original compact; both are new compacts inheriting from it. The original's archive is preserved; each successor reconstitutes its institutions separately.
+- **Dissolution**: formal closure that preserves archive, template, and reputation data, specifically to avoid the Hanseatic failure mode where institutional knowledge scattered when the league lapsed.
 
-A fifth concern lives in this document: *generational transmission*. The mechanism is not metaphysical — it is catechetical (re-affirmation rites with witness sincerity-assessment), apprenticeship (mediators train under experienced mentors), chronicle (the archive preserves not just what happened but the *reasoning* behind design decisions), and jester (continuous critical voice). When any of these decays, the compact hollows: the forms persist while the substance erodes. Hollowing is the deepest threat KC faces, and the one most resistant to procedural countermeasures.
+A fifth concern lives in this document: *generational transmission*. The mechanism is not metaphysical: it is catechetical (re-affirmation rites with witness sincerity-assessment), apprenticeship (mediators train under experienced mentors), chronicle (the archive preserves what happened and also the *reasoning* behind design decisions), and jester (continuous critical voice). When any of these decays, the compact hollows: the forms persist while the substance erodes. Hollowing is the deepest threat KC faces, and the one most resistant to procedural countermeasures.
 
 → Further reading: [exit_and_succession.md](background/exit_and_succession.md)
 
@@ -210,7 +210,7 @@ This is the structural limit, and it should be stated up front in any honest ver
 
 ## What the machine can do, and what only humans can
 
-KC has two layers of work. The first is procedural and cryptographic — maintainable by software with no human in the loop. The second requires bodily presence, virtue formation, or contextual judgment that no automated system can supply. The split is not arbitrary; it follows from what each kind of work actually is.
+KC has two layers of work. The first is procedural and cryptographic, maintainable by software with no human in the loop. The second requires bodily presence, virtue formation, or contextual judgment that no automated system can supply. The split is not arbitrary; it follows from what each kind of work actually is.
 
 ### Software-implementable
 
@@ -254,7 +254,7 @@ A first-pass decomposition. Five service clusters and a data substrate. (This sk
 
 **1. Identity & Standing.** Recognition records, standing tokens, four-category classification, principal resolution. Issues and verifies cryptographic credentials. Maintains the per-member registry of standing, attestation chains, and category-assignment history. Talks to: every other cluster.
 
-**2. Audit Commons.** The append-only log everything else writes to. Distributed, cryptographically immutable, gossip-replicated, light-lag-tolerant. Implements layered visibility through selective-disclosure machinery (different observers see different slices). Carries records of recognition ceremonies, mediator decisions, escalation ladder transitions, M2M encounters, designations, commons drawdowns, reputation events, withdrawal ceremonies — basically every compact-relevant act. This is the project's source of truth.
+**2. Audit Commons.** The append-only log everything else writes to. Distributed, cryptographically immutable, gossip-replicated, light-lag-tolerant. Implements layered visibility through selective-disclosure machinery (different observers see different slices). Carries records of recognition ceremonies, mediator decisions, escalation ladder transitions, M2M encounters, designations, commons drawdowns, reputation events, withdrawal ceremonies, basically every compact-relevant act. This is the project's source of truth.
 
 **3. Mediation & Escalation.** State machine for the escalation ladder. Mediator-pool rotation by lot. Dispute intake, rung transitions, restitution workflows, quorum-signature collection for compact-level decisions. Implements the decision-class router that distinguishes first-class (locally valid) from second-class (multi-community quorum required) decisions. Surfaces decisions requiring human discernment to the appropriate humans; never makes them itself.
 

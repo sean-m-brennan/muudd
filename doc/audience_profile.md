@@ -6,8 +6,8 @@
 
 ## Target Community
 
-<!-- FIXME: define the target audience characteristics — remnant, dedicated, moral, responsible people -->
+<!-- FIXME: define the target audience characteristics: remnant, dedicated, moral, responsible people -->
 
 ## Social Structure
 
-<!-- FIXME: describe the "troop, not herd (nor atomized)" model — small cooperative groups, not mass consumers or isolated individuals -->
+<!-- FIXME: describe the "troop, not herd (nor atomized)" model: small cooperative groups, not mass consumers or isolated individuals -->

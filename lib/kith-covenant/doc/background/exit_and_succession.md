@@ -8,7 +8,7 @@ Recognition has a counterpart in withdrawal. The five-movement
 recognition ceremony ([recognition_protocols.md](recognition_protocols.md))
 brings a community into the compact through a weighty, public,
 witnessed commitment. **The same procedural weight that applies to
-admission must apply to formal exit** — not to trap members, but
+admission must apply to formal exit**, not to trap members, but
 because a compact that can be exited trivially is a compact in which
 commitment means nothing, while a compact that cannot be exited at
 all is a prison. The exit procedure must be difficult enough to signal
@@ -25,12 +25,12 @@ reconstitution pathways:
 2. **Expulsion.** The compact removes a community through the *hostis
    humani generis* designation procedure's terminal consequence. This
    is involuntary exit initiated by the compact.
-3. **Fracture under external pressure.** An external force — war,
+3. **Fracture under external pressure.** An external force (war,
    environmental catastrophe, intervention by a power outside the
-   compact — splits the compact's members into incompatible camps.
+   compact) splits the compact's members into incompatible camps.
    The Iroquois Confederacy's division during the American Revolution
    is the defining case.
-4. **Dissolution.** The compact itself ceases to function — either
+4. **Dissolution.** The compact itself ceases to function, either
    through deliberate decision or through gradual decay. The Hanse's
    last Hansetag in 1669, attended by only nine cities, is the decay
    case; the dissolution of the monasteries under Henry VIII is the
@@ -47,7 +47,7 @@ the fracture.
 
 ### The procedure
 
-Voluntary withdrawal is the mirror of the recognition ceremony — a
+Voluntary withdrawal is the mirror of the recognition ceremony: a
 formal, public, witnessed act. The withdrawing community:
 
 1. **Gives formal notice** to the compact through its liminal
@@ -62,15 +62,15 @@ formal, public, witnessed act. The withdrawing community:
    allows the withdrawing community to settle its obligations, and
    it prevents strategic withdrawal (exiting just before an obligation
    comes due). Proposed duration: one full cycle of the compact's
-   deliberative calendar — typically one year.
+   deliberative calendar, typically one year.
 3. **Settles its commons stake.** The withdrawing community's share in
    the compact's common resources
    ([commons_federation.md](commons_federation.md)) must be either
    (a) transferred to the remaining compact, (b) replaced by the
    remaining compact, or (c) maintained by mutual agreement. Physical
    infrastructure that the withdrawing community contributed to the
-   compact's liminal institutions — communication relays, docking
-   facilities, rescue stations — cannot simply be removed without
+   compact's liminal institutions (communication relays, docking
+   facilities, rescue stations) cannot simply be removed without
    harming the remaining members. The settlement procedure must
    specify how shared infrastructure is handled.
 4. **Conducts a withdrawal ceremony.** Just as the recognition ceremony
@@ -85,7 +85,7 @@ formal, public, witnessed act. The withdrawing community:
 ### What the withdrawing community loses
 
 Departure costs must be real but not punitive. The Hanseatic model is
-instructive: a city that left the Hanse lost all trading privileges —
+instructive: a city that left the Hanse lost all trading privileges:
 preferential tariffs, Kontor access, collective-security protection.
 The loss was substantial enough that most cities stayed, but not so
 catastrophic that departure was unthinkable.
@@ -124,7 +124,7 @@ Expulsion is the terminal consequence of the anathema designation
 procedure
 ([bounded_conflict.md](bounded_conflict.md) §"Handling the anathema").
 A community designated as anathema after the full compact deliberation
-— meeting all four conditions, with multiple communities concurring —
+(meeting all four conditions, with multiple communities concurring)
 is expelled from the compact.
 
 ### How expulsion differs from voluntary withdrawal
@@ -149,7 +149,7 @@ The differences are procedural and moral, not merely administrative:
   participation in the commons is itself harmful. The commons must be
   protected.
 - **Post-expulsion status.** The expelled community becomes a
-  non-member encountered — not a member, not a legitimate adversary
+  non-member encountered: not a member, not a legitimate adversary
   (*justus hostis*), and not nonexistent. The common virtues apply
   within any encounter with the expelled community (the encounter-based
   neighbor ethic), but the compact's protocols do not. The expelled
@@ -162,15 +162,15 @@ The anathema designation includes a re-entry procedure (per
 [bounded_conflict.md](bounded_conflict.md)): the designated
 community may petition for re-admission after demonstrating sustained
 change. The re-entry procedure is structurally identical to the
-original recognition ceremony — the five-movement recognition
-statement, with witnesses assessing sincerity — with the additional
+original recognition ceremony (the five-movement recognition
+statement, with witnesses assessing sincerity) with the additional
 burden that the petitioning community must account for the conduct
 that led to its designation.
 
 The re-entry burden should be heavy but not impossible. A community
-that has genuinely reformed — whose internal governance has changed,
+that has genuinely reformed (whose internal governance has changed,
 whose leadership has been replaced, whose population has repudiated
-the conduct that led to designation — should not be permanently
+the conduct that led to designation) should not be permanently
 excluded. But the sincerity assessment must be *more* demanding than
 for first admission, because the community has demonstrated a
 capacity for the conduct that the compact exists to prevent.
@@ -184,14 +184,14 @@ capacity for the conduct that the compact exists to prevent.
 Voluntary withdrawal and expulsion both assume that the compact
 continues to function after the departure. Splitting is different:
 two or more factions within the compact disagree on foundational
-matters — specifically, on the content or interpretation of the
-five-movement recognition statement — and the disagreement is so
+matters (specifically, on the content or interpretation of the
+five-movement recognition statement) and the disagreement is so
 deep that continued cooperation under the existing framework is
 impossible.
 
 This is not a policy dispute (which is resolved by the escalation
 ladder) or a virtue violation (which is resolved by the designation
-procedure). It is a **substrate-level disagreement** — a
+procedure). It is a **substrate-level disagreement**: a
 disagreement about what the recognition statement means, what the
 sacred substrate requires, or what the common virtues entail. Policy
 disputes presuppose a shared foundation; splitting occurs when the
@@ -200,8 +200,8 @@ foundation itself is contested.
 ### The Protestant Reformation as the defining case
 
 The most consequential compact-splitting event in Western history
-is the Protestant Reformation. The Christendom substrate — which had
-underwritten European cooperation for a millennium — fractured when
+is the Protestant Reformation. The Christendom substrate, which had
+underwritten European cooperation for a millennium, fractured when
 communities disagreed about the content of the substrate itself. Was
 the Pope the substrate's legitimate vicar? Was the Mass a sacrifice?
 Was salvation by faith alone? These were not policy questions; they
@@ -209,10 +209,10 @@ were questions about the nature of the sacred substrate.
 
 The fracture was violent, prolonged (the Wars of Religion lasted over
 a century), and never fully healed. But it produced, eventually, a
-*new* cooperation regime — the Westphalian system — that was designed
+*new* cooperation regime (the Westphalian system) that was designed
 specifically to function *despite* the substrate disagreement. The
 Westphalian innovation was to depoliticize the substrate question:
-*cuius regio, eius religio* — each sovereign decides the substrate
+*cuius regio, eius religio*. Each sovereign decides the substrate
 question within their own territory, and the inter-sovereign
 cooperation framework is agnostic on the question.
 
@@ -223,14 +223,14 @@ slaughtered each other for over a century over questions about the
 nature of God that cannot be empirically proven. Whether the bread
 *is* Christ's body or *represents* it, whether grace operates through
 sacraments or through faith alone, whether ecclesiastical authority
-descends through apostolic succession or through the congregation —
+descends through apostolic succession or through the congregation:
 these are assertions about the unknowable, and the Wars of Religion
 demonstrated that killing over them is not merely wicked but
 *pointless*, because the killing cannot settle the question.
 
 Kith-covenant must internalize this lesson. Where a theological
-disagreement concerns the *direct nature of God* — questions that lie
-beyond empirical or structural verification — the compact has no
+disagreement concerns the *direct nature of God* (questions that lie
+beyond empirical or structural verification) the compact has no
 business adjudicating, and splitting over such questions is futile in
 the same way the Wars of Religion were futile. The compact's
 recognition ceremony deliberately does not specify the content of the
@@ -242,8 +242,8 @@ member community's own business.
 with great care.**
 
 Not all assertions about God's nature are unknowable-and-irrelevant
-to the compact. Some cross a boundary — often indirectly, even
-circuitously — from the purely theological into the structurally
+to the compact. Some cross a boundary (often indirectly, even
+circuitously) from the purely theological into the structurally
 consequential. Where they do, the compact not only *may* but *must*
 make an orthodox determination, because the downstream effects touch
 the compact's functioning.
@@ -257,7 +257,7 @@ Consider the progression:
 
 - **Second order (indirectly relevant, knowable by effects):** A
   community's theology of God's nature produces a theology of *human*
-  nature that denies fallenness — holds that humans are naturally
+  nature that denies fallenness, holds that humans are naturally
   good and require only the right social arrangements. This
   theological claim, while nominally about God (or about creation),
   has a direct structural consequence: it undermines the
@@ -266,21 +266,21 @@ Consider the progression:
   A community holding this theology will consistently resist the
   mechanisms the compact depends on, not out of bad faith but out
   of genuine theological conviction that the mechanisms are
-  unnecessary. The compact *can* evaluate this — not by proving the
-  theology wrong but by observing its structural effects — and
+  unnecessary. The compact *can* evaluate this (not by proving the
+  theology wrong but by observing its structural effects) and
   *must* make a determination, because the downstream consequences
   are not speculative but operational.
 
 - **Third order (circuitously relevant, requiring discernment):** A
   community's theology produces a cosmology in which the sacred
   substrate does not stand *above* the community's own authority
-  but is *identical* with it — the community *is* the voice of
+  but is *identical* with it: the community *is* the voice of
   God, and therefore its pronouncements are the substrate's
   pronouncements. This is the civil-religion failure mode warned
   against in [justus_hostis.md](justus_hostis.md) §"Substrate
   affords emergence." The theological claim is nominally about
   God's relationship to human institutions, which sounds like
-  first-order theology — but its effect is to collapse the
+  first-order theology, but its effect is to collapse the
   distinction between the substrate and the compact, which
   destroys the check that the substrate exercises on the compact's
   ambitions. The path from the theological claim to the structural
@@ -289,7 +289,7 @@ Consider the progression:
 
 The design principle: **the compact does not adjudicate theology but
 does adjudicate structural effects.** When a community's theological
-assertions — however sincerely held — produce downstream effects that
+assertions (however sincerely held) produce downstream effects that
 undermine the compact's foundational architecture (the fallen-actor
 anthropology, the transcendent-moral-authority substrate, the distinction between
 substrate and compact, the common-virtue framework), the compact must
@@ -299,7 +299,7 @@ incompatible with membership*. This is not the compact judging the
 truth of the theology; it is the compact observing that the theology's
 structural consequences are incompatible with the compact's design.
 
-The Old Testament prophetic tradition provides the precedent — and
+The Old Testament prophetic tradition provides the precedent and
 the warning. The prophets were, in many cases, making exactly these
 second- and third-order orthodox determinations. Amos did not dispute
 Israel's theology of God; he said Israel's worship (first order) had
@@ -351,7 +351,7 @@ point against which structural effects can be measured.
    boundary between the two requires discernment, not rules.
 5. **Orthodox determination is sometimes necessary.** Where a
    theological position's downstream effects threaten the compact's
-   architecture, the compact must be willing to say so — clearly,
+   architecture, the compact must be willing to say so, clearly,
    publicly, and with the full procedural weight of the deliberative
    process. The fear of appearing intolerant must not prevent the
    compact from protecting its structural foundations.
@@ -359,7 +359,7 @@ point against which structural effects can be measured.
 ### Splitting procedure
 
 Kith-covenant's founding documents should include an explicit splitting
-procedure — precisely to prevent the Reformation scenario of ambiguous
+procedure, precisely to prevent the Reformation scenario of ambiguous
 succession. Proposed:
 
 1. **Declaration of fundamental disagreement.** One or more communities
@@ -373,10 +373,10 @@ succession. Proposed:
    purposes: (a) to ensure the disagreement is genuine and not a
    policy dispute masquerading as a foundational one; (b) to
    determine whether the disagreement is first-order (unknowable,
-   irrelevant to the compact — in which case splitting is futile
+   irrelevant to the compact, in which case splitting is futile
    and the declaring communities should be encouraged to tolerate
-   the difference) or second/third-order (structurally consequential
-   — in which case an orthodox determination may resolve the dispute
+   the difference) or second/third-order (structurally consequential,
+   in which case an orthodox determination may resolve the dispute
    without splitting); and (c) if the disagreement is genuinely
    irresolvable and structurally consequential, to prepare for an
    orderly split.
@@ -405,22 +405,22 @@ succession. Proposed:
 ### Deliberate dissolution
 
 A compact that has shrunk to the point where it can no longer
-function — too few members to populate the mediator pool, too little
+function (too few members to populate the mediator pool, too little
 shared infrastructure to justify the governance overhead, too little
-common ground to sustain the recognition ceremony — may choose to
+common ground to sustain the recognition ceremony) may choose to
 dissolve.
 
 Dissolution is a formal act, not merely a cessation of activity. The
 distinction matters because formal dissolution can preserve assets
 that decay would destroy:
 
-- **The archive.** The compact's records — recognition-ceremony
+- **The archive.** The compact's records (recognition-ceremony
   records, mediation records, commons-governance records, the
-  institutional memory of the liminal institutions — are preserved
+  institutional memory of the liminal institutions) are preserved
   and entrusted to a custodian (a former member community, a
   successor institution, or a neutral party).
-- **The template.** The compact's founding documents — the recognition
-  statement, the common-virtue framework, the procedural rules — are
+- **The template.** The compact's founding documents (the recognition
+  statement, the common-virtue framework, the procedural rules) are
   preserved as a template that future communities may use to
   reconstitute a compact.
 - **The reputation data.** The compact-facing records of all former
@@ -449,17 +449,17 @@ ceremony is no longer performed.
 
 The tragedy of dissolution by decay is that it is invisible until it
 is irreversible. The compact does not die; it *hollows out*. The forms
-persist — the ceremonies are performed, the deliberative calendar is
-maintained — but the substance is gone. Hollow compacts are more
+persist (the ceremonies are performed, the deliberative calendar is
+maintained) but the substance is gone. Hollow compacts are more
 dangerous than dissolved ones because they create a false sense of
 security: communities believe they are part of a functioning
 cooperation framework when they are not.
 
 **Detection mechanism:** The generational re-affirmation cadence from
-[recognition_protocols.md](recognition_protocols.md) serves as a
-hollowing detector. If re-affirmation becomes perfunctory — if
+[recognition_protocols.md](recognition_protocols.md) is a
+hollowing detector. If re-affirmation becomes perfunctory (if
 communities recite without conviction, if witnesses stop assessing
-sincerity, if the psychological-cost mechanism no longer engages —
+sincerity, if the psychological-cost mechanism no longer engages)
 then the compact is hollowing. The mediator pool and the jester
 function ([jester_and_dissent.md](jester_and_dissent.md)) are the
 institutions responsible for detecting and naming this hollowing.
@@ -474,9 +474,9 @@ does not understand what they inherited.
 
 ### The transmission problem
 
-The recognition ceremony's re-affirmation cadence (25–30 years) is
+The recognition ceremony's re-affirmation cadence (25 to 30 years) is
 designed to force each generation to re-commit. But re-commitment
-requires *understanding* — not merely reciting the words but
+requires *understanding*, not merely reciting the words but
 grasping the meaning behind them, the historical experience that
 produced them, the anthropological assumptions that ground them.
 A generation that recites without understanding will, over time,
@@ -484,7 +484,7 @@ modify the recitation to match their diminished understanding, and
 the compact will drift.
 
 This is the normal mode of institutional death. Institutions do not
-usually die by catastrophe; they die by **drift** — each generation
+usually die by catastrophe; they die by **drift**: each generation
 understanding a little less than the one before, each modification
 seeming reasonable in isolation, until the accumulated drift has
 produced an institution unrecognizable to its founders.
@@ -493,13 +493,13 @@ produced an institution unrecognizable to its founders.
 
 **The Haudenosaunee model.** New sachems were selected by clan mothers
 and trained by experienced sachems in the Great Law. The training was
-not merely procedural; it was *formative* — the new sachem was shaped
+not merely procedural; it was *formative*: the new sachem was shaped
 by the tradition, not merely informed about it. The Great Law was
 recited at length at the installation of every new sachem, and the
 recitation was itself a teaching moment.
 
 **The catechetical model.** Christian churches transmitted their
-foundational commitments through catechesis — structured instruction
+foundational commitments through catechesis: structured instruction
 of the next generation in the meaning of the creed, the sacraments,
 and the moral law. Catechesis was not merely cognitive; it was
 liturgical (the creed was recited in worship), communal (the community
@@ -508,18 +508,18 @@ enacted the commitments).
 
 **The apprenticeship model.** Medieval guilds transmitted craft
 knowledge through multi-year apprenticeships in which the apprentice
-learned not only the techniques but the *ethos* of the craft — the
+learned not only the techniques but the *ethos* of the craft: the
 standards, the pride, the sense of obligation to fellow craftsmen and
 to the craft itself. The guild's quality standards were not rules
 imposed from outside but dispositions cultivated from within.
 
 **The professional-training model.** Modern secular institutions
-transmit their foundational commitments through professional education
-— law school, medical school, military academies. The characteristic
+transmit their foundational commitments through professional education:
+law school, medical school, military academies. The characteristic
 failure: professional training transmits *technical skill* without
 *virtue*. A lawyer who knows the law but has no commitment to justice,
 a doctor who knows medicine but has no commitment to healing, a soldier
-who knows tactics but has no commitment to honor — these are the
+who knows tactics but has no commitment to honor: these are the
 products of a transmission system that has separated skill from
 disposition.
 
@@ -535,7 +535,7 @@ elements from the successful models:
   [liminal_institutions.md](liminal_institutions.md)) trains the
   next generation of mediators through practice under experienced
   mentors. This is the apprenticeship element.
-- **The compact's archive** preserves the institutional memory —
+- **The compact's archive** preserves the institutional memory:
   not only the records of what happened but the reasoning behind
   the compact's design decisions. This is the chronicle element:
   future generations should be able to read *why* the compact was
@@ -551,7 +551,7 @@ elements from the successful models:
 
 ### Verhansung: Hanseatic expulsion
 
-The Hanse practiced *Verhansung* — formal expulsion of a member city
+The Hanse practiced *Verhansung*: formal expulsion of a member city
 from the League, with loss of all trading privileges. The expelled
 city was excluded from Hanseatic trade routes, Kontore, and collective
 security. Verhansung was rare (the threat was usually sufficient) but
@@ -559,7 +559,7 @@ real: Brunswick was expelled in 1375 for refusing to comply with a
 Hansetag resolution.
 
 **Re-entry:** Expelled cities could petition for re-admission, and
-several did. The re-admission process was humbling — the petitioning
+several did. The re-admission process was humbling: the petitioning
 city had to acknowledge its transgression, accept the Hansetag's
 conditions, and resume its obligations. The process worked because
 the costs of exclusion (loss of trade) were concrete and ongoing,
@@ -572,10 +572,10 @@ the compact, expulsion is merely symbolic.
 ### The Iroquois fracture during the American Revolution
 
 The Haudenosaunee Confederacy split during the American Revolution
-when different nations allied with different sides — the Mohawk and
+when different nations allied with different sides: the Mohawk and
 Seneca with the British, the Oneida and Tuscarora with the Americans,
 the Onondaga and Cayuga divided internally. The Council Fire was
-symbolically extinguished — the liminal institution that held the
+symbolically extinguished: the liminal institution that held the
 compact together was destroyed by the external pressure.
 
 **Reconstitution:** The fire was rekindled at Grand River (Ontario)
@@ -602,9 +602,9 @@ of warfare.
 
 **Reconstitution:** Christendom was never reconstituted as a single
 compact. Instead, the Westphalian system emerged as a *new* compact
-designed for the post-Reformation reality — cooperation across
+designed for the post-Reformation reality: cooperation across
 substrate differences rather than cooperation within a shared
-substrate. The ecumenical movement (20th century) represents a partial
+substrate. The ecumenical movement (20th century) is a partial
 reconstitution, but at the level of dialogue rather than institutional
 unity.
 
@@ -615,7 +615,7 @@ framework that accommodates the substrate diversity the split created.
 
 ### Brexit as modern voluntary withdrawal
 
-The United Kingdom's departure from the European Union (2016–2020)
+The United Kingdom's departure from the European Union (2016 to 2020)
 is the most detailed modern case of voluntary withdrawal from a
 cooperation regime. The withdrawal was legally authorized (Article 50
 of the Treaty of Lisbon), but the process was far more complex and
@@ -623,13 +623,13 @@ painful than the authorizing text suggested.
 
 **Relevant observations:**
 
-- The transition period (31 January 2020 – 31 December 2020) proved
+- The transition period (31 January 2020 to 31 December 2020) proved
   too short for the complexity of the settlement.
 - The most contentious issues were the shared-commons questions:
   citizens' rights (people as a commons of sorts), financial
   obligations (the "divorce bill"), and the Northern Ireland border
   (a physical commons problem).
-- The reputation consequences were bilateral — both sides suffered
+- The reputation consequences were bilateral: both sides suffered
   reputational damage from the acrimony of the process.
 - No formal "withdrawal ceremony" was performed; the departure was
   administrative, not sacral. This is precisely the gap kith-covenant
@@ -644,9 +644,9 @@ in advance, not leave them to negotiation at the moment of departure.
 
 ## Shared infrastructure after split
 
-When a compact splits, its shared infrastructure — communication
+When a compact splits, its shared infrastructure (communication
 relays, docking facilities, rescue stations, the knowledge archive,
-the liminal institutions themselves — must be allocated between the
+the liminal institutions themselves) must be allocated between the
 successor compacts. Three models:
 
 ### Partition
@@ -663,7 +663,7 @@ gets the facilities in its region); non-physical infrastructure
 infrastructure may leave some successors underserved; the negotiation
 process is itself a source of conflict.
 
-This is the Iroquois model — the divided fire, with each successor
+This is the Iroquois model: the divided fire, with each successor
 maintaining its own Council Fire and its own institutional memory.
 
 ### Joint administration
@@ -673,8 +673,8 @@ joint governance. A mini-compact for infrastructure administration
 is formed, with representatives from both successors.
 
 **Strengths:** Preserves the investment in shared infrastructure;
-maintains the network effects that make the infrastructure valuable.
-**Weaknesses:** Joint administration is fragile — the same
+maintains the network effects that make the infrastructure worthwhile.
+**Weaknesses:** Joint administration is fragile: the same
 disagreement that caused the split will likely infect the
 administration of the shared infrastructure. If the successors
 cannot cooperate on foundational matters, expecting them to cooperate
@@ -683,7 +683,7 @@ on infrastructure administration is optimistic.
 ### Abandonment
 
 Neither successor takes responsibility for the shared infrastructure;
-it decays. This is the Hanseatic failure mode — the Kontore were not
+it decays. This is the Hanseatic failure mode: the Kontore were not
 partitioned or jointly administered; they were simply abandoned as
 the Hanse weakened.
 
@@ -721,21 +721,21 @@ Three conditions appear necessary for reconstitution:
 
 1. **The substrate must survive the fracture.** If the sacred
    substrate that underwrote the original compact is still
-   recognized by the successor communities — if the Great Law is
+   recognized by the successor communities (if the Great Law is
    still recited, if the creed is still confessed, if the common
-   virtues are still held — then reconstitution is possible in
+   virtues are still held) then reconstitution is possible in
    principle. If the substrate has been abandoned or has diverged
    so far that the successors no longer recognize each other's
    substrate, reconstitution is probably impossible.
 2. **The procedural forms must be preserved.** If the recognition-
-   ceremony template survives — if the five-movement structure, the
+   ceremony template survives (if the five-movement structure, the
    witness infrastructure, and the re-affirmation cadence are still
-   practiced by the successors — then the mechanism for reconstitution
+   practiced by the successors) then the mechanism for reconstitution
    exists. New communities (or successor communities) can re-form
    around the preserved template.
 3. **The institutional memory must persist.** If the compact's archive
-   — the record of its history, its design decisions, its successes
-   and failures — survives, then the successor communities have the
+   (the record of its history, its design decisions, its successes
+   and failures) survives, then the successor communities have the
    information needed to reconstitute intelligently rather than
    naively. An archive that survives is a guide; lost institutional
    memory means starting over.
@@ -749,8 +749,8 @@ the compact still owe a departed community?
 
 ### The rescue obligation (persists indefinitely)
 
-The "sanctuary of the rescuer" virtue — the duty to render aid in
-extremis — is not compact-contingent. It is a common virtue, and
+The "sanctuary of the rescuer" virtue (the duty to render aid in
+extremis) is not compact-contingent. It is a common virtue, and
 common virtues are dispositions, not contracts. A community that
 has internalized the rescue virtue does not cease to hold it upon
 departure; a compact that encounters a departing community in
@@ -760,8 +760,8 @@ member.
 Proposed: the rescue obligation is **unconditional and permanent**.
 It applies between former compact members, between compact members
 and non-members, and between communities that have never been in a
-compact together. It is the irreducible minimum of the neighbor ethic
-— the Good Samaritan obligation applied to the specific case of
+compact together. It is the irreducible minimum of the neighbor ethic,
+the Good Samaritan obligation applied to the specific case of
 life-threatening emergency.
 
 ### The knowledge-commons obligation (persists by design)
@@ -770,7 +770,7 @@ The compact's knowledge archive includes contributions from the
 departing community. Those contributions remain in the archive after
 departure (they are part of the shared record, not the community's
 private property). In return, the departing community retains access
-to the archive — not as a compact member but as a party to the
+to the archive, not as a compact member but as a party to the
 knowledge-commons arrangement.
 
 Proposed: knowledge-commons access is **mutual and permanent**. The
@@ -781,7 +781,7 @@ record.
 
 ### The non-aggression obligation (persists conditionally)
 
-A departed community is a non-member encountered — not a *justus
+A departed community is a non-member encountered: not a *justus
 hostis*, not an anathema, but a community encountered
 without compact-level commitments. The common virtues apply within
 any encounter (the encounter-based neighbor ethic from
@@ -811,7 +811,7 @@ aggression and does not trigger the escalation ladder.
   the conceptual map, but applying it in practice requires discernment
   that cannot be fully proceduralized.
 - Can compacts that emerged from a **common ancestor compact** form a
-  federation of compacts — a meta-compact — and if so, does the
+  federation of compacts (a meta-compact) and if so, does the
   recognition framework scale to that level? The Westphalian system
   is evidence that it can, but the Westphalian system also required
   a *weaker* substrate than the original Christendom compact.
@@ -820,46 +820,46 @@ aggression and does not trigger the escalation ladder.
   members being forced into incompatible alliances by an external
   power? Or is this an irreducible vulnerability?
 - How does the compact handle a community that **withdraws in bad
-  faith** — using voluntary withdrawal to escape an impending
+  faith**, using voluntary withdrawal to escape an impending
   designation? Should there be a lockout period during which
   withdrawal is suspended if a designation procedure is underway?
 
 ## Relationship to other documents
 
-- [recognition_protocols.md](recognition_protocols.md) — exit as the
+- [recognition_protocols.md](recognition_protocols.md): exit as the
   mirror of recognition; the withdrawal ceremony as counter to the
   recognition ceremony; the re-affirmation cadence as hollowing
   detector.
-- [bounded_conflict.md](bounded_conflict.md) — the *hostis humani
+- [bounded_conflict.md](bounded_conflict.md): the *hostis humani
   generis* designation as the mechanism for expulsion; the escalation
   ladder as the alternative to splitting.
-- [historical_cases.md](historical_cases.md) — Verhansung, the Iroquois
+- [historical_cases.md](historical_cases.md): Verhansung, the Iroquois
   fracture, the Hanse's decline, the Westphalian system as
   post-Reformation exit product.
-- [liminal_institutions.md](liminal_institutions.md) — liminal
+- [liminal_institutions.md](liminal_institutions.md): liminal
   institutions as the infrastructure that must be allocated upon
   split; the mediator pool as settlement arbiters.
-- [commons_federation.md](commons_federation.md) — shared commons as
+- [commons_federation.md](commons_federation.md): shared commons as
   the material stake that makes exit consequential.
-- [reputation_bridges.md](reputation_bridges.md) — reputation
+- [reputation_bridges.md](reputation_bridges.md): reputation
   portability upon exit; reputation laundering; reputation capture.
-- [justus_hostis.md](justus_hostis.md) — the substrate-survival
+- [justus_hostis.md](justus_hostis.md): the substrate-survival
   question; the Iroquois case as unsolved failure mode.
-- [tacit_coordination.md](tacit_coordination.md) — the shadow of
+- [tacit_coordination.md](tacit_coordination.md): the shadow of
   the future shortened by impending exit.
-- [noticeable_hand.md](noticeable_hand.md) — the Reformation as
+- [noticeable_hand.md](noticeable_hand.md): the Reformation as
   substrate-level splitting event.
-- [jester_and_dissent.md](jester_and_dissent.md) — the
+- [jester_and_dissent.md](jester_and_dissent.md): the
   jester function as hollowing detector.
-- [../social_framework.md](../social_framework.md) — parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md)
-  — the intra-community complement; internal governance that must
+- [../social_framework.md](../social_framework.md): parent document.
+- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+  the intra-community complement; internal governance that must
   persist through exit events.
 
 ## References
 
-*To be added — anchor works include Hirschman,* Exit, Voice, and
-Loyalty *(1970) — the theoretical foundation for exit analysis;
+*To be added. Anchor works include Hirschman,* Exit, Voice, and
+Loyalty *(1970), the theoretical foundation for exit analysis;
 Dollinger,* The German Hansa *(1970) on Verhansung and Hanse
 decline; Fenton,* The Great Law and the Longhouse *(1998) on the
 Iroquois fracture and reconstitution; MacCulloch,* The Reformation

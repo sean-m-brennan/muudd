@@ -16,7 +16,7 @@ FCC BDC filings as of June 2025 show the following wired service in Braxton Coun
 | Flatwoods | Shentel | Cable (HFC) | up to 1000/35 | ~63% of homes |
 | County-wide | Various | All wired | -- | Fiber <1% of homes |
 
-**Key insight: gateways are valley nodes, not hilltop relays.** Fiber-to-the-home
+Gateways are valley nodes, not hilltop relays. Fiber-to-the-home
 service runs to the valley towns (Sutton, Gassaway, Burnsville) via Frontier, while
 the I-79 corridor at Flatwoods has only Shentel cable. This inverts the common
 assumption that interstate corridors carry the best broadband infrastructure. For the
@@ -31,10 +31,10 @@ Braxton County Digital Equity Plan (Sept 2024).
 A `GatewayUplink` is a `Configuration` subclass on `PeerInfo` that describes wired
 internet egress for a single node (`simulator/peer/peer.py`). Fields:
 
-- **technology** (`str`) -- `'fiber'`, `'cable'`, `'satellite'`, or `'dsl'`
-- **bandwidth_down_mbps** (`float`) -- download capacity; must be > 0
-- **bandwidth_up_mbps** (`float`) -- upload capacity; must be > 0
-- **reliability** (`float`, default 0.99) -- probability the link is up at any
+- **technology** (`str`): `'fiber'`, `'cable'`, `'satellite'`, or `'dsl'`
+- **bandwidth_down_mbps** (`float`): download capacity; must be > 0
+- **bandwidth_up_mbps** (`float`): upload capacity; must be > 0
+- **reliability** (`float`, default 0.99): probability the link is up at any
   given tick, in the range [0.0, 1.0]
 
 All constraints are enforced by `icontract` preconditions, consistent with the
@@ -93,7 +93,7 @@ service for a community gateway.
 | `flatwoods_valley` | cable | 1000/35 | 0.97 |
 
 When `hilltop_only=True`, all valley nodes are excluded, so the scenario has zero
-internet gateways -- hilltop-only mode is for backbone-only testing.
+internet gateways. Hilltop-only mode is for backbone-only testing.
 
 ## Files
 

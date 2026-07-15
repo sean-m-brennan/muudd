@@ -5,9 +5,9 @@
 ## Thesis
 
 Recognition is the load-bearing first act of any compact. Everything
-else in kith-covenant's design — the escalation ladder, the common-virtue
+else in kith-covenant's design (the escalation ladder, the common-virtue
 commitments, the restoration paths, the handling of the *hostis
-humani generis* — presupposes that the parties have already
+humani generis*) presupposes that the parties have already
 recognized one another as
 the kind of party with whom these procedures are even possible. Get
 recognition wrong and nothing downstream works: a compact populated by
@@ -22,26 +22,26 @@ seriously two converging conclusions from the prior research:
   [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern) and
   [noticeable_hand.md](noticeable_hand.md): cooperation regimes that
   endure across unconnected communities have rested on substrates
-  that point to a single ultimate. This is not just an interesting
-  hypothesis but, on the evidence, a structural requirement for
-  member communities. Recognition is where that requirement is
+  that point to a single ultimate. On the evidence, this is a
+  structural requirement for member communities, not merely an
+  interesting hypothesis. Recognition is where that requirement is
   enacted at compact-formation.
 - **The anathema consideration** from
   [justus_hostis.md "Two tiers: anathema and *hostis humani generis*"](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis)
   and [bounded_conflict.md "Handling the anathema"](bounded_conflict.md#handling-the-anathema):
   the protocol must include a category for actors whose orientation
   toward the compact is destructive rather than competitive.
-  Recognition is where the first filter against such actors is applied
-  — better to detect the misfit at the threshold than to discover it
+  Recognition is where the first filter against such actors is applied.
+  Better to detect the misfit at the threshold than to discover it
   after the actor has been admitted to the compact's interior.
 
 The model the document leans on most heavily, *for the
-intra-community layer of recognition*, is the Christian creed — a
+intra-community layer of recognition*, is the Christian creed, a
 historical institution that successfully filtered entryists and
 heretics within the church through what looked like nothing more
 than recitation of words. The creed worked at that layer.
 Understanding *why* it worked gives kith-covenant its template for
-a community's internal rite of authorizing its own envoys — the
+a community's internal rite of authorizing its own envoys, the
 layer at which asymmetric psychological cost historically carries
 load. The *inter*-community layer is a different problem and is
 governed by the thin-functional-domain pattern documented in
@@ -59,9 +59,9 @@ demands are in tension; the difficulty of the design problem is in
 satisfying all five simultaneously.
 
 1. **Filter at the threshold.** Communities incapable of being
-   members — because they lack the substrate, or because their
+   members (because they lack the substrate, or because their
    orientation is destructive, or because they cannot in good
-   conscience commit to the protocol's terms — must be filtered out
+   conscience commit to the protocol's terms) must be filtered out
    before they enter the compact's interior. After entry, removing
    them is procedurally heavy and politically costly.
 2. **Establish common knowledge.** All members must publicly know
@@ -72,7 +72,7 @@ satisfying all five simultaneously.
    that each other knows, recursively. Recognition is the mechanism
    that creates this.
 3. **Honor particularity.** Each member community arrives with its
-   own substrate — Christian, Buddhist, Haudenosaunee, Muslim,
+   own substrate: Christian, Buddhist, Haudenosaunee, Muslim,
    Mande, etc. The recognition protocol must not require any
    community to flatten its particularity, abandon its own theology,
    or pretend to a uniformity it does not share. The compact is for
@@ -92,11 +92,11 @@ These five demands are the test against which any candidate
 recognition protocol must be measured. Under the two-layers framing
 developed in the next section, demands 1 and 4 ("filter at the
 threshold" and "commitment that means something") are primarily the
-intra-community layer's work — the community's own rite filters its
+intra-community layer's work: the community's own rite filters its
 own members under its own substrate, and the commitment means
 something because it is made on the community's own substrate.
 Demand 2 ("establish common knowledge") is the inter-community
-layer's work — the thin grammar, credentialing, vouching, and audit
+layer's work: the thin grammar, credentialing, vouching, and audit
 commons together produce public knowledge of who has committed to
 what. Demand 3 ("honor particularity") is structurally guaranteed
 by the separation of layers: no community is asked to adopt
@@ -113,8 +113,8 @@ the five-movement statement across the boundary, with asymmetric
 psychological cost filtering entryists at the compact's threshold.
 That framing imported the mechanism of the Christian creed and
 applied it at the wrong layer. The creed's historically attested
-work is *intra*-community filtering — the church filtering its own
-members — not cross-cultural entry-gating between communities that
+work is *intra*-community filtering (the church filtering its own
+members), not cross-cultural entry-gating between communities that
 do not share substrate. When the historical record of actual
 cross-cultural cooperation is consulted directly
 ([historical_cases.md "Convergence without shared culture"](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases)),
@@ -141,7 +141,7 @@ authorized to bind the community inside the compact*. The ceremony,
 the creed model, the asymmetric-psychological-cost mechanism
 developed below, the full community-internal apparatus of
 catechumenate, sponsorship, periodic reaffirmation, and
-anti-drift disciplines — all of this is the work of the
+anti-drift disciplines: all of this is the work of the
 intra-community layer, and all of it operates on the community's
 own members in the language of the community's own substrate. This
 is where asymmetric psychological cost is historically attested to
@@ -199,8 +199,8 @@ carries four elements:
    the candidate must demonstrate **multiple traceable interpretive
    lineages** of its own substrate, with the divergences visible
    in the audit commons. Communities are not required to *agree*
-   across their internal lineages — disagreement is the condition
-   that makes the lineages substantive — but they must show that
+   across their internal lineages (disagreement is the condition
+   that makes the lineages substantive), but they must show that
    no single faction has cornered the interpretive function. The
    requirement is not that the candidate be internally
    conciliar in form; it is that the candidate's interpretive
@@ -252,18 +252,19 @@ rest of the corpus.
 
 The rest of this document treats the intra-community layer in
 depth, because that is where the mechanism-level detail lives. The
-inter-community thin grammar is developed further — as the compact's
-treaty-form, credentialing, vouching, and audit-commons apparatus —
+inter-community thin grammar is developed further (as the compact's
+treaty-form, credentialing, vouching, and audit-commons apparatus)
 in [`reputation_bridges.md`](reputation_bridges.md) and
 [`liminal_institutions.md`](liminal_institutions.md) and should be
 read alongside this one.
 
 ## The creed: a Christian historical case study
 
-The Christian creeds — Apostles' (early form, 2nd–4th c.; later
-codification), Nicene (325, revised at Constantinople 381), and
-Athanasian (5th–6th c.) — were the early Church's solution to a
-recognition problem closely analogous to kith-covenant's. The Church needed
+The Christian creeds were the early Church's solution to a
+recognition problem closely analogous to kith-covenant's. The three
+creeds are the Apostles' (early form, 2nd-4th c.; later
+codification), the Nicene (325, revised at Constantinople 381), and
+the Athanasian (5th-6th c.). The Church needed
 to distinguish:
 
 - True members from *entryists* (e.g., gnostic infiltrators who
@@ -297,13 +298,13 @@ combination is what gives the creed its load-bearing character.
   precisely because they cannot be signed by those who reject the
   specifics.
 - **Performative speech.** A creed is not a description. Reciting it
-  is a *speech act* in J.L. Austin's sense — saying "I believe in
+  is a *speech act* in J.L. Austin's sense: saying "I believe in
   one God, the Father almighty" is not reporting a belief, it is
   *committing to* it in the presence of witnesses. The reciter has,
   by the act of recitation, positioned themselves toward the
   community. The community now has standing to hold them to the
   position. This is structurally similar to "I do" in a wedding
-  ceremony — the words make the marriage, not describe a marriage
+  ceremony: the words make the marriage, not describe a marriage
   that exists prior.
 - **Asymmetric psychological cost.** Most humans find it
   surprisingly difficult to publicly lie about deep commitments.
@@ -314,11 +315,11 @@ combination is what gives the creed its load-bearing character.
   shame mechanism is engaged by public commitment in a way that
   private lying does not engage. Heretics often refused to recite
   not because of fear of detection but because *they could not
-  bring themselves to* — the cost was real even when no
+  bring themselves to*. The cost was real even when no
   enforcement was present.
 - **Detection of inauthenticity in community.** A community that has
   recited the creed authentically over years recognizes the marks
-  of inauthenticity in others — tone, hesitation, willingness or
+  of inauthenticity in others: tone, hesitation, willingness or
   unwillingness to discuss the words, response under questioning,
   body language, eye movement. The recitation is observed in
   context, and the context provides interpretation that the words
@@ -344,7 +345,7 @@ combination is what gives the creed its load-bearing character.
   with documentary backing.
 
 The convergence of these mechanisms explains the empirical success
-of the creed as a recognition protocol — including its success on
+of the creed as a recognition protocol, including its success on
 unbelievers and entryists, who were filtered out by the *combination*
 of specificity, performativity, psychological cost, community
 detection, self-shaping, repetition, and recorded witness.
@@ -354,7 +355,7 @@ detection, self-shaping, repetition, and recorded witness.
 Of the mechanisms above, the asymmetric psychological cost of
 insincere recitation is the one that most repays close examination.
 It is also the most surprising. The first-pass intuition is that an
-unbeliever could simply *say the words* — sound is just sound;
+unbeliever could simply *say the words*: sound is just sound;
 performance is performance; what does it cost to mouth a sentence?
 The empirical answer, both from the historical record of creed
 recitation and from contemporary cross-cultural and experimental
@@ -376,7 +377,7 @@ disjunction between word and intent.
 
 This is not folklore. The forensic-psychology literature on deception
 detection finds that deception about *deeply held* matters generates
-detectable involuntary signals across multiple modalities — even
+detectable involuntary signals across multiple modalities, even
 when the deceiver is highly motivated to conceal them, even when the
 words themselves are perfectly performed. The reliability of any
 single signal is modest; the reliability of the *pattern* of signals
@@ -412,8 +413,8 @@ For an unbeliever publicly reciting a creed, this creates real
 internal pressure. The act of recitation pulls the reciter's
 self-perception toward the recited content. Each performance is
 not just an external display but an *update* to the reciter's
-sense of who they are. The unbeliever knows this — at least
-intuitively — and feels the pull as a threat.
+sense of who they are. The unbeliever knows this, at least
+intuitively, and feels the pull as a threat.
 
 Festinger's cognitive-dissonance theory (1957) names what happens
 when the unbeliever resists the pull: holding "I have publicly
@@ -439,7 +440,7 @@ The third observation comes from speech-act theory (Austin,
 *How to Do Things with Words*, 1962; Searle, *Speech Acts*, 1969).
 Some utterances do not merely *describe* states of affairs; they
 *constitute* them. "I do" in a marriage ceremony does not report a
-marriage that exists prior to the utterance — the utterance, in the
+marriage that exists prior to the utterance: the utterance, in the
 right context, *makes* the marriage. "I promise" does not describe
 a promise; it is the promise. "I bequeath" does not describe a
 bequest; it is the bequest.
@@ -447,7 +448,7 @@ bequest; it is the bequest.
 A creed recitation is structurally similar. "I believe in one God"
 is not (only) a report on a prior internal belief state. In the
 context of a recognition ceremony, it is the *act of becoming
-committed* — what Searle calls a *commissive*. The reciter has done
+committed*, what Searle calls a *commissive*. The reciter has done
 something by saying the words, regardless of whether the prior
 internal state matched. The community has standing to hold the
 reciter to the commitment because the commitment is constituted by
@@ -470,8 +471,8 @@ costly to maintain over time.
 The fourth observation is that speech invoking the sacred carries
 *additional* weight beyond ordinary speech-acts. Across cultures
 that have anything resembling a sacred category, false claims about
-sacred matters — false oaths, false invocations, false claims of
-divine commission — are treated more seriously than other forms of
+sacred matters (false oaths, false invocations, false claims of
+divine commission) are treated more seriously than other forms of
 deception. The penalties (legal, social, religious) are heavier;
 the prohibitions are more emphatic; the language of warning is
 stronger.
@@ -480,7 +481,7 @@ There is good reason to think this reflects a deep feature of
 human cognition rather than an arbitrary cultural choice. Humans
 appear to have a category for "things one cannot lie about without
 incurring grave cost," and the contents of that category cluster
-heavily around the sacred. Why this is so is a deep question — it
+heavily around the sacred. Why this is so is a deep question: it
 may reflect a genuine intuition that there is something against
 which the lie is being committed, beyond merely the listener; it
 may reflect group-evolutionary dynamics around honest signaling at
@@ -505,7 +506,7 @@ makes the speech sacred.
 The fifth observation is that reciting *alone* is psychologically
 different from reciting *with a community of believers*. The
 collective experience generates what Émile Durkheim called
-"collective effervescence" — the heightened emotional state of
+"collective effervescence," the heightened emotional state of
 shared ritual participation, which can produce experiences
 participants describe as transcendent, unifying, overwhelming. For
 an unbeliever attempting to perform recitation in such a context,
@@ -514,8 +515,8 @@ sacred-speech weight, *and* they are surrounded by people whose
 authentic recitation is generating the collective state.
 
 The combination is hard to bear. The unbeliever feels what the
-believers feel — emotional contagion is real and largely involuntary
-— without sharing the belief that would make the feeling coherent.
+believers feel (emotional contagion is real and largely involuntary)
+without sharing the belief that would make the feeling coherent.
 They are participating in something whose power they cannot deny but
 whose ground they cannot accept. This produces a particular kind of
 distress that the believers, who are simply experiencing
@@ -534,7 +535,7 @@ version of the same effect.
 #### The repetition trap
 
 The sixth observation is that repetition makes insincere recitation
-*harder*, not easier. The first-pass intuition is the opposite —
+*harder*, not easier. The first-pass intuition is the opposite:
 practice should make performance smoother. But repeated insincere
 recitation generates accumulating dissonance, accumulating
 self-perception updates, and accumulating awareness of one's own
@@ -547,7 +548,7 @@ attempted to maintain participation, and *then withdrew*, citing
 their inability to continue rather than any specific external
 event. The compound cost had become unbearable. By contrast,
 genuine believers found repeated recitation deepening and
-sustaining their belief — the same mechanism, with opposite
+sustaining their belief: the same mechanism, with opposite
 direction depending on initial state.
 
 This is why kith-covenant's periodic re-affirmation cadence is not merely
@@ -564,16 +565,16 @@ rather than a stressful one.
 The seventh observation closes the circle. Pascal's wager (1670)
 contained an often-overlooked subtlety: Pascal anticipated the
 objection that one cannot believe by willing to. His response was
-that one should *act as if* — kneel, take holy water, attend mass —
+that one should *act as if* (kneel, take holy water, attend mass)
 and "*cela vous abêtira*" ("this will make you stupider," in
-Pascal's deliberately provocative phrase) — meaning, more
+Pascal's deliberately provocative phrase), meaning, more
 charitably, that the practice will form the disposition, the
 disposition will form the belief, and one will become a believer
 through the practice.
 
 This is empirically correct, and it is the deepest reason why
 unbelievers resist creed recitation. Not fear of immediate exposure
-— most communities are forgiving of nervous first recitations — but
+(most communities are forgiving of nervous first recitations) but
 *fear of being shaped*. The unbeliever who understands what
 recitation does does not want to be done to. They do not want to
 become the kind of person who means the words. The unbelief is, for
@@ -585,7 +586,7 @@ benefited materially from successful infiltration. They chose
 ineffective overt opposition over effective covert participation
 because they correctly understood that the participation would
 unmake them. The creed worked not only by detection but by
-*anticipated transformation* — a defense the would-be infiltrator
+*anticipated transformation*, a defense the would-be infiltrator
 applied to themselves before the community had to.
 
 #### Cross-cultural validation
@@ -649,7 +650,7 @@ the recognition protocol that should not be compromised:
   A community that asks "why must we recite *spoken* words *in
   person* in front of *witnesses* with *repetition*?" and demands
   written-only or remote-only or single-occasion-only alternatives
-  has — knowingly or not — asked for the mechanism to be disabled.
+  has, knowingly or not, asked for the mechanism to be disabled.
   The compact's legitimate response is that these are not
   arbitrary preferences but the load-bearing features of how
   recognition works on actual human cognition.
@@ -663,7 +664,7 @@ filtering power. The Christian creed empirically demonstrated this
 for nearly two thousand years; kith-covenant inherits the architecture and
 adapts the content.
 
-#### Limits of the mechanism — honest acknowledgment
+#### Limits of the mechanism: honest acknowledgment
 
 The arguments above state the mechanism at its strongest. A responsible
 treatment must also state where it weakens, because kith-covenant's
@@ -674,17 +675,17 @@ design should not be over-promised.
   *Psychological Bulletin* 129 (2003); Bond and DePaulo, "Accuracy of
   Deception Judgments," *Personality and Social Psychology Review* 10
   (2006)) converges on roughly 54% accuracy for observers attempting
-  to detect lies in single, brief interactions — barely above chance.
+  to detect lies in single, brief interactions, barely above chance.
   The "body knows" argument cannot rest on humans being good lie
   detectors on short exposure; they are not. What the mechanism
   actually depends on is *accumulated* signal across many repetitions
-  and *community* signal aggregated across many observers — neither of
+  and *community* signal aggregated across many observers, neither of
   which the one-shot literature is designed to measure. This is a
   defensible position but it is weaker than the naive "the body
   signals" claim, and the docs should not overreach.
 - **The scaling problem is real.** The Christian creed's historical
   success rested on tight communities with frequent, local, repeated
-  performance — weekly liturgy, confession, ongoing neighborly
+  performance: weekly liturgy, confession, ongoing neighborly
   observation. A kith-covenant compact among communities that meet only
   at compact-formation and at generational re-affirmation has
   dramatically less frequency and proximity to work with. Whether the
@@ -698,7 +699,7 @@ design should not be over-promised.
   communities can sustain insincere recitation across generations when
   the stakes are survival under a coercive regime. Kith-Covenant
   operates in voluntary rather than coercive conditions, which reduces
-  but does not eliminate this risk — communities with sophisticated
+  but does not eliminate this risk: communities with sophisticated
   incentives to pass the recognition filter (trade access, rescue
   capacity, intelligence-gathering) can likely train successive
   generations to recite convincingly. The accumulating-cost argument
@@ -714,7 +715,7 @@ design should not be over-promised.
 
 The honest position: asymmetric psychological cost is **one filter
 among several** rather than a strong stand-alone filter. Its work is
-done in combination with — not instead of — conduct observation over
+done in combination with (not instead of) conduct observation over
 time, material entanglement (trade, rescue, commons), costly signaling
 (capacity commitments visible enough that falsity eventually surfaces),
 the jester function ([jester_and_dissent.md](jester_and_dissent.md)),
@@ -723,7 +724,7 @@ recognition ceremony is the *first* filter; it should not be
 asked to be the *only* filter. Where the other filters are absent or
 weak, recognition's filtering power should be expected to weaken
 correspondingly. This is an actual weakness of the design at low-
-contact, low-repetition, low-entanglement scales — and future design
+contact, low-repetition, low-entanglement scales, and future design
 work should weigh whether kith-covenant is viable at such scales or
 whether those conditions themselves fail the compact's preconditions.
 
@@ -734,13 +735,13 @@ requirements:
 
 - It must commit to **specifics** that those who cannot really be
   members will struggle to recite.
-- It must be **performative** — recitation must commit the
+- It must be **performative**: recitation must commit the
   community, not merely report on it.
 - It must impose **psychological cost** that scales with
   inauthenticity.
 - It must be **publicly witnessed** by other members and
   **recorded** with cryptographic permanence.
-- It must be **repeated** — at compact-formation, at periodic
+- It must be **repeated**: at compact-formation, at periodic
   re-affirmation, at re-entry after designation, and on other named
   occasions.
 - It must be **substantive enough to do work** without dictating
@@ -751,7 +752,7 @@ would exclude Buddhist, Iroquois, Muslim, and other members), cannot
 be specifically theistic in a doctrinal sense (that would exclude
 the *Dharma*-based Buddhist case), and cannot be specifically
 sectarian within any tradition. The substantive commitment must be
-*structural* — to the transcendent moral authority substrate finding —
+*structural* (to the transcendent moral authority substrate finding)
 rather than to any particular content of that substrate. The
 following section develops what that statement looks like.
 
@@ -761,7 +762,7 @@ The proposal: at compact-formation, each candidate community publicly
 recites a recognition statement consisting of five movements. Each
 movement requires substantive commitment that hollows recitation will
 struggle to satisfy. Together, the five movements perform the same
-function the Christian creed performed for orthodoxy — filtering
+function the Christian creed performed for orthodoxy: filtering
 entryists and heretics while admitting genuine members across
 substantial theological diversity.
 
@@ -785,8 +786,8 @@ own commitments refer, in its own community's terms.
 > *"We, the [community name], affirm in the presence of these
 > members of the compact that our commitments to this compact rest
 > ultimately on [our community's named ultimate]. We acknowledge
-> [this ultimate] as transcendent — beyond the authority of any
-> compact, including this one — and as the source of the meaning
+> [this ultimate] as transcendent (beyond the authority of any
+> compact, including this one) and as the source of the meaning
 > our commitments here bear."*
 
 The blank is filled in by each community in its own language and from
@@ -810,7 +811,7 @@ genuinely lacks a transcendent moral authority structure cannot complete
 this movement honestly. They may try to fake it (substituting
 "humanity" or "reason" or "the planet"); the inauthenticity will be
 detectable to other members in the same way creed-inauthenticity was
-detectable to the early Church — through the marks of evasion,
+detectable to the early Church: through the marks of evasion,
 abstraction, or hollowness in the recitation. A community whose
 internal substrate is *open* about not naming an ultimate may be
 welcomed in observer or restricted-member capacity, but full
@@ -818,10 +819,10 @@ membership requires the substantive act this movement performs.
 
 ### Movement 2: The acknowledgment of fallenness
 
-The community publicly acknowledges that its members are sinners —
+The community publicly acknowledges that its members are sinners:
 fallen, capable of evil, in need of grace.
 
-> *"We acknowledge that we are fallen — that our members will fail
+> *"We acknowledge that we are fallen: that our members will fail
 > the commitments we make here, individually and collectively; that
 > we will require restitution and return; that we cannot rely on our
 > own virtue alone but require [the substrate named in Movement 1]
@@ -833,10 +834,10 @@ This movement is the **anthropological commitment** developed in
 It is hard to recite in good faith for any community whose self-
 conception is one of unique righteousness, ideological purity, or
 cleansed historical innocence. Universalist movements that present
-themselves as the bringers of a perfected order — the failure mode
+themselves as the bringers of a perfected order, the failure mode
 that destroyed the *jus publicum Europaeum* (see
-[justus_hostis.md "How the jus publicum fell apart"](justus_hostis.md#how-the-jus-publicum-fell-apart))
-— characteristically refuse to acknowledge their own fallenness.
+[justus_hostis.md "How the jus publicum fell apart"](justus_hostis.md#how-the-jus-publicum-fell-apart)),
+characteristically refuse to acknowledge their own fallenness.
 Their inability to recite this movement honestly is a strong filter
 against them.
 
@@ -862,7 +863,7 @@ form. It performs the move that the Mongol Tengrist tolerance made
 into policy and that the Christian catholic / perennialist tradition
 endorses theologically (Justin Martyr's *logos spermatikos*; Acts 17;
 Romans 2). It does not require any community to abandon its own
-theology — a Christian community can recite this while continuing to
+theology: a Christian community can recite this while continuing to
 believe Christianity is the fullest revelation of God, a Muslim
 community while continuing to hold Islam is the final revelation, a
 Buddhist community while continuing to hold the Dharma is the deepest
@@ -870,8 +871,8 @@ truth. What it requires is the practical recognition that *for the
 purpose of this compact* the other members are peers, not heretics
 to be corrected.
 
-A demonic actor — particularly an ideologically universalist one
-whose orientation is to bring everyone to *its own* substrate —
+A demonic actor, particularly an ideologically universalist one
+whose orientation is to bring everyone to *its own* substrate,
 will struggle to recite this in good faith. Their internal logic
 requires that the other members be eventually corrected, converted,
 or eliminated; the present tolerance is tactical. The asymmetric
@@ -909,7 +910,7 @@ commits them to a virtue-cultivation, not to rule-compliance.
 ### Movement 5: The submission of the compact itself
 
 The community publicly acknowledges that the compact is not itself
-the ultimate — it serves something beyond itself, and may rightly be
+the ultimate: it serves something beyond itself, and may rightly be
 judged or even dissolved if it ceases to do so.
 
 > *"We acknowledge that this compact is not itself the ultimate to
@@ -918,8 +919,8 @@ judged or even dissolved if it ceases to do so.
 > to the transcendent moral authority that each of our communities names
 > in its own way. The compact's authority is contingent on its
 > continuing to so serve. If the compact ever ceases to honor what
-> it was formed to honor — if it becomes the captured instrument of
-> any one community, of any ideology, or of its own perpetuation —
+> it was formed to honor (if it becomes the captured instrument of
+> any one community, of any ideology, or of its own perpetuation),
 > we are not bound to it; the higher commitments take precedence.
 > We will not idolize this compact, nor allow it to idolize
 > itself."*
@@ -928,7 +929,7 @@ This is the **antidote-to-entropy commitment** that the user has
 named as essential. Without it, the compact has no Archimedean point
 from which to evaluate its own decay. With it, every member has
 explicitly committed to recognizing when the compact has become
-something other than what it was formed to be — and to acting on
+something other than what it was formed to be, and to acting on
 that recognition.
 
 A demonic actor whose orientation is to capture the compact for its
@@ -985,7 +986,7 @@ The ceremony has the following characteristics:
   recitation preserves this. The ordering is procedural and
   interchangeable.
 - **In the presence of all founding members as witnesses.** Witness
-  is constitutive — what is recited without witness is not a
+  is constitutive: what is recited without witness is not a
   recognition. Compact members are not just observers but *parties
   to* the recognition: each community's own rite becomes load-bearing
   for the compact by the fact of its being witnessed across the
@@ -994,7 +995,7 @@ The ceremony has the following characteristics:
   community's recitation, other communities may ask the recitant
   community to clarify how its own substrate supplies the five
   features (fallen-actor, grace, scapegoat-revelation-or-equivalent,
-  enemy-love, non-ultimacy — see
+  enemy-love, non-ultimacy; see
   [justus_hostis.md "The anti-spiral features"](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)
   and [overview.md §3b.i](../overview.md#3bi-anti-spiral-features-the-load-bearing-form-of-the-substrate-requirement)).
   This is the *examination* function and it is the real filter at
@@ -1009,7 +1010,7 @@ The ceremony has the following characteristics:
   witnesses (fellow members of the reciting community), and by the
   other founding communities as external witnesses. The record is
   available to all members in perpetuity (subject to the
-  inheritance-of-the-future virtue — the record is part of the
+  inheritance-of-the-future virtue; the record is part of the
   knowledge commons). Cross-boundary signatures certify witness,
   not shared substrate.
 - **No reciprocal joint re-recitation by existing members.** Earlier
@@ -1020,17 +1021,17 @@ The ceremony has the following characteristics:
   because there is no joint creed; each existing community's five
   movements are its own. What *does* happen at each new reception
   is that each existing community may, at its option and in its
-  own rite, re-perform its intra-community authorization — a
-  renewal of its own members' commitments under its own substrate
-  — with the new admission as occasion. This is the generational
+  own rite, re-perform its intra-community authorization (a
+  renewal of its own members' commitments under its own substrate)
+  with the new admission as occasion. This is the generational
   re-affirmation pattern treated in
   [exit_and_succession.md](exit_and_succession.md); it is intra-
   community, not joint.
 
 The ceremony is *expensive in time, attention, and human investment*.
 This expense is itself part of the costly-signaling architecture
-([tacit_coordination.md "Costly signaling"](tacit_coordination.md#costly-signaling))
-— a community willing to undergo the ceremony has demonstrated
+([tacit_coordination.md "Costly signaling"](tacit_coordination.md#costly-signaling)).
+A community willing to undergo the ceremony has demonstrated
 something a community unwilling has not.
 
 ## Periodic re-affirmation
@@ -1041,7 +1042,7 @@ periodic re-affirmation cadence (rung 7 of the protocol sketch in
 includes a full re-recitation of the five movements by every current
 member community.
 
-The cadence is generational — every 25–30 years, with the exact
+The cadence is generational: every 25 to 30 years, with the exact
 period set at compact-formation. This timing has structural reasons:
 
 - Generational cadence catches the substrate drift that occurs as
@@ -1050,10 +1051,10 @@ period set at compact-formation. This timing has structural reasons:
   authentically. A community that has remained substantively
   oriented toward its substrate will recite easily.
 - Generational cadence is long enough that the re-recitation is
-  *consequential* — not a routine annual ritual that becomes empty,
+  *consequential*: not a routine annual ritual that becomes empty,
   but a substantial occasion that engages the community's full
   attention and creates fresh commitment.
-- Generational cadence aligns with the *sacred-equivalent* events
+- Generational cadence coincides with the *sacred-equivalent* events
   the compact's time structure protects (per
   [justus_hostis.md "Substrate affords emergence"](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
   Re-affirmation is itself an occasion in which sacred-equivalent
@@ -1094,7 +1095,7 @@ demandingly, the recitant prepares longer, and the cost is
 reasserted at the level the original compact-formation required.
 This is a designated rung between ordinary re-affirmation and
 anathema designation, and it has historical precedent in each major
-tradition's renewal practice — the Christian *mission* preached by
+tradition's renewal practice: the Christian *mission* preached by
 visiting clergy, the Buddhist periodic ordination renewal, the
 Iroquois renewal of the chiefs' titles at each new generation. Each
 tradition has independently discovered that ceremony cost decays
@@ -1109,7 +1110,7 @@ two specific ways.
 
 **Designation as anathema is, in effect, a finding that the community
 has repudiated its recognition statement.** The compact finds that the
-community is no longer committing what it once committed — that some
+community is no longer committing what it once committed: that some
 movement has been emptied (most often Movement 5, the submission of
 the compact, when an actor seeks to capture it; or Movement 3, the
 recognition of the other, when an actor turns universalist; or
@@ -1128,7 +1129,7 @@ changed. The anti-spiral-feature examination is repeated in the
 demanding form: the compact is not accepting the community's word
 that it has changed; it is requiring demonstrable evidence under
 cross-boundary scrutiny. The rite is examined more demandingly
-than at first reception — what was acceptable at threshold is not
+than at first reception: what was acceptable at threshold is not
 necessarily acceptable at re-entry, because the community now has
 a record of having committed and then violated. The re-entry rite
 is itself a costly signal: a community that cannot honestly perform
@@ -1142,8 +1143,8 @@ documents addressed imprecisely: *who counts as a neighbor, and what
 is owed to whom?* The colonial-Christian failure mode discussed in
 [noticeable_hand.md "The colonial frontier"](noticeable_hand.md#honest-counterweights)
 was a failure to extend *neighbor* status to those encountered across
-ethnic and religious boundaries — a failure to follow the parable of
-the Good Samaritan (Luke 10:25–37), which Christ offered precisely in
+ethnic and religious boundaries, a failure to follow the parable of
+the Good Samaritan (Luke 10:25-37), which Christ offered precisely in
 answer to the lawyer's question "and who is my neighbor?"
 
 Before laying out the four operational categories, the neighbor
@@ -1157,7 +1158,7 @@ is much tighter and more useful:
 - **Neighbor is actualized by encounter, not by theoretical
   inclusion.** The Samaritan's neighbor was *the man he met on the
   road*. The priest and Levite who passed by had also encountered
-  the wounded man — they had seen him — and their failure was
+  the wounded man (they had seen him) and their failure was
   failure to *act within encounter*, not failure to love all
   hypothetical travelers. The neighbor relation is brought into
   being by the fact of contact; it is not extended in the abstract
@@ -1201,7 +1202,7 @@ dispute, per the entire architecture of
 [bounded_conflict.md](bounded_conflict.md)) or non-members with
 whom conflict exists but who are still treated within the
 bounded-conflict frame. The *justus hostis* is the enemy who
-*remains a neighbor within the encounter of conflict* — one who
+*remains a neighbor within the encounter of conflict*: one who
 can be fought, but who must be fought with discernment of what
 they are (human, adversary, fellow-bearer of the *imago Dei* or
 its functional equivalent) and what they are not (demonic, outside
@@ -1217,8 +1218,8 @@ The ordinary restoration architecture is suspended; engagement is
 guarded; active opposition is permitted; **but re-entry remains
 available** through fresh recitation with heightened scrutiny. The
 anathema is the compact's primary response to actors who have exceeded
-the *justus hostis* frame — a formal cutting-off, not an ontological
-judgment. *And — this remains critical — even the anathema retains
+the *justus hostis* frame, a formal cutting-off, not an ontological
+judgment. *And, this remains critical, even the anathema retains
 the basic moral standing* that prevents the compact from inflicting
 acts that violate the common virtues against them. The category change
 permits stronger response *within* the virtue frame; it does not
@@ -1229,9 +1230,9 @@ compact does not become demonic in its response.
 
 In the extremely rare case where an actor's orientation is so
 fundamentally and constitutively destructive that the anathema
-designation is insufficient — the classical *hostis humani generis*
-proper, "enemy of humankind" (pirates, slavers, actors outside every
-cooperative framework) — the re-entry path does not apply. This
+designation is insufficient (the classical *hostis humani generis*
+proper, "enemy of humankind": pirates, slavers, actors outside every
+cooperative framework), the re-entry path does not apply. This
 designation requires an even higher evidentiary threshold and should
 be presumed almost never to arise. The presumption is always anathema
 unless the evidence is overwhelming. See
@@ -1244,14 +1245,14 @@ omitting, and the one that the neighbor-question requires sharp
 thinking about. Non-members are communities not in the compact,
 not designated anathema, not in active *justus hostis*-style
 conflict. The compact encounters such communities
-constantly — in trade, travel, rescue situations, disaster
+constantly: in trade, travel, rescue situations, disaster
 response, academic exchange, diplomacy short of conflict, and
 ordinary adjacency.
 
 Within each such encounter, the encountered community is a
 neighbor in the Samaritan sense. Within the encounter, the
 compact's common virtues govern its conduct, and the compact must
-*discern* — what is this encounter, who is in need, what is the
+*discern*: what is this encounter, who is in need, what is the
 risk, what response is appropriate?
 
 Operationally:
@@ -1264,7 +1265,7 @@ Operationally:
 - **The compact's common virtues apply within every actual
   encounter with a non-member.** Reverence for life, sanctuary of
   the rescuer, protection of the communicative commons, and the
-  rest — these govern the compact's conduct whenever it acts,
+  rest. These govern the compact's conduct whenever it acts,
   regardless of the status of those it acts toward. The virtues
   are boundaries the compact draws on *its own behavior*, not
   limits it imposes on others.
@@ -1286,7 +1287,7 @@ Operationally:
 - **Non-members may become members through ordinary recognition
   procedures.** The recognition ceremony is open to any community
   capable of the five movements. The compact's posture toward
-  non-members should be one of *ready welcome without coercion* —
+  non-members should be one of *ready welcome without coercion*:
   making membership available to those who seek it, but not
   pressing membership on those who do not.
 - **Non-members may also become *justus hostis* without being
@@ -1299,8 +1300,8 @@ Operationally:
 
 What the compact does *not* have, on this framing, is responsibility
 toward communities it does not encounter. This is not a moral
-shrinkage — no compact can bear responsibility for all human
-affairs — but the disciplined recognition that moral obligation
+shrinkage (no compact can bear responsibility for all human
+affairs) but the disciplined recognition that moral obligation
 tracks contact because *discernment requires contact*. What kith-covenant
 owes is not universal abstract love but full moral seriousness in
 every actual encounter, conducted with the discernment the
@@ -1310,15 +1311,15 @@ Samaritan exemplified.
 
 A compact that fails to maintain the four-category distinction
 will collapse in one of two ways. *Either* it expands membership
-indiscriminately — extending full member treatment to anyone
-without recognition, dissolving the filter and inviting capture —
+indiscriminately (extending full member treatment to anyone
+without recognition, dissolving the filter and inviting capture)
 *or* it contracts the moral universe to members only, treating
 encountered non-members as outside concern and recapitulating the
 colonial failure. Both failures are well-documented historically;
 the four categories are designed to forestall both.
 
-The Schmittian instinct — collapsing all moral relation onto the
-friend/enemy axis — is the deeper structural temptation toward the
+The Schmittian instinct, collapsing all moral relation onto the
+friend/enemy axis, is the deeper structural temptation toward the
 second failure. It must be explicitly resisted. The compact is
 *political* in Schmitt's sense (it has friends and enemies and
 the distinction matters), but it is *not only* political. Within
@@ -1329,7 +1330,7 @@ the compact discusses its enemies, the discussion must proceed
 within an awareness that the enemies encountered are still
 neighbors. Where the compact deals with non-members, the dealings
 must proceed within an awareness that encountered non-members are
-owed what neighbors encountered are owed — no more (kith-covenant is not
+owed what neighbors encountered are owed: no more (kith-covenant is not
 a crusading savior of all humanity) and no less (kith-covenant does not
 treat the encountered as raw material).
 
@@ -1345,7 +1346,7 @@ Several patterns are foreseeable; each requires explicit handling.
 ### The hollow recitation
 
 A community recites the five movements without meaning them. Detection
-is challenging at first reception but becomes easier over time — the
+is challenging at first reception but becomes easier over time: the
 community's actual conduct will diverge from its commitments;
 re-affirmation cycles will catch the inauthenticity; the asymmetric
 psychological cost mechanism creates internal pressure that erodes
@@ -1361,23 +1362,23 @@ case, not an emergency.
 ### The sincere atheist (or strict materialist)
 
 A community whose substrate is *honestly* materialist or strictly
-non-theistic — not as a posture but as a considered worldview — may
+non-theistic (not as a posture but as a considered worldview) may
 find Movements 1 and 5 impossible to recite in good faith. This is
 the hardest case and deserves nuance.
 
 Two subcases:
 
-- **Open materialism** — a community that holds materialist views
+- **Open materialism**: a community that holds materialist views
   while acknowledging the limits of materialism, willing to act *as
   if* there could be more, willing to honor the structural
   commitments even without the metaphysical ones. Such a community
-  can probably recite Movements 2–4 honestly and may be admitted in
+  can probably recite Movements 2 to 4 honestly and may be admitted in
   a *restricted member* capacity that does not require Movements 1
   and 5 in their full theistic form. They commit to the virtues,
   acknowledge their own fallenness, and recognize the other; they
   do not name a transcendent moral authority they do not believe in. The compact accepts
   the asymmetry honestly.
-- **Closed materialism** — a community that asserts materialism as
+- **Closed materialism**: a community that asserts materialism as
   the final word and holds that other communities' theistic claims
   are simply false. Such a community cannot honestly recite Movement
   3 (recognition of the other's substrate as bearing the same
@@ -1421,7 +1422,7 @@ the violations are sustained.
 Over time, the recognition statement becomes a hollow ritual that
 everyone performs without meaning. This is the most insidious
 failure mode and is what Movement 5 is specifically designed to
-forestall — by including the *contingency* of the compact itself
+forestall: by including the *contingency* of the compact itself
 in the recitation, the protocol resists becoming its own object of
 devotion.
 
@@ -1437,7 +1438,7 @@ collapse.
 
 A sophisticated adversary may attempt to capture the compact by
 modifying the recognition statement during a re-affirmation cycle
-— removing Movement 5, weakening Movement 3, etc. This is the worst
+: removing Movement 5, weakening Movement 3, etc. This is the worst
 failure mode and is foreclosed by the rule that *the five movements
 are not amendable*. New common-virtue items can be added (Movement 4
 is the only movement whose content is in some part open); the
@@ -1450,7 +1451,7 @@ allowed itself to be captured.
 The user's framing is exact: the recognition statement, particularly
 Movement 1 and Movement 5, is *the antidote to entropy*. Cooperation
 regimes without a transcendent reference drift toward dissolution by
-their own internal logic — every mechanism is gameable by its own
+their own internal logic: every mechanism is gameable by its own
 participants, and over time, will be gamed. The transcendent reference
 is the Archimedean point from which the compact can recognize when it
 is itself drifting.
@@ -1470,8 +1471,8 @@ Three observations on this:
   practice of the Eightfold Path is not diminished by acknowledging
   that a Christian member's commitment to grace plays the same
   structural role. The compact stays out of the disagreements
-  between communities about whose substrate is *fullest* or *truest*
-  — those are matters for the communities to work out across time, in
+  between communities about whose substrate is *fullest* or *truest*:
+  those are matters for the communities to work out across time, in
   their own ways, beyond the compact's authority.
 - **The acknowledgment may, over time, contribute to the convergence
   the user's catholic / perennialist hypothesis suggests is possible.**
@@ -1479,8 +1480,8 @@ Three observations on this:
   acknowledge a single ultimate may, in their own ways and at their
   own paces, come to recognize that the ultimates they name in their
   separate languages are perhaps not as separate as they once
-  appeared. This is not the compact's project — the compact stays
-  out of theology — but it is a possible second-order effect that
+  appeared. This is not the compact's project (the compact stays
+  out of theology) but it is a possible second-order effect that
   member communities may welcome or resist on their own terms.
 
 The Christian creed worked in part because it pointed beyond the
@@ -1507,7 +1508,7 @@ Translation to the code layer under `lib/muudd/lib/kith-covenant/src/`:
   rejected. Movement 4 (common virtues) accepts compact-specific
   extensions; Movements 1, 2, 3, and 5 are templated.
 - **The examination function** (other members questioning the
-  recitant during the ceremony) is procedurally provided for —
+  recitant during the ceremony) is procedurally provided for:
   questions and clarifications are part of the recorded event.
 - **The recitation language** can be any language; the translation is
   also recorded. Mismatches between recitation language and
@@ -1535,7 +1536,7 @@ itself a measurable property and should be tested explicitly.
   of Tengrism) is suggestive but not directly applicable.
 - **Detection of inauthenticity at first reception** is a virtue, not
   a procedure. The compact's mediator and recipient roles must
-  cultivate this discernment — but how, and against what corrupting
+  cultivate this discernment, but how, and against what corrupting
   pressures? This is a shared open question with the *hostis humani
   generis* treatment in
   [justus_hostis.md](justus_hostis.md#open-questions) and
@@ -1549,7 +1550,7 @@ itself a measurable property and should be tested explicitly.
   community holds an ultimate of structural significance to them"
   without endorsing it as ontologically equivalent? The latter is
   weaker and probably more inclusive but also less filtering.
-- **The generational re-affirmation cadence** is set to 25–30 years
+- **The generational re-affirmation cadence** is set to 25 to 30 years
   by default. Is this calibrated correctly across communities with
   very different generational rhythms? Some communities (e.g.,
   monastic ones) have effective cadences much faster; some
@@ -1559,7 +1560,7 @@ itself a measurable property and should be tested explicitly.
   the right balance, or are there cases where one of the other
   movements should be revised across compacts of different
   generations or different scopes?
-- **Is there a meaningful first-test scenario** — a real
+- **Is there a meaningful first-test scenario**, a real
   earthbound case where kith-covenant's recognition protocol could be
   tested at small scale before being deployed to inter-habitat
   scope? Candidate: religious-cooperative networks, sister-city
@@ -1569,36 +1570,36 @@ itself a measurable property and should be tested explicitly.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md) — the theoretical foundation;
+- [justus_hostis.md](justus_hostis.md): the theoretical foundation;
   recognition operationalizes the *justus hostis* commitment at
   compact-formation, and Movement 5 is the antidote-to-entropy
   acknowledgment that document foreshadowed.
-- [bounded_conflict.md](bounded_conflict.md) — Movement 4 is the
+- [bounded_conflict.md](bounded_conflict.md): Movement 4 is the
   recitation form of the common-virtue list developed there; the
   anathema procedure intersects with recognition at designation and
   re-entry.
-- [historical_cases.md](historical_cases.md) — the transcendent-moral-authority pattern
+- [historical_cases.md](historical_cases.md): the transcendent-moral-authority pattern
   there is what Movement 1 enacts; the case material there
   (especially the Iroquois Condolence ceremony and the Christian
   creed tradition) supplies precedent for the recognition ceremony's
   structure.
-- [tacit_coordination.md](tacit_coordination.md) — the recognition
+- [tacit_coordination.md](tacit_coordination.md): the recognition
   ceremony is a costly-signaling event; the periodic re-affirmation
   is a common-knowledge maintenance event.
-- [noticeable_hand.md](noticeable_hand.md) — the truth-finding /
+- [noticeable_hand.md](noticeable_hand.md): the truth-finding /
   design-making distinction developed there is the principle that
   lets kith-covenant require structural commitment to a the substrate
   without dictating theological content. Movement 1 lives in
   exactly that distinction.
-- [liminal_institutions.md](liminal_institutions.md)  — the witnessing roles in the recognition ceremony are a natural
+- [liminal_institutions.md](liminal_institutions.md): the witnessing roles in the recognition ceremony are a natural
   responsibility for the compact's liminal third-party institutions.
-- [exit_and_succession.md](exit_and_succession.md)  — recognition has a counterpart in withdrawal; the same procedural
+- [exit_and_succession.md](exit_and_succession.md): recognition has a counterpart in withdrawal; the same procedural
   weight that applies to admission should apply to formal exit.
-- [../social_framework.md](../social_framework.md) — parent document.
+- [../social_framework.md](../social_framework.md): parent document.
 
 ## References
 
-*To be added — anchor works include: for the Nicene Creed and its
+*To be added. Anchor works include: for the Nicene Creed and its
 formation, Kelly,* Early Christian Creeds *(3rd ed. 1972) and
 Pelikan,* Credo: Historical and Theological Guide to Creeds and
 Confessions of Faith *(2003); for the Athanasian Creed, Kelly,* The

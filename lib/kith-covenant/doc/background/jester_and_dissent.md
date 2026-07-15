@@ -16,21 +16,21 @@ hollowing, but on a generational timescale. Neither mechanism provides
 *real-time, cross-community information flow* about the health of the
 compact's members.
 
-The historical answer is the **licensed truth-teller** — the medieval
-jester, the court fool, the satirist, the journalist, the prophet —
-a role structurally positioned to speak truths that the powerful do
-not want spoken, protected (imperfectly and sometimes fatally) by
-convention from the consequences that would fall on an ordinary
-speaker.
+The historical answer is the **licensed truth-teller**: the medieval
+jester, the court fool, the satirist, the journalist, the prophet.
+This is a role structurally positioned to speak truths that the
+powerful do not want spoken, protected (imperfectly and sometimes
+fatally) by convention from the consequences that would fall on an
+ordinary speaker.
 
 Kith-covenant needs this role at the inter-community scope. Internal
 dissent that does not produce protocol violation is the autonomous_trust
 scope, not kith-covenant's
 ([recognition_protocols.md](recognition_protocols.md)). But dissent that
-*crosses community boundaries* — a community's internal practices that
+*crosses community boundaries* (a community's internal practices that
 affect the compact's health, corruption within the liminal institutions
 themselves, hollowing of the recognition ceremony that the witnesses
-have not caught — is kith-covenant's business, and the jester function
+have not caught) is kith-covenant's business, and the jester function
 is the mechanism that brings it to light.
 
 The inquisitorial-caste problem
@@ -60,7 +60,7 @@ could say the thing everyone knew but no one dared voice.
 
 The permission was not unlimited. The fool who overstepped was beaten
 or dismissed; the fool who failed to amuse was replaced. The
-protection was *conventional*, not legal — it depended on the court's
+protection was *conventional*, not legal: it depended on the court's
 willingness to maintain the convention, which in turn depended on the
 court's recognition that the fool's function was useful. A court that
 silenced its fool lost its most sensitive information channel.
@@ -84,23 +84,23 @@ truth, and the truth-teller lost the protective cover of entertainment.
 
 The Hebrew prophet occupied a different but structurally analogous
 position. Where the fool's authority came from convention, the
-prophet's came from the sacred substrate itself — from God. The
+prophet's came from the sacred substrate itself, from God. The
 prophet spoke truths that the powerful did not want to hear: Nathan
 confronting David over Uriah's wife (2 Samuel 12), Elijah confronting
 Ahab over Naboth's vineyard (1 Kings 21), Jeremiah warning Jerusalem
-of its coming destruction (Jeremiah chapters 1–25), Amos denouncing
-the exploitation of the poor by the comfortable (Amos 2:6–8, 5:11–12).
+of its coming destruction (Jeremiah chapters 1-25), Amos denouncing
+the exploitation of the poor by the comfortable (Amos 2:6-8, 5:11-12).
 
-The prophet's protection was not conventional but **sacral** — the
+The prophet's protection was not conventional but **sacral**: the
 prophet spoke in God's name, and to silence the prophet was to
 silence God. But this protection must be understood precisely: **it
 was moral, not physical.** Very many Old Testament prophets were
 executed despite speaking for God. Tradition holds that Isaiah was
 sawn in half; Jeremiah was imprisoned and, by some accounts, stoned
 to death in Egypt; Zechariah son of Jehoiada was murdered in the
-Temple court itself (2 Chronicles 24:20–22); Uriah son of Shemaiah
+Temple court itself (2 Chronicles 24:20-22); Uriah son of Shemaiah
 was hunted down and killed by King Jehoiakim for prophesying the
-same message as Jeremiah (Jeremiah 26:20–23). Jesus himself compiled
+same message as Jeremiah (Jeremiah 26:20-23). Jesus himself compiled
 the indictment: "O Jerusalem, Jerusalem, the city that kills the
 prophets and stones those who are sent to it" (Matthew 23:37).
 
@@ -109,14 +109,14 @@ The sacral protection did not prevent the killing. What it did was
 to remove an entertainer; to kill a prophet is to kill God's
 messenger, which is a crime against the substrate itself. The
 community that kills its prophet has not merely silenced an
-inconvenient voice; it has committed an act whose consequences —
-in the prophetic understanding — extend beyond the political into
-the cosmic. The fall of Jerusalem to Babylon (586 BC) is narrated
+inconvenient voice; it has committed an act whose consequences (in
+the prophetic understanding) extend beyond the political into the
+cosmic. The fall of Jerusalem to Babylon (586 BC) is narrated
 by the prophetic tradition as precisely this consequence: the
 community that killed and silenced its prophets reaped what it sowed.
 
 This is directly relevant to kith-covenant's design. The compact
-cannot guarantee the physical safety of its truth-tellers — no
+cannot guarantee the physical safety of its truth-tellers; no
 institutional design can do that. What it can do is ensure that
 attacks on truth-tellers are *recognized as attacks on the substrate
 itself* and treated accordingly within the compact's escalation
@@ -129,51 +129,51 @@ question developed in
 [exit_and_succession.md](exit_and_succession.md) §"The futility
 lesson and its limits." The prophets were, in many cases, making
 exactly the kind of second- and third-order orthodox determination
-that the compact needs: telling communities that their theological
+that the compact needs. They told communities that their theological
 practices had structural consequences they were refusing to
 acknowledge. Amos was not disputing first-order theology; he was
 saying that Israel's worship practices (first order) had produced
 exploitation of the poor (second order) which constituted a
 repudiation of the covenant with God (third order). The communities
 that killed the prophets were communities that refused to hear the
-orthodox determination — and the killing was itself evidence that
+orthodox determination, and the killing was itself evidence that
 the determination was correct, because a community secure in its
 fidelity does not need to silence the voice pointing out its
 infidelity.
 
 **Decay mode:** The prophetic tradition was institutionalized in the
-post-exilic period — absorbed into the priestly and scribal
+post-exilic period, absorbed into the priestly and scribal
 establishments. The institutional prophet (the court prophet who told
 the king what the king wanted to hear) replaced the independent
 prophet, and the truth-telling function was lost. Jeremiah's
 confrontation with the false prophet Hananiah (Jeremiah 28) is the
 canonical depiction of this corruption. The pattern: when the
 truth-telling function is captured by the institution it is meant
-to critique, the function dies — and the institution, having
+to critique, the function dies, and the institution, having
 silenced its own corrective, accelerates toward the failure the
 prophet would have named.
 
 ### The Roman Saturnalia and licensed inversion
 
-During the Saturnalia, normal social hierarchies were inverted —
+During the Saturnalia, normal social hierarchies were inverted:
 slaves feasted while masters served, social criticism was permitted,
 and the ordinary rules of deference were suspended. The Saturnalia
 was a *temporal* liminal institution: a defined period during which
 the fool function was extended to the entire society.
 
 **Structural insight:** The Saturnalia suggests that truth-telling
-may require *temporal* as well as *personal* protection — specific
+may require *temporal* as well as *personal* protection: specific
 times when the compact's normal rules of deference are suspended and
-critical speech is not merely permitted but expected. Kith-covenant's
+critical speech is expected rather than merely permitted. Kith-covenant's
 deliberative calendar might include periodic Saturnalia-like sessions
 in which compact governance is subjected to open critical review.
 
 ### The satyagrahi
 
 Gandhi's *satyagraha* (truth-force, or holding firm to truth)
-represents a modern version of the truth-teller role. The satyagrahi
+is a modern version of the truth-teller role. The satyagrahi
 speaks truth to power not through entertainment (the fool) or divine
-authority (the prophet) but through **embodied witness** — the
+authority (the prophet) but through **embodied witness**: the
 willingness to suffer consequences for speaking the truth. The
 satyagrahi's protection is not conventional or sacral but *moral*:
 the audience's recognition that someone willing to suffer for their
@@ -201,8 +201,8 @@ Examples:
 - A community is systematically violating the "innocence of
   non-combatant and child" virtue within its own borders, but the
   victims have no cross-community voice.
-- A community is hollowing out its recognition commitment — still
-  performing the ceremony but without conviction — and the witnesses
+- A community is hollowing out its recognition commitment (still
+  performing the ceremony but without conviction) and the witnesses
   from the mediator pool have not detected it.
 - The compact's liminal institutions have been captured by a faction,
   and the mediator pool is no longer functioning neutrally.
@@ -217,7 +217,7 @@ whole. The jester function provides the mechanism for that crossing.
 ### The traveling-observer model
 
 The historical models suggest a cross-community journalism function
-organized around **traveling observers** — individuals or small
+organized around **traveling observers**: individuals or small
 groups who move between communities, observe conditions, and report
 publicly to the compact.
 
@@ -236,7 +236,7 @@ publicly to the compact.
   detainees, observe conditions, and report to the detaining
   authority (confidentially) and to the protecting power (through
   diplomatic channels). The ICRC's protection comes from the Geneva
-  Conventions — a treaty framework that all parties have committed
+  Conventions, a treaty framework that all parties have committed
   to, structurally analogous to kith-covenant's recognition ceremony.
 
 ### The protection problem
@@ -248,18 +248,18 @@ The tension is real and irreducible.
 
 **Protection for the journalist:**
 - The traveling observer is drawn from the mediator pool or is
-  designated by the compact's liminal institutions — not self-appointed.
+  designated by the compact's liminal institutions, not self-appointed.
 - Interference with the observer (denial of access, threats,
   expulsion) is treated as a virtue violation ("protection of
   communicative commons") and triggers the escalation ladder.
-- The observer's reports are public — published to the entire compact
+- The observer's reports are public, published to the entire compact
   through the information commons. Secret reports create leverage;
   public reports create accountability.
 
 **Protection for the community:**
-- The observer's reports are attributed — no anonymous journalism
-  (in contrast to the anonymous-whistleblower function discussed
-  below). The community can respond to the report publicly.
+- The observer's reports are attributed: there is no anonymous
+  journalism (in contrast to the anonymous-whistleblower function
+  discussed below). The community can respond to the report publicly.
 - The observer is subject to the mediator pool's accountability
   mechanisms: false or malicious reporting is a virtue violation
   and results in the observer's removal and rotation-period
@@ -277,7 +277,7 @@ The tension is real and irreducible.
 Not all dissent is the same. Kith-covenant must distinguish:
 
 **Type 1: Foundational dissent.** A community disagrees with the
-five-movement recognition statement itself — with the content or
+five-movement recognition statement itself, with the content or
 structure of the compact's foundation. This is a
 [splitting](exit_and_succession.md) issue, not a dissent issue.
 The compact cannot accommodate communities that reject its
@@ -285,7 +285,7 @@ foundation; the appropriate response is the splitting procedure
 or voluntary withdrawal.
 
 **Type 2: Policy dissent.** A community disagrees with a specific
-compact policy — a commons-allocation decision, a mediation outcome,
+compact policy: a commons-allocation decision, a mediation outcome,
 a graduated-sanctions ruling. This is an escalation-ladder issue.
 Policy dissent is normal, healthy, and resolved through the compact's
 deliberative mechanisms.
@@ -300,9 +300,9 @@ other members' is exercising autonomy, not dissenting. Non-position
 heterodoxy should be unlimited.
 
 **Type 4: The hard middle case.** A community's internal practices
-are legal under the compact's rules — they do not violate the
+are legal under the compact's rules (they do not violate the
 common virtues, they do not reject the recognition statement, they
-do not breach any specific compact obligation — but they are
+do not breach any specific compact obligation) but they are
 *troubling* to other members. Examples: a community whose internal
 hierarchy is far more authoritarian than other members'; a community
 whose resource consumption is far higher than others'; a community
@@ -313,8 +313,8 @@ level of a common-virtue violation, causes concern.
 The escalation ladder cannot address Type 4 dissent because no
 violation has occurred. The splitting procedure is disproportionate.
 Diplomatic inquiry is available but carries the weight of the
-compact's formal mechanisms. The jester function — cross-community
-journalism, public observation, open reporting — makes the
+compact's formal mechanisms. The jester function (cross-community
+journalism, public observation, open reporting) makes the
 troubling practices *visible* without triggering the formal
 machinery. Visibility changes behavior: a community that knows its
 practices are publicly known and publicly discussed within the
@@ -328,8 +328,8 @@ formal pressure.
 The inquisitorial-caste problem, raised in
 [justus_hostis.md](justus_hostis.md) and
 [bounded_conflict.md](bounded_conflict.md), asks: how does the compact
-cultivate discernment — the ability to distinguish the fallen-but-
-recoverable from the demonic — in a specialized class without that
+cultivate discernment (the ability to distinguish the fallen-but-
+recoverable from the demonic) in a specialized class without that
 class becoming inquisitors who enjoy the exercise of judgment and use
 their position to enforce orthodoxy?
 
@@ -339,23 +339,23 @@ underlying skill (discernment of what is truly happening) and face
 the same corruption risk (weaponization for factional advantage). But
 they operate in opposite directions:
 
-- The **inquisitor** examines from above — from a position of
+- The **inquisitor** examines from above, from a position of
   institutional authority, looking downward into communities and
   individuals to detect violations.
-- The **jester** speaks from below — from a position of apparent
+- The **jester** speaks from below, from a position of apparent
   weakness, looking upward at institutional authority to detect
   corruption.
 
 A compact that has a healthy jester function is a compact in which the
 inquisitorial temptation is *structurally weaker*, because the truths
 the inquisitor would claim to uncover are already public. The
-inquisitor thrives on *secret knowledge* — the power of knowing what
+inquisitor thrives on *secret knowledge*: the power of knowing what
 others do not know about each other. The jester destroys this
 informational asymmetry by making knowledge public. A well-functioning
 information commons eliminates the inquisitor's comparative advantage.
 
 **The design insight:** The same institutions that protect the jester
-also constrain the inquisitor. A compact with robust cross-community
+also constrain the inquisitor. A compact with strong cross-community
 journalism, public archives, and whistleblower protection is a
 compact in which the mediator pool does not need (and cannot acquire)
 inquisitorial powers, because the information the mediators need is
@@ -372,11 +372,11 @@ discernment role: the power of exclusive access to information.
 
 The thesis of this document promises that the jester function can
 become a weapon. The inquisitorial-caste section above develops the
-*inquisitor's* corruption — authority used to enforce orthodoxy
+*inquisitor's* corruption: authority used to enforce orthodoxy
 rather than detect inauthenticity. But the **jester's own corruption**
 is equally dangerous and, in the modern context, arguably more
-pervasive: truth-telling captured by factions, deployed not to
-illuminate but to manipulate.
+pervasive: truth-telling captured by factions, deployed to
+manipulate rather than illuminate.
 
 ### The modern journalism case
 
@@ -387,7 +387,7 @@ precisely because journalism presents itself as a neutral reporter
 while being, in practice, deeply captured.
 
 Contemporary journalism is captured by a tangle of interests and
-factions — commercial (advertisers, owners, platform algorithms),
+factions: commercial (advertisers, owners, platform algorithms),
 ideological (editorial culture, class interests, political alignment),
 and structural (access journalism, where reporters depend on the
 powerful for information and therefore cannot afford to alienate
@@ -395,10 +395,10 @@ them). The capture is not occasional or accidental; it is systemic,
 and it has produced a condition in which at least a substantial
 subset of the population considers the truth behind news reports to
 be the *opposite* of what is reported. When a significant fraction
-of the audience routinely inverts the journalist's claims — assumes
+of the audience routinely inverts the journalist's claims (assumes
 the reporter is not merely mistaken but is *functioning as a
-propagandist for the side the reporter claims to be neutral about*
-— the jester function has not merely degraded; it has become
+propagandist for the side the reporter claims to be neutral about*),
+the jester function has not merely degraded; it has become
 **anti-functional**. The institution that was supposed to make truth
 visible is actively obscuring it, and its claim to neutrality makes
 the obscurance harder to detect than open propaganda would be.
@@ -406,7 +406,7 @@ the obscurance harder to detect than open propaganda would be.
 The structural progression:
 
 1. **Phase 1: genuine independence.** The jester speaks truth to
-   power because the jester is structurally independent — funded by
+   power because the jester is structurally independent: funded by
    a broad base (subscriptions, market fees, the fair's commerce),
    protected by convention or sacred authority, and not beholden to
    any faction. The medieval fool, the independent press of the early
@@ -417,14 +417,14 @@ The structural progression:
    owners, platform algorithms that reward engagement over accuracy).
    The jester's independence erodes because the funding source has
    interests that the jester cannot afford to cross. The jester
-   still *looks* independent — the costume is unchanged — but the
+   still *looks* independent (the costume is unchanged) but the
    speech is constrained.
 
 3. **Phase 3: ideological capture.** The jester class develops its
    own internal culture, class interests, and ideological consensus.
    The jester no longer speaks truth to *all* power; the jester
    speaks truth to *the power the jester's class disapproves of*
-   while protecting the power the jester's class aligns with. The
+   while protecting the power the jester's class sides with. The
    asymmetry is invisible from inside the jester class (they
    genuinely believe they are neutral) but visible from outside,
    which is why the audience fragments.
@@ -441,13 +441,13 @@ The structural progression:
 ### The propaganda-in-neutrality's-costume problem
 
 The deepest form of jester-corruption is not the lie presented as
-truth — that is detectable and, once detected, discredited. The
+truth (that is detectable and, once detected, discredited). The
 deepest corruption is **true facts selected and framed to produce a
 false impression, presented under the authority of neutral
 observation.** The individual facts may be verifiable; the
 impression they produce may be the opposite of reality. This is the
 propaganda mode that modern captured journalism perfects: not
-fabrication but *curation* — choosing which truths to tell, which to
+fabrication but *curation*, choosing which truths to tell, which to
 suppress, which to foreground, and which to bury, such that the
 aggregate narrative serves the curator's interests while every
 individual claim survives fact-checking.
@@ -455,7 +455,7 @@ individual claim survives fact-checking.
 This corruption mode is uniquely dangerous for kith-covenant because
 the compact's information commons depends on the jester function for
 its health. If the jester is captured, the information commons is
-polluted — not with outright falsehoods (which the mediator pool
+polluted, not with outright falsehoods (which the mediator pool
 could detect) but with *skewed truth* (which requires a second
 jester to detect, producing an infinite regress).
 
@@ -467,10 +467,10 @@ attack surface:
 
 **1. Funding independence.** The jester function must not depend on
 concentrated funding sources. The liminal-institution funding model
-([liminal_institutions.md](liminal_institutions.md)) — assessed
+([liminal_institutions.md](liminal_institutions.md)) applies to the
+information infrastructure as much as to the mediator pool: assessed
 contributions from all member communities, supplemented by service
-fees, with budget set by the compact as a whole — applies to the
-information infrastructure as much as to the mediator pool. A
+fees, with budget set by the compact as a whole. A
 cross-community observer funded by the compact as a whole is harder
 to capture than one funded by a single community or faction.
 
@@ -497,7 +497,7 @@ neutrality requirement
 ([liminal_institutions.md](liminal_institutions.md)): if the
 information feed is openly non-neutral, how does the adjudicator
 maintain neutrality? The answer is the **adversarial-information
-model** — the same model that underlies the court system. A court
+model**: the same model that underlies the court system. A court
 does not require neutral witnesses or neutral advocates; it requires
 *partisan* advocates (prosecution and defense) feeding a *neutral*
 judge. The judge's neutrality does not depend on receiving neutral
@@ -506,7 +506,7 @@ inputs** against each other and against the evidentiary record. The
 observer corps is the advocacy layer; the mediator pool is the
 adjudication layer. The separation is structural, and the mediator's
 neutrality is *strengthened*, not weakened, by receiving reports from
-multiple declared perspectives — because declared partiality is
+multiple declared perspectives, because declared partiality is
 legible and can be discounted, while concealed partiality (the
 neutral-posture model) cannot.
 
@@ -515,7 +515,7 @@ observer corps but should encourage multiple, overlapping observation
 functions. Redundancy in truth-telling is expensive but
 capture-resistant: if one observer function is captured, the others
 can name the capture. This is the structural logic behind
-competitive markets in information — not because competition is
+competitive markets in information: not because competition is
 inherently virtuous but because monopoly in truth-telling is
 inherently corruptible.
 
@@ -531,7 +531,7 @@ detectable.
 **6. The audience's discernment.** Ultimately, no institutional
 design can substitute for the audience's own discernment. The compact's
 member communities must cultivate the capacity to evaluate
-information critically — not by defaulting to skepticism (which
+information critically, not by defaulting to skepticism (which
 produces the inverted-credibility problem) but by developing the
 *virtue of prudent judgment* about information sources. This is a
 community-level virtue, cultivated within the autonomous_trust scope,
@@ -568,7 +568,7 @@ The hardest case for cross-community information flow is the
 **whistleblower**: an individual within a community who believes their
 community is violating common virtues and cannot obtain redress
 internally. The whistleblower's complaint crosses the AT/kith-covenant
-boundary — from the intra-community scope (where autonomous_trust
+boundary, from the intra-community scope (where autonomous_trust
 governs) to the inter-community scope (where kith-covenant governs).
 
 ### The procedural challenge
@@ -610,8 +610,8 @@ substrate:
 ### Institutional substrate
 
 The mediator pool receives whistleblower reports. A designated
-**reception panel** — a subset of the mediator pool trained in
-whistleblower cases — assesses the initial credibility of the report
+**reception panel** (a subset of the mediator pool trained in
+whistleblower cases) assesses the initial credibility of the report
 and determines whether to investigate further. The reception panel's
 assessment is confidential (to protect both the whistleblower and the
 accused community from premature publicity); the investigation's
@@ -625,8 +625,8 @@ proceedings are public).
   anonymity protection survives the investigation.
 - The accused community has the **right to respond** to the
   investigation's findings before they are published.
-- **False whistleblowing** — fabricating complaints for personal or
-  factional advantage — is itself a virtue violation. If the
+- **False whistleblowing** (fabricating complaints for personal or
+  factional advantage) is itself a virtue violation. If the
   investigation reveals that the complaint was fabricated, the
   whistleblower's anonymity is preserved (because revealing the
   identity of a false whistleblower also reveals the identity of
@@ -644,26 +644,26 @@ proceedings are public).
 The "inheritance of the future" virtue from
 [bounded_conflict.md](bounded_conflict.md) protects the compact's
 knowledge archive from destruction, corruption, and suppression. The
-knowledge archive — the record of the compact's history, deliberations,
-mediation proceedings, observer reports, and scholarly work — is
+knowledge archive (the record of the compact's history, deliberations,
+mediation proceedings, observer reports, and scholarly work) is
 itself the most powerful dissent mechanism available, because it makes
 it structurally harder for any community or faction to control the
 narrative about its own conduct.
 
-A compact with a robust information commons is a compact in which
+A compact with a strong information commons is a compact in which
 dissent is *structural* rather than *personal*. The truth is in the
 record; the jester's role is to draw attention to it, not to discover
 it from scratch. The difference matters: a dissent mechanism that
 depends on individual courage (the lone whistleblower, the heroic
 journalist) is fragile; a dissent mechanism that depends on
 institutional infrastructure (the public archive, the distributed
-information commons) is robust.
+information commons) is durable.
 
 ### The permanent public archive question
 
 Should the compact maintain a permanent public archive of all
-compact-level proceedings — deliberations, mediation records, observer
-reports, recognition-ceremony records, commons-governance decisions?
+compact-level proceedings (deliberations, mediation records, observer
+reports, recognition-ceremony records, commons-governance decisions)?
 
 **Arguments for:**
 - Transparency is the fundamental dissent mechanism. What is public
@@ -691,7 +691,7 @@ defined exception for mediation proceedings that the parties jointly
 request to seal. Sealed proceedings are preserved in the archive but
 accessible only to the mediator pool and to future mediators
 reviewing the case for precedential guidance. The sealing expires
-after one generational cycle (25–30 years), at which point the
+after one generational cycle (25 to 30 years), at which point the
 proceedings become public. This balances candor with accountability
 and ensures that the archive eventually contains the complete record.
 
@@ -700,9 +700,9 @@ and ensures that the archive eventually contains the complete record.
 ## Space application: when internal practices violate common virtues
 
 The specific scenario that drives the jester function's design: a
-space habitat's internal practices — coerced labor, suppression of
+space habitat's internal practices (coerced labor, suppression of
 internal dissent, ecological recklessness within its own biosphere,
-exploitation of children for economic production — violate the common
+exploitation of children for economic production) violate the common
 virtues, but the community claims these are internal matters.
 
 The compact's response must navigate between two failure modes:
@@ -733,7 +733,7 @@ between the two failure modes:
 
 2. **Concern** (diplomatic inquiry). If the observer reports suggest
    possible common-virtue violations, the compact's liminal
-   institutions may initiate a diplomatic inquiry — a formal
+   institutions may initiate a diplomatic inquiry: a formal
    expression of concern, delivered through the mediator pool,
    requesting the community's response. The diplomatic inquiry is
    itself a public act.
@@ -752,7 +752,7 @@ between the two failure modes:
    for the most severe cases.
 
 The key structural feature: **the jester function operates at steps
-1 and 2 — before the formal machinery engages.** The escalation
+1 and 2, before the formal machinery engages.** The escalation
 ladder is activated only when the jester function has made the
 situation visible and the community has had the opportunity to
 respond. The jester is not a prosecutor; the jester is a *witness*
@@ -763,18 +763,18 @@ know.
 
 ## Press freedom as a liminal institution
 
-The argument: the compact's information-flow infrastructure —
-cross-community observers, the public archive, whistleblower
+The argument: the compact's information-flow infrastructure
+(cross-community observers, the public archive, whistleblower
 channels, the secure communication infrastructure maintained by
-the liminal institutions — is itself a liminal institution
+the liminal institutions) is itself a liminal institution
 deserving the same protections that
 [liminal_institutions.md](liminal_institutions.md) develops for
 the mediator pool and the witness infrastructure.
 
-Attacks on the information-flow infrastructure — jamming
+Attacks on the information-flow infrastructure (jamming
 whistleblower channels, corrupting observer reports, destroying
 archive records, intimidating or harming cross-community journalists,
-suppressing publication of observer reports — are attacks on the
+suppressing publication of observer reports) are attacks on the
 compact's ability to know itself. A compact that cannot know itself
 cannot govern itself; the information infrastructure is therefore
 as foundational as the mediator pool.
@@ -785,7 +785,7 @@ in severity to attacks on communication relays (which is already a
 violation of the "protection of communicative commons" virtue). The
 jester function is protected not by personal privilege (the medieval
 fool's conventional protection, which was fragile) but by
-**institutional design** — the information infrastructure is sacred
+**institutional design**: the information infrastructure is sacred
 in the same way that the liminal institutions are sacred, because
 both derive their authority from the same substrate and both are
 necessary for the compact's functioning.
@@ -806,8 +806,8 @@ necessary for the compact's functioning.
   challenging practice and challenging foundation is not always
   clear. The two-layers framing in
   [recognition_protocols.md](recognition_protocols.md#two-layers-intra-community-authorization-and-inter-community-grammar)
-  relieves one part of the pressure here — the compact does not
-  hold a shared creed to be challenged, only a thin grammar — but
+  relieves one part of the pressure here (the compact does not
+  hold a shared creed to be challenged, only a thin grammar) but
   leaves intact the harder question of jester speech within a
   member community that *does* hold a creed, whose community
   standing the compact is relying on.
@@ -837,7 +837,7 @@ necessary for the compact's functioning.
 
 - The **sealed-mediation-proceedings exception** to the public-archive
   principle is a concession to candor at the expense of transparency.
-  Is the 25–30 year sealing period the right duration? Is the
+  Is the 25 to 30 year sealing period the right duration? Is the
   exception itself a vulnerability that will be exploited to conceal
   malfeasance?
 
@@ -855,45 +855,45 @@ necessary for the compact's functioning.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md) — the inquisitorial-caste
+- [justus_hostis.md](justus_hostis.md): the inquisitorial-caste
   problem, which the jester function addresses from the complementary
   direction.
-- [bounded_conflict.md](bounded_conflict.md) — the "inheritance of
+- [bounded_conflict.md](bounded_conflict.md): the "inheritance of
   the future" virtue as the foundation of the information commons;
   the escalation ladder that the jester function feeds into.
-- [recognition_protocols.md](recognition_protocols.md) — the
+- [recognition_protocols.md](recognition_protocols.md): the
   internal-dissent boundary (AT scope vs. kith-covenant scope); the
   re-affirmation cadence as a hollowing detector that the jester
   function supplements.
-- [liminal_institutions.md](liminal_institutions.md) — the mediator
+- [liminal_institutions.md](liminal_institutions.md): the mediator
   pool as the institutional home for the observer corps and the
   whistleblower reception panel; information infrastructure as
   liminal institution.
-- [commons_federation.md](commons_federation.md) — the knowledge
+- [commons_federation.md](commons_federation.md): the knowledge
   archive as commons; the information commons as a governed resource.
-- [reputation_bridges.md](reputation_bridges.md) — cryptographic
+- [reputation_bridges.md](reputation_bridges.md): cryptographic
   mechanisms (ring signatures, commitment schemes) as the technical
   substrate for whistleblower protection.
-- [exit_and_succession.md](exit_and_succession.md) — the jester
+- [exit_and_succession.md](exit_and_succession.md): the jester
   function as hollowing detector; the archive as succession
   infrastructure.
-- [historical_cases.md](historical_cases.md) — the Hanseatic factors
+- [historical_cases.md](historical_cases.md): the Hanseatic factors
   as intelligence conduits; the lex mercatoria's reputation network
   as information infrastructure.
-- [tacit_coordination.md](tacit_coordination.md) — common knowledge
+- [tacit_coordination.md](tacit_coordination.md): common knowledge
   (everyone knows that everyone knows) as the information condition
   that the jester function creates.
-- [noticeable_hand.md](noticeable_hand.md) — the prophetic tradition
+- [noticeable_hand.md](noticeable_hand.md): the prophetic tradition
   as the deepest grounding for the jester function.
-- [../social_framework.md](../social_framework.md) — parent document;
+- [../social_framework.md](../social_framework.md): parent document;
   the five-role model's jester role.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md)
-  — the AT/kith-covenant boundary that the whistleblower function
+- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+  the AT/kith-covenant boundary that the whistleblower function
   crosses.
 
 ## References
 
-*To be added — anchor works include Welsford,* The Fool: His Social
+*To be added. Anchor works include Welsford,* The Fool: His Social
 and Literary History *(1935); Zijderveld,* Reality in a Looking-Glass
 *(1982); Otto,* Fools Are Everywhere: The Court Jester Around the
 World *(2001); Heschel,* The Prophets *(1962) on the Old Testament

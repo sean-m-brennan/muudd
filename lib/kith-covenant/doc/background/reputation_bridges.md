@@ -21,9 +21,9 @@ consular courts. The reputation was non-state (no sovereign issued it),
 cross-jurisdictional (it was recognized wherever the lex mercatoria
 operated), and carried by the network itself (the infrastructure of
 fairs and trading posts was the medium through which reputation
-propagated). The system worked for centuries — and then failed, not
-because the reputation mechanism broke but because the infrastructure
-it traveled on was absorbed by states.
+propagated). The system worked for centuries, then failed. The
+reputation mechanism did not break; the infrastructure it traveled on
+was absorbed by states.
 
 Kith-covenant's reputation bridge must solve the same problem under
 harder constraints: across communities more different from each other
@@ -57,7 +57,7 @@ coincided:
 
 2. **Repeated interaction.** The fair cycle was annual; merchants
    returned to the same fairs year after year. The shadow of the
-   future was long and *visible* — everyone knew they would meet again.
+   future was long and *visible*: everyone knew they would meet again.
 
 3. **Shared substrate.** The merchants were, with few exceptions,
    Christians operating within a shared oath-framework. An oath sworn
@@ -75,7 +75,7 @@ coincided:
 
 The lex mercatoria's reputation infrastructure did not fail from
 within. It was absorbed by the state. As national courts expanded
-their jurisdiction (14th–16th centuries), the separate merchant-law
+their jurisdiction (14th-16th centuries), the separate merchant-law
 jurisdiction was folded into the common law or civil law. The
 reputation that had been carried by the merchant network was
 replaced by the credit that was carried by state-backed institutions
@@ -84,7 +84,7 @@ replaced by the credit that was carried by state-backed institutions
 The absorption was not forcible; it was *convenient*. State-backed
 institutions offered more reliable enforcement, wider jurisdiction,
 and integration with other state services. Merchants migrated to the
-state-backed system voluntarily — and in doing so, surrendered the
+state-backed system voluntarily, and in doing so surrendered the
 non-state character of their reputation infrastructure.
 
 ### The modern analogue question
@@ -94,11 +94,11 @@ The historical question from
 infrastructure is captured by state actors, what is reputation
 portable on?"
 
-The lex mercatoria's reputation was portable on a *network* — the
+The lex mercatoria's reputation was portable on a *network*: the
 network of merchants, fairs, and Kontore. When the network was
 absorbed by the state, portability was lost. Kith-covenant's
-reputation must be portable on a network that *cannot be absorbed*
-— which means the network must be decentralized, cryptographically
+reputation must be portable on a network that *cannot be absorbed*,
+which means the network must be decentralized, cryptographically
 secured, and not dependent on any single community's infrastructure.
 
 This is, in essence, the design problem that autonomous_trust solves
@@ -117,8 +117,8 @@ on any single community's infrastructure.
 Not all internal reputation data should cross the AT/kith-covenant
 boundary. The boundary exists to protect the autonomy that
 autonomous_trust is designed to serve. A community's internal trust
-calculations — who trusts whom within the community, what reputation
-scores individuals have earned, what internal disputes are underway —
+calculations (who trusts whom within the community, what reputation
+scores individuals have earned, what internal disputes are underway)
 are AT's scope, not kith-covenant's.
 
 What *does* cross falls into four categories:
@@ -130,9 +130,9 @@ is the foundation of inter-community reputation: a community made the
 five-movement recognition commitment, and its behavior since then
 either confirms or undermines that commitment. The recognition-ceremony
 record (cryptographically signed by the recitant, witnesses, and the
-compact) is the founding datum. Subsequent compact-level behavior —
-participation in deliberation, adherence to the common virtues,
-response to mediation, treatment of shared commons — is the ongoing
+compact) is the founding datum. Subsequent compact-level behavior
+(participation in deliberation, adherence to the common virtues,
+response to mediation, treatment of shared commons) is the ongoing
 record.
 
 This data is public by design. The recognition ceremony is a public
@@ -146,13 +146,13 @@ individual data. Examples:
 
 - **Population stability.** Is the community's population growing,
   stable, or declining? A community in demographic collapse is a
-  community whose compact commitments may become unreliable — not
-  because of bad faith but because of diminishing capacity.
+  community whose compact commitments may become unreliable. The
+  cause is diminishing capacity, not bad faith.
 - **Resource adequacy.** Is the community able to meet its commons
   contributions? A community under resource stress may need
   assistance rather than sanction.
-- **Dispute-resolution activity.** Not the content of internal
-  disputes, but the *rate* — a proxy for internal health. A community
+- **Dispute-resolution activity.** The rate of internal disputes,
+  not their content, is a proxy for internal health. A community
   with an abnormally high internal dispute rate may be experiencing
   governance stress that could spill over into inter-community
   conduct.
@@ -161,7 +161,7 @@ individual data. Examples:
   skips a generational re-affirmation is a community whose
   commitment may be hollowing.
 
-These indicators are *aggregated* — they reveal community-level
+These indicators are *aggregated*: they reveal community-level
 patterns without exposing individual data. They cross the boundary
 with the community's consent (the community chooses what to report
 and at what level of aggregation) but the compact may require
@@ -172,16 +172,16 @@ makes compact governance viable.
 
 ### Category C: Specific violation reports (crosses when external effects occur)
 
-When a community's internal conduct produces external effects —
-harm to other communities, violation of commons obligations,
-behavior that triggers the escalation ladder — specific information
+When a community's internal conduct produces external effects
+(harm to other communities, violation of commons obligations,
+behavior that triggers the escalation ladder), specific information
 about the violation crosses the boundary. This is not surveillance;
 it is complaint-driven. The information crosses because another
 community has been harmed and has standing to raise the issue through
 the compact's mediation mechanisms.
 
-The whistleblower case — an individual within a community reporting
-conduct that the community's leadership has not acknowledged — is the
+The whistleblower case (an individual within a community reporting
+conduct that the community's leadership has not acknowledged) is the
 hardest case. This is developed in
 [jester_and_dissent.md](jester_and_dissent.md); the reputation-bridge
 implication is that the cryptographic mechanisms for anonymous
@@ -193,8 +193,8 @@ for this purpose.
 Individual reputation scores, internal trust relationships, details
 of internal disputes, personal data about community members, internal
 governance procedures, internal religious practices, internal
-cultural norms — none of this crosses the boundary unless it falls
-into categories A–C. The autonomous_trust architecture exists
+cultural norms: none of this crosses the boundary unless it falls
+into categories A-C. The autonomous_trust architecture exists
 precisely to protect this data; the reputation bridge must not
 undermine that protection.
 
@@ -209,14 +209,14 @@ different cultures, what is costly to one party may be cheap to
 another. How does kith-covenant design costly signals that are
 credibly costly across the cultural diversity of its membership?"
 
-Three types of signal appear to be universally costly — costly
-regardless of cultural context:
+Three types of signal appear to be universally costly, that is,
+costly regardless of cultural context:
 
 ### 1. Physical resource commitment
 
-Dedicating material resources to the compact's shared infrastructure —
-contributing to the maintenance of communication relays, staffing
-rescue stations, sharing life-support capacity in emergencies — is
+Dedicating material resources to the compact's shared infrastructure
+(contributing to the maintenance of communication relays, staffing
+rescue stations, sharing life-support capacity in emergencies) is
 costly to any community regardless of its cultural values. Resources
 are finite; dedicating them to the compact means not using them for
 internal purposes. The costliness is *physical* and therefore
@@ -231,35 +231,35 @@ to all other communities regardless of cultural difference.
 ### 2. Time and presence commitment
 
 Participation in compact ceremonies, mediation service, mediator
-training, and deliberative processes requires time — time that the
+training, and deliberative processes requires time: time that the
 participating community members could spend on internal affairs. Time
 commitment is culturally variable (some cultures value leisure, others
 value industry), but it is broadly legible as a cost: the person is
 *here*, serving the compact, rather than *there*, serving their
 community.
 
-**Proposal:** Participation cadence — the frequency and quality of a
-community's engagement with compact processes — is a costly signal.
+**Proposal:** Participation cadence (the frequency and quality of a
+community's engagement with compact processes) is a costly signal.
 A community that sends its best people to mediation service, that
 participates actively in deliberation, that shows up for recognition
 ceremonies, is signaling costly commitment through time and presence.
 
 ### 3. Knowledge sharing
 
-Opening archives, sharing technical knowledge, teaching craft — is
+Opening archives, sharing technical knowledge, and teaching craft is
 costly in any tradition that values its heritage. Knowledge is a
 competitive advantage; sharing it reduces that advantage. The
 costliness is informational and universally legible: the community
-is giving away something valuable.
+is giving away something it values.
 
 **Proposal:** Contribution to the knowledge commons is a costly
-signal. A community that actively contributes to the shared archive —
-scientific data, engineering records, cultural works — demonstrates
+signal. A community that actively contributes to the shared archive
+(scientific data, engineering records, cultural works) demonstrates
 costly commitment to the compact's "inheritance of the future" virtue.
 
 ### Cross-cultural vocabulary
 
-The three types of costly signal — resources, time, knowledge — form
+The three types of costly signal (resources, time, knowledge) form
 a **cross-cultural vocabulary** for reputation. A community's
 reputation in the compact is built through consistent costly signaling
 across all three types. The specific form of the signal may vary
@@ -273,7 +273,7 @@ costliness is universally legible.
 
 The privacy/transparency tension in the reputation bridge can be
 partially resolved by cryptographic mechanisms that allow selective
-disclosure — revealing *properties* of internal state without
+disclosure: revealing *properties* of internal state without
 revealing the state itself.
 
 ### Zero-knowledge proofs
@@ -313,8 +313,8 @@ verifiably from *some* member of the community without revealing
 whistleblower function developed in
 [jester_and_dissent.md](jester_and_dissent.md).
 
-**Application to reputation bridges:** Whistleblower reports — claims
-that a community's internal conduct violates common virtues — can be
+**Application to reputation bridges:** Whistleblower reports (claims
+that a community's internal conduct violates common virtues) can be
 cryptographically attributed to the community (verifying that the
 report comes from an insider) without identifying the reporter. The
 liminal institution that receives the report
@@ -337,9 +337,9 @@ consistency.
 A concept specific to kith-covenant: the **reputation half-life** is
 the period after which reputation data is no longer actionable without
 refreshing. A community's reputation built over years of consistent
-costly signaling has a long half-life — it takes a long time to decay.
+costly signaling has a long half-life: it takes a long time to decay.
 A community's reputation built recently or based on a single dramatic
-event has a short half-life — it decays quickly without reinforcement.
+event has a short half-life: it decays quickly without reinforcement.
 
 The half-life concept serves two purposes:
 
@@ -353,7 +353,7 @@ The half-life concept serves two purposes:
 2. **It rewards sustained commitment.** A community that has
    consistently signaled costly commitment for decades has a deeper
    reputation reserve than one that has signaled for months. This
-   creates a structural incentive for long-term commitment — exactly
+   creates a structural incentive for long-term commitment: exactly
    the "shadow of the future" that
    [tacit_coordination.md](tacit_coordination.md) identifies as the
    cooperation-sustaining mechanism.
@@ -385,7 +385,7 @@ precedes it?
 ### Reputation upon exit
 
 A departing community's compact-facing record (Category A) is a
-permanent record — it is part of the compact's archive and cannot be
+permanent record: it is part of the compact's archive and cannot be
 erased by departure. The departing community takes with it the
 *fact* of its record, but the record itself remains in the compact's
 custody (the knowledge-commons principle).
@@ -403,15 +403,15 @@ review is itself a signal.
 
 A new community seeking admission to a compact has no compact-facing
 record. The recognition ceremony
-([recognition_protocols.md](recognition_protocols.md)) serves as the
-initial reputation event — the community stakes its reputation on the
+([recognition_protocols.md](recognition_protocols.md)) is the
+initial reputation event: the community stakes its reputation on the
 five-movement commitment, and the witnesses assess sincerity. Beyond
 the ceremony, the new community enters a **probationary period**
 during which its compact-facing behavior is closely observed and its
 reputation builds from zero.
 
 The duration of the probationary period should be calibrated to the
-generational re-affirmation cadence — roughly 25–30 years, long
+generational re-affirmation cadence, roughly 25-30 years, long
 enough for the community to demonstrate sustained commitment through
 at least one generation of leadership transition.
 
@@ -420,7 +420,7 @@ at least one generation of leadership transition.
 The inverse of reputation laundering: a community is *trapped* in
 a compact by the threat of reputation loss. If exit means losing the
 reputation built over decades of costly signaling, then the exit
-cost may be prohibitively high — making the compact a prison
+cost may be prohibitively high, making the compact a prison
 disguised as a cooperative.
 
 The mitigation: the community's compact-facing record is a factual
@@ -435,15 +435,15 @@ loses the reputational benefit of its record.
 
 ## Reputation as commons
 
-The aggregate reputation data of the compact — the collective record
-of all communities' compact-facing behavior — is itself a commons.
+The aggregate reputation data of the compact (the collective record
+of all communities' compact-facing behavior) is itself a commons.
 It is non-excludable (all compact members can access it) and
 depletable by pollution (false reputation, strategic
 reputation-poisoning, slander).
 
-**False reputation** — the deliberate inflation or deflation of a
+**False reputation** (the deliberate inflation or deflation of a
 community's reputation through fabricated reports, strategic
-misrepresentation, or coordinated smear campaigns — is the
+misrepresentation, or coordinated smear campaigns) is the
 pollution threat. The commons-governance framework from
 [commons_federation.md](commons_federation.md) applies: monitoring
 (the mediator pool detects reputation fraud), graduated sanctions
@@ -460,7 +460,7 @@ The specific form of reputation fraud to watch for:
   reputation through fabricated complaints or distorted accounts of
   the other community's behavior.
 - **Coalition fraud:** multiple communities coordinate to inflate
-  each other's reputations or deflate a rival's — the
+  each other's reputations or deflate a rival's: the
   reputation-commons equivalent of a price-fixing cartel.
 
 The detection mechanism for all three: cross-verification through
@@ -500,8 +500,8 @@ must instantiate.
 
 ## Open questions
 
-- Can a community's **recognition-statement recitation history** serve
-  as the foundational reputation datum — the "credit record" equivalent
+- Can a community's **recognition-statement recitation history** be
+  the foundational reputation datum: the "credit record" equivalent
   that starts the reputation bridge? The recitation record is public,
   cryptographically signed, and verifiable; it may be the natural
   foundation on which all other reputation data builds.
@@ -528,45 +528,45 @@ must instantiate.
 
 - Is **reputation half-life** the right metaphor? Exponential decay
   assumes a constant rate of information aging, but reputation may
-  age non-linearly — a single dramatic violation may destroy decades
+  age non-linearly: a single dramatic violation may destroy decades
   of accumulated reputation in an instant. What is the right decay
   model?
 
 ## Relationship to other documents
 
-- [historical_cases.md](historical_cases.md) — the lex mercatoria as
+- [historical_cases.md](historical_cases.md): the lex mercatoria as
   the primary historical model for non-state cross-jurisdictional
   reputation.
-- [tacit_coordination.md](tacit_coordination.md) — costly signaling
+- [tacit_coordination.md](tacit_coordination.md): costly signaling
   across cultures; reputation as a costly signal that travels across
   community boundaries.
-- [recognition_protocols.md](recognition_protocols.md) — the
+- [recognition_protocols.md](recognition_protocols.md): the
   recognition statement as the foundational reputation event; the
   four categories as reputation boundaries.
-- [liminal_institutions.md](liminal_institutions.md) — liminal
+- [liminal_institutions.md](liminal_institutions.md): liminal
   institutions as reputation arbiters and custodians of the compact's
   reputation commons.
-- [commons_federation.md](commons_federation.md) — reputation data
+- [commons_federation.md](commons_federation.md): reputation data
   as a commons; commons-governance mechanisms applied to reputation
   fraud.
-- [bounded_conflict.md](bounded_conflict.md) — the escalation ladder
+- [bounded_conflict.md](bounded_conflict.md): the escalation ladder
   as the enforcement mechanism for reputation violations.
-- [justus_hostis.md](justus_hostis.md) — the fallen-actor
+- [justus_hostis.md](justus_hostis.md): the fallen-actor
   anthropology: reputation fraud is a predictable behavior of fallen
   actors, not an edge case.
-- [noticeable_hand.md](noticeable_hand.md) — the sacred substrate as
+- [noticeable_hand.md](noticeable_hand.md): the sacred substrate as
   the oath-framework that makes reputation commitments binding.
-- [exit_and_succession.md](exit_and_succession.md) —
+- [exit_and_succession.md](exit_and_succession.md):
   reputation portability upon exit.
-- [jester_and_dissent.md](jester_and_dissent.md) — the
+- [jester_and_dissent.md](jester_and_dissent.md): the
   whistleblower function and anonymous attestation.
-- [../social_framework.md](../social_framework.md) — parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md)
-  — the AT architecture that the reputation bridge interfaces with.
+- [../social_framework.md](../social_framework.md): parent document.
+- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+  the AT architecture that the reputation bridge interfaces with.
 
 ## References
 
-*To be added — anchor works include Milgrom, North, and Weingast,*
+*To be added: anchor works include Milgrom, North, and Weingast,*
 "The Role of Institutions in the Revival of Trade" *(1990) on the lex
 mercatoria's reputation mechanism; Greif,* Institutions and the Path
 to the Modern Economy *(2006) on medieval commercial reputation;

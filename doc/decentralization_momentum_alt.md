@@ -2,7 +2,7 @@
 
 # Infrastructure Independence: The Case for Decentralized Communications
 
-A survey of recent events and trends -- from grid failures and disaster response to digital financial control and Big Tech censorship -- that validate the core premises of MUUDD and AutonomousTrust. The common thread: centralized infrastructure of all kinds is a single point of failure, and communities that depend on it are at the mercy of forces they cannot influence.
+A survey of recent events and trends, from grid failures and disaster response to digital financial control and Big Tech censorship, that validate the core premises of MUUDD and AutonomousTrust. The common thread: centralized infrastructure of all kinds is a single point of failure, and communities that depend on it are at the mercy of forces they cannot influence.
 
 ---
 
@@ -18,7 +18,7 @@ Following the storm, communities began formally evaluating Meshtastic as permane
 
 ### The April 2025 Iberian Blackout
 
-On April 28, 2025, a massive power blackout cut electricity to 47 million people across Spain and Portugal for approximately 10 hours -- the largest European blackout in over 20 years. With no electricity or cell service, families with Meshtastic devices stayed connected and coordinated emergency help. The event became a significant catalyst for Meshtastic adoption worldwide and reignited global discussion about "black sky" events [^ib].
+On April 28, 2025, a massive power blackout cut electricity to 47 million people across Spain and Portugal for approximately 10 hours, the largest European blackout in over 20 years. With no electricity or cell service, families with Meshtastic devices stayed connected and coordinated emergency help. The event became a significant catalyst for Meshtastic adoption worldwide and reignited global discussion about "black sky" events [^ib].
 
 [^ib]: Wikipedia, "2025 Iberian Peninsula Blackout", https://en.wikipedia.org/wiki/2025_Iberian_Peninsula_blackout
 

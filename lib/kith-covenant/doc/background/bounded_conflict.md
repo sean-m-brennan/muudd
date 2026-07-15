@@ -14,8 +14,8 @@ but what the community will not contemplate doing regardless of
 permission.
 
 Where [justus_hostis.md](justus_hostis.md) develops the theoretical frame
-— the enemy as legitimate peer, and the anthropology of fallen actors
-for whom the protocol must be built — this document develops the
+(the enemy as legitimate peer, and the anthropology of fallen actors
+for whom the protocol must be built), this document develops the
 *operational* counterpart: the escalation ladders, mutual-vulnerability
 mechanics, and shared-virtue commitments that have historically made
 bounded conflict work, translated into a protocol specification for
@@ -35,7 +35,7 @@ the binary peace/war distinction with a ladder of intermediate rungs, each
 offering a face-saving retreat option. The historical record offers several
 well-developed ladders worth modeling:
 
-**The codes duello (16th–19th c. Europe and descendants).** A personal
+**The codes duello (16th to 19th c. Europe and descendants).** A personal
 dispute escalated through formally named rungs: perceived offense →
 verbal challenge → demand for apology → posting of cartel → naming of
 seconds → choice of weapons and ground → field encounter → fire (often
@@ -50,7 +50,7 @@ disputes never climbed past rung three.
 ambassador → rupture of diplomatic relations → economic sanctions →
 blockade → limited military action → general war. Each rung
 communicates seriousness while preserving the option of backing down
-without loss of face. Crucially, the rungs are *visible to third
+without loss of face. The rungs are *visible to third
 parties*, so each side's commitment becomes costly to violate in
 reputational terms even before it is militarily tested.
 
@@ -66,19 +66,19 @@ The common architectural features:
 
 - **Each rung is more costly than the last.** The ladder is not arbitrary;
   climbing it hurts both parties proportionally more.
-- **Each rung offers an exit.** Not just "stop climbing" — an exit
-  *with honor preserved*, because loss-of-face exits are not real exits.
+- **Each rung offers an exit.** The exit preserves honor rather than
+  merely permitting a halt, because loss-of-face exits are not real exits.
 - **Rungs are publicly visible.** Third parties see who is escalating
   and who is offering de-escalation. Reputation does enforcement work
   that explicit sanctions cannot.
 - **Third parties are procedurally involved.** Seconds, protecting
-  powers, mediators, neutral arbitrators — these roles exist because
+  powers, mediators, neutral arbitrators. These roles exist because
   two-party conflict escalates faster than three-party conflict.
 
 ## Mutual vulnerability as the mechanical basis
 
-The deepest reason the Geneva/Hague framework has worked at all — despite
-its frequent violations — is that **every belligerent is a potential
+The deepest reason the Geneva/Hague framework has worked at all, despite
+its frequent violations, is that **every belligerent is a potential
 victim of every prohibited act.** Nobody argues for the right to poison
 enemy wells because one's own wells are equally poisonable. Nobody argues
 against POW protections because one's own soldiers will eventually be
@@ -107,7 +107,7 @@ no-go zone. Not because it is forbidden; because a community that has
 cultivated the relevant disposition does not consider the act live in its
 option space in the first place. The rule-framed formulation ("attacks on
 medical personnel are prohibited") is downstream of the virtuous
-formulation ("we do not attack the wounded") and is robust only so long
+formulation ("we do not attack the wounded") and holds only so long
 as the virtue persists upstream. When the virtue collapses, the rule is
 adhered to in letter and gamed in spirit, which is worse than no rule at
 all because it provides cover.
@@ -125,7 +125,7 @@ Each item names the virtue, then names the concrete refusals that make
 the virtue visible. The refusals are *shape*, not *limit*. A party
 behaving in the spirit of the virtue will generate additional refusals
 as circumstances arise; a party gaming the list will stay inside the
-letter while violating the spirit, and — crucially — this will be
+letter while violating the spirit, and this will be
 legible to third parties, which is how the common-virtue frame enforces
 itself where rule-frames collapse.
 
@@ -133,7 +133,7 @@ itself where rule-frames collapse.
   Refusals: no attacks on life-support, no biological/ecological attacks
   on closed-loop systems, no weaponization of trade in life-critical
   commodities, no targeting of the wounded or the fleeing. The virtue
-  covers cases the list does not enumerate — e.g., novel weapons not
+  covers cases the list does not enumerate: novel weapons not
   yet invented, or coercive uses of life-support monitoring data.
 - **Sanctuary of the rescuer.** Rescue is inviolable regardless of whom
   is being rescued. Refusals: no interdiction of rescue vessels, no
@@ -156,9 +156,9 @@ itself where rule-frames collapse.
   just. Refusals: no coercion of or violence against children, no
   collective punishment, no attacks on schools and childcare, no use
   of civilians as shields or as information-extraction targets.
-- **Inheritance of the future.** The knowledge commons — shared
+- **Inheritance of the future.** The knowledge commons (shared
   archives, scientific data, cultural and linguistic records,
-  genealogies, the accumulated craft of communities — is the medium
+  genealogies, the accumulated craft of communities) is the medium
   through which the dead speak to the unborn. **Destruction of the
   knowledge commons is long-delayed genocide**: it kills the future
   members of a community by severing them from the inheritance that
@@ -168,7 +168,7 @@ itself where rule-frames collapse.
   records, no release of poisoned data into shared scientific
   commons.
 - **Memory of the dead.** The remembrance practices of a community
-  — memorials, cemeteries, mourning rituals — are inviolable. This
+  (memorials, cemeteries, mourning rituals) are inviolable. This
   is a narrower case of the inheritance virtue but historically
   attacked first in campaigns of cultural erasure.
 - **Good faith of the confession.** A party that has harmed and seeks
@@ -221,8 +221,8 @@ rule frame is merely its visible shape.
 ## Gamification and the letter/spirit divergence
 
 Any boundary that becomes formal becomes a target. This is a specific
-instance of Goodhart's Law — when a measure becomes a target, it ceases
-to be a good measure — and it is the single most important threat model
+instance of Goodhart's Law (when a measure becomes a target, it ceases
+to be a good measure), and it is the single most important threat model
 for bounded-conflict regimes. The historical record is unambiguous:
 
 - Hospitals protected by Geneva → adversaries position military assets
@@ -252,8 +252,8 @@ of a virtue is itself legible as a moral failure in a way that
 gamification of a rule is not**. A party that dresses troops as
 civilians is technically compliant with the rule "do not target
 civilians" while violating the virtue "preserve the innocence of the
-non-combatant." The third-party audience — other compact members,
-their publics, historians — can see the virtue violation even when the
+non-combatant." The third-party audience (other compact members,
+their publics, historians) can see the virtue violation even when the
 rule violation is technically absent. This is the compact's real
 enforcement mechanism.
 
@@ -266,8 +266,8 @@ Design implications for kith-covenant:
 - **Empower mediators to rule on spirit.** Mediator roles (see
   Protocol Sketch below) must have explicit authority to rule that
   an act violated the virtue even if it honored the letter. This is
-  controversial because it is open-ended, but the alternative — rules
-  enforced only on their letter — is catastrophic.
+  controversial because it is open-ended, but the alternative (rules
+  enforced only on their letter) is catastrophic.
 - **Make optimization against the letter itself a signal.** Compact
   telemetry should track not just violations but patterns of
   near-misses. A party that consistently acts right up to the letter
@@ -280,9 +280,10 @@ Design implications for kith-covenant:
   is a complete attack surface. Operational rules should be deliberately
   under-specified at the boundaries, with mediator judgment filling the
   gaps. This is the *legislative* layer of the compact's architecture.
-  The *constitutional* layer — the recognition ceremony's five movements,
-  the three substrate requirements (Creator, pro-human, pro-cooperation),
-  and the common-virtue framework — is by contrast fixed and non-amendable
+  The *constitutional* layer (the recognition ceremony's five movements,
+  the three substrate requirements of Creator, pro-human, and
+  pro-cooperation, and the common-virtue framework) is by contrast fixed
+  and non-amendable
   by ordinary process, precisely because its stability is what makes the
   operational layer's flexibility safe. The distinction is between the
   foundation (which must not shift) and the building (which must adapt).
@@ -318,8 +319,8 @@ Earth is the harder test for structural reasons:
   ideologies of several flavors are in active contention. Kith-Covenant on
   Earth rebuilds in a ruin, not on a clean site.
 - **Nation-state capture of infrastructure.** Most of the
-  infrastructure kith-covenant would want to use — communications, finance,
-  rescue networks — is already captured by state actors with their
+  infrastructure kith-covenant would want to use (communications, finance,
+  rescue networks) is already captured by state actors with their
   own interests. Kith-Covenant on Earth must work *through* or *around* these
   captures rather than constructing on fresh ground.
 - **Higher religious and ideological heterogeneity.** Earth has
@@ -349,9 +350,9 @@ Consequences for the research and development path:
   a design whose proving ground is Earth.
 
 This reframe has practical consequences for the simulation work under
-`lib/muudd`. Scenarios should include earthbound-community archetypes —
-denominational networks, diaspora federations, tribal confederations,
-ecological commons, cooperative-firm networks — and stress the compact
+`lib/muudd`. Scenarios should include earthbound-community archetypes
+(denominational networks, diaspora federations, tribal confederations,
+ecological commons, cooperative-firm networks) and stress the compact
 against realistic Earth adversaries (nation-state capture attempts,
 ideological entryism, information warfare) before asking how the same
 compact would behave between asteroid-belt habitats.
@@ -377,7 +378,7 @@ accompany every protocol decision.
   the central candidate for sacred-equivalent status (see
   [justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
 - **Second-order:** Adversarial adaptations predictable from historical
-  precedent — use of rescue markings for intelligence gathering;
+  precedent: use of rescue markings for intelligence gathering;
   false-flag rescue operations to get assets into protected proximity;
   conditional rescue offered as political leverage ("we will rescue
   your crew if you concede X"); propagandistic refusal of rescue
@@ -409,7 +410,7 @@ accompany every protocol decision.
   corruption. Cultural and scientific inheritance across generations is
   preserved; the community substrate ([justus_hostis.md](justus_hostis.md#the-anthropology-the-substrate-must-assume))
   survives conflict.
-- **Second-order:** Adversarial adaptations — contested categorization
+- **Second-order:** Adversarial adaptations: contested categorization
   of what counts as "knowledge commons" (is a political archive a
   cultural record or a military target?); strategic pollution of
   commons rather than destruction (inserting false entries is harder
@@ -418,14 +419,14 @@ accompany every protocol decision.
   on commons maintained across borders; capture of commons-maintenance
   organizations to reshape the content under the cover of protection.
 - **Third-order:** The strongest version of this concern is the
-  framing already offered — **destruction of knowledge commons is
+  framing already offered: **destruction of knowledge commons is
   long-delayed genocide.** Over decades, a community severed from its
   linguistic, cultural, and genealogical inheritance ceases to be able
   to transmit itself across generations. The children grow up unable
   to speak their grandparents' language, unable to read their own
   archives, unable to locate themselves in the narrative their
-  ancestors lived. They become a different people — not by choice,
-  by deprivation. The act is spread across time, which is what makes
+  ancestors lived. They become a different people, not by choice
+  but by deprivation. The act is spread across time, which is what makes
   it perversely easy to commit and hard to prosecute: the body count
   is real but delayed, and the victims are the unborn, who cannot
   testify. Any cooperation protocol serious about preventing atrocity
@@ -447,8 +448,8 @@ accompany every protocol decision.
   rungs, and resolved or de-escalated via mediation. Conflict is
   contained at lower rungs most of the time; the full ladder is rarely
   climbed.
-- **Second-order:** Participants learn to use the ladder strategically
-  — registering disputes as signaling moves rather than genuine
+- **Second-order:** Participants learn to use the ladder strategically:
+  registering disputes as signaling moves rather than genuine
   grievances; timing escalations to affect third-party perceptions;
   treating mediated exits as face-saving theater while continuing the
   underlying conflict through other means; ladder-shopping between
@@ -460,7 +461,7 @@ accompany every protocol decision.
   parallel. Disputes become occasions for strategic positioning rather
   than actual resolution. Mediators lose independent authority because
   their role is known to be theater. The ladder continues to function
-  formally while ceasing to bound conflict — the Potemkin-peace
+  formally while ceasing to bound conflict: the Potemkin-peace
   failure mode. This is arguably what happened to late-period classical
   diplomacy before 1914: ladders still climbed, forms still observed,
   but the underlying adversarial momentum was no longer checked by
@@ -490,7 +491,7 @@ Practical features of face-saving exits:
 - **Mediated exits.** Third parties (the kith-covenant analogue of seconds or
   protecting powers) propose the settlement so neither disputant appears
   to have initiated retreat.
-- **Ritualized closure.** The dispute is formally *ended* — communiqué,
+- **Ritualized closure.** The dispute is formally *ended*: communiqué,
   ceremony, published record. Disputes that merely fade open the door
   to later reassertion and thus do not really end.
 - **Reversibility of the concrete acts.** Sanctions are lifted,
@@ -513,24 +514,24 @@ Several features of the space environment change the design inputs:
 - **Light-lag defeats central adjudication.** Any escalation ladder
   requiring round-trip decisions at AU distances is non-functional.
   The ladder must be *locally executable* with eventually-consistent
-  reconciliation — the same shape as autonomous_trust's gossip model,
+  reconciliation, the same shape as autonomous_trust's gossip model,
   applied to inter-community scope. On Earth this is a convenience;
   in space it is a physical constraint.
 - **Scarcity creates coercion vectors.** Volatiles, reaction mass,
-  medical supply, rare elements — any of these can be weaponized.
+  medical supply, rare elements: any of these can be weaponized.
   The virtue "reverence for life" must be concretely expressed as
   refusal to weaponize life-critical trade flows, or the ladder's
   lower rungs become indistinguishable from its upper ones.
 - **Visible preparedness as a cooperation signal.** The "open-carry"
-  principle in the kith-covenant README — participants are visibly heavily
-  armed, not as threat or intimidation, but to signal preparedness,
-  determination, and seriousness. "Speak softly but carry a big stick."
+  principle in the kith-covenant README: participants are visibly heavily
+  armed to signal preparedness, determination, and seriousness, not to
+  threaten or intimidate. "Speak softly but carry a big stick."
   The physics of space reinforces this: radar visibility, intercepted
   transmissions, and orbital mechanics make concealment difficult.
   Kith-covenant should design *with* this physics rather than against
   it. Open-carry makes escalation involuntarily legible to third parties,
-  which bounds conflict structurally — though visible capability does not
-  substitute for virtue, it reduces the cost of detecting virtue's absence
+  which bounds conflict structurally. Visible capability does not
+  substitute for virtue, but it reduces the cost of detecting virtue's absence
   and signals that the compact is not a paper institution.
 - **Generational drift.** Habitats mutate culturally faster than
   Earth-states. The virtue list and the ladder must be *re-affirmable*
@@ -563,7 +564,7 @@ erosion is instructive. Asymmetric conflict with non-state actors who
 did not sign and do not grant reciprocity created an opening for the
 "unlawful combatant" doctrine, which partially dissolved the
 combatant/non-combatant distinction. Nuclear doctrine sits outside the
-framework entirely — the cooperation it provides at the nuclear level
+framework entirely: the cooperation it provides at the nuclear level
 (mutual deterrence, arms control regimes) was bolted on separately.
 Most recently, deliberate targeting of hospitals and medical personnel in
 several modern conflicts has tested whether the framework can survive
@@ -577,13 +578,13 @@ exposure of the violator's own assets.
 the twentieth century and by universalist-ideological framing in the
 later twentieth. Once one's opponent is cast as an existential or moral
 enemy rather than a peer, the lower rungs of the ladder lose their
-purpose — démarche and protest are beside the point if the opponent's
+purpose: démarche and protest are beside the point if the opponent's
 very existence is illegitimate. Design lesson: ladders decay when the
 *justus hostis* frame decays above them.
 
 **The pax of pre-WWI Europe**, which honored many Westphalian forms,
 was destroyed in part by the rigidity of the very mobilization schedules
-that were supposed to make war predictable — escalation ladders whose
+that were supposed to make war predictable: escalation ladders whose
 rungs became too coupled to permit dismount. Design lesson: a ladder
 whose rungs are irreversible is not a ladder; it is a cliff with
 intermediate ledges.
@@ -596,11 +597,11 @@ and [noticeable_hand.md](noticeable_hand.md), most of the
 full-compact regimes surveyed in this document's historical set
 shared a substrate of Christian oath-binding, and their erosion has
 correlated with the secularization of the international order. The
-research set's current form of the claim — after the substrate
+research set's current form of the claim, after the substrate
 recalibration worked out in
 [historical_cases.md "Convergence without shared culture"](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases)
 and the anti-spiral formulation in
-[justus_hostis.md "The anti-spiral features"](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient) —
+[justus_hostis.md "The anti-spiral features"](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient),
 is:
 
 > Full cross-community compacts require each participating community
@@ -620,24 +621,24 @@ rescue interdependence) is necessary but not sufficient; the
 common-virtue frame of this document depends on virtue cultivated
 in practicing communities and on the anti-spiral backstops that
 prevent virtue from collapsing into its characteristic failure mode
-(the purity spiral terminating in the scapegoat cascade — Jacobin,
+(the purity spiral terminating in the scapegoat cascade: Jacobin,
 Maoist, Stalinist, Salem; MacIntyre 1981 and Girard 1978 supply the
 diagnostic tradition). Communities without anti-spiral structure
 produce bounded-conflict regimes that do not remain bounded;
 communities with shared transcendent anchor but missing anti-spiral
 features still produce the cascade. The Christian-Aristotelian-
 Thomistic synthesis is the deepest intellectual lineage of this
-document's virtue framework, and pretending otherwise — as earlier
-drafts implicitly did — was part of the ecumenical hedging that
+document's virtue framework, and pretending otherwise (as earlier
+drafts implicitly did) was part of the ecumenical hedging that
 [noticeable_hand.md](noticeable_hand.md) corrects. What is *not*
 claimed is that Christianity is the only possible substrate; what
 is claimed is that the anti-spiral features, most fully developed
 within Christianity, are the load-bearing structure, and that
 without them no bounded-conflict regime has sustained itself.
 
-A separate scope note: cooperation in *thin functional domains* —
-commerce, maritime salvage, envoy protection, wounded-combatant
-treatment, and the Geneva-style laws-of-war protections — has
+A separate scope note: cooperation in *thin functional domains*
+(commerce, maritime salvage, envoy protection, wounded-combatant
+treatment, and the Geneva-style laws-of-war protections) has
 historically converged cross-culturally without shared substrate
 ([historical_cases.md §"Convergence without shared culture"](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases)).
 The escalation ladders and anathema procedures specified here apply
@@ -656,7 +657,7 @@ A first cut at the concrete shape of kith-covenant's bounded-conflict layer:
    rungs, the mediator roles, and the termination conditions.
    Membership is binary; partial membership is forbidden because it
    re-introduces the asymmetry the virtues exist to prevent.
-2. **Dispute registration** is the first formal rung — a signed,
+2. **Dispute registration** is the first formal rung: a signed,
    timestamped, broadcast notice of grievance, with specific remedy
    requested. Analogous to a démarche. No escalation beyond this rung
    is permitted until registration is acknowledged.
@@ -669,15 +670,15 @@ A first cut at the concrete shape of kith-covenant's bounded-conflict layer:
    de-escalation paths and named exit conditions, with reversibility
    a first-class property of every concrete act.
 4. **Virtue-violation enforcement** is a distinct track. Acts judged
-   — by mediator roles empowered to rule on spirit, not merely letter
-   — to violate the common virtues are *not* ladder rungs; they trigger
+   to violate the common virtues, by mediator roles empowered to rule
+   on spirit and not merely letter, are *not* ladder rungs; they trigger
    pre-authorized collective response from compact members. The response
    is a defense of the virtue itself, not merely of the harmed party.
    The distinction between ladder violations (reversible, negotiable)
    and virtue violations (defense of the shared disposition) is
    foundational; collapsing the two destroys both.
 5. **Restitution and return paths.** Because the protocol is built for
-   fallen actors, every violation — ladder or virtue — has a named path
+   fallen actors, every violation (ladder or virtue) has a named path
    to restitution and reintegration short of permanent exclusion. This
    follows the Christian and Iroquois traditions of penance and
    condolence (see
@@ -701,7 +702,7 @@ current `main.rs` TensorFlow scaffolding is a placeholder; the more
 useful substrate for this work is an agent-based simulation (the
 system-simulation work in sibling packages is a natural fit) in which
 diverse earthbound-community archetypes iteratively test protocol
-variants against each other — including against adversaries
+variants against each other, including against adversaries
 specifically modeled to game the letter while violating the spirit.
 
 ## Charity and material disparity
@@ -712,21 +713,21 @@ are trivially cheap relative to its resources; a poor community's
 identical signals consume a disproportionate share; the mediator pool
 is staffed more easily by communities that can afford to send their
 best people. The observation about distortion is accurate. The Marxist
-*prescription* — that the compact should equalize material conditions
-through redistribution or structural leveling — is rejected. The
+*prescription*, that the compact should equalize material conditions
+through redistribution or structural leveling, is rejected. The
 leveling impulse is anti-human: inequalities are permanent features
 of human communities, and the historical record of attempts to
 forcibly eliminate them (the Soviet Union, Maoist China, the Khmer
 Rouge) is the evidence that the cure is worse than the disease.
 
-The honest answer to material disparity is **charity** — the
+The honest answer to material disparity is **charity**: the
 disposition to give generously to those in need, born of virtue and
 not compelled by institutional structure.
 
 Charity is not listed among the eight common virtues above, but it
 undergirds several of them. The "sanctuary of the rescuer" is charity
-in extremis — aid given across community boundaries when life is at
-stake. "Passage for the traveler" is charity in the ordinary case —
+in extremis: aid given across community boundaries when life is at
+stake. "Passage for the traveler" is charity in the ordinary case,
 hospitality extended to the stranger. "Good faith of confession"
 requires the willingness to make restitution, which is charity
 directed backward in time toward those one has wronged. Charity is
@@ -736,8 +737,8 @@ obligation while resenting the cost is a community whose charity has
 eroded.
 
 The diagnostic value of charity is sharp: **a community that lacks
-charity — externally toward other compact members in need, or
-especially internally toward its own vulnerable — is on the slide
+charity (externally toward other compact members in need, or
+especially internally toward its own vulnerable) is on the slide
 toward anathema.** The absence of charity is legible in the same way
 that the absence of any virtue is legible through the
 refusal-mechanism: a community that consistently declines to share
@@ -749,17 +750,17 @@ can detect and the escalation ladder can address.
 The compact does not equalize material conditions. It does not
 redistribute wealth. It does not penalize success. What it does is
 create a framework in which **the absence of charity is visible and
-consequential** — visible through the jester function
+consequential**: visible through the jester function
 ([jester_and_dissent.md](jester_and_dissent.md)), through the
 costly-signaling architecture
 ([reputation_bridges.md](reputation_bridges.md)), and through the
 common-virtue refusals; consequential through the escalation ladder
 and ultimately through the anathema procedure. A wealthy community
-that is charitable — that uses its surplus to strengthen the compact,
+that is charitable, that uses its surplus to strengthen the compact,
 to rescue the distressed, to contribute to the knowledge commons, to
-fund the liminal institutions — builds reputation and standing. A
-wealthy community that is uncharitable — that hoards, that gives
-grudgingly, that uses its material advantage as leverage — reveals
+fund the liminal institutions, builds reputation and standing. A
+wealthy community that is uncharitable, that hoards, that gives
+grudgingly, that uses its material advantage as leverage, reveals
 itself as a community whose virtue is corroding, and the compact's
 mechanisms respond accordingly.
 
@@ -773,18 +774,18 @@ and to ensure that the absence of charity does not go unnoticed.
 ## Handling the anathema
 
 The protocol sketch above assumes adversaries are *fallen but
-recoverable* — sinners who use the protocol in good faith even when
+recoverable*: sinners who use the protocol in good faith even when
 they fail it, who can be brought back through restitution and return.
 This is the correct *default* and applies to the overwhelming majority
 of cases. But the assumption is not universally true. A theoretical
-treatment of the gap — including the two-tier distinction between
+treatment of the gap, including the two-tier distinction between
 **anathema** (formal cutting-off, re-entry available) and ***hostis
-humani generis*** proper (irrecoverable, extremely rare) — is in
+humani generis*** proper (irrecoverable, extremely rare), is in
 [justus_hostis.md "Two tiers: anathema and *hostis humani generis*"](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis);
 this section operationalizes the **anathema** tier, which is the
 compact's primary operational category.
 
-An anathema (from Greek *ἀνάθεμα* — ecclesiastically, formal
+An anathema (from Greek *ἀνάθεμα*, ecclesiastically, formal
 excommunication from fellowship) is an actor whose orientation toward
 the compact has been judged destructive rather than competitive. The
 category is genuinely necessary (refusing to acknowledge it produces
@@ -802,7 +803,7 @@ Before any actor may be designated anathema, four conditions must be
 satisfied:
 
 1. **Sustained pattern of bad-faith conduct.** A single failure, even
-   a serious one, is not sufficient — that is what restoration paths
+   a serious one, is not sufficient: that is what restoration paths
    are for. The pattern must be established over multiple instances
    and over time. Specifically: at least three completed restoration
    cycles in which the actor accepted restitution terms and then
@@ -828,11 +829,11 @@ satisfied:
    conditions for its reversal. An actor who substantially changes
    conduct must have a path back, even if that path is longer and
    more demanding than the ordinary restoration paths. Permanent,
-   unconditional anathema designations are forbidden — they convert
+   unconditional anathema designations are forbidden: they convert
    the protocol from *bounded conflict against the demonic* into
    *demonic war on the designated*. (The extremely rare *hostis
    humani generis* proper designation, by contrast, does not include
-   a reversal path — but the evidentiary threshold for that
+   a reversal path, but the evidentiary threshold for that
    designation is correspondingly much higher; see
    [justus_hostis.md](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis).)
 
@@ -848,14 +849,14 @@ For an actor formally designated anathema:
 - **Information sharing is restricted.** Compact-internal traffic to
   the designated actor is filtered or suspended; the actor's signals
   are received with explicit awareness that they may be deceptive.
-- **Engagement is guarded.** Diplomatic contact continues — the
+- **Engagement is guarded.** Diplomatic contact continues (the
   compact does not refuse all communication, because doing so would
-  foreclose the possibility of return — but contact occurs with
+  foreclose the possibility of return), but contact occurs with
   protective measures and with the assumption of bad faith as the
   working hypothesis.
 - **Active opposition is permitted.** The compact may take measures
   against the designated actor that it would not take against a
-  *justus hostis* — collective sanctions imposed without the usual
+  *justus hostis*: collective sanctions imposed without the usual
   proportionality constraints, denial of services that would
   otherwise be reciprocally extended, eventual expulsion. *But these
   measures themselves remain bounded by the non-negotiable common
@@ -864,8 +865,8 @@ For an actor formally designated anathema:
   rescue inviolability, or destroy the knowledge commons. The
   category change permits stronger response within the virtue frame;
   it does not permit suspension of the virtue frame.
-- **Designation is published and named.** Other parties — non-members,
-  members' publics, future historians — must be able to see the
+- **Designation is published and named.** Other parties (non-members,
+  members' publics, future historians) must be able to see the
   designation, the reasons for it, and the conduct that triggered
   it. This is both an accountability mechanism (the compact's reasons
   are subject to public judgment) and a warning mechanism (other
@@ -876,15 +877,15 @@ For an actor formally designated anathema:
 A designated actor seeking return must:
 
 1. Acknowledge the designation publicly and accept its accuracy.
-   Without this acknowledgment there is no return — return requires
+   Without this acknowledgment there is no return: return requires
    that the actor recognize what they did was wrong, not merely that
    they wish the consequences to end.
 2. Submit to a probationary period substantially longer than the
    ordinary restoration timeline. The duration is set by the compact
    in proportion to the original pattern.
 3. Demonstrate substantively changed conduct over the probationary
-   period — not merely formal compliance but evidence of underlying
-   reorientation. Costly signals (per
+   period. Formal compliance does not suffice; the actor must show
+   evidence of underlying reorientation. Costly signals (per
    [tacit_coordination.md "Costly signaling"](tacit_coordination.md#costly-signaling))
    are the natural mechanism: the actor takes actions whose cost is
    credible only if the underlying disposition has actually changed.
@@ -906,7 +907,7 @@ designation itself. Beyond that:
   hereditary.
 - **Anti-faction provisions.** A member that designates the same
   counterparty repeatedly without other members concurring is itself
-  flagged — repeated unilateral designation attempts are themselves
+  flagged: repeated unilateral designation attempts are themselves
   diagnostic of bad-faith use of the procedure.
 - **Mediator-role rotation specifically including the designation
   process.** Designation cannot be controlled by a stable cadre.
@@ -918,8 +919,8 @@ designation itself. Beyond that:
   that some designations will turn out to have been incorrect, and
   provides for retroactive correction with apology, restitution to
   the wrongly-designated actor, and reform of the procedure that
-  produced the error. The Christian tradition of *metanoia* — turning
-  around from prior wrong — applies to the compact itself, not just
+  produced the error. The Christian tradition of *metanoia* (turning
+  around from prior wrong) applies to the compact itself, not just
   to its members.
 
 ### The deepest constraint
@@ -927,23 +928,23 @@ designation itself. Beyond that:
 The compact's response to the demonic must not become demonic itself.
 Augustine's warning, paraphrased: the war against evil can become
 evil if it is not itself ordered toward the good that gives the war
-its meaning. This is not a procedural constraint — no procedure can
-guarantee it — but a *substrate* constraint. The compact can resist
+its meaning. This is a *substrate* constraint, not a procedural one; no
+procedure can guarantee it. The compact can resist
 becoming what it opposes only if its members are individually and
-collectively oriented toward something beyond the compact itself —
+collectively oriented toward something beyond the compact itself,
 toward the transcendent moral authority that
 [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern) and
 [noticeable_hand.md](noticeable_hand.md) identify as the load-bearing
 substrate. A compact whose members lack that orientation cannot
-reliably handle the anathema category — let alone the *hostis humani
+reliably handle the anathema category, let alone the *hostis humani
 generis* proper. This is one further structural argument for the
 substrate criterion that
 [recognition_protocols.md](recognition_protocols.md) will operationalize.
 
 ## Enforcement without sovereignty
 
-A Hobbesian realist objects: without a sovereign — a Leviathan that
-monopolizes the legitimate use of force — the compact's commitments
+A Hobbesian realist objects: without a sovereign (a Leviathan that
+monopolizes the legitimate use of force) the compact's commitments
 are unenforceable. Promises without a sword are merely words.
 
 Kith-covenant rejects the sovereign requirement. The Hobbesian
@@ -968,16 +969,16 @@ real, material costs on violators:
   ([reputation_bridges.md](reputation_bridges.md)). Reputation loss
   is material: it affects trade relationships, mediator access,
   commons rights, and the willingness of other communities to
-  cooperate. This is the lex mercatoria mechanism — the merchant
+  cooperate. This is the lex mercatoria mechanism: the merchant
   who cheats is excluded from the fair.
 
 - **Commons exclusion.** A community under escalation may lose
-  access to shared commons — communication relays, navigational
+  access to shared commons: communication relays, navigational
   data, docking facilities, knowledge archives. For a space habitat,
   commons exclusion is not symbolic; it is an existential threat.
 
 - **Rescue-capacity conditionality.** The "sanctuary of the rescuer"
-  virtue makes rescue inviolable — even an anathema community in
+  virtue makes rescue inviolable: even an anathema community in
   distress is rescued. But the *allocation* of rescue capacity
   (pre-positioning, maintenance, staffing) is a compact governance
   decision, and a community that does not contribute to rescue
@@ -988,18 +989,18 @@ real, material costs on violators:
   Hanseatic *Verhansung* (expulsion with loss of all trading
   privileges) is the model: the expelled city was not attacked but
   was excluded from the economic network that made the League
-  valuable.
+  worth belonging to.
 
 - **Expulsion.** The terminal enforcement measure. A community
   designated anathema and ultimately expelled loses all compact
-  membership benefits — mediation, commons, reputation, liminal-
+  membership benefits: mediation, commons, reputation, liminal-
   institution access. This is not sovereign punishment; it is the
   compact's collective decision to withdraw cooperation.
 
 The **open-carry principle** is the embodiment of enforcement without
-sovereignty. Compact members are visibly, heavily armed — not as
-threat or intimidation, but to signal preparedness, determination,
-and seriousness. "Speak softly but carry a big stick." The visible
+sovereignty. Compact members are visibly, heavily armed to signal
+preparedness, determination, and seriousness, not to threaten or
+intimidate. "Speak softly but carry a big stick." The visible
 capability communicates: this compact's commitments are backed by
 the collective capacity to impose consequences. The stick is not
 wielded by a sovereign; it is carried by each member, and the
@@ -1011,14 +1012,14 @@ The enforcement architecture is collective, graduated, and bounded
 by the common virtues. It is not sovereign, it is not unlimited,
 and it is not guaranteed to work against coordinated capture (see
 §"The collusion vulnerability" below). But within its operating
-range — the normal case of fallen-but-recoverable actors, bilateral
-disputes, and individual defection — it has real teeth.
+range (the normal case of fallen-but-recoverable actors, bilateral
+disputes, and individual defection) it has real teeth.
 
 ## The collusion vulnerability
 
-Every mechanism in this document — the escalation ladder, the
+Every mechanism in this document (the escalation ladder, the
 common-virtue refusals, the mediator pool, the anathema procedure,
-the anti-weaponization safeguards — assumes that bad actors are
+the anti-weaponization safeguards) assumes that bad actors are
 isolated or at least a minority. The checks and balances work because
 they presuppose that the checking institutions are not themselves
 captured: that the mediator pool contains enough honest mediators to
@@ -1045,7 +1046,7 @@ The Byzantine fault-tolerance result (Lamport, Shostak, and Pease,
 more than one-third of the participants are malicious and
 coordinating. Below the threshold, the honest majority can detect
 and compensate for the malicious minority. Above it, the malicious
-faction can produce any outcome it wishes — including outcomes that
+faction can produce any outcome it wishes, including outcomes that
 *look* legitimate to external observers.
 
 The one-third threshold is a mathematical limit, not a design choice.
@@ -1061,8 +1062,8 @@ The historical cases
 ([historical_cases.md](historical_cases.md)) confirm the
 vulnerability:
 
-- **The Roman Republic's** checks and balances — consuls, tribunes,
-  Senate, the *provocatio* right of appeal — were sophisticated and
+- **The Roman Republic's** checks and balances (consuls, tribunes,
+  Senate, the *provocatio* right of appeal) were sophisticated and
   functioned for centuries. They failed when the *optimates* and
   *populares* factions grew large enough to capture the institutions
   themselves. Caesar did not abolish the Republic; he used its own
@@ -1071,7 +1072,7 @@ vulnerability:
 
 - **The Iroquois Confederacy** was fractured not by internal
   conspiracy but by external pressure that forced members into
-  incompatible factions — a different mechanism but the same result:
+  incompatible factions, a different mechanism but the same result:
   the cooperative framework broke when the faction structure exceeded
   the institutions' capacity to hold it.
 
@@ -1086,7 +1087,7 @@ vulnerability:
   the executive, and the media simultaneously, the democratic
   form survives while the democratic substance is hollowed. The
   20th century produced multiple cases of democracies that voted
-  themselves into tyranny — the Weimar Republic being the defining
+  themselves into tyranny, the Weimar Republic being the defining
   example.
 
 No historical cooperation regime has solved this problem. Every
@@ -1097,8 +1098,8 @@ the capturing faction.
 ### What kith-covenant's architecture does
 
 The compact's design does not solve the collusion vulnerability. It
-**raises the threshold** — making conspiracy more costly and detection
-more likely — through several structural features:
+**raises the threshold**, making conspiracy more costly and detection
+more likely, through several structural features:
 
 - **Rotation and term limits** in the mediator pool
   ([liminal_institutions.md](liminal_institutions.md)) make sustained
@@ -1114,7 +1115,7 @@ more likely — through several structural features:
   capture harder: the faction must capture *all* observer functions,
   not just one.
 - **The permanent archive** preserves the record against which
-  factional rewriting can be detected — but only if the archive
+  factional rewriting can be detected, but only if the archive
   itself is not captured.
 - **The separation of power and memory** (the Onondaga principle from
   [liminal_institutions.md](liminal_institutions.md)) ensures that
@@ -1124,7 +1125,7 @@ more likely — through several structural features:
   member who has genuinely internalized the substrate faces the
   asymmetric-psychological-cost mechanism
   ([recognition_protocols.md](recognition_protocols.md)) in every
-  act of conspiracy — the body knows, even when the will has
+  act of conspiracy: the body knows, even when the will has
   decided. This is the only check that operates at the individual
   level rather than the institutional level, and it is therefore the
   only check that is not captured when the institutions are captured.
@@ -1134,7 +1135,7 @@ more likely — through several structural features:
 A clarification to prevent misreading: **the institutional architecture
 described in this document and across the kith-covenant research set is
 not designed to solve the collusion problem.** It is designed to
-maximize the value of cooperation *below* the collusion threshold —
+maximize the value of cooperation *below* the collusion threshold,
 to make the normal case (fallen-but-recoverable actors, bilateral
 disputes, virtue erosion, honest disagreement) work well. The collusion
 vulnerability is a known ceiling; the escalation ladder, the mediator
@@ -1158,7 +1159,7 @@ sufficiently disciplined faction can capture any institutional
 structure. The mathematical limit stands: above approximately
 one-third coordinated defectors, the compact's mechanisms serve the
 faction rather than the compact. (The Byzantine fault-tolerance
-literature contains important nuances to the one-third threshold —
+literature contains important nuances to the one-third threshold:
 variations in synchrony assumptions, message complexity, and
 authentication models produce different bounds; see Lamport, Shostak,
 and Pease, 1982; Dolev and Strong, 1983; Castro and Liskov, 1999
@@ -1171,13 +1172,13 @@ record *does* suggest is that the vulnerability is activated by
 specific conditions:
 
 - **Erosion of the substrate.** Factions form more easily when the
-  sacred substrate has hollowed — when the oaths are performed but
+  sacred substrate has hollowed: when the oaths are performed but
   not meant, when the asymmetric-psychological-cost mechanism has
   been dulled by routine. The Reformation faction emerged from within
   a Christendom whose substrate had visibly corroded (the sale of
   indulgences, the Borgia papacy). The Roman Republic's factions
-  grew as the *mos maiorum* — the ancestral custom that functioned
-  as Rome's sacred substrate — lost its binding force.
+  grew as the *mos maiorum* (the ancestral custom that functioned
+  as Rome's sacred substrate) lost its binding force.
 
 - **Concentration of material power.** Factions capture institutions
   more easily when material power is concentrated: when one or a
@@ -1198,21 +1199,22 @@ specific conditions:
 
 Kith-covenant's design should be honest about this limit. The
 compact's founding documents should acknowledge the collusion
-vulnerability explicitly — not as a design flaw but as a structural
-feature of all cooperative frameworks, including this one. The
+vulnerability explicitly. The vulnerability is a structural feature
+of all cooperative frameworks, including this one, rather than a flaw
+peculiar to this design. The
 acknowledgment serves two purposes: it prevents false confidence (the
 belief that the institutional design is capture-proof), and it focuses
 attention on the conditions that activate the vulnerability (substrate
 erosion, power concentration, external pressure), which *can* be
 monitored and *may* be addressed before the threshold is reached.
 
-The deepest available defense — and the one the historical record
-most consistently associates with cooperative durability — is not an
+The deepest available defense, and the one the historical record
+most consistently associates with cooperative durability, is not an
 institution at all. It is the **quality of the members' commitment
 to the substrate.** A compact whose members genuinely hold the
 sacred substrate, whose asymmetric-psychological-cost mechanism
 is alive in each member, whose common virtues are dispositions and
-not performances — such a compact is harder to faction because the
+not performances, such a compact is harder to faction because the
 individual cost of joining the conspiracy is higher. This is not a
 guarantee; the history of betrayal within sacred communities is long
 and bitter. But it is the best available defense, and it is the
@@ -1232,13 +1234,13 @@ the individual conspirator.
 - What is the minimum viable mediator pool? Too few and capture
   becomes inevitable; too many and coordination fails.
 - Is there a meaningful analogue to the Geneva tradition's *protecting
-  powers* — neutral third parties with consular access — that can be
+  powers* (neutral third parties with consular access) that can be
   constructed for inter-community contexts?
 - Does the indicative virtue list above over- or under-reach? What
   would it look like to stress-test it against plausible Earth-side
   conflict scenarios *before* attempting space-side ones?
-- How does kith-covenant detect and resist pure rule-optimizers — actors
-  whose behavior is sophisticated gaming of the letter — in a compact
+- How does kith-covenant detect and resist pure rule-optimizers (actors
+  whose behavior is sophisticated gaming of the letter) in a compact
   whose enforcement assumes the virtue frame is intelligible?
 - How much of the restitution-and-return apparatus can be built into
   protocol, and how much irreducibly requires practicing communities
@@ -1270,24 +1272,24 @@ the individual conspirator.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md) — the theoretical frame this
+- [justus_hostis.md](justus_hostis.md): the theoretical frame this
   document operationalizes.
-- [recognition_protocols.md](recognition_protocols.md)  —
+- [recognition_protocols.md](recognition_protocols.md):
   the handshake layer below the ladder; dispute procedures only function
   between parties that already recognize each other.
-- [liminal_institutions.md](liminal_institutions.md)  —
+- [liminal_institutions.md](liminal_institutions.md):
   the mediator and arbitration infrastructure the ladder depends on.
-- [exit_and_succession.md](exit_and_succession.md)  —
+- [exit_and_succession.md](exit_and_succession.md):
   the expulsion and withdrawal mechanics referenced in the protocol
   sketch.
-- [../social_framework.md](../social_framework.md) — parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md)
-  — intra-community enforcement is a precondition for a habitat to be
+- [../social_framework.md](../social_framework.md): parent document.
+- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+  intra-community enforcement is a precondition for a habitat to be
   a coherent party to an inter-habitat compact at all.
 
 ## References
 
-*To be added — anchor works include the Geneva Conventions (1864, 1906,
+*To be added: anchor works include the Geneva Conventions (1864, 1906,
 1929, 1949) with their Additional Protocols; the Hague Conventions
 (1899, 1907); Schelling,* Arms and Influence *(1966) and* The Strategy
 of Conflict *(1960); Axelrod,* The Evolution of Cooperation *(1984);

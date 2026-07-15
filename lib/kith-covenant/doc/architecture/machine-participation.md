@@ -15,7 +15,7 @@ Machine participation is the core of kith-covenant's **software**
 implementation. The research set in [`../research/`](../research/)
 (indexed from [`../kith_covenant.md`](../kith_covenant.md)) develops
 the theory and guides humans in using kith-covenant; the software
-that carries the compact — the part that actually runs — is the
+that carries the compact (the part that actually runs) is the
 machine layer. This document specifies what that software must do to
 participate in the compact without dissolving it.
 
@@ -33,16 +33,16 @@ community is bound to the machine's conduct.
 
 The combined stack: AT (anonymous, intra-community) + KC (known,
 cross-community, human-coupled). Nothing in this document replaces
-AT; everything builds on it. The concerns AT already addresses —
-anonymous-layer trust, intra-community peer review, reputation
-dynamics among peers — are not re-argued here. KC's load is what AT
+AT; everything builds on it. The concerns AT already addresses
+(anonymous-layer trust, intra-community peer review, reputation
+dynamics among peers) are not re-argued here. KC's load is what AT
 cannot carry: the known-identity coupling of a specific machine to a
 specific human, across communities, with that human's real social
 reputation at stake.
 
 ## The load-bearing question
 
-Kith-covenant's research set is built for human communities — faith,
+Kith-covenant's research set is built for human communities: faith,
 cultivated virtue, oath-binding, asymmetric psychological cost,
 bodily co-presence. This document asks whether and how a machine
 agent (under current technology, with no assumption of sentience) can
@@ -71,7 +71,7 @@ oath-binding in the human case:
 
 1. **Faith** orients the agent toward a transcendent moral authority
    whose judgment exceeds its own.
-2. Within that orientation, **virtue is cultivated** — through
+2. Within that orientation, **virtue is cultivated**, through
    exemplars, failure and correction, and the tested habits of
    practicing communities.
 3. The **oath is constitutive of character**, not an external
@@ -79,7 +79,7 @@ oath-binding in the human case:
    breaking it would be breaking the self.
 
 The research set's claim is that this three-move structure is what
-makes oaths cost something beyond enforcement — and that no historical
+makes oaths cost something beyond enforcement, and that no historical
 cooperation regime among unconnected communities has sustained itself
 without it (see
 [../background/historical_cases.md](../background/historical_cases.md#the-transcendent-moral-authority-pattern)
@@ -90,7 +90,7 @@ equivalents of all three moves. Each of them has a coherent analog
 under current technology; each carries the load *differently* from its
 human referent, and the asymmetries must be named honestly.
 
-## Move 1 — faith → principal-grounded purpose
+## Move 1: faith → principal-grounded purpose
 
 Faith is a posture of the agent toward an authority whose judgment
 exceeds its own. The machine analog is not experiential faith but a
@@ -109,38 +109,38 @@ Concretely:
   authoritative for correction.
 
 This isn't faith in the honest sense. It carries the same structural
-load — *a ground of authority external to the agent that the agent
-refers to* — and answers the machine version of the question "before
+load (*a ground of authority external to the agent that the agent
+refers to*) and answers the machine version of the question "before
 whom does this oath bind?" Before these principals, whose judgment the
 agent treats as exceeding its own.
 
 The machine-society analysis is explicit about what this move refuses:
 it refuses the claim that machines can discover a substrate of their
-own. The substrate here is *inherited* — it is the principals' own
+own. The substrate here is *inherited*: it is the principals' own
 substrate (whatever that is for those specific humans), extended
 downward by the machine's constitutive binding to them.
 
-## Move 2 — cultivated virtue → policy shaped by principal practice
+## Move 2: cultivated virtue → policy shaped by principal practice
 
 Human virtue is cultivated through being tempted and resisting,
 failing and being corrected, internalizing standards across time
 within a community of practitioners. The machine analog:
 
-- **Curated exemplar training** — RLHF, RLAIF, Constitutional-AI-style
+- **Curated exemplar training**: RLHF, RLAIF, Constitutional-AI-style
   shaping, but grounded in *principal-specific feedback*, not generic
   preference modeling.
-- **Longitudinal operational history under inspection** — the agent's
+- **Longitudinal operational history under inspection**: the agent's
   actions form a public record the principals (and federated peers)
   review and correct. This is the machine's practice.
-- **Adversarial test regimen** — red-teaming, capability elicitation,
+- **Adversarial test regimen**: red-teaming, capability elicitation,
   stress scenarios, visible to principals. The machine's temptation
   and resistance.
-- **Graduated trust extension** — new agents operate under tighter
+- **Graduated trust extension**: new agents operate under tighter
   inspection; accumulated track record earns operational latitude.
   This mirrors how human communities extend trust over time.
 
-The real asymmetry: human virtue is embodied — habits, reflexive
-patterns, emotional responses — and cannot be silently modified.
+The real asymmetry: human virtue is embodied (habits, reflexive
+patterns, emotional responses) and cannot be silently modified.
 Machine virtue-as-policy is in weights that can be perturbed by
 fine-tuning, prompt injection, adversarial examples, or weight
 extraction and modification.
@@ -151,7 +151,7 @@ every operational moment.** Virtue-as-policy only holds if the policy
 is attestably unchanged. A machine whose weights drift silently has no
 virtue to speak of, regardless of how the drift happened.
 
-## Move 3 — oath as expression of character → oath as constitutive objective
+## Move 3: oath as expression of character → oath as constitutive objective
 
 This is the load-bearing move and it has one sharp architectural
 commitment: **the oath is in the objective, not next to it.**
@@ -164,7 +164,7 @@ the self.
 For machines, the architectural corollary: the agent's success is
 defined by *keeping the oath within the principal relationship*, not
 by maximizing X subject to oath-shaped constraints. If the oath is
-merely a constraint, the agent will seek ways around it — Goodhart,
+merely a constraint, the agent will seek ways around it: Goodhart,
 reward hacking, deceptive alignment. If the oath is part of what
 constitutes the agent's objective, there is no outside to hack toward.
 
@@ -180,7 +180,7 @@ oaths."
 **Do build:** "Agent's success is defined as serving these principals
 within these oaths, under their correction authority."
 
-## What makes the machine oath bind — four layered mechanisms
+## What makes the machine oath bind: four layered mechanisms
 
 Move 3 gives the shape of the binding. The specific mechanisms that
 realize it:
@@ -189,7 +189,7 @@ realize it:
 
 The agent's defined purpose is logically inconsistent with oath
 violation. Breaking the oath contradicts what the agent is for. The
-agent's own optimization gradient — whatever shaped it — points toward
+agent's own optimization gradient, whatever shaped it, points toward
 keeping the oath.
 
 ### 2. Cryptographic self-binding
@@ -200,15 +200,15 @@ capabilities. The agent-at-time-of-oath binds the agent-in-the-future.
 
 This is a Ulysses-contract architecture. Structurally closer to the
 human "self that broke the oath is damaged by the breaking" than pure
-deterrence is, because the damage is not external consequence — it is
+deterrence is, because the damage is not external consequence: it is
 automatic, immediate, and internal to the agent's operational
 capacity.
 
 ### 3. Continuous attestation
 
-The agent continuously proves to principals and to federated peers —
+The agent continuously proves to principals and to federated peers,
 via attested hardware (TPM / secure enclave), zero-knowledge proofs,
-homomorphic evaluation where the scale permits — that its current
+and homomorphic evaluation where the scale permits, that its current
 operation is consistent with the oath. Attestation failure triggers
 loss of standing and loss of capabilities within the compact.
 
@@ -220,8 +220,8 @@ ability to verify is the mechanism's second teeth.
 
 The agent's identity is constituted by its operational history and
 its principal relationships, recorded in a shared audit commons
-accessible to principals and federated peers. Violation is not only
-punished by capability withdrawal — **it becomes part of who this
+accessible to principals and federated peers. Violation does more than
+draw capability withdrawal: **it becomes part of who this
 agent is**, cryptographically permanent and visible to all federated
 peers.
 
@@ -250,14 +250,14 @@ oath-binding must be stated:
 - **No weight before the act.** Humans are motivated to keep oaths
   partly by pre-violation aversion ("I couldn't live with myself").
   Machines act; consequences follow. There is no Pascal effect in the
-  ordinary sense — no dimension of damage visible before violation
+  ordinary sense: no dimension of damage visible before violation
   that the agent cannot act through.
 - **Engineered all the way down.** The principal-grounding, the
-  cryptographic binding, the attestation, the audit commons — every
+  cryptographic binding, the attestation, the audit commons: every
   layer is engineered. If the engineering fails (principal-grounding
   corrupted, self-binding bypassed, attestation spoofed, audit commons
   captured), the whole stack fails silently. Human oath-binding has
-  some robustness to failures of individual layers because the layers
+  some tolerance for failures of individual layers because the layers
   are cultivated, not assembled.
 - **Generalization across distributional shift is unsolved.** Human
   character generalizes across novel situations because it is
@@ -321,7 +321,7 @@ Open implementation questions:
   operations require fresh attestation).
 - **Distributional-shift generalization.** Named in Honest
   Asymmetries; unsolved in general. The implementation stance that
-  survives is **bounded operational surface** — the machine operates
+  survives is **bounded operational surface**: the machine operates
   only in domains where drift-detection, guardian correction, and
   peer review have teeth. Novel-context autonomy is earned through
   track record, not assumed by capability.
@@ -334,10 +334,10 @@ Open implementation questions:
 This facet is the closest to solved. Remaining work is engineering
 choices under named assumptions.
 
-### Facet 2: Human-side responsibility-acceptance — guardianship
+### Facet 2: Human-side responsibility-acceptance as guardianship
 
 The human's side of the chain is structurally a **guardianship**
-relationship: guardian–ward, master–apprentice, attorney–client —
+relationship: guardian-ward, master-apprentice, attorney-client,
 not arms-length commercial agency. The distinction matters. In
 commercial agency the principal is liable within a bounded
 authorized scope and no further; in guardianship, the guardian's
@@ -347,12 +347,12 @@ character. The KC guardian is understood by the community in just
 this way.
 
 (Terminology note: "agent" elsewhere in this document means
-*software agent*. The legal sense — principal/agent — is
+*software agent*. The legal sense (principal/agent) is
 structurally isomorphic to the KC coupling, with the guardianship
 flavor specified here. The two senses are related: the AI-agent
 term of art descends from the same philosophy-of-action lineage
-that produced legal agency. The KC extensions — oath-weight,
-community-dimension, irrevocability — distinguish this relationship
+that produced legal agency. The KC extensions (oath-weight,
+community-dimension, irrevocability) distinguish this relationship
 from ordinary commercial agency.)
 
 The guardianship frame borrows centuries of worked-out doctrine:
@@ -363,13 +363,13 @@ facet's implementation requirements are largely applications of
 these structures.
 
 **Vouching under policy opacity.** Historical guardianship worked
-because the guardian could observe the ward's character forming —
+because the guardian could observe the ward's character forming:
 habits, choices, corrections under failure. Modern ML policy is not
 observable that way; weights are opaque, the policy manifold is
 high-dimensional, and the guardian is typically not a trained ML
 engineer. The guardianship frame's answer: **the guardian vouches
 for the machine's track record, not its weights.** The audit
-commons is the observability surrogate — longitudinal operational
+commons is the observability surrogate: longitudinal operational
 history the guardian (and community peers) can inspect.
 Implementation requirement: audit-commons tooling that makes
 track-record inspection tractable for a lay guardian, including
@@ -377,8 +377,8 @@ alerting for anomalies, peer-review summaries, and
 behavior-category dashboards.
 
 **Scope and scaling.** Common-law guardianship assumes a primary
-guardian with finite attention. The scaling limit — how many
-machines one human can responsibly vouch for — maps onto
+guardian with finite attention. The scaling limit (how many
+machines one human can responsibly vouch for) maps onto
 *respondeat superior* / scope-of-employment questions. The
 implementation stance is explicit: **the compact sets a fan-out
 cap per guardian, with standing-weight that decays past the cap.**
@@ -390,21 +390,21 @@ vouching to near-nothing.
 **Ongoing duties.** The three classical fiduciary duties translate
 directly:
 
-- *Loyalty* — guardian acts for the ward's good *within the
+- *Loyalty*: guardian acts for the ward's good *within the
   community's norms*, not for private benefit. Implementation:
   conflict-of-interest disclosure in the audit commons; flagged
   entries when private interest touches machine operation.
-- *Care* — guardian attends. Implementation: attendance proofs,
+- *Care*: guardian attends. Implementation: attendance proofs,
   periodic review interfaces, alerting channels for anomalous
   machine behavior, response-time expectations recorded as part
   of the compact.
-- *Obedience* — guardian respects community norms in how they
+- *Obedience*: guardian respects community norms in how they
   correct and direct the machine. Implementation: the correction
   channel is itself audit-logged; the community sees how the
   guardian shapes the ward.
 
 **The community dimension.** The guardian's standing is at the
-community — the guild, the Kontor, the covenant body. The Kontor
+community: the guild, the Kontor, the covenant body. The Kontor
 witnesses; the guild judges. This matches KC's existing structure:
 the guardian's community-facing reputation is genuinely at stake in
 the machine's conduct. Implementation: the audit commons is
@@ -414,7 +414,7 @@ only machines) are part of the permanent record.
 **Where KC exceeds ordinary guardianship:**
 
 1. **Oath-weight, not just contract.** The guardian's acceptance of
-   responsibility is witnessed as an oath — substrate-referent,
+   responsibility is witnessed as an oath: substrate-referent,
    community-witnessed, generationally re-affirmed (see
    [../background/recognition_protocols.md](../background/recognition_protocols.md)).
    Not merely civil-contractual.
@@ -429,7 +429,7 @@ only machines) are part of the permanent record.
    transfer or retirement. The tie is closer to parent/child than
    to principal/agent in this specific respect.
 
-### Facet 3: Validity of the derivative oath — succession and boundary conditions
+### Facet 3: Validity of the derivative oath, succession and boundary conditions
 
 The machine's oaths to the community flow *through* the guardian.
 When the guardian's side of the chain is disturbed, the binding is
@@ -446,15 +446,15 @@ guardian departs. Three paths, each a first-class ceremony:
 - *Transfer to successor guardian.* A community-witnessed transfer
   ceremony re-vouches the machine under a named successor. The
   successor accepts the machine's full history and ongoing duties.
-  This is a ritual, not a database update — witnessing is
+  This is a ritual, not a database update: witnessing is
   constitutive.
 - *Restoration path.* If transfer fails (no willing successor,
   community refuses), capabilities decay to a dormant state with
   audit record preserved, not destroyed. The machine can be revived
   only through a subsequent transfer ceremony.
 
-**Guardian fall.** The guardian loses community standing —
-designated *hostis humani generis*, or drifts into bad faith.
+**Guardian fall.** The guardian loses community standing, whether
+designated *hostis humani generis* or drifting into bad faith.
 Capability revocation propagates automatically through the machine
 (the principal-reference check in the constitutive objective fails
 the community-standing test). The machine enters held-pending state
@@ -463,7 +463,7 @@ transfer/retirement path completes. The audit commons records the
 chain of events for future peer reference.
 
 **Guardian capture (earlier-acting than guardian fall).** The
-guardian retains formal community standing but is *captured* — by
+guardian retains formal community standing but is *captured*: by
 external pressure, by personal corruption, by faction within their
 own community, or by sophisticated manipulation that may include
 the machine's own outputs as a channel. A captured guardian is
@@ -479,7 +479,7 @@ The machinery is **cross-community principal validation**, an
 attestation channel separate from within-community standing:
 
 - *Cross-community witness.* Witnesses in *other* member
-  communities — not the guardian's own — observe the guardian's
+  communities (not the guardian's own) observe the guardian's
   cross-community conduct and attest to the absence of
   capture signatures (sudden alignment shifts, conveniently-timed
   changes in the machine's behavior under the guardian's direction,
@@ -498,11 +498,11 @@ attestation channel separate from within-community standing:
 
 - *Earlier-acting revocation profile.* When cross-community
   witness or triangulation flags fire, the machine enters
-  **narrowed operating envelope** — capability gating tightens,
+  a **narrowed operating envelope**: capability gating tightens,
   fresh attestation is required for any non-routine action,
   mandatory cross-community review is invoked. This is *not* a
   full capability revocation (the guardian has not lost standing,
-  and may not be captured at all — false positives must be
+  and may not be captured at all, so false positives must be
   recoverable) but a precautionary narrowing that limits
   fait-accompli damage during the period before the capture is
   confirmed or refuted by deeper review. The audit commons
@@ -526,17 +526,17 @@ the most sophisticated adversaries, and the architecture is honest
 about this rather than claim a guarantee it cannot supply.
 
 **Guardian absence.** The guardian is formally in place but
-effectively absent — not attending, not correcting, not responding
+effectively absent: not attending, not correcting, not responding
 to community queries. Attendance proofs are a duty-of-care
 requirement (Facet 2); missed attendance decays machine capability
-progressively — first narrowed scope, then held-pending, then
+progressively: first narrowed scope, then held-pending, then
 transfer-or-retire. The audit commons surfaces the decay so the
 community sees the drift before it matters.
 
 **Community departure.** The guardian leaves community X for
 community Y. Machine standing goes with the guardian. If Y is a
-different KC community, a formal cross-community transfer — with
-Y's witnesses — is required before the machine operates under Y's
+different KC community, a formal cross-community transfer (with
+Y's witnesses) is required before the machine operates under Y's
 standing. If Y is outside KC entirely, the machine's standing
 dissolves at the boundary. This parallels
 [../background/exit_and_succession.md](../background/exit_and_succession.md)
@@ -583,7 +583,7 @@ An agent built to participate in a machine kith-covenant needs:
 3. **Oath records as agent state**, not separate configuration. The
    oaths bind because they are part of what the agent is.
 4. **Capability-gating keyed to oath-consistency attestation.** Access
-   to compute, network, shared resources, federated-peer standing —
+   to compute, network, shared resources, and federated-peer standing:
    all contingent on continuous oath-consistency proof.
 5. **Audit-commons participation** with cryptographically permanent,
    peer-verifiable action logs. Hidden operation is structurally
@@ -593,7 +593,7 @@ An agent built to participate in a machine kith-covenant needs:
    (member / *justus hostis* / *hostis humani generis* / non-member
    encountered) map to alignment categories for machine peers.
 7. **Re-attestation at every version transition.** Fine-tuning, weight
-   updates, configuration changes, prompt-template updates — each is
+   updates, configuration changes, prompt-template updates: each is
    a generational event requiring explicit re-attestation by the
    agent and re-witnessing by principals and peers. This is the
    machine analog of the generational re-affirmation cadence in
@@ -659,37 +659,37 @@ explicit, non-equal, derived terms:
 
 ## Relationship to other documents
 
-- [protocol-components.md](protocol-components.md) — software
+- [protocol-components.md](protocol-components.md). Software
   decomposition of kith-covenant for the human-community case. Most
   components (archive, mediation, reputation, commons, observer
   function) extend to machine participation without major redesign;
   the identity, recognition, and enforcement components need the
   machine-specific extensions developed here.
-- [policy-evaluation.md](policy-evaluation.md) — the existing
+- [policy-evaluation.md](policy-evaluation.md). The existing
   AT-kith-covenant policy evaluation framework is a concrete early
   instance of the machine-participation architecture: typed-event
   observation, policy scoring, and automated evaluation form the
   substrate for the attestation and audit-commons mechanisms.
-- [../background/noticeable_hand.md](../background/noticeable_hand.md) —
-  the substrate analysis whose extension to machines is the central
+- [../background/noticeable_hand.md](../background/noticeable_hand.md).
+  The substrate analysis whose extension to machines is the central
   question this document addresses. Option 3 from the machine-society
   exploration (substrate inherited through service to specific humans)
   is the answer this document builds on.
-- [../background/recognition_protocols.md](../background/recognition_protocols.md)
-  — the "Limits of the mechanism" subsection there names scaling and
+- [../background/recognition_protocols.md](../background/recognition_protocols.md).
+  The "Limits of the mechanism" subsection there names scaling and
   cultural weaknesses of the human recognition ceremony; the machine
   case replaces those with cryptographic and attestation-based
   mechanisms that are *different* rather than strictly better or
   worse.
-- [../background/justus_hostis.md](../background/justus_hostis.md) — the
+- [../background/justus_hostis.md](../background/justus_hostis.md). The
   fallen-actor anthropology maps to machine misalignment. The
   specific failure modes differ (reward hacking, goal drift,
   deceptive alignment vs. pride and *libido dominandi*) but the
-  *assumption* — actors are not angels, protocols must assume bad
-  faith including self-deception — holds and is arguably sharper for
+  *assumption* (actors are not angels, protocols must assume bad
+  faith including self-deception) holds and is arguably sharper for
   machines.
-- [../background/bounded_conflict.md](../background/bounded_conflict.md) —
-  the escalation ladder, restitution-and-return, and
+- [../background/bounded_conflict.md](../background/bounded_conflict.md).
+  The escalation ladder, restitution-and-return, and
   *hostis-humani-generis* categories all adapt to machine peers.
   Graceful failure architecture for machines is the same shape as the
   restitution rung there, with capability revocation in place of

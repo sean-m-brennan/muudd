@@ -5,7 +5,7 @@
 ## Thesis
 
 Most of kith-covenant's design assumes that explicit communication between
-participants is available — that disputes can be registered, mediators
+participants is available: that disputes can be registered, mediators
 contacted, virtues articulated, ladders climbed and descended through
 exchange of messages. There are conditions under which this assumption
 fails: light-lag at AU distances; deliberate jamming or signal denial;
@@ -16,7 +16,7 @@ communicating, on the basis of mutual interest, shared salience, and
 the iterated structure of repeated interaction.
 
 This fallback layer is the subject of the formal literature on **tacit
-coordination** — Schelling's focal points, Axelrod's tournaments on
+coordination**: Schelling's focal points, Axelrod's tournaments on
 iterated cooperation, the folk theorem of repeated games, costly
 signaling theory, and the common-knowledge framework. The literature
 gives kith-covenant three things: (a) an account of how cooperation can
@@ -39,7 +39,7 @@ substrate was designed to address.
 Thomas Schelling's *The Strategy of Conflict* (1960) introduced the
 concept of the **focal point** (sometimes "Schelling point"): in a
 coordination problem with multiple equilibria, players converge on the
-equilibrium that is *salient* — that stands out for some shared reason
+equilibrium that is *salient*, that stands out for some shared reason
 not encoded in the formal structure of the game.
 
 Schelling's classic examples:
@@ -48,7 +48,7 @@ Schelling's classic examples:
   to communicate?"* The most common answer in Schelling's informal
   experiments was *Grand Central Terminal at noon*. Nothing in the
   formal structure of the city makes this place-and-time the
-  equilibrium; its salience comes from outside the game — from shared
+  equilibrium; its salience comes from outside the game: from shared
   cultural reference and from being the obvious choice given a shared
   imagination of "the obvious place."
 - *Splitting $100, where neither side gets the money unless both
@@ -59,7 +59,7 @@ Schelling's classic examples:
   same intuition.
 - *Naval mine-sweeping coordination.* When two units are independently
   assigned overlapping search areas, they converge on dividing the
-  area at the obvious geographic feature — a river, a coastline — even
+  area at the obvious geographic feature (a river, a coastline) even
   when nothing in their orders specifies this.
 
 Three structural features make a focal point work:
@@ -68,7 +68,7 @@ Three structural features make a focal point work:
    feature as obvious; this requires shared cultural, perceptual, or
    physical reference.
 2. **Mutual knowledge of mutual knowledge.** Each party must believe
-   the other party recognizes the same feature as obvious — and must
+   the other party recognizes the same feature as obvious, and must
    believe the other party believes the same about them, recursively.
 3. **No competing salience of comparable strength.** If two features
    are equally salient, the coordination problem is not solved.
@@ -76,7 +76,7 @@ Three structural features make a focal point work:
 Focal points generalize to all cooperation problems where the
 coordination question is "which equilibrium do we converge on?" rather
 than "do we cooperate at all?". They explain a great deal of
-spontaneous human coordination — from queuing conventions to right-vs-
+spontaneous human coordination: from queuing conventions to right-vs-
 left side traffic to the convergence of standards.
 
 ### Application and limits for kith-covenant
@@ -102,8 +102,8 @@ protocol is unavailable. Examples in the kith-covenant context:
 The limit is sharp: focal points only function where salience is
 shared. *Salience is culture-relative* (see "Common knowledge and
 culture-relative salience" below). A kith-covenant spanning communities that
-have drifted apart culturally — across generations, across deep
-ideological divides, across the asteroid belt — cannot rely on focal
+have drifted apart culturally (across generations, across deep
+ideological divides, across the asteroid belt) cannot rely on focal
 points without first having established what the focal points *are*.
 This is itself an explicit-protocol task, which means that even the
 tacit layer requires some prior explicit work to define its content.
@@ -113,9 +113,9 @@ tacit layer requires some prior explicit work to define its content.
 Robert Axelrod's *The Evolution of Cooperation* (1984) is the second
 classical reference. Axelrod ran computer tournaments in which
 strategies for the iterated Prisoner's Dilemma competed against each
-other. The result that became famous: **Anatol Rapoport's
+other. The result that became famous: Anatol Rapoport's
 *tit-for-tat* strategy won both tournaments, despite being one of the
-simplest strategies submitted.**
+simplest strategies submitted.
 
 Tit-for-tat:
 
@@ -126,14 +126,14 @@ Tit-for-tat:
 Axelrod identified four properties of strategies that did well in the
 tournaments:
 
-- **Nice** — never the first to defect. Strategies that defected first
+- **Nice**: never the first to defect. Strategies that defected first
   triggered retaliation cascades they then could not stop.
-- **Retaliatory** — punishes defection promptly. Strategies that were
+- **Retaliatory**: punishes defection promptly. Strategies that were
   too forgiving were exploited.
-- **Forgiving** — returns to cooperation as soon as the other player
+- **Forgiving**: returns to cooperation as soon as the other player
   does. Strategies that retaliated indefinitely (e.g., "grim trigger")
   fell into mutual-defection death spirals.
-- **Clear** — the strategy is easy for the other player to read and
+- **Clear**: the strategy is easy for the other player to read and
   predict. Complicated strategies, even if individually competent,
   scored worse because their counterparties could not learn what to
   expect.
@@ -142,7 +142,7 @@ Subsequent work has refined the picture. Axelrod's later work and
 others showed:
 
 - *Tit-for-two-tats* (cooperate unless defected against twice in a row)
-  is more robust to noise — but can be exploited by alternating
+  is more tolerant of noise, but can be exploited by alternating
   defectors.
 - *Pavlov* (Win-Stay, Lose-Shift) outperforms tit-for-tat in some
   noisy environments because it can recover from mistakes faster.
@@ -156,9 +156,9 @@ others showed:
   establish themselves.
 
 The contemporary research has substantially complicated Axelrod's
-clean picture without overturning its central claim: **simple,
+clean picture without overturning its central claim: simple,
 provocable, forgiving, and clear strategies do well in iterated
-interaction across a wide range of conditions**, and complex strategies
+interaction across a wide range of conditions, and complex strategies
 generally do not pay off enough to be worth their complexity.
 
 ### Application and limits for kith-covenant
@@ -183,8 +183,8 @@ The limits are again sharp:
   choice* and *paired interaction*. Real inter-community conflict has
   many degrees of freedom, multiple parties, and unclear attribution.
   Tit-for-tat in pure form does not generalize cleanly.
-- The *noise problem* — one mis-perceived defection triggers retaliation
-  triggers retaliation — is severe in real-world settings where
+- The *noise problem* (one mis-perceived defection triggers retaliation
+  triggers retaliation) is severe in real-world settings where
   attribution is uncertain and signals can be jammed or spoofed. This
   is exactly the situation kith-covenant is designed for, and the Axelrod
   result must be applied with corresponding care.
@@ -197,13 +197,13 @@ The limits are again sharp:
 
 ## The shadow of the future and the folk theorem
 
-A general result in repeated-game theory — the **folk theorem** —
+A general result in repeated-game theory, the **folk theorem**,
 states roughly that any individually rational outcome in a one-shot
 game can be sustained as an equilibrium in the infinitely-repeated
 version, provided the players' discount rates are low enough (i.e.,
 they care enough about future payoffs). The popular shorthand:
-**cooperation is sustainable when the shadow of the future is long
-enough**.
+cooperation is sustainable when the shadow of the future is long
+enough.
 
 For kith-covenant, this is the formal underpinning of an observation made
 throughout the rest of the documentation: *exit costs and continued
@@ -229,9 +229,9 @@ Three concrete implications:
 
 ## Common knowledge and culture-relative salience
 
-A focal point requires not only that both parties recognize the
-salient feature, but that each party knows the other recognizes it,
-and knows that the other knows, recursively. This is the
+A focal point requires that both parties recognize the salient
+feature, that each party knows the other recognizes it, and that each
+knows the other knows, recursively. This is the
 **common-knowledge** condition, formalized by Robert Aumann (1976) and
 explored in David Lewis's *Convention* (1969).
 
@@ -242,12 +242,12 @@ Three observations matter for kith-covenant:
    different points (in some informal experiments, the answer varies
    substantially by city of origin). What is "obviously the right
    meeting place" is shared within a cultural community and not across
-   communities. **Tacit coordination across communities that lack
+   communities. Tacit coordination across communities that lack
    shared culture is much harder than tacit coordination within a
-   community.**
+   community.
 2. **Common knowledge can be created, but doing so is itself an
    explicit act.** Public ceremonies, broadcasts, ratifications,
-   traditions — these are mechanisms for making something common
+   traditions: these are mechanisms for making something common
    knowledge in the technical sense. *The very act of kith-covenant ratifying
    its compact creates common knowledge of the compact's terms*; this
    is one of the most important things ratification does, beyond the
@@ -258,8 +258,8 @@ Three observations matter for kith-covenant:
    defected. This is the *unraveling* dynamic familiar from electronic
    commerce and bank runs: confidence collapses faster than it builds.
 
-The implication is that kith-covenant's protocol layer is not just a
-practical convenience over the tacit layer — *the protocol layer is
+The implication is that kith-covenant's protocol layer is more than a
+practical convenience over the tacit layer: *the protocol layer is
 how common knowledge is established and maintained*. Even where tacit
 coordination would suffice in principle, the explicit protocol does
 the work of making the conditions for tacit coordination *common
@@ -268,9 +268,9 @@ across community boundaries.
 
 ## Costly signaling
 
-A final body of theory worth marking. **Costly signaling** —
+A final body of theory worth marking. **Costly signaling**,
 introduced in evolutionary biology by Amotz Zahavi (1975) and applied
-to economics and politics by Michael Spence (1973) and others —
+to economics and politics by Michael Spence (1973) and others,
 addresses how parties communicate trustworthy information when cheap
 talk is unreliable.
 
@@ -284,14 +284,14 @@ false*. Examples:
   less capable applicant would find the education unaffordable in
   effort.
 - A nation that publicly demolishes a weapon system is making a costly
-  signal of disarmament intent — and the public, costly nature of the
+  signal of disarmament intent, and the public, costly nature of the
   act is what makes it credible where mere statements would not be.
 
 Costly signaling is the formal-theoretical underpinning of kith-covenant's
 *public, expensive, reversible* protocol acts. A community that
 publicly accepts arbitration, that visibly invests in maintaining the
 knowledge commons, that hosts memorial occasions whose interruption
-would be a major cultural loss — these are costly signals of compact
+would be a major cultural loss: these are costly signals of compact
 membership in good standing. They are credible *because* they are
 costly. They cannot be cheaply faked by a community that is
 optimizing against the letter of the protocol while violating its
@@ -303,7 +303,7 @@ is direct: a community that games the letter has to fake its costly
 signals as well as fake its formal compliance, and the costly signals
 are by construction harder to fake. The protocol's deepest
 anti-gamification mechanism is therefore not better rules but
-*better-designed costly signals* — protocol acts that cannot be
+*better-designed costly signals*: protocol acts that cannot be
 performed convincingly by an adversary who does not actually share
 the underlying virtue.
 
@@ -311,7 +311,7 @@ the underlying virtue.
 
 Tacit coordination has its own characteristic failure modes, distinct
 from those of explicit-protocol cooperation. Kith-Covenant must understand
-these in order not to lean on tacit coordination where it cannot
+these so it does not lean on tacit coordination where it cannot
 support the load.
 
 - **Salience drift.** Focal points migrate over time as cultures
@@ -325,7 +325,7 @@ support the load.
   relatives are catastrophically vulnerable to mis-attributed
   defection in noisy environments. A single jammed or spoofed signal
   can trigger a death spiral. Kith-Covenant's design must include
-  *attribution-uncertainty handling* explicitly — a mediator role
+  *attribution-uncertainty handling* explicitly: a mediator role
   that can pause retaliation pending confirmation, or a default rule
   of forgiveness on first apparent defection.
 - **Coordination on bad equilibria.** Tacit coordination locks in the
@@ -345,7 +345,7 @@ support the load.
   is the same mechanism the Hanseatic League used informally and that
   kith-covenant can use deliberately.
 - **Adversarial salience-poisoning.** A sophisticated adversary can
-  *manipulate salience* to shift focal points in their favor —
+  *manipulate salience* to shift focal points in their favor:
   promoting one meeting place over another, one frequency over
   another, one custom over another, in ways that disadvantage
   counterparties. Open-source intelligence, propaganda, and modern
@@ -372,7 +372,7 @@ design can be summarized:
 Where the tacit layer carries weight that the explicit protocol cannot:
 
 - **In the gap when communications are lost.** Light-lag, jamming,
-  rupture — in all such cases, communities must coordinate on what
+  rupture: in all such cases, communities must coordinate on what
   was last established as common knowledge before the gap, plus
   whatever remains universally salient (rescue, transit lanes,
   distress procedures).
@@ -380,8 +380,8 @@ Where the tacit layer carries weight that the explicit protocol cannot:
   be ratified, founding communities are coordinating on focal
   points and costly signals that establish good faith.
 - **At the boundary with non-members.** Kith-Covenant's compact does not
-  reach non-members, but tacit coordination via focal points — the
-  freedom-of-the-seas analogue — can extend cooperation into spaces
+  reach non-members, but tacit coordination via focal points (the
+  freedom-of-the-seas analogue) can extend cooperation into spaces
   where no compact applies.
 
 Where it cannot:
@@ -429,7 +429,7 @@ Where it cannot:
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md) — the virtue substrate that
+- [justus_hostis.md](justus_hostis.md): the virtue substrate that
   this document treats as primary; tacit coordination is the fallback
   when virtue-substrate communication fails. The transcendent-moral-authority
   finding ([historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern),
@@ -439,27 +439,27 @@ Where it cannot:
   is transcendent. Tacit coordination operates well over a substrate
   that supplies that beyond-reputation stake; less well when it does
   not.
-- [bounded_conflict.md](bounded_conflict.md) — the explicit protocol
+- [bounded_conflict.md](bounded_conflict.md): the explicit protocol
   whose tacit-layer fallback is treated here. Several mechanisms (the
   ladder's retaliatory/forgiving properties, the mediator's
   attribution role, periodic re-affirmation) are direct applications
   of tacit-coordination theory.
-- [historical_cases.md](historical_cases.md) — the historical cases
+- [historical_cases.md](historical_cases.md): the historical cases
   are real-world instances of the dynamics formalized here; the
   Hanseatic boycott is a costly signal, the codes duello procedure
   is a focal-point convention, the Iroquois Council Fire is a
   common-knowledge institution.
-- [commons_federation.md](commons_federation.md) —
+- [commons_federation.md](commons_federation.md):
   Ostrom's empirical work on commons governance overlaps substantially
   with the conclusions here.
-- [reputation_bridges.md](reputation_bridges.md) —
+- [reputation_bridges.md](reputation_bridges.md):
   reputation as a costly signal that travels across community
   boundaries.
-- [../social_framework.md](../social_framework.md) — parent document.
+- [../social_framework.md](../social_framework.md): parent document.
 
 ## References
 
-*To be added — anchor works include: Schelling,* The Strategy of
+*To be added. Anchor works include: Schelling,* The Strategy of
 Conflict *(1960) and* Arms and Influence *(1966); Axelrod,* The
 Evolution of Cooperation *(1984) and* The Complexity of Cooperation
 *(1997); Aumann, "Agreeing to Disagree,"* Annals of Statistics *4

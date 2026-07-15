@@ -37,9 +37,9 @@ that recur across all of them are summarized at the end.
 
 ### Founding context
 
-The Peace of Westphalia (1648) consists of two treaties — Münster
-between Spain and the Dutch Republic and the Empire and France;
-Osnabrück between the Empire and Sweden — ending the Thirty Years' War
+The Peace of Westphalia (1648) consists of two treaties. Münster
+between Spain and the Dutch Republic and the Empire and France, and
+Osnabrück between the Empire and Sweden, ending the Thirty Years' War
 in central Europe and the Eighty Years' War in the Low Countries. The
 Thirty Years' War had killed perhaps a third of the German-speaking
 population. The treaties did not restore prewar conditions; they
@@ -48,8 +48,8 @@ established a new framework whose primary innovation was the
 sovereigns*.
 
 The Peace of Augsburg (1555) had already established *cuius regio,
-eius religio* — each sovereign settles the religious question within
-his own territory — but Augsburg recognized only Lutheran and Catholic;
+eius religio* (each sovereign settles the religious question within
+his own territory), but Augsburg recognized only Lutheran and Catholic;
 Westphalia added Calvinist. More importantly, Westphalia generalized
 the principle into what became the Westphalian system: territorial
 integrity, sovereign equality, non-intervention in domestic affairs.
@@ -63,8 +63,8 @@ The system worked through several tightly coupled institutions:
   standing in the procedure even though their material weights were
   utterly different.
 - **Resident embassies.** A permanent diplomatic corps emerged in the
-  17th–18th centuries — earlier ad hoc legations gave way to standing
-  embassies in major capitals — with diplomatic immunity, codified
+  17th-18th centuries (earlier ad hoc legations gave way to standing
+  embassies in major capitals) with diplomatic immunity, codified
   precedence, and a shared procedural language (largely French by the
   18th c.).
 - **Treaty law as the operative idiom.** Disputes ended in written
@@ -78,7 +78,7 @@ The system worked through several tightly coupled institutions:
 
 ### Output
 
-For roughly 250 years, European wars were largely *bounded* — they had
+For roughly 250 years, European wars were largely *bounded*. They had
 named beginnings and ends, identifiable belligerents, defined theatres,
 exchanges of prisoners, and termination treaties that included the
 defeated as participants rather than reducing them to subjects. This is
@@ -97,7 +97,7 @@ recapped briefly:
   powers could simply *abolish a sovereign* by collusion when the
   Westphalian principle of recognition collided with their joint
   interest. The system already had a lethal vulnerability.
-- The *Napoleonic disruption* (1796–1815) treated dynasties as
+- The *Napoleonic disruption* (1796-1815) treated dynasties as
   interchangeable and redrew borders by conquest. The *Concert of
   Europe* (1815) was a partial restoration but introduced explicit
   Great Power oversight, undermining the formal equality of smaller
@@ -110,7 +110,7 @@ recapped briefly:
   recognition-of-sovereigns with recognition-of-peoples and made
   domestic ethnic composition a legitimate matter of international
   concern.
-- *Universalist ideologies* (in 20th-c. forms — liberal, communist, and
+- *Universalist ideologies* (in 20th-c. forms: liberal, communist, and
   the universal-human-rights frame) finished the depoliticization in
   reverse: the opponent became a criminal or a heretic rather than a
   peer.
@@ -135,8 +135,8 @@ provisions against insider collusion that targets a member.
 The *Pax Dei* (Peace of God) and *Treuga Dei* (Truce of God) were
 ecclesiastical movements emerging in late-10th- and 11th-century France
 and spreading across western Europe. Carolingian central authority had
-collapsed; private lordly violence — feud, raiding, predation on
-unarmed populations — was endemic. Local bishops, gathered in regional
+collapsed; private lordly violence (feud, raiding, predation on
+unarmed populations) was endemic. Local bishops, gathered in regional
 councils (Charroux 989, Le Puy 990, Narbonne 1054), declared categories
 of persons and places exempt from violence, with violators subject to
 ecclesiastical anathema.
@@ -152,8 +152,8 @@ Two distinguishable but overlapping movements:
   league of laymen sworn to enforce the peace).
 - **The Truce of God** named *times* during which all violence was
   forbidden: from Wednesday evening through Monday morning, on feast
-  days, during Lent and Advent. The rationale was explicitly liturgical
-  — these were the times of Christ's passion, resurrection, and the
+  days, during Lent and Advent. The rationale was explicitly liturgical:
+  these were the times of Christ's passion, resurrection, and the
   major mysteries.
 
 Enforcement was anathema (cutting the violator off from sacraments and
@@ -166,7 +166,7 @@ the peace.
 Where it functioned, the movement substantially reduced predation on
 non-combatants. More importantly for kith-covenant's purposes, it demonstrated
 that *categories of inviolability could be sustained without state
-authority* — by sacred substrate alone, in a period when no state was
+authority*, by sacred substrate alone, in a period when no state was
 strong enough to do the work. The Peace of God arguably trained the
 moral grammar that later bounded warfare in *jus in bello* tradition.
 
@@ -176,7 +176,7 @@ The Peace movements were largely absorbed into the rising territorial
 monarchies and the Crusading project (which redirected aristocratic
 violence outward) by the late 12th century. They did not "fail" so
 much as get overtaken by stronger institutions that performed
-overlapping functions — though the Crusading redirection is itself a
+overlapping functions, though the Crusading redirection is itself a
 cautionary tale about how a peace movement can be repurposed into a
 weapon by giving its adherents an external object.
 
@@ -184,7 +184,7 @@ weapon by giving its adherents an external object.
 
 The Peace of God is the strongest pre-modern example of a sacred-
 substrate-only enforcement regime working at scale across communities
-that shared no common government. Its mechanism was *anathema* —
+that shared no common government. Its mechanism was *anathema*:
 exclusion from a shared sacred reality. The closest contemporary
 analogue available to kith-covenant is *exclusion from the compact*, but
 exclusion only carries comparable weight if the compact itself is
@@ -202,7 +202,7 @@ violence it formed to bound.
 ### Founding context
 
 The Hanse began as a loose association of north German merchants
-trading in the Baltic and North Sea (12th–13th c.) and consolidated
+trading in the Baltic and North Sea (12th-13th c.) and consolidated
 into a league of cities around 1356 (Lübeck Hansetag). At its peak it
 included between 70 and ~170 cities, with primary influence from
 Lübeck, Hamburg, Bremen, Cologne, Danzig (Gdańsk), Riga, and many
@@ -216,11 +216,11 @@ treasury beyond ad hoc contributions, and no permanent bureaucracy.
   decisions on common policy (boycott declarations, joint negotiations
   with foreign powers, regulation of the *Kontore*).
 - **The *Kontore*** were privileged trading posts in foreign
-  jurisdictions — Steelyard (London), Tyske Bryggen (Bergen), Peterhof
+  jurisdictions: Steelyard (London), Tyske Bryggen (Bergen), Peterhof
   (Novgorod), Bruges. Each *Kontor* had its own internal governance,
   its own court for disputes among Hanseatic merchants, and negotiated
   privileges from the host sovereign.
-- **Verhansung** — collective expulsion from the league — was the
+- **Verhansung**, collective expulsion from the league, was the
   ultimate sanction against members who defected from agreed positions
   or violated league norms. Cities under Verhansung lost access to all
   league trading privileges across northern Europe simultaneously, a
@@ -239,18 +239,18 @@ collective negotiation against rising territorial powers.
 
 ### Decay
 
-Multiple converging pressures destroyed it across the 16th–17th
+Multiple converging pressures destroyed it across the 16th-17th
 centuries:
 
-- **Rise of strong territorial states** — Sweden, Denmark, England,
-  Brandenburg-Prussia — with standing navies that could simply force
+- **Rise of strong territorial states** (Sweden, Denmark, England,
+  Brandenburg-Prussia) with standing navies that could simply force
   open Baltic markets the Hanse had previously controlled. The league
   had no comparable military instrument.
-- **Atlantic shift** — discovery of the New World and the rise of
+- **Atlantic shift.** Discovery of the New World and the rise of
   Iberian, Dutch, and English Atlantic trade moved economic gravity
   away from the Baltic. The Hanse's geographical center became
   peripheral.
-- **Reformation confessional split** — member cities ended up on
+- **Reformation confessional split.** Member cities ended up on
   different sides of the Lutheran/Catholic split, and (after Augsburg
   1555) under rulers whose religious settlements diverged. It is
   tempting to describe this as a "substrate fracture," but the claim
@@ -262,7 +262,7 @@ centuries:
   authority, sacramental theology, ecclesiology), not the substrate.
   The Hanse's ~150 years of continued operation after Augsburg 1555 is
   therefore *consistent* with the substrate thesis, not a counterexample
-  to it — the substrate persisted across the confessional divide, which
+  to it: the substrate persisted across the confessional divide, which
   is exactly why Hanseatic oaths continued to function. The confessional
   split did contribute to decline through secondary channels (rulers'
   religious settlements constraining civic autonomy, confessional
@@ -270,11 +270,11 @@ centuries:
   attrition at the first-order layer) but these were accelerants on
   top of the economic and political shifts already under way, not a
   primary substrate-level collapse.
-- **Capture by host sovereigns** — as the cities' home territorial
+- **Capture by host sovereigns.** As the cities' home territorial
   rulers (Brandenburg, Sweden) consolidated power, league membership
   became subordinate to state policy, and cities could no longer
   collectively defy their sovereigns to honor Hanse positions.
-- **Failure to adapt institutional form** — the Hanse never developed
+- **Failure to adapt institutional form.** The Hanse never developed
   taxation, a standing fleet, a permanent secretariat, or any other
   durable apparatus. It remained a 13th-century institutional design
   in a 17th-century world.
@@ -287,7 +287,7 @@ endpoint; the Hanse formally dissolved in stages thereafter.
 Three sharp lessons. First, a confederation without taxation, military
 authority, or permanent staff is brittle to external coercion when
 states arise that have all three. Kith-Covenant must answer what its
-*permanent capacity* is — not "central authority" (the Hanse's absence
+*permanent capacity* is: not "central authority" (the Hanse's absence
 was a feature) but some durable institutional mass that cannot be
 casually overwhelmed. Second, the Hanse is informative for the
 substrate/first-order distinction
@@ -297,7 +297,7 @@ confessional divide shows that cooperation survives first-order
 theological disagreement provided the underlying substrate (shared
 transcendent moral authority, shared oath-binding) persists. What
 ultimately ended the Hanse was external coercion, economic gravity
-shifting Atlantic-ward, and institutional ossification — not substrate
+shifting Atlantic-ward, and institutional ossification, not substrate
 collapse. Third, *Verhansung* was a working precedent for collective
 sanction by a sovereign-less league; expulsion from the compact's
 privileges is a real instrument provided the privileges are real.
@@ -310,12 +310,12 @@ privileges is a real instrument provided the privileges are real.
 
 The medieval law merchant (*lex mercatoria*) developed organically
 from the late 11th century onward, particularly around the Champagne
-fairs (12th–13th c.), the Italian maritime cities, and the Hanseatic
+fairs (12th-13th c.), the Italian maritime cities, and the Hanseatic
 North. It was customary law made by and for merchants, often without
 state participation, applicable across jurisdictions because merchants
 needed predictable rules at every node of their networks.
 
-(Caveat: recent scholarship — Emily Kadens, Ron Harris, and others —
+(Caveat: recent scholarship, Emily Kadens, Ron Harris, and others,
 has questioned the older picture of a single unified "law merchant,"
 arguing that practice was more local and varied than the traditional
 account suggests. The discussion below uses the traditional picture
@@ -328,7 +328,7 @@ if its institutional unity was patchier than once supposed.)
   over time. The *Consolato del Mare* (Mediterranean, 14th c.), the
   *Lex Rhodia* (ancient maritime), the rolls of Oleron, and the laws
   of Wisby were significant compilations.
-- **Pie powder courts** (*curia pedis pulverizati* — "dusty feet") at
+- **Pie powder courts** (*curia pedis pulverizati*, "dusty feet") at
   English fairs gave summary justice to traveling merchants while the
   fair lasted. Disputes were decided same-day so merchants could
   continue.
@@ -360,7 +360,7 @@ disputes would be adjudicated by familiar standards.
   state regulation; the cooperative rule-making of merchant practice
   gave way to top-down statutory regimes.
 
-The *new lex mercatoria* (since the 1960s — ICC arbitration, UNIDROIT
+The *new lex mercatoria* (since the 1960s: ICC arbitration, UNIDROIT
 Principles of International Commercial Contracts) is a partial revival,
 but it operates within space the states permit.
 
@@ -384,8 +384,8 @@ portable on? This is the central question for
 ### Founding context
 
 The personal duel as a formal institution emerges in late-medieval
-Italy, spreads through 16th–17th-century European aristocracy, and
-peaks in the 18th–19th centuries. Major codifications include the
+Italy, spreads through 16th-17th-century European aristocracy, and
+peaks in the 18th-19th centuries. Major codifications include the
 Italian treatises (Muzio's *Il Duello*, 1550, and successors), the
 Irish *Code Duello* (1777, formalized at Clonmel and adopted across
 Britain and the United States), and various French and German codes.
@@ -395,23 +395,23 @@ was *not* universal across society.
 
 ### Mechanism
 
-- **The challenge** — written or verbal — converted a perceived
+- **The challenge**, written or verbal, converted a perceived
   offense into a formal procedure with named rungs and defined exit
   conditions at each rung. The challenge itself was a substitute for
   ambush and feud.
-- **Seconds** — typically two per principal — were the central
+- **Seconds** (typically two per principal) were the central
   procedural innovation. Their duties included: receiving the
   challenge, negotiating with the other side's seconds in attempts to
   resolve the dispute without a meeting, agreeing on weapons, time,
   ground, and rules of engagement, and ensuring the meeting (if it
   occurred) was conducted according to form. Seconds were active
   de-escalators, not just witnesses.
-- **The meeting** — pistols at measured paces, swords on prepared
-  ground — was conducted under strict procedural rules. Honor was
+- **The meeting** (pistols at measured paces, swords on prepared
+  ground) was conducted under strict procedural rules. Honor was
   satisfied by the meeting itself in many traditions; the *deloping*
   practice (deliberately firing wide) was common and often
   mutual.
-- **Honor satisfied** — once the meeting occurred according to form,
+- **Honor satisfied.** Once the meeting occurred according to form,
   the dispute was formally closed regardless of outcome. The principals
   resumed normal social relations.
 
@@ -425,7 +425,7 @@ non-combatants into a controlled, infrequent, ritualized form.
 
 ### Decay
 
-- **Criminalization** — the British Army banned dueling in 1844;
+- **Criminalization.** The British Army banned dueling in 1844;
   Prussia tightened enforcement through the late 19th c.; American
   states banned it during the 19th c.; widespread post-1800
   criminalization across European states.
@@ -440,7 +440,7 @@ non-combatants into a controlled, infrequent, ritualized form.
   cultural carrier.
 - **Lethality of firearms.** As firearms became more accurate and
   reliable, duels became almost certainly fatal, and the cost-benefit
-  inverted — the institution had been bearable when the meeting was
+  inverted. The institution had been bearable when the meeting was
   often a flesh wound or a face-saving exchange.
 - **Industrial-scale war.** The World Wars made personal honor as a
   social arbiter incompatible with war as a fact of mass life.
@@ -469,40 +469,40 @@ political configuration.
 ### Founding context
 
 The Haudenosaunee ("People of the Longhouse") Confederacy bound
-originally five nations — Mohawk, Oneida, Onondaga, Cayuga, Seneca —
+originally five nations (Mohawk, Oneida, Onondaga, Cayuga, Seneca)
 across what is now upstate New York and the surrounding region. The
-Tuscarora joined ca. 1722, making it the Six Nations. The founding —
+Tuscarora joined ca. 1722, making it the Six Nations. The founding,
 attributed to the Peacemaker (Deganawida) and his disciple and
-spokesman Hiawatha — is dated by various scholars to a range from
+spokesman Hiawatha, is dated by various scholars to a range from
 ca. 1142 (some Haudenosaunee oral tradition and recent astronomical
-analysis by Mann and Fields) to ca. 1450–1570 (older European
+analysis by Mann and Fields) to ca. 1450-1570 (older European
 scholarship). The pre-confederation period was characterized by
 intense intertribal blood-feuding; the founding narrative centers on
 ending that feuding.
 
 This is the most important non-Christian case in kith-covenant's comparison
-set, but — as the discussion of substrate below makes clear — it is
+set, but (as the discussion of substrate below makes clear) it is
 *not* a secular case. The earlier draft of this document framed it as
 "non-Christian counterpoint" in a way that left the impression of
 secularity; that framing was wrong and is corrected here. Haudenosaunee
 cosmology is explicitly theistic, with a Creator at the apex of its
 order. Its weight in the argument is therefore not that the
 sacred-substrate function can be performed *without* a sacred substrate,
-but that it can be performed by a non-Christian one — and (as the
+but that it can be performed by a non-Christian one, and (as the
 "transcendent moral authority pattern" section below develops) by one that shares with
 Christianity the structural feature of pointing to a single ultimate
 source.
 
 ### The substrate
 
-Haudenosaunee cosmology recognizes a Creator at the apex of its order
-— *Shöñgwa'ya'di:söñ* in Onondaga, *Sonkwaiatison* in Mohawk,
+Haudenosaunee cosmology recognizes a Creator at the apex of its order:
+*Shöñgwa'ya'di:söñ* in Onondaga, *Sonkwaiatison* in Mohawk,
 *Ha:wëni:yo:'* in Seneca; in modern Haudenosaunee English usage,
 "the Creator" or "Sky Holder." The *Ohén:ton Karihwatékwen*
 ("Thanksgiving Address" or "the words that come before all else"),
 recited at the opening of every council, ceremony, and gathering,
-addresses thanks in ascending sequence through the levels of creation
-— people, mother earth, waters, fish, plants, food plants, medicine
+addresses thanks in ascending sequence through the levels of creation:
+people, mother earth, waters, fish, plants, food plants, medicine
 herbs, animals, trees, birds, four winds, thunderers, sun, grandmother
 moon, stars, enlightened teachers, and finally the Creator who is the
 source of all. The structure is explicitly hierarchical and
@@ -517,8 +517,8 @@ inspired by the Creator to bring the Great Peace. The Great Law
 itself is delivered with sacred authority, not merely customary
 weight.
 
-These details correct the impression — easy to absorb from European
-secondary sources written without sufficient care — that the
+These details correct the impression (easy to absorb from European
+secondary sources written without sufficient care) that the
 Confederacy was somehow a "secular" or "rationalist" achievement.
 It was not. It was a deeply religious settlement whose cosmology
 shares with the Abrahamic traditions the structural feature of a
@@ -545,16 +545,16 @@ institutional features:
   inverts most early-modern European selection procedures and
   decoupled office from inheritance-by-male-line.
 - **Consensus across nations, with structured deliberation.** The
-  council deliberated by side — Mohawk and Seneca on one side
+  council deliberated by side: Mohawk and Seneca on one side
   ("Elder Brothers"), Oneida and Cayuga on the other ("Younger
   Brothers"), with Onondaga as fire-keepers and tie-breakers. Each
   side discussed internally, then the sides exchanged positions, then
   the Onondaga ratified or sent back for further discussion.
   Decisions required unanimity across the nations.
 - **The Condolence ceremony.** Before any deliberation involving a
-  bereaved party, a formal mourning was performed — the "Three Bare
+  bereaved party, a formal mourning was performed (the "Three Bare
   Words" wiping away tears, removing obstructions from the throat,
-  cleansing from grief — to clear the minds of the bereaved before
+  cleansing from grief) to clear the minds of the bereaved before
   they were asked to deliberate. This is the most distinctive
   institutional innovation: *the recognition that a person consumed
   by grief or rage cannot deliberate, and that the community owes
@@ -564,8 +564,8 @@ institutional features:
   governance; the Confederacy operated only on matters affecting all
   members or external relations.
 - **Wampum as record.** Sequenced shell beads recorded treaties, the
-  Great Law itself, and historical events. The Hiawatha Belt — five
-  figures linked around a central tree — symbolized the union.
+  Great Law itself, and historical events. The Hiawatha Belt (five
+  figures linked around a central tree) symbolized the union.
 
 ### Output
 
@@ -585,12 +585,12 @@ its weight in the actual constitutional drafting is contested.
 - **Disease.** Smallpox and other introduced diseases drastically
   reduced Haudenosaunee population from the 17th century onward,
   shifting the demographic balance against them.
-- **Economic dependence.** Trade goods — particularly firearms,
-  metal tools, and cloth — created dependency on European supply
+- **Economic dependence.** Trade goods, particularly firearms,
+  metal tools, and cloth, created dependency on European supply
   chains, which gave colonial powers leverage that did not exist in
   the pre-contact period.
 - **The American Revolution split the league.** Forced to choose
-  sides in an external existential war, the Confederacy fractured —
+  sides in an external existential war, the Confederacy fractured.
   Mohawk, Cayuga, Onondaga, Seneca largely sided with the British;
   Oneida and Tuscarora largely with the Patriots. The first real
   break in the Confederacy came not from internal failure of the
@@ -608,7 +608,7 @@ its weight in the actual constitutional drafting is contested.
   Haudenosaunee accounts is described as a division of the fire
   rather than its extinguishment.
 
-The Confederacy continues today as a living institution — the Council
+The Confederacy continues today as a living institution: the Council
 exists, the Great Law is recited and taught, and the Haudenosaunee
 issue their own passports and have engaged in international diplomacy
 in the 20th and 21st centuries. The institution did not end; it
@@ -620,15 +620,15 @@ structures imposed on it.
 Three lessons of unusual weight.
 
 First, the *sacred-substrate function* does not require Christianity
-specifically — the Kaianerekowa carried the same load that Christian
+specifically. The Kaianerekowa carried the same load that Christian
 oath-culture carried in Europe, through entirely different surface
 content. But the deeper finding, developed in the "transcendent moral authority pattern"
 section below, is that the Iroquois case shares with Christianity the
 specific structural feature of pointing to *a single ultimate* at the
 apex of its cosmology. This is consistent with the substrate-affords-
 emergence position
-([justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content))
-— kith-covenant cannot dictate content — but it sharpens the constraint:
+([justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)),
+kith-covenant cannot dictate content, but it sharpens the constraint:
 the substrate that emerges must have *transcendent moral authority / one-ultimate
 structure*, even when the content of that ultimate differs across
 communities.
@@ -638,7 +638,7 @@ should study seriously. The recognition that a bereaved or enraged
 party cannot deliberate well, and the institutional response of
 *ceremonially clearing their minds before deliberation begins*, has
 no European-tradition parallel and is exactly the kind of practice
-that would address several of kith-covenant's hardest problems —
+that would address several of kith-covenant's hardest problems:
 post-violation reintegration (see protocol sketch in
 [bounded_conflict.md](bounded_conflict.md#protocol-sketch)),
 de-escalation when one party is in the grip of grief or rage,
@@ -663,7 +663,7 @@ failure mode exists.
 ## Further non-Western cases: a brief survey
 
 The Iroquois Confederacy is the most extensively treated non-Western
-case above, but it is not the only one available — and looking at three
+case above, but it is not the only one available, and looking at three
 further non-Western cooperation regimes substantially strengthens the
 pattern of substrate observed across all the cases. Each is presented
 here in compact form (rather than with the full structure of the cases
@@ -674,7 +674,7 @@ cases share the structural feature the Iroquois case displays?
 
 After Sundiata Keita's victory at the Battle of Kirina (1235), a great
 gathering at Kurukan Fuga proclaimed what is often translated as the
-*Manden Charter* — a foundational compact of the Mande Confederation
+*Manden Charter*, a foundational compact of the Mande Confederation
 that bound previously rival kingdoms into a federated empire. The
 charter's surviving recensions (preserved in the oral tradition of the
 Mandinka griots and inscribed by UNESCO as Intangible Cultural Heritage
@@ -688,7 +688,7 @@ creator, with various lesser spirits and ancestral beings beneath. By
 Sundiata's time Islam had penetrated the Mande world; Sundiata himself
 was nominally Muslim, his successors more thoroughly so. The
 substrate of the Charter is therefore a synthesis of Islamic
-monotheism and the Maa Ngala-centered traditional religion — both of
+monotheism and the Maa Ngala-centered traditional religion, both of
 which point to a single ultimate at the apex.
 
 **Decay.** The Mali Empire weakened from the 15th century under
@@ -700,16 +700,16 @@ constitutional discourse.
 
 **Lesson.** A federated, multi-ethnic compact, sustained for several
 centuries across communities that did not share day-to-day life, on a
-substrate whose distinctive structural feature is — again — a single
+substrate whose distinctive structural feature is, again, a single
 ultimate. The synthesis of Islam with traditional Maa Ngala worship
 is itself instructive: the two traditions could fuse in practice
 precisely because they shared the transcendent moral authority structure, even where
 their surface theologies differed.
 
-### The Mongol Yasa and the Pax Mongolica (ca. 1206–1368)
+### The Mongol Yasa and the Pax Mongolica (ca. 1206-1368)
 
 *Note: The Mongol and Islamic cases below are **imperial** cooperation
-regimes — cooperation imposed or structured by a dominant power, not
+regimes, cooperation imposed or structured by a dominant power, not
 voluntary peer cooperation among communities of roughly equal standing.
 They are included as secondary support for the transcendent moral authority pattern
 (the substrate finding holds even in imperial contexts) but are not
@@ -720,20 +720,20 @@ appendix.*
 Genghis Khan's *Yasa* (also Jasagh) was a body of law proclaimed at
 the founding of the Mongol Empire and elaborated by his successors,
 governing relations among Mongol clans and between the Mongols and the
-peoples they ruled. The *Pax Mongolica* it sustained — for roughly a
-century and a half across an empire stretching from Korea to Hungary
-— enabled overland trade, religious travel, diplomatic exchange, and
+peoples they ruled. The *Pax Mongolica* it sustained, for roughly a
+century and a half across an empire stretching from Korea to Hungary,
+enabled overland trade, religious travel, diplomatic exchange, and
 the safe passage of figures like Marco Polo, Rabban Bar Sauma, and
 Ibn Battuta across distances and political boundaries that had
 previously been uncrossable.
 
 **Substrate.** Mongol religion in this period was *Tengrism*, centered
 on *Tengri* (the Eternal Blue Sky), the supreme deity from whom
-political authority — including the Khan's own mandate — derived. The
+political authority, including the Khan's own mandate, derived. The
 structural parallel to the Chinese *Tian* (Heaven) and to other
 transcendent moral authority systems is exact. Famously, Mongol rule was *strikingly
-tolerant* of other religions — Christianity, Islam, Buddhism, Daoism
-all received imperial protection — and the tolerance was grounded
+tolerant* of other religions: Christianity, Islam, Buddhism, Daoism
+all received imperial protection, and the tolerance was grounded
 explicitly in the Mongol view that worship of the high gods of other
 peoples was at root worship of Tengri under another name. This is the
 transcendent moral authority hypothesis (below) made explicit policy by a state.
@@ -760,28 +760,28 @@ institutions for cooperation across the boundary between the Muslim
 community (*umma*) and non-Muslim peoples. Three of these are
 particularly relevant:
 
-- **Aman** — safe-conduct for a non-Muslim entering Muslim territory.
+- **Aman.** Safe-conduct for a non-Muslim entering Muslim territory.
   Could be granted by any Muslim and was binding on all Muslims; the
   recipient was inviolable for the duration. The institution is
   structurally close to the European tradition of safe conduct but
   was both more widespread and more legally elaborated.
-- **Dhimma** — covenant of protection extended to "People of the
+- **Dhimma.** Covenant of protection extended to "People of the
   Book" (*Ahl al-Kitab*: Christians, Jews, sometimes Zoroastrians and
   others). *Dhimmis* retained their religious autonomy, internal law,
   and community institutions in exchange for paying *jizya* (a poll
   tax) and accepting certain restrictions. The system functioned
   across the caliphates and most of their successor states for over a
   millennium.
-- **Muwadaʿa / hudna** — formal truce or treaty with a non-Muslim
+- **Muwadaʿa / hudna.** Formal truce or treaty with a non-Muslim
   political power. Bounded in time (classically a maximum of ten
   years) but renewable; the framework structured most pre-modern
   Islamic-Christian and Islamic-Hindu state relations.
 
 **Substrate.** Islam is paradigmatically monotheistic, and its
 internal categorization of other peoples is *explicitly structured by
-their relationship to monotheism*. The *Ahl al-Kitab* — fellow
+their relationship to monotheism*. The *Ahl al-Kitab* (fellow
 monotheists who received scripture from the same God under prior
-covenants — receive the elevated *dhimma* status. The Constitution of
+covenants) receive the elevated *dhimma* status. The Constitution of
 Medina (622 CE), often considered the first written constitution in
 Islamic history, explicitly extends the protected-community framework
 to the Jewish tribes of Medina, treating them as part of the *umma*
@@ -800,8 +800,8 @@ Islamic jurisprudence but are not enacted by modern Muslim states in
 their classical form.
 
 **Lesson.** The *most explicitly worked-out historical legal
-architecture for cross-community cooperation* — running for over a
-millennium across an enormous geographic and cultural range — is
+architecture for cross-community cooperation*, running for over a
+millennium across an enormous geographic and cultural range, is
 built directly on the structural recognition of fellow monotheists as
 standing in special relationship. The framework's two-tier character
 (*Ahl al-Kitab* vs. others) is the transcendent moral authority hypothesis *operationalized
@@ -820,17 +820,17 @@ clarifying the transcendent moral authority pattern, but each in compressed form
   two millennia, from India through Central Asia to East Asia. This
   appears to be a counterexample to the transcendent moral authority
   hypothesis. On closer examination, Buddhist tradition substitutes a
-  different *single ultimate* — the *Dharma* (cosmic moral and natural
-  law) — which functions structurally like a high god in providing a
+  different *single ultimate*, the *Dharma* (cosmic moral and natural
+  law), which functions structurally like a high god in providing a
   single reference point that makes oaths and recognition meaningful.
   Whether the Dharma is "really" a high god is a deep philosophical
   question; for purposes of the sociological pattern, it appears to
-  play the same structural role. The full case analysis —
-  treating the sangha as three distinct cross-polity regimes
-  (Theravada, East Asian, Tibetan Vajrayana) on the same metrics the
+  play the same structural role. The full case analysis
+  (treating the sangha as three distinct cross-polity regimes,
+  Theravada, East Asian, Tibetan Vajrayana, on the same metrics the
   Christian cases above are evaluated on, and applying the five
-  anti-spiral features test
-  ([justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)) —
+  anti-spiral features test,
+  [justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
   is in [buddhist_sangha.md](buddhist_sangha.md). Its principal
   finding is that the sangha is a real case of long-running voluntary
   cross-community cooperation that supplies the anti-spiral features
@@ -845,7 +845,7 @@ clarifying the transcendent moral authority pattern, but each in compressed form
 
 - **Classical Greek amphictyonic leagues and Roman federations.** Both
   were polytheistic, but both centered cooperation on shared
-  *sanctuaries* dedicated to a *primus inter pares* high god — Zeus
+  *sanctuaries* dedicated to a *primus inter pares* high god: Zeus
   at Olympia and Dodona, Apollo at Delphi, Jupiter Optimus Maximus at
   the Capitol. The leagues' formal treaties were sworn before these
   high gods specifically. So the pattern holds even within
@@ -854,9 +854,9 @@ clarifying the transcendent moral authority pattern, but each in compressed form
 
 - **Modern secular international institutions** (UN, IMF, WTO, etc.)
   attempt cross-community cooperation on an explicitly *non-theistic*
-  substrate. Their relative brittleness — their tendency to function
-  while powerful states approve and to fail when those states defect
-  — is consistent with the prediction the transcendent moral authority hypothesis makes:
+  substrate. Their relative brittleness (their tendency to function
+  while powerful states approve and to fail when those states defect)
+  is consistent with the prediction the transcendent moral authority hypothesis makes:
   cooperation regimes built without a transcendent moral authority substrate must be
   underwritten by state coercion to function, and so are not really
   cooperation among strangers but rather cooperation among states
@@ -878,14 +878,14 @@ not repeated; what follows is the additional case set.
 
 The Nuer, documented by Evans-Pritchard (*The Nuer*, 1940; *Nuer
 Religion*, 1956), maintained cooperation across independent,
-acephalous segments — genuinely voluntary peers with no central
-authority — for at least several centuries before colonial disruption.
+acephalous segments (genuinely voluntary peers with no central
+authority) for at least several centuries before colonial disruption.
 
 **Substrate:** Evans-Pritchard identified *Kwoth* (Spirit/God) as
 the supreme being in Nuer religion. Oaths were sworn by Kwoth, and
 oath-breaking was believed to bring supernatural punishment. The
 leopard-skin chief (*kuaar muon*) who mediated inter-segment disputes
-derived authority from a sacred, not political, role — he could not
+derived authority from a sacred, not political, role: he could not
 compel but could invoke spiritual sanctions.
 
 **Mechanism:** Segmentary opposition (groups that feud at one level
@@ -915,8 +915,8 @@ any form of chieftainship.
 **Substrate:** Tiv religion centered on *tsav* (a substance/power
 associated with witchcraft and authority) and *akombo* (ritual
 forces). There is no clear transcendent moral authority figure comparable to Nuer Kwoth.
-Cooperation was maintained through fear of *tsav* — elders with tsav
-could harm defectors — and through shared ritual obligations.
+Cooperation was maintained through fear of *tsav* (elders with tsav
+could harm defectors) and through shared ritual obligations.
 
 **Mechanism:** Segmentary opposition, rotating market networks
 creating economic interdependence, age-grade organizations, and
@@ -943,7 +943,7 @@ communities were genuinely self-governing.
 **Substrate:** Igbo religion featured *Chukwu* (supreme being) and
 *Chi* (personal spiritual essence), with the Earth goddess *Ala/Ani*
 as moral enforcer. The Aro Oracle (*Ibini Ukpabi*) at Arochukwu
-served as a supreme court for inter-community disputes — communities
+was a supreme court for inter-community disputes: communities
 brought cases to the oracle, whose judgments were considered divinely
 authoritative.
 
@@ -954,7 +954,7 @@ and masquerade/secret societies enforcing norms across communities.
 **Decay mode:** British colonialism imposed warrant chiefs (provoking
 the 1929 Women's War when Igbo women protested the alien authority).
 The Aro Oracle was destroyed by British military expedition in
-1901–1902.
+1901-1902.
 
 **Assessment:** A mixed case. The Aro Oracle system involves a sacred
 substrate (divine judgment) facilitating inter-community cooperation,
@@ -969,10 +969,10 @@ dimensions but not a singular transcendent moral authority covenant structure.
 Aboriginal Australian language groups and clans cooperated across
 the entire continent through songlines (dreaming tracks), trade
 routes, and ceremonial obligations. Groups were fully autonomous.
-The duration is extraordinary — possibly tens of thousands of years,
+The duration is extraordinary, possibly tens of thousands of years,
 making these by far the longest-lived cooperation systems known.
 
-**Substrate:** The Dreaming (*Tjukurpa*, *Jukurrpa*) — a sacred
+**Substrate:** The Dreaming (*Tjukurpa*, *Jukurrpa*) is a sacred
 cosmology in which ancestral beings created the landscape and
 established the Law. The Dreaming is not a transcendent moral authority system but a
 *sacred-law* system: the rules of cooperation are embedded in the
@@ -994,8 +994,8 @@ Some systems persist in modified form in remote areas.
 **Assessment:** The most significant challenge to a *strict*
 transcendent moral authority thesis. Continent-scale cooperation over millennia without
 monotheism. The Dreaming is sacred and morally authoritative but not
-theistic in the Western sense. However — and this is critical for
-kith-covenant's design — the cooperation was *thin*: no binding
+theistic in the Western sense. However, and this is critical for
+kith-covenant's design, the cooperation was *thin*: no binding
 arbitration, no collective defense, no formal political federation,
 no recognition-ceremony equivalent, no escalation-ladder equivalent.
 The cooperation governed trade, marriage, ceremony, and passage, but
@@ -1006,7 +1006,7 @@ federation* can be.
 
 ### Andean ayllu networks (pre-Inca)
 
-Ayllus — kin-based communities in the Andean highlands — cooperated
+Ayllus, kin-based communities in the Andean highlands, cooperated
 through reciprocal labor (*ayni*, *minka*) and vertical-archipelago
 resource-sharing (communities maintaining colonies at different
 altitudes to access diverse ecological zones).
@@ -1028,13 +1028,13 @@ tribute.
 imperial framework (converting voluntary reciprocity into tributary
 obligation). The Spanish colonial *reducción* system disrupted the
 vertical-archipelago pattern. But ayllu cooperation has shown
-remarkable persistence — elements survive to the present day in
+remarkable persistence: elements survive to the present day in
 Bolivian and Peruvian highland communities.
 
 **Assessment:** Extraordinarily durable cooperation with a
 landscape-based rather than transcendent moral authority sacred substrate. *Challenges*
 the strict transcendent moral authority thesis but *supports* a broader sacred-substrate
-thesis. The ayllu system survived two imperial conquests — evidence
+thesis. The ayllu system survived two imperial conquests, evidence
 of deep structural resilience. As with the Aboriginal case, the
 cooperation governed commons and reciprocity, not formalized
 political federation with binding arbitration.
@@ -1046,7 +1046,7 @@ Massim archipelago (Papua New Guinea). The Hiri trade connected
 Motu coastal villages with Gulf of Papua communities. Participants
 were independent communities.
 
-**Substrate:** Kula exchange was saturated with magic and ritual —
+**Substrate:** Kula exchange was saturated with magic and ritual:
 canoe-building magic, beauty magic, taboos governing the handling of
 valuables (*vaygu'a*). The sacred dimension was real but distributed:
 no single transcendent moral authority, but a web of magical obligations binding partners
@@ -1067,54 +1067,54 @@ century as colonial markets supplanted it.
 **Assessment:** Genuine voluntary, multi-generational,
 cross-community cooperation with a sacred but not transcendent moral authority substrate.
 *Challenges* the strict transcendent moral authority thesis but the cooperation is
-*narrow* — it governs exchange relationships, not the broader
+*narrow*: it governs exchange relationships, not the broader
 political-legal cooperation that covenant systems produce.
 
-### ASEAN (1967–present)
+### ASEAN (1967-present)
 
 The Association of Southeast Asian Nations: voluntary cooperation
 among states with radically different religious substrates (Buddhist,
 Muslim, Catholic, Confucian-secular).
 
 **Substrate:** Explicitly secular. The "ASEAN Way" is based on
-consensus, non-interference, and face-saving — cultural norms rather
+consensus, non-interference, and face-saving: cultural norms rather
 than sacred commitments. No shared sacred substrate.
 
 **Mechanism:** Consensus decision-making, non-interference in
 internal affairs, quiet diplomacy, economic integration, regular
-summits. The cooperation is deliberately shallow by design — deep
+summits. The cooperation is deliberately shallow by design: deep
 integration is avoided to preserve sovereignty.
 
 **Assessment:** The most prominent modern case of cross-substrate
 voluntary cooperation. Directly challenges the thesis that a shared
 sacred substrate is *necessary*. However: 59 years is historically
-short; the cooperation is notably shallow (ASEAN cannot enforce norms
-— e.g., inability to address Myanmar's junta); and ASEAN free-rides
+short; the cooperation is notably shallow (ASEAN cannot enforce norms,
+e.g., inability to address Myanmar's junta); and ASEAN free-rides
 on the post-WWII liberal international order for security guarantees.
-These are legitimate responses but risk becoming unfalsifiable — at
+These are legitimate responses but risk becoming unfalsifiable. At
 what point would ASEAN's continued existence *count* as evidence
 against the thesis?
 
-### Swiss Confederacy (1291–present)
+### Swiss Confederacy (1291-present)
 
 Already treated as a Western case, but relevant here for its
 *cross-substrate survival*. The Confederacy survived the Reformation
-with both Catholic and Protestant cantons cooperating — the very
+with both Catholic and Protestant cantons cooperating, the very
 fracture that destroyed cooperation elsewhere in Europe.
 
 **Assessment:** Supports the thesis at founding (the 1291 Bundesbrief
-is explicitly sworn "in the name of God"), and — on a careful reading
-— supports it post-Reformation as well. The confessional split between
+is explicitly sworn "in the name of God"), and, on a careful reading,
+supports it post-Reformation as well. The confessional split between
 Catholic and Protestant cantons was a *first-order* theological
 division, not a substrate fracture: both sides continued to swear oaths
 before the same God of scripture, and the substrate-level commitment
 that made Bundesbrief-style oaths binding remained intact. What was
-contested was ecclesiology, sacramental theology, and church authority
-— not the existence of a transcendent moral authority before whom
+contested was ecclesiology, sacramental theology, and church authority,
+not the existence of a transcendent moral authority before whom
 oaths bind. The Confederacy's post-Reformation persistence is therefore
 consistent with the substrate thesis. It does, however, illustrate
 that *first-order* disagreement within a shared substrate can be
-survived — an important precedent for kith-covenant, which expects
+survived, an important precedent for kith-covenant, which expects
 its member communities to hold different first-order theologies while
 sharing the substrate structure.
 
@@ -1122,7 +1122,7 @@ sharing the substrate structure.
 
 East Asian political history (Chinese, Japanese, Korean) is
 overwhelmingly imperial or feudal. Voluntary peer cooperation between
-independent communities is genuinely rare in this tradition — the
+independent communities is genuinely rare in this tradition: the
 Confucian emphasis on hierarchical order, the centralized-state model,
 and the tributary-system framework all work against it. This is not
 selection bias; it is a genuine structural feature of East Asian
@@ -1135,9 +1135,9 @@ inter-polity.
 ### Source quality and ideological bias
 
 The non-Western cases rest on ethnographic fieldwork of varying
-quality and age. The ideological-bias question — whether modern
+quality and age. The ideological-bias question (whether modern
 scholarship's anti-theistic and anti-Western tendencies have skewed
-the interpretation of these cases — is real and must be assessed
+the interpretation of these cases) is real and must be assessed
 case by case.
 
 **Primary sources and their reliability:**
@@ -1145,25 +1145,25 @@ case by case.
 | Case | Primary source(s) | Date | Quality | Bias concern |
 |------|-------------------|------|---------|-------------|
 | Kula ring | Malinowski, *Argonauts of the Western Pacific* | 1922 | Excellent | Pre-ideological; later confirmations (Weiner 1976, Leach 1983) |
-| Nuer | Evans-Pritchard, *The Nuer* / *Nuer Religion* | 1940/1956 | Good | E-P converted to Catholicism 1944, between the two books; his identification of Kwoth as transcendent moral authority may reflect his conversion — but Kwoth independently attested (Hutchinson 1996) |
+| Nuer | Evans-Pritchard, *The Nuer* / *Nuer Religion* | 1940/1956 | Good | E-P converted to Catholicism 1944, between the two books; his identification of Kwoth as transcendent moral authority may reflect his conversion, but Kwoth independently attested (Hutchinson 1996) |
 | Tiv | P. & L. Bohannan, *Tiv Economy* / *Justice and Judgment* | 1957/1968 | Excellent | Pre-ideological; absence of transcendent moral authority is primary-data finding, not interpretation |
-| Igbo | Meek (1937), Uchendu (1965, himself Igbo), Isichei (1976) | 1937–1976 | Good | Chukwu as supreme being attested by multiple independent sources incl. indigenous scholars; question: pre-contact or missionary-influenced? |
-| Andean ayllu | Murra, *Economic Organization of the Inca State* | 1980 | Good | Cooperation system uncontested; Viracocha-as-transcendent-moral-authority question contested (colonial chroniclers may have imposed monotheistic frame — MacCormack 1991) |
-| Aboriginal | Spencer & Gillen (1899), Elkin (1938), Stanner (1979), Berndt & Berndt (1964) | 1899–1979 | Good | Primary ethnography strong and mostly pre-ideological; transcendent moral authority question (Baiame, Rainbow Serpent) heavily contested |
+| Igbo | Meek (1937), Uchendu (1965, himself Igbo), Isichei (1976) | 1937-1976 | Good | Chukwu as supreme being attested by multiple independent sources incl. indigenous scholars; question: pre-contact or missionary-influenced? |
+| Andean ayllu | Murra, *Economic Organization of the Inca State* | 1980 | Good | Cooperation system uncontested; Viracocha-as-transcendent-moral-authority question contested (colonial chroniclers may have imposed monotheistic frame; MacCormack 1991) |
+| Aboriginal | Spencer & Gillen (1899), Elkin (1938), Stanner (1979), Berndt & Berndt (1964) | 1899-1979 | Good | Primary ethnography strong and mostly pre-ideological; transcendent moral authority question (Baiame, Rainbow Serpent) heavily contested |
 
 **The ideological bias cuts in two directions, both relevant to the
 substrate thesis:**
 
 **Direction 1: Post-1970s anthropology has been suspicious of finding
 transcendent moral authorities in non-Western cultures.** Earlier researchers who *did*
-find transcendent moral authority elements — Andrew Lang (*The Making of Religion*, 1898)
+find transcendent moral authority elements (Andrew Lang, *The Making of Religion*, 1898,
 arguing Aboriginal Australians had a primitive monotheism centered
 on Baiame; Evans-Pritchard identifying Nuer Kwoth as a supreme
-being — have been retroactively questioned by later scholars who
+being) have been retroactively questioned by later scholars who
 treat such findings as Christian projection onto indigenous cosmology.
 Sometimes the questioning is methodologically fair
 (Evans-Pritchard's Catholic conversion between his two Nuer books
-is a legitimate concern). Sometimes it is ideological — a blanket
+is a legitimate concern). Sometimes it is ideological: a blanket
 assumption that *any* finding of monotheistic structure in a
 non-Western culture must be Western imposition rather than
 indigenous reality.
@@ -1184,7 +1184,7 @@ does not settle the question; the scholar's priors do.
 **Direction 2: Post-1970s anthropology has been eager to present
 non-Western cooperation as successful and self-sufficient**, as a
 corrective to colonial narratives of "primitive" peoples requiring
-Western institutions. This corrective was needed — earlier
+Western institutions. This corrective was needed: earlier
 scholarship often dismissed non-Western cooperation. But the
 corrective risks overcorrecting: the *durability and effectiveness*
 of non-Western cooperation systems may be overstated in recent
@@ -1207,9 +1207,9 @@ than resolving it by fiat.
 The net effect on the substrate thesis: the source-quality assessment
 *strengthens* rather than weakens the thesis. If the apparent
 counterexamples (Aboriginal, Andean, Tiv) may have more transcendent moral authority
-structure than post-1970s scholarship acknowledges — if the
+structure than post-1970s scholarship acknowledges, if the
 exceptions to the pattern are less exceptional than they appear in
-the recent literature — then the evidential base for the thesis is
+the recent literature, then the evidential base for the thesis is
 broader than a naive reading of the modern secondary literature
 suggests.
 
@@ -1221,7 +1221,7 @@ original transcendent moral authority hypothesis:
 **Two kinds of durable cooperation exist, with different substrate
 requirements:**
 
-1. **Commons-and-exchange cooperation** — trade networks, resource
+1. **Commons-and-exchange cooperation.** Trade networks, resource
    reciprocity, ceremonial exchange, marriage alliances, commons
    governance. This form of cooperation can be sustained on *any*
    sacred substrate (transcendent moral authority, animist, landscape-based, ancestral).
@@ -1229,7 +1229,7 @@ requirements:**
    cases demonstrate this. The cooperation is real, durable (sometimes
    extraordinarily so), and does not require a transcendent moral authority.
 
-2. **Formalized political federation** — binding arbitration,
+2. **Formalized political federation.** Binding arbitration,
    recognition ceremonies, escalation procedures, anathema/expulsion
    mechanisms, collective defense, covenant-level commitments among
    independent communities. This form of cooperation *does* appear to
@@ -1241,9 +1241,9 @@ requirements:**
    (Aboriginal, Andean, Pacific, Tiv) did not produce this specific
    institutional form.
 
-**Kith-covenant is building the second kind.** Its architecture —
-the recognition ceremony, the escalation ladder, the anathema
-procedure, the liminal institutions, the mediator pool — is
+**Kith-covenant is building the second kind.** Its architecture (the
+recognition ceremony, the escalation ladder, the anathema
+procedure, the liminal institutions, the mediator pool) is
 formalized political federation among independent communities. The
 evidence suggests that this specific architecture requires the
 transcendent moral authority substrate, not because other substrates are inferior for
@@ -1253,7 +1253,7 @@ ceremonies, substrate-grounded discernment) require a transcendent
 moral authority to function.
 
 This precision matters. The claim is not "transcendent moral authority substrates are
-better" — the Aboriginal Australian case, with its tens-of-thousands-
+better." The Aboriginal Australian case, with its tens-of-thousands-
 of-years duration, demolishes any such claim. The claim is:
 **the specific kind of cooperation kith-covenant is designed to
 produce has historically required a transcendent moral authority substrate, and the
@@ -1262,53 +1262,53 @@ evidence does not show it being produced without one.**
 ### The commons compact: a lighter-weight tier
 
 The two-kinds finding suggests that kith-covenant's architecture
-should make room for both. The full compact — with its recognition
+should make room for both. The full compact, with its recognition
 ceremony, escalation ladder, anathema procedure, and the complete
-institutional apparatus — is the ideal and requires the transcendent moral authority
-substrate. But a **commons compact** — a lighter-weight cooperation
+institutional apparatus, is the ideal and requires the transcendent moral authority
+substrate. But a **commons compact**, a lighter-weight cooperation
 framework for communities that hold *some* sacred substrate (animist,
 landscape-based, ancestral, or otherwise) but not the transcendent moral authority
-structure the full compact requires — is both historically attested
+structure the full compact requires, is both historically attested
 and practically valuable.
 
 The commons compact would support:
-- **Trade and exchange** — formalized reciprocity, market access,
+- **Trade and exchange.** Formalized reciprocity, market access,
   resource sharing, the economic cooperation that the Kula ring,
   the Hanse's commercial layer, and the Andean vertical archipelago
   demonstrate.
-- **Commons governance** — shared management of resources using
+- **Commons governance.** Shared management of resources using
   Ostrom's design principles
   ([commons_federation.md](commons_federation.md)), which do not
   require a transcendent moral authority substrate.
-- **Passage and hospitality** — safe transit, emergency aid, the
+- **Passage and hospitality.** Safe transit, emergency aid, the
   "passage for the traveler" virtue operating at a lighter
   commitment level.
-- **Knowledge exchange** — shared archives, scholarly cooperation,
+- **Knowledge exchange.** Shared archives, scholarly cooperation,
   the information commons at the exchange level.
 
 The commons compact would *not* support (or would support only in
 attenuated form):
-- **The full recognition ceremony** — which requires transcendent moral authority
+- **The full recognition ceremony**, which requires transcendent moral authority
   acknowledgment in Movement 1. A commons-compact equivalent might
   involve a lighter commitment (acknowledgment of a sacred order,
   without specifying its structure).
-- **The anathema procedure** — which depends on substrate-grounded
+- **The anathema procedure**, which depends on substrate-grounded
   discernment. Commons-compact dispute resolution would be closer
   to the pie-powder-court model (rapid, pragmatic, reputation-based)
   than the full escalation ladder.
-- **Binding arbitration** — which requires oaths sworn before a
+- **Binding arbitration**, which requires oaths sworn before a
   transcendent authority. Commons-compact arbitration would be
   advisory rather than binding, enforced by reputation and trade
   consequences rather than by sacred obligation.
 
 **The relationship between the two tiers is hypothetically
 developmental.** The commons compact is a *degraded form* of the
-full compact — not in the pejorative sense, but in the precise
+full compact, not in the pejorative sense, but in the precise
 sense: it is what cooperation looks like when the substrate is not
 strong enough (or not yet strong enough) to support the full
 architecture. A community participating in a commons compact may
 over time develop the substrate depth that makes full compact
-membership possible — or it may not, and the commons-compact
+membership possible, or it may not, and the commons-compact
 relationship remains valuable on its own terms.
 
 The historical precedent is the lex mercatoria's relationship to
@@ -1326,9 +1326,9 @@ compact).
 The Noahide analogy from
 [justus_hostis.md](justus_hostis.md) §"The Rawlsian objection and
 the durability hypothesis" applies at the compact level: the commons
-compact is the Noahide tier — less is required, less is provided,
+compact is the Noahide tier: less is required, less is provided,
 but the cooperation is real and the relationship is genuine. The full
-compact is the Mosaic tier — more is required, more is provided, and
+compact is the Mosaic tier: more is required, more is provided, and
 the institutional architecture is correspondingly deeper.
 
 The design implication: kith-covenant's founding documents should
@@ -1336,8 +1336,8 @@ include a commons-compact template alongside the full-compact
 template, specifying the lighter substrate requirements, the
 available mechanisms, and the pathway (if any) from commons compact
 to full compact. Communities that cannot or will not meet the full
-substrate requirements are not thereby excluded from all cooperation
-— they are offered a genuine, historically attested, lighter-weight
+substrate requirements are not thereby excluded from all cooperation.
+They are offered a genuine, historically attested, lighter-weight
 alternative. The alternative is less than the ideal; it is not
 nothing.
 
@@ -1345,7 +1345,7 @@ nothing.
 
 The preceding case-set was assembled under the voluntary-peer-longevity
 filter (established in [noticeable_hand.md](noticeable_hand.md#a-methodological-refinement-voluntary-peer-cooperation-under-longevity))
-and consists of *full cooperation regimes* — regimes that govern a
+and consists of *full cooperation regimes*, regimes that govern a
 broad envelope of a community's interactions with other communities.
 That filter is methodologically defensible but it excludes a different
 and equally real category of historical evidence: **cases in which
@@ -1359,22 +1359,22 @@ filter to silently exclude the counter-evidence.
 
 The strongest cases, roughly in chronological order:
 
-**The Late Bronze Age treaty grammar (c. 1500–1200 BCE).** The
+**The Late Bronze Age treaty grammar (c. 1500-1200 BCE).** The
 Hittite-Egyptian treaty of 1259 BCE (Ramesses II and Hattušili III,
 commonly called the Treaty of Kadesh) is the earliest surviving
 parity treaty between two great powers and survives in parallel
 Egyptian hieroglyphic and Akkadian cuneiform copies that agree on
-substance. The two courts had genuinely dissimilar cosmologies —
-Egyptian divine kingship with a pantheon headed by Amun-Re; Hittite
-Storm God and patron deities of cities — yet the treaty's *form* was
+substance. The two courts had genuinely dissimilar cosmologies
+(Egyptian divine kingship with a pantheon headed by Amun-Re; Hittite
+Storm God and patron deities of cities), yet the treaty's *form* was
 one both parties recognized as binding: preamble, historical prologue,
 stipulations, list of divine witnesses, blessings and curses,
 instructions for deposition and periodic reading. Each side invoked
 its *own* gods as witnesses. Neither submitted to the other's
 substrate. The same structural form appears in Hittite suzerainty
 treaties, in Mitannian and Assyrian diplomatic correspondence (Amarna
-letters, mid-14th c.), and — the inheritance that matters for the
-later substrate tradition — in the Sinai covenant, which adopts the
+letters, mid-14th c.), and, the inheritance that matters for the
+later substrate tradition, in the Sinai covenant, which adopts the
 six-part suzerainty-treaty form for Israel's covenant with YHWH. The
 significance for the present argument: a diplomatic grammar shared
 across radically different cosmologies operated reliably for centuries
@@ -1384,13 +1384,13 @@ the *ground*. (Primary: Beckman, *Hittite Diplomatic Texts*, 2nd ed.,
 1999; Mendenhall, *Law and Covenant in Israel and the Ancient Near
 East*, 1955.)
 
-**Rhodian Sea Law and its transmission (c. 800 BCE – 1500 CE).**
-General-average and jettison rules — the principle that loss
+**Rhodian Sea Law and its transmission (c. 800 BCE to 1500 CE).**
+General-average and jettison rules (the principle that loss
 deliberately incurred to save the rest of a venture is shared
-proportionally among all whose property was at risk — are attested
+proportionally among all whose property was at risk) are attested
 for Rhodian maritime practice from the Hellenistic period and were
 absorbed into Roman law as the *Lex Rhodia de iactu* (*Digest*
-14.2), thence into the Byzantine *Nómos Rhodíōn Nautikós* (7th–8th
+14.2), thence into the Byzantine *Nómos Rhodíōn Nautikós* (7th-8th
 c. CE), thence into Islamic maritime law (the *Qanun al-Bahr* and
 the Maliki-school treatment of the *qirad* maritime partnership),
 thence into the Mediterranean *Consolat de Mar* (codified in
@@ -1399,16 +1399,16 @@ into Genoese, Venetian, Pisan, Amalfitan, and eventually Atlantic
 commercial practice. Four civilizations with incompatible theologies
 held essentially the same rules on jettison apportionment, average
 adjustment, and bottomry for over a millennium. Each justified the
-rule in its own frame — Roman *ius*, Byzantine-Christian *nomos*,
-shariah-compatible *qanun*, Christian-Catalan maritime custom — but
+rule in its own frame (Roman *ius*, Byzantine-Christian *nomos*,
+shariah-compatible *qanun*, Christian-Catalan maritime custom), but
 the rule itself did not change. The transmitted substance predated,
 outlasted, and operated across every confessional divide in the
 Mediterranean basin. (Primary: Ashburner, *The Rhodian Sea-Law*,
 1909; Khalilieh, *Islamic Maritime Law*, 1998; Pryor, *Commerce,
 Shipping and Naval Warfare in the Medieval Mediterranean*, 1988.)
 
-**Mediterranean frontier norms across the Christian–Islamic boundary
-(c. 1100–1700 CE).** The Crusader period and the centuries that
+**Mediterranean frontier norms across the Christian-Islamic boundary
+(c. 1100-1700 CE).** The Crusader period and the centuries that
 followed produced a substantially overlapping set of customs across
 what was nominally a hard religious frontier: the Islamic *aman*
 (safe-conduct) and European *salvus conductus*, the *hudna* and
@@ -1420,11 +1420,11 @@ Muslim captives), the Venetian *bailo* in Constantinople, the
 Ottoman *dragoman* corps, the Genoese and Venetian *fondachi* in
 Alexandria and Acre, and mutually-recognized parley-flag conventions
 at sea. These were not single-community regimes; they operated
-reliably *across* the Christian–Islamic boundary, through the
+reliably *across* the Christian-Islamic boundary, through the
 Reconquista, through the Ottoman expansion, through the Crusades,
 and through the Barbary period. Each side justified its participation
-in its own terms — shariah permitted *hudna* with non-Muslim polities;
-Christian canon law permitted *treva* with Muslim powers — and the
+in its own terms (shariah permitted *hudna* with non-Muslim polities;
+Christian canon law permitted *treva* with Muslim powers) and the
 frameworks did not require either to concede the other's substrate.
 (Primary: Friedman, *Encounter Between Enemies: Captivity and
 Ransom in the Latin Kingdom of Jerusalem*, 2002; Khadduri, *War and
@@ -1441,10 +1441,10 @@ Chinese imperial envoy protection codified across multiple dynasties,
 the *aman* extended to diplomatic missions in Islamic practice, the
 Mongol understanding that envoy-killing was a casus belli so severe
 that Chinggis Khan's response to the Khwarezmshah's execution of his
-envoys in 1219 triggered the campaign that destroyed Khwarezm —
+envoys in 1219 triggered the campaign that destroyed Khwarezm:
 all of these are independently-originated and mutually-recognized.
 When the Ottomans and Europeans established permanent embassies in
-each other's capitals in the 16th–17th centuries, they did not
+each other's capitals in the 16th-17th centuries, they did not
 invent the framework; they ratified what both sides already
 practiced. The Vienna Convention on Diplomatic Relations (1961) is
 the modern codification of a pattern that was polycentric for at
@@ -1463,13 +1463,13 @@ Convention formally recognized both emblems; Iran later added the
 Red Lion and Sun (used until 1980); the 2005 Third Additional
 Protocol adopted the Red Crystal as a third denominationally-neutral
 emblem, resolving the dispute over Israel's Magen David Adom. The
-underlying *protective framework* — medical neutrality, immunity
+underlying *protective framework* (medical neutrality, immunity
 from attack, the distinctive emblem as a protective marker rather
-than a religious claim — has remained unchanged throughout. This
+than a religious claim) has remained unchanged throughout. This
 is the cleanest modern case of a single framework with
 *culturally-pluralized symbols*: one protocol, many marks. It is
 also the closest modern analogue to what kith-covenant's recognition
-ceremony aspires to structurally — the same substantive commitment,
+ceremony aspires to structurally: the same substantive commitment,
 entered in each community's own terms.
 
 ### What the thin-domain cases have in common
@@ -1479,7 +1479,7 @@ across genuinely dissimilar cultures look consistent:
 
 1. **The domain is functional, not metaphysical.** Commerce,
    maritime salvage, envoy protection, combatant and wounded
-   treatment — domains in which both parties have aligned interests
+   treatment: domains in which both parties have aligned interests
    in predictability and where the cost of defection is legible.
    Thick moral domains (marriage, succession, criminal guilt,
    blasphemy, inheritance of office) essentially never converge
@@ -1520,8 +1520,8 @@ round of this document stated it. Three corrections follow:
 - **The substrate claim applies at the full-compact scale, not at
   every scale of cross-community cooperation.** The full-compact
   scale is the one at which the voluntary-peer-longevity filter is
-  the right instrument. Below that scale — in bounded functional
-  domains with the preconditions above — cooperation can converge
+  the right instrument. Below that scale, in bounded functional
+  domains with the preconditions above, cooperation can converge
   without shared substrate, and the historical record shows that
   it repeatedly does.
 - **What each case does require is that each party internally hold
@@ -1553,8 +1553,8 @@ round of this document stated it. Three corrections follow:
 The thesis survives, narrowed: **each compact member community
 must anchor itself to something above itself, and the compact must
 not claim to be that thing.** The fifth movement of the recognition
-ceremony — submission of the compact itself to what it was formed
-to serve — was already the load-bearing element; the correction
+ceremony, submission of the compact itself to what it was formed
+to serve, was already the load-bearing element; the correction
 elevates it from fifth-among-five to central.
 
 ## The transcendent moral authority pattern
@@ -1564,15 +1564,15 @@ together: every cooperation regime that has sustained itself across
 genuinely unconnected communities *as a full compact* for substantial
 periods has rested on a substrate that points to a *single ultimate*
 at the apex of its cosmology. The surface theology varies
-enormously — the God of Israel and his successors in Christianity and
+enormously (the God of Israel and his successors in Christianity and
 Islam; *Maa Ngala*; *Tengri*; *Shöñgwa'ya'di:söñ*; the *Dharma*; even
-the Greek *primus inter pares* high gods sworn before in formal oaths
-— but the structural feature is consistent.
+the Greek *primus inter pares* high gods sworn before in formal oaths)
+but the structural feature is consistent.
 
 The hypothesis stated as design implication for kith-covenant:
 
 > **Kith-Covenant's compact members are likely to be capable counterparties
-> only insofar as their internal cosmology has a transcendent moral authority structure —
+> only insofar as their internal cosmology has a transcendent moral authority structure,
 > a single ultimate to which oaths, virtue, and mutual recognition can
 > ultimately refer. The content of the ultimate need not be shared
 > across members; the *structural feature* of having one, apparently,
@@ -1592,13 +1592,13 @@ Several careful consequences follow:
   orientation, and a pro-cooperation orientation
   ([justus_hostis.md](justus_hostis.md#what-the-compact-requires-what-it-does-not-and-why)).
   It cannot specify whose ultimate is right, or whether the ultimates are
-  really one or really many, or what the ultimate is called — first-order
+  really one or really many, or what the ultimate is called: first-order
   theology is each community's own business.
 - **But kith-covenant's expectations about candidate members can be
   realistic.** A community whose internal cosmology lacks a transcendent moral authority
-  frame — a strict polytheism without a primary deity, a thoroughly
+  frame (a strict polytheism without a primary deity, a thoroughly
   materialist worldview, an ideological system that recognizes no
-  ultimate beyond itself — may not be a stable counterparty for the
+  ultimate beyond itself) may not be a stable counterparty for the
   long-term sacred-binding work, regardless of its present intentions.
   This is not a moral judgment; it is a structural observation about
   what substrates have historically sustained what cooperation.
@@ -1626,8 +1626,8 @@ without transcendent moral authority structure would substantially weaken it. Se
 candidates have been considered (Buddhist *sangha*, classical Greek
 leagues, modern secular institutions); each on examination either
 confirms the pattern or fits the predicted failure mode. The
-Buddhist *sangha* case — which at first presents as a counterexample
-because of Buddhism's non-theistic philosophical core — on detailed
+Buddhist *sangha* case, which at first presents as a counterexample
+because of Buddhism's non-theistic philosophical core, on detailed
 examination in [buddhist_sangha.md](buddhist_sangha.md) confirms the
 pattern through the Dharma as structural single-ultimate, and adds a
 refinement: the sangha is a *trans-polity religious community*
@@ -1654,13 +1654,13 @@ patterns most directly relevant to kith-covenant's design.
    inter-community law; the *Dharma* for the Buddhist *sangha*; the
    primus-inter-pares high gods for the Greek and Roman leagues. The
    cooperation regime presupposed the substrate; it did not create it.
-   The strengthened claim — that the substrate must specifically have
-   transcendent moral authority structure rather than merely being "shared cosmology" — is
+   The strengthened claim, that the substrate must specifically have
+   transcendent moral authority structure rather than merely being "shared cosmology," is
    developed in "The transcendent moral authority pattern" section above and is consistent
    with the substrate-affords-emergence position
    ([justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
 
-2. **The third-party role — second, mediator, fire-keeper — was
+2. **The third-party role (second, mediator, fire-keeper) was
    institutionally central in all of them.** Cooperation among two
    parties in dispute is structurally less stable than cooperation
    mediated by a recognized third. Kith-Covenant's mediator architecture
@@ -1678,15 +1678,15 @@ patterns most directly relevant to kith-covenant's design.
    cause. Kith-Covenant's threat models should weight external decay
    vectors heavily.
 
-5. **All of them cultivated a procedural choreography — embassies,
-   challenges, fairs, councils, ceremonies — that *substituted form
+5. **All of them cultivated a procedural choreography (embassies,
+   challenges, fairs, councils, ceremonies) that *substituted form
    for trust* among strangers.** Form is the universal device for
    cooperation among strangers; kith-covenant's protocol layer is exactly
    this kind of choreography.
 
-6. **The cases that cultivated explicit practices of restoration —
-   the Condolence ceremony, the *jus post bellum* tradition,
-   ecclesiastical reconciliation — outlasted those that did not.**
+6. **The cases that cultivated explicit practices of restoration (the
+   Condolence ceremony, the *jus post bellum* tradition,
+   ecclesiastical reconciliation) outlasted those that did not.**
    A regime built for fallen actors must include named paths back
    into good standing; this is incorporated in
    [bounded_conflict.md](bounded_conflict.md#protocol-sketch) as the
@@ -1696,7 +1696,7 @@ patterns most directly relevant to kith-covenant's design.
 
 - The Haudenosaunee Condolence ceremony has no European-tradition
   analogue and is a strong candidate for direct study by kith-covenant. What
-  is the appropriate way for kith-covenant to engage with this — citation,
+  is the appropriate way for kith-covenant to engage with this: citation,
   inspiration, formal collaboration with Haudenosaunee scholars?
   This is a matter of intellectual seriousness as well as basic
   respect for living tradition.
@@ -1713,10 +1713,10 @@ patterns most directly relevant to kith-covenant's design.
   which cases bear most directly on kith-covenant's design (filtering out
   Pax Mongolica, *dhimma*, and other imperial frameworks as not
   voluntary peer cooperation). The case treatments above should
-  probably be revisited with that filter applied — likely splitting
+  probably be revisited with that filter applied, likely splitting
   the imperial cases into a separate appendix labeled "cooperation
   regimes that are not what kith-covenant is, but bear instructive
-  parallels" — rather than presenting them alongside the voluntary
+  parallels," rather than presenting them alongside the voluntary
   peer cases as if they were comparable.
 - The brief survey above did not treat the Chinese tributary system,
   the Indian *raja-dharma* tradition, or pre-Inca Andean
@@ -1729,28 +1729,28 @@ patterns most directly relevant to kith-covenant's design.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md) — theoretical anchor; this
+- [justus_hostis.md](justus_hostis.md): theoretical anchor; this
   document supplies the case material the theoretical argument depends on.
-- [bounded_conflict.md](bounded_conflict.md) — the protocol sketch
+- [bounded_conflict.md](bounded_conflict.md): the protocol sketch
   draws directly on the codes duello (escalation), Geneva tradition
   (red-line architecture, discussed there), and the Condolence
   ceremony (restitution-and-return).
-- [tacit_coordination.md](tacit_coordination.md) — game-theoretic
+- [tacit_coordination.md](tacit_coordination.md): game-theoretic
   treatment of the underlying cooperation dynamics that the
   historical cases instantiate.
-- [reputation_bridges.md](reputation_bridges.md) —
+- [reputation_bridges.md](reputation_bridges.md):
   inherits the lex mercatoria question of what reputation is
   portable on.
-- [exit_and_succession.md](exit_and_succession.md) —
+- [exit_and_succession.md](exit_and_succession.md):
   inherits the Hanseatic *Verhansung* precedent and the Iroquois
   question of whether a fractured compact can be reconstituted.
-- [../social_framework.md](../social_framework.md) — parent document.
+- [../social_framework.md](../social_framework.md): parent document.
 
 ## References
 
-*To be added — anchor works include: Croxton & Tischer,* The Peace of
+*To be added. Anchor works include: Croxton & Tischer,* The Peace of
 Westphalia: A Historical Dictionary *(2002); Osiander,* The States
-System of Europe, 1640–1990 *(1994); Krasner,* Sovereignty: Organized
+System of Europe, 1640-1990 *(1994); Krasner,* Sovereignty: Organized
 Hypocrisy *(1999); for the Peace of God, Head & Landes (eds.),* The
 Peace of God: Social Violence and Religious Response in France around
 the Year 1000 *(1992); for the Hanse, Dollinger,* The German Hansa

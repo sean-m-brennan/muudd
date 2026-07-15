@@ -35,8 +35,8 @@ python -m pytest <test-path> -v
 | `KITH_COVENANT/python/kith_covenant/interface.py` | Event frozen dataclasses, `EvaluatorResult`, `KithCovenantEvaluatorProtocol` |
 | `KITH_COVENANT/python/kith_covenant/policy.py` | `KithCovenantPolicy` frozen dataclass, `NULL/PERMISSIVE/STRICT` factories, `to_dict()`/`from_dict()` |
 | `SIM/evaluation/kith_covenant/__init__.py` | Package init |
-| `SIM/evaluation/kith_covenant/observer.py` | `KithCovenantObserver(Process)` — tee-queue consumer, event instantiation, policy eval, report |
-| `SIM/evaluation/kith_covenant/instrumented.py` | `KithCovenantInstrumentedAT(InstrumentedAT)` — wires observer + metrics |
+| `SIM/evaluation/kith_covenant/observer.py` | `KithCovenantObserver(Process)`: tee-queue consumer, event instantiation, policy eval, report |
+| `SIM/evaluation/kith_covenant/instrumented.py` | `KithCovenantInstrumentedAT(InstrumentedAT)`: wires observer + metrics |
 | `SIM/evaluation/kith_covenant/evaluator.py` | `compute_fitness()`, `InProcessEvaluator`, `DockerEvaluator` |
 | `TESTS/a_unit/test_kith_covenant_interface.py` | Event dataclass tests |
 | `TESTS/a_unit/test_kith_covenant_policy.py` | Policy tests |
@@ -54,7 +54,7 @@ python -m pytest <test-path> -v
 
 ---
 
-### Task 1: Kith-Covenant Library — Event Types and Evaluator Protocol
+### Task 1: Kith-Covenant Library (Event Types and Evaluator Protocol)
 
 **Files:**
 - Create: `KITH_COVENANT/python/kith_covenant/__init__.py`
@@ -208,7 +208,7 @@ git commit -m "feat: add kith-covenant event dataclasses and evaluator protocol"
 
 ---
 
-### Task 2: Kith-Covenant Library — KithCovenantPolicy Data Class
+### Task 2: Kith-Covenant Library (KithCovenantPolicy Data Class)
 
 **Files:**
 - Create: `KITH_COVENANT/python/kith_covenant/policy.py`
