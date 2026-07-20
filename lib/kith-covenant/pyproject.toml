@@ -11,7 +11,7 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "Sustainable Space" }]
 
 [tool.maturin]
-manifest-path = "crates/kc-pyo3/Cargo.toml"
+manifest-path = "src/rust/kc-pyo3/Cargo.toml"
 module-name = "kith_covenant._core"
 python-source = "src/python"
 features = ["pyo3/extension-module"]

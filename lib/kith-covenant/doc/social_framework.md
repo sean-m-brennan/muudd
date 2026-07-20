@@ -19,9 +19,9 @@ Sustainable space inhabitation requires social technologies as much as physical 
 
 ## Relationship to Other Documents
 
-- [lib/muudd/doc/muudd.md](lib/muudd/doc/muudd.md): MUUDD's governance model as the communication substrate for social organization
-- [lib/muudd/doc/anonymous_communication.md](lib/muudd/doc/anonymous_communication.md): Anonymous communication as infrastructure for enshrined dissent
-- [lib/augur/doc/population_genetics.md](lib/augur/doc/population_genetics.md): Genetically-motivated migration policies require social framework support
+- [lib/muudd/doc/muudd.md](../../../doc/muudd.md): MUUDD's governance model as the communication substrate for social organization
+- [lib/muudd/doc/anonymous_communication.md](../../../doc/anonymous_communication.md): Anonymous communication as infrastructure for enshrined dissent
+- [lib/augur/doc/population_genetics.md](../../../../../lib/augur/doc/population_genetics.md): Genetically-motivated migration policies require social framework support
 - [planetary_colonization.md](../../../../../doc/planetary_colonization.md): Governance differences between orbital and surface settlements
 - [extra_solar_settlement.md](../../../../../doc/extra_solar_settlement.md): Social continuity across interstellar distances
 - [sustainable_space.md](../../../../../doc/sustainable_space.md): Project mission and values that inform social design

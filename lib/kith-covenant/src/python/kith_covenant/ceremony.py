@@ -93,10 +93,38 @@ def run_two_community_ceremony(
     )
 
 
+@dataclass(frozen=True)
+class CaptureScenario:
+    """A fully-signed demo archive exhibiting the composition-concentration and
+    per-feature-concern capture signals, for driving the analytics surface."""
+
+    hub_did: str
+    drifting_entrant_did: str
+    healthy_entrant_did: str
+    archive_json: str
+    archive_size: int
+
+
+def demo_capture_scenario() -> CaptureScenario:
+    """Build a demo archive: a hub sponsors two entrants, then files two
+    anti-spiral `Concern` records against one of them (in probation). Crypto-
+    verified before returning. See `kc-pyo3` `demo_capture_scenario`."""
+    r = _core.demo_capture_scenario()
+    return CaptureScenario(
+        hub_did=r.hub_did,
+        drifting_entrant_did=r.drifting_entrant_did,
+        healthy_entrant_did=r.healthy_entrant_did,
+        archive_json=r.archive_json,
+        archive_size=r.archive_size,
+    )
+
+
 __all__ = [
     "Archive",
     "CeremonyResult",
+    "CaptureScenario",
     "cid_of",
     "generate_keypair",
     "run_two_community_ceremony",
+    "demo_capture_scenario",
 ]

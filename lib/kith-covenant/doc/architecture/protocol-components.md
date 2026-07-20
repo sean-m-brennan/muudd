@@ -5,14 +5,18 @@
 This document decomposes kith-covenant's software scope: what must be
 built to make the social structures described in the research docs
 actually runnable. It is the operational companion to the research set
-and the working answer to §D "Operational Gaps" in
-[skeptical_critique.md](../background/skeptical_critique.md).
+and the working answer to the operational gaps the research documents
+flag — enforcement, the mediator training pipeline, in-person recognition
+at interplanetary scale, the re-affirmation cadence, and the absence of
+pilots and falsification criteria. Those gaps, with what is already built
+against each and the criteria by which each would be judged to fail, are
+carried here directly: see §10 and "Open design questions" below.
 
 > **MVP implementation status (2026-04-22).** Components **§1 Identity and
 > standing**, **§2 Recognition ceremony**, and **§3 Archive / commons of
-> memory** have an MVP Rust implementation in the `crates/` workspace
+> memory** have an MVP Rust implementation in the `src/rust/` workspace
 > (`kc-core`, `kc-identity`, `kc-ceremony`, `kc-archive`) with Python
-> bindings (`kc-pyo3`). The `examples/two_communities_demo` binary and
+> bindings (`kc-pyo3`). The `src/rust/examples/two_communities_demo` binary and
 > `src/python/examples/two_communities_demo.py` both exercise the full
 > three-component stack end-to-end: build two communities with real
 > Ed25519 keys, run each community's intra-rite, run the inter-community
@@ -22,23 +26,99 @@ and the working answer to §D "Operational Gaps" in
 >
 > **§6 Reputation lookup** also has a minimal slice implemented
 > (2026-04-22): the `kc-reputation` crate provides standing lookup and
-> multi-community aggregation backed by the archive. See `crates/kc-reputation/`.
+> multi-community aggregation backed by the archive. See `src/rust/kc-reputation/`.
 >
-> Components §§4, 5, 7, 8, 9, 10 (mediation, escalation, commons
-> governance, jester, enforcement, test harness) are *not* implemented and
-> remain as described below. MVP crypto is Ed25519-only; `Alg` is an enum
-> whose shape preserves a future non-lattice PQC slot.
+> **Capture-signal record types and detectors** are implemented
+> (2026-07-16): the `kc-conduct` crate carries the `ConductRecord` payload
+> (seeding §§5-6), including the jester's pre-indictment `Concern` kind;
+> `SponsorshipRecord` lives in `kc-ceremony::inter` (§2/§7 vouching). Both
+> are archived record kinds (`ConductAttested`, `SponsorshipVouched`),
+> crypto-verified and projected by `kc-reputation`. Three detectors
+> (`composition_graph`, `sponsor_stake`, `feature_concern_profile`) surface
+> the composition-drift, sponsor-stake, and per-feature-concern capture
+> signals as flags with provenance — no verdicts. Two further v0 read-only
+> jester lenses (2026-07-17) sit alongside them: `rejection_pattern`
+> (compact-wide admissions-integrity tallies over non-admission records) and
+> `ceremony_cost_decay` (per-community witness-count and re-affirmation-gap
+> trend over intra rites). Both are descriptive projections for a future
+> capture-signal dashboard; neither renders a verdict. Quorum /
+> decision-class is *recorded* (`decision_class`, multi-signature envelope)
+> but the distinct-community quorum *check* is deferred to §5. See
+> `src/rust/kc-conduct/` and `kc-reputation/src/analytics.rs`.
 >
-> **Capture-resistance amendment (2026-04-28).** Following
-> [capture_resistance.md](../background/capture_resistance.md), capture
-> resistance is introduced as a **cross-cutting architectural concern**
-> rather than a single component. Each existing component (§§1-10)
-> acquires capture-resistance responsibilities specified inline in the
-> sections below, and a new §11 catalogues the unified architectural
-> concern and the implementation work it implies. None of the
-> capture-resistance responsibilities are implemented in the current
-> MVP; their addition does not invalidate the existing
-> three-component stack but does extend its eventual scope.
+> **Standing + authoring primitives (2026-07-17).** `RecognitionStanding`
+> gained `Probationary` (admitted and within an active received-sponsorship
+> probation window) and `Anathema` (an active `DesignationAnathema` not
+> superseded by a later `DesignationLifted`; overrides all other standings).
+> Precedence: Anathema > Probationary > InCompact > Denied > Identified >
+> Unknown. The Python authoring surface can now build the records that were
+> previously constructable only inside the Rust ceremonies:
+> `record_non_admission` (feeds the rejection-pattern lens) and
+> `run_intra_rite` (re-affirmations, feeding ceremony-cost-decay), plus
+> `designate_anathema` / `lift_designation` convenience over `record_conduct`.
+>
+> **Delegation revocation (2026-07-17).** Revocation is append-only: a
+> superseding `SpeakerDelegation` tombstone (later `issued_at`, `revoked_at`
+> set). Resolution is now latest-`issued_at`-wins per `speaker_did` in both
+> `resolve_did` (kc-archive, governs signature verification) and the
+> `active_delegations` projection (kc-reputation), so a tombstone overrides an
+> earlier live grant; a re-grant with a still-later `issued_at` reactivates.
+> Non-retroactive (records dated before the tombstone still verify).
+> Authorable via `revoke_delegation`.
+>
+> **§5 authority enforcement (2026-07-17).** `check_authority(archive,
+> quorum_threshold=2)` (kc-archive `authority` module) is a pass distinct from
+> the cryptographic `verify_all`. It enforces (1) **principal binding** — every
+> principal a record speaks for must carry a signature from its own root or an
+> active `SpeakerDelegation` whose `community_did` is that principal;
+> (2) **scope-appropriateness** — a delegate's scope must be allowed for the
+> record type (Envoy/CrossBoundaryWitness for inter records, Envoy-or-root for
+> sponsorship/conduct, root-only for intra-rite seal / delegation / registry);
+> (3) **quorum** — a second-class decision (`DecisionClass::SecondClass`, e.g.
+> `DesignationAnathema`) needs >= `quorum_threshold` distinct principal
+> communities. Revocation/expiry are honored. `authority_violations` returns all
+> offending records instead of failing fast. This upgrades the earlier
+> "recorded, enforcement deferred" quorum note above: the count is now enforced
+> by `check_authority` (still a separate pass from crypto verification).
+>
+> **§4 Mediation (v1, 2026-07-17).** The `kc-mediation` crate implements a
+> bounded first slice: a **mediator pool** as per-community `MediatorRegistry`
+> records (the pool is the union across the archive; latest `valid_from` per
+> nominating community supersedes, mirroring the witness registry), **dispute
+> intake** (`DisputeRecord`, signed by the complainant, carrying the
+> `LadderRung` it reaches for), and **paneled decisions** (`MediationDecision`,
+> co-signed by the panel). The research's structural rules are enforced through
+> the §5 authority pass rather than a separate mechanism: a mediation decision
+> is authorized only when every co-signer is an active registered mediator, the
+> panel spans at least `panel_min` of them (default 3; a small compact may lower
+> it for an ad-hoc pie-powder panel), and **no panelist comes from either
+> party's community** (non-overlap). `check_authority` and `authority_violations`
+> gained the `panel_min` parameter; `resolve_did` resolves mediator keys from the
+> registry so a panel co-signature verifies without a separately published
+> identity. Disputes project onto both parties in `kc-reputation`
+> (`disputes_filed` / `disputes_against`, joined with the decision outcome).
+> Authorable from Python (`register_mediators`, `file_dispute`,
+> `decide_mediation`); `src/python/examples/mediation_demo.py` walks a valid
+> panel plus the two panels the protocol refuses. **Deferred to later slices:**
+> deliberation / argument-submission records, interim injunction (ties to §9),
+> the structured-skepticism protocol, protecting-powers, recusal-request
+> workflow, mediator training lineage, the capture-resistance pool-share
+> threshold (no single community may dominate the pool), and the full escalation
+> ladder state machine (§5). See `src/rust/kc-mediation/`.
+>
+> Components §§5, 7, 8, 9, 10 (escalation, commons governance, jester,
+> enforcement, test harness) are otherwise *not*
+> implemented and remain as described below. MVP crypto is Ed25519-only;
+> `Alg` is an enum whose shape preserves a future non-lattice PQC slot. The
+> remaining capture-resistance responsibilities carried inside §§1-10 and
+> catalogued in §11 are likewise not implemented in the current MVP.
+
+Capture resistance is a cross-cutting architectural concern, not a
+component: each component below carries capture-resistance
+responsibilities as part of its ordinary specification, and §11
+catalogues the unified concern, routes the seven strengthening moves of
+[capture_resistance.md](../background/capture_resistance.md) to their
+component homes, and names the implementation work that follows.
 
 ## Purpose and scope
 
@@ -71,6 +151,24 @@ recognition ceremony, archive, mediation, escalation, reputation
 bridges, commons governance, the jester function, exit and succession.
 Everything below is organized around those commitments.
 
+## Design constraint: the bootstrapping problem
+
+The framework protects preconditions it cannot itself generate: the
+recognition ceremony requires communities that *already* hold the
+substrate. This is developed in
+[justus_hostis.md](../background/justus_hostis.md) §"The bootstrapping
+problem", where the compact is cast as a protector and connector of
+communities that already meet the preconditions rather than a generator
+of them. The problem is shared by every cooperation framework that
+requires pre-existing trust, Ostrom's commons cases included. It is a
+standing constraint on the whole decomposition below: the software cannot
+manufacture the character, the substrate, or the trust it depends on, only
+protect and connect what exists. Where a component appears to demand that
+the compact create trust — the mediator pool before there is a cadre, a
+pilot before there is a compact — the constraint is the reason the design
+reaches for existing communities and existing ties rather than generating
+them from nothing.
+
 ## Component decomposition
 
 ### 1. Identity and standing
@@ -88,8 +186,8 @@ Everything below is organized around those commitments.
 - **Quantum-resistant primitives**: given the generational time
   horizons, identity keys should not rest on schemes vulnerable to
   medium-term cryptographic attack.
-- **Cross-community principal-witness attestation channel**
-  (capture-resistance amendment): a separate attestation chain
+- **Cross-community principal-witness attestation channel**: a
+  separate attestation chain
   for principals (human guardians of derived-substrate machine
   participants and, by extension, designated speakers for human
   members) carried by witnesses in *other* member communities than
@@ -98,9 +196,9 @@ Everything below is organized around those commitments.
   adversarial-principal validation specified in
   [m2m_interaction.md "Adversarial-principal validation"](../background/m2m_interaction.md#adversarial-principal-validation)
   and
-  [machine-participation.md "Guardian capture"](machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions).
-- **Interpretive-plurality evidence at recognition**
-  (capture-resistance amendment): the inter-community
+  [machine-participation.md "Guardian capture"](machine-participation.md#facet-3-validity-of-the-derivative-oath-succession-and-boundary-conditions).
+- **Interpretive-plurality evidence at recognition**: the
+  inter-community
   credentialing process records evidence of multiple traceable
   interpretive lineages within the candidate community, per
   [recognition_protocols.md "Inter-community layer"](../background/recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing)
@@ -135,6 +233,15 @@ must not conflate them.
   physically reachable; cross-boundary witness of intra-community
   generational re-affirmation cryptographically bound + video, with
   in-person confirmation at the nearest practical opportunity.
+  *Design state:* the implemented ceremony (`kc-ceremony`) models
+  presence as a witness co-signature over a recitation CID plus a
+  timestamp — there is no location, liveness, or bodily-attendance field,
+  and a single internal witness satisfies the intra rite. Co-presence is
+  therefore not enforced at the code layer; a CID co-signature can be
+  produced anywhere. Whether co-presence should be given a code-layer
+  attestation (itself spoofable) or left a social requirement audited
+  through the ceremony-cost proxy (§6) is an open decision, tracked in
+  "Open design questions" below.
 - **Recitation archive**: content-addressed, tamper-evident,
   publicly verifiable at both layers; each community's
   intra-community rite is sealed separately and referenced into the
@@ -148,7 +255,7 @@ must not conflate them.
   versioned per community; the inter-community layer tracks which
   version of each community's rite was witnessed at each admission
   and re-affirmation.
-- **Ceremony-cost proxy tracking** (capture-resistance amendment):
+- **Ceremony-cost proxy tracking**:
   recorded proxies for asymmetric psychological cost across
   re-affirmation cycles: preparation time and attention,
   recitant articulation of what is being committed and forgone,
@@ -156,11 +263,26 @@ must not conflate them.
   anti-spiral-feature examination exchange, substantive vs. rote
   responses to challenge questions. Surfaces decay across cycles
   per [recognition_protocols.md "Tracking ceremony cost"](../background/recognition_protocols.md#tracking-ceremony-cost-across-re-affirmation-cycles).
-- **Substantive re-engagement rung** (capture-resistance amendment):
+- **Substantive re-engagement rung**:
   a heavier re-affirmation cycle invoked when proxy decay is
   detected, with extended preparation, more demanding examination,
   and reasserted cost. This is a designated state between ordinary
   re-affirmation and anathema designation.
+- **Credentialing-panel rotation**: the examiners who conduct the
+  anti-spiral-feature examination are drawn by lot from member
+  communities, serve fixed terms, publish reasoning, and rotate
+  out, with cross-community composition requirements, per
+  [capture_resistance.md "Admissions integrity"](../background/capture_resistance.md#7-admissions-integrity-the-gate-as-capture-surface).
+- **Admission as second-class decision**: admission and readmission
+  records validate only with multi-community quorum signatures
+  under the decision-class machinery (§3, §7).
+- **Sponsor-stake tracking**: vouching records tie a sponsor's
+  standing to the entrant's conduct through the probationary
+  period; sponsorship patterns that repeatedly precede misconduct
+  are surfaced as capture signatures (§6, §8).
+- **Probationary-status enforcement**: probationary members carry
+  no deliberative weight in admissions, mediator selection, or
+  designation procedures until the period completes.
 
 ### 3. Archive / commons of memory
 
@@ -175,13 +297,13 @@ must not conflate them.
 - **Access control**: public records vs. sealed records vs.
   restricted records (e.g., reputation details that cross the
   surveillance threshold).
-- **Manufactured-event provenance tagging** (capture-resistance
-  amendment): records advancing interpretations of high-charge
+- **Manufactured-event provenance tagging**: records advancing
+  interpretations of high-charge
   events carry originator identity, declared incentives,
   information-history of the interpretation's emergence, and
   stake-disclosure entries; used by the structured-skepticism
   protocol per [liminal_institutions.md "Manufactured-event resistance"](../background/liminal_institutions.md#manufactured-event-resistance-the-structured-skepticism-protocol).
-- **Decision-class metadata** (capture-resistance amendment):
+- **Decision-class metadata**:
   every compact-level decision record carries explicit
   classification (first-class, valid within light-lag; second-class,
   requiring multi-community quorum signature) per
@@ -203,8 +325,8 @@ must not conflate them.
   enforcement linkage (§9).
 - **Decision publication**: public decisions with mandatory reasoning
   trail; sealed decisions with threshold-reveal.
-- **Structured-skepticism protocol invocation** (capture-resistance
-  amendment): mediator-pool authority to invoke the protocol on
+- **Structured-skepticism protocol invocation**: mediator-pool
+  authority to invoke the protocol on
   events meeting qualifying criteria (high interpretive charge,
   faction-aligned interest, sudden onset, originating from
   stake-holding witnesses). Imposes structural delay,
@@ -216,17 +338,25 @@ must not conflate them.
 
 ### 5. Escalation and designation
 
-- **Ladder state machine** per dispute: virtue-discussion → formal
-  complaint → mediation → graduated sanctions → *hostis humani generis*
-  designation. Timed transitions where the research specifies them.
+- **Ladder state machine** per dispute, implementing the canonical
+  ladder of
+  [bounded_conflict.md "Protocol sketch"](../background/bounded_conflict.md#protocol-sketch):
+  dispute registration → registered protest → reciprocal suspension
+  of specified courtesies → mediated arbitration → limited material
+  sanctions → compact-authorized collective sanctions → expulsion.
+  Anathema designation and virtue-violation enforcement are separate
+  tracks, not rungs. Timed transitions where the research specifies
+  them.
 - **Designation procedure**: four-condition test (per
-  `bounded_conflict.md` §"Handling the *hostis humani generis*"),
-  quorum rules, review period, emergency-variant handling.
+  [bounded_conflict.md "Handling the anathema"](../background/bounded_conflict.md#handling-the-anathema)),
+  quorum rules, review period, emergency-variant handling. The
+  *hostis humani generis* tier within anathema carries its higher
+  evidentiary threshold.
 - **Restitution tracking**: restoration obligations, verification of
   completion.
 - **Re-entry procedure**: examination, witnessing, re-recitation
   binding on re-admitted party.
-- **Substantive-re-engagement rung** (capture-resistance amendment):
+- **Substantive-re-engagement rung**:
   the new ladder rung between ordinary re-affirmation and anathema
   for ceremony-cost decay cases (per §2 above). Triggered by
   proxy-decay surfacing in the audit commons; applies to a member
@@ -252,14 +382,14 @@ must not conflate them.
 - **Surveillance threshold**: configurable disclosure levels for
   internal health indicators; large/powerful communities disclose
   more by default.
-- **Principal-output triangulation data flows**
-  (capture-resistance amendment): comparison of a machine's
+- **Principal-output triangulation data flows**: comparison of a
+  machine's
   conduct against the ensemble of similarly-situated machines
   under similarly-positioned principals. Divergence flags entered
   in the reputation ledger for cross-community review per
   [m2m_interaction.md "Adversarial-principal validation"](../background/m2m_interaction.md#adversarial-principal-validation).
-- **Ceremony-cost decay surfacing** (capture-resistance
-  amendment): reputation queries surface proxy-decay state
+- **Ceremony-cost decay surfacing**: reputation queries surface
+  proxy-decay state
   alongside conventional standing data, so peers and observers
   can see ceremony erosion before it has progressed to formal
   re-engagement or anathema.
@@ -278,7 +408,7 @@ must not conflate them.
   the baseline assumption (per `commons_federation.md`).
 - **Nested-enterprise support**: hierarchical commons (community-level
   → regional → compact-wide) with appropriate authority at each level.
-- **Decision-class enforcement** (capture-resistance amendment):
+- **Decision-class enforcement**:
   cryptographic enforcement of the first-class / second-class
   distinction (per §3 metadata above). Second-class decisions
   produce signed records whose validation requires multi-party
@@ -295,7 +425,7 @@ must not conflate them.
 
 ### 8. Jester and observer function
 
-> **Constitutional standing (capture-resistance amendment).** The
+> **Constitutional standing.** The
 > jester / observer function is **promoted from cultural-dissent
 > affordance to substrate-level capture detector**. Its permission
 > to name what others cannot is what makes early-stage capture
@@ -320,7 +450,7 @@ must not conflate them.
 - **Archive access**: observer reports form a durable check on the
   mediator pool; archive must make observer corpus retrievable across
   generations.
-- **Capture-signature monitoring** (capture-resistance amendment):
+- **Capture-signature monitoring**:
   the observer corps maintains active monitoring for the legible
   signs of early-stage capture: substrate-deference erosion (shrinking
   compact-incapable list, shortening structured-fast period),
@@ -328,11 +458,17 @@ must not conflate them.
   manufactured-event patterns, principal-output triangulation
   divergence. Monitoring outputs are reported to the audit commons
   on a continuous cadence rather than only when specific reports are filed.
-- **Substrate-deference reporting** (capture-resistance amendment):
+- **Substrate-deference reporting**:
   observer corps maintains the public dashboard tracking
   compact-incapable list state and structured-fast cadence
   observance, making the substrate-deference test's operational
   practice continuously legible to the compact's members.
+- **Composition-drift dashboard**: the observer corps maintains an
+  admissions dashboard alongside the substrate-deference dashboard:
+  who sponsored, who examined, which admissions clustered by
+  region, lineage, or sponsor. Clustering in directions that
+  benefit an identifiable faction is flagged before the faction
+  reaches deliberative weight.
 
 ### 9. Enforcement model
 
@@ -359,8 +495,8 @@ pattern 3), so enforcement must be collective and non-sovereign. The
 above three are the realistic options at the code layer. External
 state coercion is not in scope.
 
-**Substrate-deference test as ongoing constitutional operation**
-(capture-resistance amendment). Beyond the post-hoc enforcement
+**Substrate-deference test as ongoing constitutional operation.**
+Beyond the post-hoc enforcement
 responses above, enforcement now also encompasses the
 **continuous demonstration of non-ultimacy** by the compact itself.
 This is enforcement of the compact's own constitution against the
@@ -398,19 +534,29 @@ and developed in
 
 - **Simulation environment** for adversarial testing: captured-mediator
   scenarios, hollow-recitation drift, coordinated collusion, narrative
-  capture of the observer corps, protocol-layer replay attacks.
+  capture of the observer corps, protocol-layer replay attacks. The seed
+  already exists as negative-path coverage the protocol must refuse: the
+  `kc-core` payload-tamper test, the `kc-archive` §5 authority tests
+  (wrong-scope delegate, cross-community forgery, quorum and panel
+  failures), the Python `test_authority.py` / `test_mediation.py`
+  (panel-too-small, party-mediator, unregistered-mediator) /
+  `test_standing.py` (declining rites, revoked delegation), and the
+  `capture_signals_demo.py` / `mediation_demo.py` demos, which construct
+  archives the protocol must reject. The harness generalizes these
+  hand-authored refusal cases into a time-evolving simulator rather than a
+  fixed pass/fail set.
 - **Earth-pilot configuration**: small-scale deployment mode that can
-  actually run with real communities. Necessary for the test-cases gap
-  (§D.5 in skeptical_critique).
+  actually run with real communities. Necessary for the test-cases gap.
+  First compacts should be among Earth-bound communities with existing
+  ties and cheap exit — denominational networks, diaspora federations,
+  tribal confederations, ecological commons, cooperative-firm networks —
+  generalized to space only after Earth has been the harder first test.
 - **Integration harness** against `autonomous_trust` for live-AT
   message traffic observation, per
   [policy-evaluation.md](policy-evaluation.md).
-- **Falsification criteria**: what observable outcomes in pilot
-  deployments would count as kith-covenant failing? This needs explicit
-  design, not implicit.
-- **Capture-resistance scenario simulation** (capture-resistance
-  amendment): adversarial test categories specifically targeting
-  the six strengthening moves: faction-monopolizing-interpretation
+- **Capture-resistance scenario simulation**: adversarial test
+  categories specifically targeting
+  the seven strengthening moves: faction-monopolizing-interpretation
   within a member community (move 1); compact drift toward
   ultimacy via compact-incapable-list erosion (move 2); ceremony
   hollowing across simulated generational cycles (move 3);
@@ -418,9 +564,51 @@ and developed in
   pressure (move 4); light-lag fait-accompli attack with forged
   quorum signatures (move 5); principal-capture by external
   manipulation including AI-mediated influence operations (move
-  6). Each scenario is run continuously in the simulation
-  environment, with detection latency and damage bounds as the
-  primary metrics.
+  6); admissions capture by patient sponsorship of aligned
+  entrants toward the collusion threshold (move 7). Each scenario
+  is run continuously in the simulation environment, with
+  detection latency and damage bounds as the primary metrics.
+
+**Falsification criteria.** What observable outcomes would count as
+kith-covenant failing must be stated in advance, per component and at the
+whole-compact level — explicit design, not implicit. This is the
+least-built of the operational gaps and the precondition for any pilot.
+
+The top-level criterion is **retention despite exit** under weak forcing,
+per [bounded_conflict.md "Earth first"](../background/bounded_conflict.md#earth-first-the-harder-test):
+whether communities keep choosing the compact's recognition, mediation,
+and commons when leaving is cheap and the state system is available. A
+compact that holds when exit is free has demonstrated that it binds
+voluntarily. Earth is therefore the harder first test, not a rehearsal
+for space.
+
+The standing caveat is that **"the teeth" — sanction and enforcement
+effectiveness — are structurally untestable on Earth**, where a determined
+defector simply leaves. An Earth pilot that fails to demonstrate
+enforcement has not thereby falsified the framework; it has reached the
+edge of what Earth can test, and pilots must not be scored on it.
+
+Per-component criteria:
+
+- **Injunction enforcement (§9).** Success: defiance of an interim
+  injunction is published unforgeably and in a form that downstream
+  reputation and capability consequences can act on, without a sovereign.
+  Failure: an order that can be ignored with no archived trace — a paper
+  order.
+- **Mediator pool (§4).** Success: panels stay non-overlapping and
+  un-captured as the pool rotates through cases, and disputing communities
+  keep accepting panel decisions when they could walk. Failure tripwire:
+  the emergence of a permanent mediator class — the inquisitorial caste the
+  term limits exist to prevent.
+- **In-person recognition vs. light-lag (§2).** Success: a remote
+  generational re-affirmation still carries real cost — treated as
+  consequential, not a formality. Failure: remote rites drift into
+  formality while in-person ones stay costly, so the filter does its work
+  only where it is least needed.
+- **Re-affirmation cadence (§2, §5).** Success: the cadence catches
+  substrate drift before it reaches anathema without the rite decaying into
+  an empty ritual. A cadence that flags nothing and one that flags
+  constantly are both failures.
 
 ### 11. Capture resistance (cross-cutting)
 
@@ -443,7 +631,7 @@ response) is unified under this commitment, with each fragment's
 constitutional position upgraded as specified above (§§1-10
 inline).
 
-**The six strengthening moves and their component homes.**
+**The seven strengthening moves and their component homes.**
 
 | Move | Focus | Primary component(s) | Specification |
 |---|---|---|---|
@@ -452,7 +640,8 @@ inline).
 | 3. Ceremony cost tracking | Ceremony erosion detection | §2 (recognition), §3 (archive), §5 (escalation), §6 (reputation) | [recognition_protocols.md "Tracking ceremony cost"](../background/recognition_protocols.md#tracking-ceremony-cost-across-re-affirmation-cycles) |
 | 4. Manufactured-event resistance | Interpretation-dominance prevention | §3 (archive), §4 (mediation) | [liminal_institutions.md "Manufactured-event resistance"](../background/liminal_institutions.md#manufactured-event-resistance-the-structured-skepticism-protocol) |
 | 5. Light-lag-honest decision classes | Fait-accompli prevention | §3 (archive), §7 (commons) | [commons_federation.md "Light-lag-honest decision classes"](../background/commons_federation.md#light-lag-honest-decision-classes) |
-| 6. Adversarial-principal validation | Principal-capture detection | §1 (identity), §6 (reputation) | [m2m_interaction.md "Adversarial-principal validation"](../background/m2m_interaction.md#adversarial-principal-validation), [machine-participation.md "Guardian capture"](machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions) |
+| 6. Adversarial-principal validation | Principal-capture detection | §1 (identity), §6 (reputation) | [m2m_interaction.md "Adversarial-principal validation"](../background/m2m_interaction.md#adversarial-principal-validation), [machine-participation.md "Guardian capture"](machine-participation.md#facet-3-validity-of-the-derivative-oath-succession-and-boundary-conditions) |
+| 7. Admissions integrity | Composition-capture prevention | §2 (recognition), §8 (observer dashboard), §10 (test harness) | [capture_resistance.md "Admissions integrity"](../background/capture_resistance.md#7-admissions-integrity-the-gate-as-capture-surface) |
 
 **Architectural layering.** Capture resistance operates at three
 layers: substrate (member communities' own practices:
@@ -477,6 +666,9 @@ priorities calibrated to the capture-resistance test harness:
 - Substrate-deference dashboard maintained by observer corps (§8).
 - Compact-incapable list as constitutional artifact (§9).
 - Structured-fast cadence as protocol-enforced operating mode (§9).
+- Credentialing-panel rotation, sponsor-stake tracking, and
+  probationary-status enforcement (§2).
+- Composition-drift dashboard maintained by observer corps (§8).
 - Capture-resistance scenario simulation in test harness (§10).
 
 None of these is implemented in the current MVP. Their addition
@@ -528,14 +720,16 @@ materially extend the eventual scope.
 
 The minimum useful slice, in order. **Capture-resistance work is
 woven through, not appended at the end**: items marked (CR) carry
-capture-resistance responsibilities specified in the inline §§1-10
-amendments and unified in §11.
+capture-resistance responsibilities specified inside §§1-10 and
+unified in §11.
 
 1. **Identity + recognition + archive** (components 1, 2, 3). The
    compact does not exist until recognition is real and verifiable.
    Testable with two communities in a room. **(CR)** Identity
    includes the cross-community principal-witness channel (§1);
-   recognition records the interpretive-plurality evidence (§2);
+   recognition records the interpretive-plurality evidence and
+   carries the admissions-integrity machinery (panel rotation,
+   sponsor stake, probationary status) (§2);
    archive carries decision-class metadata and provenance tags
    from the start (§3): adding these later is much harder than
    designing them in.
@@ -564,12 +758,14 @@ amendments and unified in §11.
    Commons includes cryptographic decision-class enforcement
    (multi-party quorum signature for second-class decisions);
    observer function is promoted to substrate-level capture detector
-   with the substrate-deference dashboard and capture-signature
-   monitoring as standing competencies, not optional features.
+   with the substrate-deference dashboard, the composition-drift
+   dashboard, and capture-signature monitoring as standing
+   competencies, not optional features.
 7. **Capture-resistance test harness** (component 10, expanded). The
-   six adversarial scenarios (faction-monopolizing-interpretation,
+   seven adversarial scenarios (faction-monopolizing-interpretation,
    compact drift toward ultimacy, ceremony hollowing, manufactured-event
-   injection, light-lag fait-accompli, principal-capture) must
+   injection, light-lag fait-accompli, principal-capture, admissions
+   capture) must
    exercise the implementation continuously from the earliest stages.
    This is **continuous, not sequenced**: the test harness exists
    from step 1 and accumulates scenarios as the components are built.
@@ -598,7 +794,13 @@ than buried in subsystem docs:
 - **Re-affirmation cadence calibration.** The 25-30 year default lacks
   empirical support. May need to vary by community generational
   rhythm (monastic vs. agricultural vs. other) per
-  `recognition_protocols.md` open questions.
+  `recognition_protocols.md` open questions, which argues for a
+  compact-formation parameter with per-community override rather than a
+  constant. A second, prior decision: is the cadence *enforced* (an
+  overdue or hollowing re-affirmation does something on its own — expiry,
+  escalation) or *observed only* (the `ceremony_cost_decay` lens surfaces
+  decay and the jester and mediators act, but nothing triggers
+  automatically)? The lens is built; the consequence is not.
 - **Mediator training pipeline.** Who trains the first generation?
   Is kith-covenant responsible for competence certification, or does
   each member community supply its own mediator candidates to a
@@ -615,10 +817,7 @@ than buried in subsystem docs:
 - [policy-evaluation.md](policy-evaluation.md): existing architecture
   doc covering the AT/kith-covenant evaluation seam; the integration
   point for §5 above.
-- [../research/](../research/): the research set this document
+- [../background/](../background/): the research set this document
   operationalizes. Each component above corresponds to one or more
   research docs' design commitments.
 - [../kith_covenant.md](../kith_covenant.md): parent index.
-- [../background/skeptical_critique.md](../background/skeptical_critique.md)
-  §D: the "Operational Gaps" section that flagged these items; this
-  document is the working response to that section.

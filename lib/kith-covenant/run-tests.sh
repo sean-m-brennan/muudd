@@ -72,4 +72,24 @@ python src/python/examples/two_communities_demo.py >/dev/null
 echo "  ✓ exit 0"
 
 echo
+echo "=== python src/python/examples/capture_signals_demo.py ==="
+python src/python/examples/capture_signals_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/authoring_demo.py ==="
+python src/python/examples/authoring_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/mediation_demo.py ==="
+python src/python/examples/mediation_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/escalation_demo.py ==="
+python src/python/examples/escalation_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
 echo "=== all checks passed ==="

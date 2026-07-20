@@ -30,7 +30,7 @@ in their specifically Christendom-produced forms. It complements
 [buddhist_sangha.md](buddhist_sangha.md), which provides comparable
 depth on the sangha evidence; the two documents should be read as a
 pair, since the Christian-particularist verdict in
-[noticeable_hand.md](noticeable_hand.md#honest-counterweights) rests
+[noticeable_hand.md](noticeable_hand.md#counterweights) rests
 on the comparison between them.
 
 Two framing points structure the treatment.
@@ -257,7 +257,7 @@ consolidation of the late 17th century, the Utrecht settlement
 successors (Pufendorf, Vattel, Wolff), the Congress of Vienna
 (1814-15), and the institutional practices of the Concert of Europe.
 
-The honest formulation: **Westphalia initiated the institutional
+The precise formulation: **Westphalia initiated the institutional
 trajectory whose mature form was the nineteenth-century European
 state system**, and the specific 1648 provisions encoded several of
 the load-bearing features of that system (formal equality among
@@ -415,7 +415,7 @@ political communities as subjects, territories, or sources of
 extraction, with occasional exceptions for polities recognized as
 sufficiently "civilized" (the Ottoman Empire, Japan after Meiji).
 This is the failure mode treated at length in
-[noticeable_hand.md](noticeable_hand.md#the-colonial-frontier-counterweight):
+[noticeable_hand.md](noticeable_hand.md#counterweights):
 the Christian substrate's scriptural mandate of universal neighbor-
 love (Luke 10) was not operationally applied to non-European
 neighbors encountered face-to-face. The Westphalian system's
@@ -728,7 +728,7 @@ the compact's success at bounding violence among members must not
 produce a legitimated externalization path against non-members
 that replicates at the frontier what it prevents internally. The
 Samaritan-parable correction in
-[noticeable_hand.md](noticeable_hand.md#the-colonial-frontier-counterweight)
+[noticeable_hand.md](noticeable_hand.md#counterweights)
 and
 [recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
 is the substrate-level answer; the compact-level answer is
@@ -1043,7 +1043,7 @@ this picture, arguing that actual practice was more local and
 varied than the classical account suggests, and that the unified
 "law merchant" is a 19th-century legal fiction projected backward.
 
-The honest formulation: **the lex mercatoria existed in a weaker
+The precise formulation: **the lex mercatoria existed in a weaker
 form than the classical account claims but in a stronger form than
 the revisionists sometimes imply.** The medieval merchants did
 have recognizable customs that traveled with them across
@@ -1689,7 +1689,7 @@ The feature's failure modes (the Crusades against the
 non-Christian, the colonial frontier, the intra-confessional
 persecutions) are, as above, betrayals of the feature's scriptural
 mandate rather than absence of the feature. The Samaritan-parable
-correction ([noticeable_hand.md](noticeable_hand.md#the-colonial-frontier-counterweight))
+correction ([noticeable_hand.md](noticeable_hand.md#counterweights))
 is the explicit scriptural basis for the corrective to these
 betrayals.
 
@@ -1811,9 +1811,9 @@ density of cross-polity cooperation frameworks among separate
 sovereigns, and produces these achievements despite, and through
 recognition of, recurring betrayals by its nominal carriers."**
 
-This is the position kith-covenant's documentation can honestly
-hold. It is more modest than the strong
-Christian-particularist reading the earlier drafts entertained
+This is the position kith-covenant's documentation can hold
+without overclaiming. It is more modest than the strong
+Christian-particularist reading
 and more specific than the catholic / perennialist reading alone
 would support. The Buddhist sangha evidence is accommodated;
 the sangha's achievement is acknowledged as real and as

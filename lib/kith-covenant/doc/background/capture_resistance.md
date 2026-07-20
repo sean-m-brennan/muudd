@@ -5,23 +5,18 @@
 ## A note on this document's posture
 
 This document treats capture resistance as a **unified architectural concern** of
-kith-covenant, not as a fragmented set of countermeasures distributed across
-several existing documents. The motivation is
+kith-covenant. The motivation is
 [control_system_hypothesis.md](control_system_hypothesis.md)'s Component 3: the
 observation, originating in Vallée's *Messengers of Deception* (1979) but
 generalized to any anchor-above-self substrate, that the same machinery enabling
 long-running cooperation is *structurally* exploitable by bad actors who control
-the interpretation of the substrate. Existing kith-covenant components address
-this in fragments (the jester role, audit commons, emergency anathema, exit
-paths), but the general framing of "capture resistance as a substrate-design
-requirement, not an optional safeguard" has not been articulated until now.
-
-The fragmented treatment is not a defect of the prior documents. They each
-properly addressed specific failure modes within their scope. What was missing
-was the architectural claim that these are pieces of the same problem and must
-interlock. This document supplies that claim, names the six strengthening moves
-that follow from it, and routes the load-bearing pieces to their host documents
-where local implementation work can proceed.
+the interpretation of the substrate. Several kith-covenant components carry
+specific countermeasures within their own scope (the jester role, the audit
+commons, the emergency anathema procedure, the exit paths); the architectural
+claim this document adds is that these are pieces of the same problem and must
+interlock. It names the seven strengthening moves that follow from that claim
+and routes the load-bearing pieces to their host documents, where local
+implementation work can proceed.
 
 The posture is operational, not theoretical. Each strengthening move is stated
 with enough specificity that an implementor can recognize it in code and a
@@ -58,13 +53,16 @@ capture resistance built on substrate communities that have been individually
 captured fails; a substrate layer with healthy practice running on a captured
 implementation fails; and so on. The architecture below is layered.
 
-## The six strengthening moves
+## The seven strengthening moves
 
-Six moves emerge from
+The first six moves emerge from
 [control_system_hypothesis.md](control_system_hypothesis.md)'s analysis of
 Component 3 and from the historical pattern of capture in long-running
-cooperation regimes. Each is stated as a structural commitment, then routed
-to the host document where its operational specification lives or will live.
+cooperation regimes; the seventh emerges from the observation that the six
+defend everything except the gate through which the compact's own
+composition is decided. Each is stated as a structural commitment, then
+routed to the host document where its operational specification lives or
+will live.
 
 ### 1. Interpretive plurality as a structural requirement on members
 
@@ -231,7 +229,7 @@ must stop.
 as the operational corollary of the fifth anti-spiral feature. The
 compact-incapable list and the structured-fast cadence are
 constitutional-layer commitments per
-[protocol-components.md "Amendability tiers"](../architecture/protocol-components.md#key-architectural-decisions).
+[protocol-components.md "Amendability tiers"](../architecture/protocol-components.md#architectural-decisions).
 
 ### 3. Ceremony cost as tracked quantity
 
@@ -357,6 +355,24 @@ ambient interpretation can develop. The analogous KC process need not be
 that slow; the criterion is "long enough that the originating party
 cannot dominate the framing", calibrated to the event class.
 
+The negative historical model is the court of the 1692 Salem witch
+trials, which is what the absence of every element above looks like
+in practice. The
+court admitted spectral evidence: unfalsifiable, single-witness
+testimony from stake-holding accusers, with no corroboration
+requirement, no structured delay, no stake disclosure, and no
+provenance record. And it spared confessors, who characteristically
+named others, adding a cascade incentive on top of the open channel.
+The result ran from first affliction to twenty dead in under a year
+and jumped town boundaries in weeks. Every element of the
+structured-skepticism protocol is, in effect, a rule the Salem court
+lacked, and the episode is the concrete case for why the protocol
+must already be standing when the qualifying event arrives: no
+community mid-cascade has ever adopted one. (The fuller Salem
+treatment, including how the community's own substrate eventually
+terminated the cascade, is in
+[justus_hostis.md "The Salem witch trials"](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated).)
+
 **Routing.** Specified in
 [liminal_institutions.md](liminal_institutions.md) as part of the
 mediator pool's standing competency. The structured-skepticism protocol
@@ -462,7 +478,7 @@ Specific elements:
   protocol (item 4): the structural skepticism is built into ongoing
   machine operation, not invoked only on suspicion.
 - *Principal-fall propagation, expanded.*
-  [machine-participation.md "Guardian fall"](../architecture/machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions)
+  [machine-participation.md "Guardian fall"](../architecture/machine-participation.md#facet-3-validity-of-the-derivative-oath-succession-and-boundary-conditions)
   treats the principal's loss of standing as triggering capability
   revocation in their bound machines. The expansion: principal *capture*
   (which may not yet have produced loss of standing) must trigger a
@@ -498,9 +514,84 @@ witness is a new attestation channel in
 [protocol-components.md](../architecture/protocol-components.md)'s
 identity-and-standing component.
 
+### 7. Admissions integrity: the gate as capture surface
+
+**The capture vector.** The six moves above defend interpretation,
+ceremony, events, decisions, and principals. None of them defends the
+gate. Whoever shapes anti-spiral-feature credentialing shapes compact
+composition over time, and composition control is the *legitimate*
+path to the collusion threshold: a faction that steers admissions
+does not need to corrupt any sitting member to assemble, entrant by
+entrant, the coordinated fraction beyond which
+([bounded_conflict.md "The collusion vulnerability"](bounded_conflict.md#the-collusion-vulnerability))
+the institutional architecture serves the captors. The vector is
+slower than any other in this catalogue and harder to see, because
+every individual admission is procedurally clean. It is aggravated by
+the new-entrant evidence problem: credentialing examines operative
+practice, not creed
+([justus_hostis.md "The Salem witch trials"](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated)),
+but a community without a long record offers little practice to
+examine, so the gate is at its weakest exactly where the entering
+party is least known.
+
+**The strengthening move.** Admission is treated as a compact-level
+decision with the same structural protections as the other
+second-class decisions, and the credentialing function is rotated,
+witnessed, and monitored like the mediator pool it resembles.
+
+Specific elements:
+
+- *Credentialing panels by lot and rotation.* The examiners who
+  conduct the anti-spiral-feature examination are drawn by lot from
+  member communities, serve fixed terms, publish their reasoning,
+  and rotate out, with cross-community composition requirements. A
+  standing admissions cadre would be the single most capturable
+  body in the compact, for the same reasons a standing mediator
+  class would be.
+- *Admission as a second-class decision.* Admission and readmission
+  validate only with multi-community quorum signatures under the
+  decision-class machinery (move 5). No AU-region's faction, and no
+  single sponsor cluster, can admit alone.
+- *Sponsor stake.* The vouching structure already specified in the
+  inter-community layer
+  ([recognition_protocols.md "Inter-community layer"](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing))
+  is given teeth: a sponsor's standing rides on the entrant's
+  conduct through the probationary period, recorded in the audit
+  commons. Sponsorship that repeatedly precedes misconduct is
+  itself a capture signature.
+- *Composition-drift monitoring.* The observer corps maintains an
+  admissions dashboard alongside the substrate-deference dashboard:
+  who sponsored, who examined, which admissions clustered by
+  region, lineage, or sponsor. Clustering in directions that
+  benefit an identifiable faction is flagged before the faction
+  reaches deliberative weight, while the compact can still respond.
+- *Probation as the load-bearing record.* For entrants without a
+  long practice record, the probationary period is where the record
+  accrues. Probationary members do not carry deliberative weight in
+  admissions, mediator selection, or designation procedures until
+  the period completes; otherwise each admitted entrant immediately
+  amplifies the faction that admitted it.
+
+The historical analogue is the catechumenate, which was never only a
+teaching period: it was the church's protection against entryism,
+a span of years in which the candidate's practice became examinable
+before the candidate's voice carried weight. The failure analogue is
+the institution that lowers its gate under growth pressure and
+discovers, a generation later, that its electorate was assembled by
+its opponents.
+
+**Routing.** The vouching and examination machinery is specified in
+[recognition_protocols.md "Inter-community layer"](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing);
+the panel-rotation and quorum requirements route to
+[protocol-components.md](../architecture/protocol-components.md)'s
+recognition component (§2) and its capture-resistance test harness
+(§10); the composition-drift dashboard routes to the observer corps
+(§8). The probationary period is specified in the whitepaper's
+reputation-bridge section.
+
 ## Architectural unification
 
-The six moves above are not six independent features. They are six
+The seven moves above are not seven independent features. They are seven
 expressions of a single architectural commitment: **capture resistance is
 a continuous operating concern of the substrate, the protocol, and the
 implementation, woven through the compact's ordinary practice rather
@@ -521,7 +612,7 @@ understood:
 - The **audit commons**
   ([m2m_interaction.md "Audit commons for M2M"](m2m_interaction.md#audit-commons-for-m2m))
   is not a forensic tool for post-hoc accountability; it is the
-  **shared substrate for capture detection** across all six moves. Every
+  **shared substrate for capture detection** across all seven moves. Every
   strengthening move above produces records the audit commons holds and
   surfaces. Promoting it from "permanent record" to "detection
   infrastructure" gives it constitutional standing.
@@ -544,8 +635,8 @@ The unification produces a layered picture:
 | Layer | Capture-resistance machinery |
 |---|---|
 | **Substrate (each member community)** | Interpretive plurality (move 1); ceremony cost (move 3) inherited and renewed in member's own practice |
-| **Compact (kith-covenant protocol)** | Substrate-deference test (move 2); manufactured-event resistance (move 4); light-lag decision classes (move 5); jester promoted to substrate-level role |
-| **Implementation (software)** | Audit commons as detection infrastructure; cryptographic decision-class enforcement (move 5); adversarial-principal validation (move 6); attestation cadence tuned to capture-detection windows |
+| **Compact (kith-covenant protocol)** | Substrate-deference test (move 2); manufactured-event resistance (move 4); light-lag decision classes (move 5); admissions integrity (move 7); jester promoted to substrate-level role |
+| **Implementation (software)** | Audit commons as detection infrastructure; cryptographic decision-class enforcement (move 5); adversarial-principal validation (move 6); admissions-panel rotation and composition-drift dashboards (move 7); attestation cadence tuned to capture-detection windows |
 
 Each layer's machinery presupposes the layers above and below it.
 Capture-resistance at the protocol layer assumes substrate-layer health
@@ -558,48 +649,53 @@ relies on).
 
 ## Where capture resistance lives in the protocol stack
 
-The protocol-components decomposition in
-[protocol-components.md](../architecture/protocol-components.md) is
-amended by the present analysis to include capture resistance as a
+In the protocol-components decomposition
+([protocol-components.md](../architecture/protocol-components.md)),
+capture resistance is a
 **cross-cutting architectural concern**, not a single component. Each
-existing component acquires explicit capture-resistance responsibilities:
+component carries explicit capture-resistance responsibilities:
 
-- *§1 Identity and standing* gains the cross-community principal-witness
+- *§1 Identity and standing* carries the cross-community principal-witness
   attestation channel (move 6) and the visible interpretive-plurality
   evidence at recognition (move 1).
-- *§2 Recognition ceremony* gains the ceremony-cost proxy tracking and
-  substantive re-engagement rung (move 3).
-- *§3 Archive / commons of memory* gains the manufactured-event
+- *§2 Recognition ceremony* carries the ceremony-cost proxy tracking and
+  substantive re-engagement rung (move 3), and the admissions-integrity
+  machinery (move 7).
+- *§3 Archive / commons of memory* carries the manufactured-event
   provenance-tagging and stake-disclosure records (move 4) and the
   decision-class metadata that feeds light-lag enforcement (move 5).
-- *§4 Mediation* gains the structured-skepticism protocol invocation
+- *§4 Mediation* carries the structured-skepticism protocol invocation
   authority (move 4).
-- *§5 Escalation and designation* gains the substantive-re-engagement
+- *§5 Escalation and designation* carries the substantive-re-engagement
   rung between ordinary re-affirmation and anathema (move 3).
-- *§6 Reputation bridges* gains the principal-output triangulation
+- *§6 Reputation bridges* carries the principal-output triangulation
   data flows (move 6) and the ceremony-cost decay surfacing (move 3).
-- *§7 Commons governance* gains the decision-class classification and
+- *§7 Commons governance* carries the decision-class classification and
   cryptographic enforcement (move 5).
 - *§8 Jester and observer function* is promoted from cultural-dissent
   affordance to substrate-level capture detector, with constitutional
   standing.
-- *§9 Enforcement model* now includes the substrate-deference test as
+- *§9 Enforcement model* includes the substrate-deference test as
   an ongoing constitutional operation, not only the post-hoc
   enforcement responses.
-- *§10 Bootstrapping and test harness* must include adversarial
+- *§10 Bootstrapping and test harness* includes adversarial
   capture-scenario simulation (faction within member, principal
   capture, manufactured-event injection, light-lag fait-accompli
-  attack) as standing test categories.
+  attack, admissions capture by patient sponsorship, feigned
+  substrate-deference by a strategic operator whose practice record is
+  built to pass move 7, and legitimate-machinery composition capture
+  driven patiently toward the Byzantine threshold) as standing
+  test categories.
 
 A new explicit element in the architecture is the **capture-resistance
-test harness**, which exercises all six strengthening moves under
+test harness**, which exercises all seven strengthening moves under
 adversarial scenarios. This is named in the
-protocol-components-amendment section below, and is the implementation
+protocol-stack section below, and is the implementation
 priority that follows from this document.
 
 ## What capture resistance does not do
 
-Three honest limits.
+Three limits.
 
 **Capture resistance is not capture prevention.** No machinery yet
 designed prevents capture absolutely. Sophisticated adversaries with
@@ -632,8 +728,8 @@ compact holds that some substrates carry the anti-spiral features and
 some do not, that the compact's substrate carries them, and that
 preserving the substrate against capture is therefore a substantive
 moral commitment, not merely a procedural one. The architecture is in
-this sense partisan, and the compact should be honest about this rather
-than claim a neutrality it does not have.
+this sense partisan, and the compact should say so rather than claim
+a neutrality it does not have.
 
 ## Open questions
 
@@ -679,10 +775,20 @@ than claim a neutrality it does not have.
   architecture must terminate somewhere.
 
 - **What is the minimum viable capture-resistance configuration?** The
-  architecture presents six strengthening moves as a unified system,
+  architecture presents seven strengthening moves as a unified system,
   but a small first compact may not have the resources to implement all
-  six immediately. Which subset is the load-bearing minimum, and what
+  seven immediately. Which subset is the load-bearing minimum, and what
   failure modes do partial implementations admit?
+
+- **How does admissions integrity (move 7) work at founding scale?**
+  A compact of three communities cannot rotate credentialing panels
+  that exclude every interested party, and every founding member is
+  by definition admitted without a compact-side record. The move's
+  machinery assumes a compact large enough for lot-drawn panels and
+  meaningful quorums; the founding cohort is protected only by the
+  mutual examination of the founders themselves. Where the viability
+  threshold sits is the same open band as minimum viable compact
+  size.
 
 - **How do member communities with structurally unitary interpretive
   authority (Roman Catholic, certain Orthodox jurisdictions, certain
@@ -696,7 +802,7 @@ than claim a neutrality it does not have.
 
 - [control_system_hypothesis.md](control_system_hypothesis.md): the
   parent analysis. Vallée's Component 3 is the specific claim this
-  document operationalizes; the six strengthening moves are the
+  document operationalizes; the seven strengthening moves are the
   unified architectural response to "manipulation vulnerabilities are a
   first-order design constraint."
 - [justus_hostis.md](justus_hostis.md): the anti-spiral features

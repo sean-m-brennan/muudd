@@ -905,7 +905,7 @@ includes the distinction between genuine and pretextual invocation).
 - [jester_and_dissent.md](jester_and_dissent.md): the
   jester function as a check on the mediator pool.
 - [../social_framework.md](../social_framework.md): parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+- [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md):
   the intra-community complement; liminal institutions operate at the
   inter-community layer.
 

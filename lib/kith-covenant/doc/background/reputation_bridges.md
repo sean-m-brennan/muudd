@@ -561,7 +561,7 @@ must instantiate.
 - [jester_and_dissent.md](jester_and_dissent.md): the
   whistleblower function and anonymous attestation.
 - [../social_framework.md](../social_framework.md): parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+- [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md):
   the AT architecture that the reputation bridge interfaces with.
 
 ## References

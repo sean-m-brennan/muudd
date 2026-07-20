@@ -482,9 +482,8 @@ ending that feuding.
 
 This is the most important non-Christian case in kith-covenant's comparison
 set, but (as the discussion of substrate below makes clear) it is
-*not* a secular case. The earlier draft of this document framed it as
-"non-Christian counterpoint" in a way that left the impression of
-secularity; that framing was wrong and is corrected here. Haudenosaunee
+*not* a secular case. Calling it a "non-Christian counterpoint"
+leaves a wrong impression of secularity. Haudenosaunee
 cosmology is explicitly theistic, with a Creator at the apex of its
 order. Its weight in the argument is therefore not that the
 sacred-substrate function can be performed *without* a sacred substrate,
@@ -655,7 +654,7 @@ and the Iroquois case suggests there may not be a fully satisfactory
 answer. Kith-Covenant should at minimum (a) actively work to avoid being
 made an interlocutor in such conflicts, (b) preserve the compact's
 re-formation paths so that even if it is broken it can be
-reconstituted, and (c) be honest in its founding documents that this
+reconstituted, and (c) state in its founding documents that this
 failure mode exists.
 
 ---
@@ -810,8 +809,9 @@ readily than they recognize polytheists.
 
 ### Brief notes on the harder cases
 
-Three further cases deserve mention as either complicating or
-clarifying the transcendent moral authority pattern, but each in compressed form:
+Several further cases deserve mention, most complicating or clarifying
+the transcendent moral authority pattern, one set aside as not
+probative, each in compressed form:
 
 - **The Buddhist *sangha* across kingdoms.** Buddhism is non-theistic
   in its philosophical core (no creator deity, no high god in the
@@ -840,7 +840,7 @@ clarifying the transcendent moral authority pattern, but each in compressed form
   cooperation framework among separate sovereigns*. This distinction
   matters for what the sangha counterweight does to the
   Christian-particularist reading; see
-  [noticeable_hand.md](noticeable_hand.md#honest-counterweights) for
+  [noticeable_hand.md](noticeable_hand.md#counterweights) for
   the updated verdict.
 
 - **Classical Greek amphictyonic leagues and Roman federations.** Both
@@ -864,13 +864,23 @@ clarifying the transcendent moral authority pattern, but each in compressed form
   *refutation* of the hypothesis; it is an instance of the failure
   mode the hypothesis predicts.
 
+- **Anarchist cooperation experiments (set aside).** The Spanish
+  Republican-era collectives and Rojava are too short-lived and too
+  externally suppressed to bear on the durability question. The
+  Zapatista *caracoles* are more durable but are not actually anarchist
+  (parallel-state indigenous autonomy on a Mayan-Catholic syncretic
+  substrate) and organize cooperation among culturally and religiously
+  cohesive Mayan peoples, so they do not test the cross-substrate case
+  that concerns kith-covenant. These are set aside as not probative
+  rather than treated as evidence either way.
+
 ## Non-Western cases: stress-testing the substrate thesis
 
 The case set above is heavily weighted toward Western and
 Western-adjacent examples. A skeptic rightly asks whether this
 reflects evidential weight or selection bias. The following survey
 examines the most significant non-Western cooperation regimes to
-test the substrate thesis honestly. Cases already treated above
+test the substrate thesis. Cases already treated above
 (Iroquois, Mali Kurukan Fuga, Mongol Yasa, Islamic frameworks) are
 not repeated; what follows is the additional case set.
 
@@ -1118,6 +1128,79 @@ survived, an important precedent for kith-covenant, which expects
 its member communities to hold different first-order theologies while
 sharing the substrate structure.
 
+### The European Union and the postwar international order (1945-present)
+
+The counter-case a skeptical reader reaches for first, and the one
+this survey longest omitted: the European Union, and behind it the
+postwar international order (UN system, Bretton Woods, Geneva
+framework). Broad-envelope, voluntary, substrate-plural, eighty
+years old. If modern secular institutions refute the substrate
+thesis, this is where the refutation lives.
+
+**Substrate:** Officially none. The EU's treaties invoke "the
+cultural, religious and humanist inheritance of Europe" (a formula
+adopted after the explicit *invocatio Dei* was fought over and
+rejected for the 2004 constitutional treaty) and otherwise ground
+themselves in human dignity, democracy, and the rule of law. The
+founding generation was different: Schuman, Adenauer, and De Gasperi
+were Christian-democratic statesmen who understood the project in
+explicitly Christian-civilizational terms, and the founding
+population still largely lived inside that inheritance. The
+substrate question for the EU is therefore not "was one present at
+founding" (it was) but "what happens as it recedes."
+
+**Mechanism:** Progressive treaty integration, a supranational court
+whose law overrides national law, a directly elected parliament, a
+common currency for most members, and enforcement running through
+binding adjudication and material sanction. Cooperation is deep,
+daily, and legally coercive.
+
+**Decay signs:** The constitutional treaty's rejection (2005); exit
+exercised at scale (Brexit, 2016-2020) with the remaining members
+retained; sustained inability to discipline internal defection from
+its own foundational values (the Article 7 impasse over Hungary);
+chronic legitimacy strain ("democratic deficit") wherever integration
+outruns the felt community that would authorize it.
+
+**Assessment:** Three findings, stated in order of weight.
+
+First, the EU is substantially *out of class*. Kith-covenant's case
+set is voluntary, structurally sovereign-less compacts; the EU
+solves the cooperation problem by the opposite move, building a
+sovereign incrementally: supranational law with primacy, compulsory
+adjudication, a currency, a nascent executive. That is not a
+refutation of the substrate thesis; it is the *Westphalian
+alternative* the thesis never claimed was impossible. States can
+always cooperate by fusing sovereignty. The thesis concerns what
+sustains cooperation when they will not or cannot.
+
+Second, the postwar order outside the EU decomposes on inspection
+into thin-functional domains: maritime rescue, aviation, postal
+union, wounded-combatant treatment, diplomatic immunity. These
+converge without shared substrate, exactly as the thin-domain
+pattern (below, §"Convergence without shared culture") predicts,
+and their durability is evidence *for* the two-tier scoping, not
+against the full-compact claim. The UN's full-compact ambitions
+(collective security, binding resolution) are precisely the parts
+that strain.
+
+Third, for the residue that is genuinely full-compact-shaped and
+genuinely voluntary, the inheritance reading is the live one: the
+EU was founded on the Christian-civilizational substrate of its
+founders and has been spending that inheritance since. On this
+reading its trajectory (bindingness migrating from oath to economic
+entanglement and legal coercion as the substrate recedes) is not a
+counterexample but a slow-motion confirmation in progress. We state
+this as the thesis's prediction rather than as an established fact,
+because this is where the thesis meets the modern
+world and can lose: **if the EU sustains full-compact-depth
+voluntary cooperation through a multi-generational span (three
+generations from founding, roughly 2100) without substrate renewal
+and without completing its hardening into a federal sovereign, the
+substrate thesis is substantially weakened.** The same criterion,
+mutatis mutandis, applies to ASEAN (above). The thesis makes a
+falsifiable forecast here, with a date attached.
+
 ### East Asian absence
 
 East Asian political history (Chinese, Japanese, Korean) is
@@ -1354,8 +1437,8 @@ framework in a bounded functional domain without sharing substrate.**
 These cases are not full compacts and do not refute the substrate
 thesis at the compact scale, but they do carry important information
 about what can cross a cultural boundary and under what conditions.
-Honesty requires naming them explicitly rather than allowing the
-filter to silently exclude the counter-evidence.
+Naming them explicitly keeps the filter from silently excluding
+the counter-evidence.
 
 The strongest cases, roughly in chronological order:
 
@@ -1578,12 +1661,12 @@ The hypothesis stated as design implication for kith-covenant:
 > across members; the *structural feature* of having one, apparently,
 > must be.**
 
-This is a stronger claim than the version made in the previous round
-of [justus_hostis.md](justus_hostis.md#why-a-transcendent-moral-authority-was-structurally-necessary)
-("a shared sacred/cosmological frame that makes oaths mean
-something"). The strengthened version is: *not just any sacred frame,
+This is a stronger claim than "a shared sacred/cosmological frame
+that makes oaths mean something"
+([justus_hostis.md](justus_hostis.md#why-a-transcendent-moral-authority-was-structurally-necessary)):
+*not just any sacred frame,
 but one with transcendent moral authority / one-ultimate structure*. The historical
-evidence assembled here is the basis for the strengthening.
+evidence assembled here is the basis for the stronger form.
 
 Several careful consequences follow:
 
@@ -1608,7 +1691,7 @@ Several careful consequences follow:
   community; what the pattern observes is that no historical
   cooperation regime among unconnected communities has been sustained
   on a substrate that denies any ultimate altogether. This is data,
-  not policy. Kith-Covenant should be honest about what the data say without
+  not policy. Kith-Covenant should state what the data say without
   thereby legislating theology.
 - **The Mongol case (Tengrist tolerance grounded in shared transcendent moral authority
   ontology) and the Islamic case (formal legal architecture for *Ahl
@@ -1639,6 +1722,91 @@ predicted failure mode. The universe of cases is finite and
 selection bias is possible; the hypothesis should be held
 provisionally and tested against further evidence rather than
 asserted as established.
+
+One structural feature of the argument must be named because a
+skeptical reader will name it if we do not: the evidence runs
+through an **asymmetric filter**. Successes are credited to the
+substrate; failures among substrate-holding communities (the
+colonial frontier, the Salem witch trials) are debited to nominal
+carriers betraying the substrate. Each individual move is defensible on its own
+evidence, but jointly they make the thesis hard to lose, and a
+thesis that cannot lose is not carrying information. The corrective
+is to state, in advance, what counts against it:
+
+- **A durable secular full compact.** A voluntary, structurally
+  sovereign-less, broad-envelope compact sustained across three or
+  more generations on a substrate that recognizes no ultimate. The
+  EU (above) is the live candidate and the forecast has a date;
+  ASEAN is the second candidate on a longer clock.
+- **A features-present community that spirals without termination
+  or repair.** After the Salem re-analysis
+  ([justus_hostis.md "The Salem witch trials"](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated)),
+  the features' claimed function is metabolism: termination and
+  repair, not immunity. A community holding the five features in
+  operative practice whose purity spiral runs to exhaustion or
+  external suppression, with no substrate-internal termination and
+  no repentance sequence, breaks that claim.
+- **A featureless regime that self-terminates and repairs.** The
+  Salem contrast depends on the ideological purges ending only by
+  coup or death of the purger. A regime lacking the features that
+  nonetheless produced Salem's sequence (internal termination by
+  appeal above the political community, followed by institutional
+  repentance and restitution) would erase the distinction the
+  features are credited with.
+- **Substrate-blind confound survival.** If the durability pattern
+  survives controlling for the confounds (literacy, trade density,
+  imperial backing, geography; discussed under "The circularity
+  objection, confounds, and provisional confidence" below) *only* in
+  the substrate-holding cases, that is confirmation; if the confounds
+  alone reproduce the pattern, the substrate is riding on them.
+
+These criteria are the thesis's exposure. The pattern has survived
+every case examined so far; it has not yet been run against a world
+that outlives its inheritance, and that test is underway.
+
+### The circularity objection, confounds, and provisional confidence
+
+Two methodological objections bear on how much weight the pattern can
+carry, and both are conceded in part.
+
+**Selection and circularity.** The case set is weighted toward regimes
+that possess a transcendent moral authority, and some counterexamples
+are absorbed by reading their structure generously (the Buddhist
+*sangha*'s Dharma as a single-ultimate; the Greek leagues' *primus
+inter pares* high gods sworn before in formal oaths). A reader can
+fairly ask whether the pattern is found because it is looked for. The
+reasoning is not circular in the vicious sense: it is *abductive*, an
+inference to the best explanation from a finite case set, and the case
+set is openly finite and openly weighted, which is why the non-Western
+survey above exists to test the weighting. The modern-secular
+counterpoint that today's sovereign-less secular institutions "may
+simply be young" cuts both ways: the pattern cannot prove they will
+fail, and the objection cannot prove they will last. The defensible
+position is that the evidence is suggestive, not conclusive, and the
+three-reading structure of
+[noticeable_hand.md](noticeable_hand.md) holds exactly that degree of
+confidence.
+
+**Confounds.** The durable cases also tend to share literacy, dense
+trade networks, imperial backing, and favorable geography, any of which
+could carry part of the load the substrate is credited with. This is
+the fourth exposure criterion named just above: if the durability
+pattern survives controlling for those confounds only among the
+substrate-holding cases, that is confirmation; if the confounds alone
+reproduce it, the substrate is riding on them. The controlled
+comparison has not been done on the merits, and until it is, the
+confounds remain a live alternative explanation rather than a defeated
+one.
+
+**Confidence.** The residual issue is neither the thesis nor its
+falsifiability but the *confidence* with which it is stated. The
+finding is held provisionally here, and the documents that build on it
+([justus_hostis.md](justus_hostis.md#why-a-transcendent-moral-authority-was-structurally-necessary),
+[recognition_protocols.md](recognition_protocols.md),
+[bounded_conflict.md](bounded_conflict.md)) state it with the same
+provisional confidence rather than as settled fact. They adopt the
+one-ultimate structure as a *design requirement* independently of how
+the empirical question ultimately resolves.
 
 ## Patterns across the cases
 
@@ -1725,7 +1893,7 @@ patterns most directly relevant to kith-covenant's design.
 - The "external existential war" failure mode (the Iroquois case)
   appears unsolved. Has any historical regime survived this
   situation? If not, what does kith-covenant owe its members by way of
-  honest disclosure?
+  disclosure?
 
 ## Relationship to other documents
 

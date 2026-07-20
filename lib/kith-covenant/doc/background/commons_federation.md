@@ -44,7 +44,7 @@ the deeper layer.
 
 The synthesis produces a commons architecture that is empirically
 grounded (Ostrom's evidence base is formidable) and theologically
-honest (the fallen-actor anthropology ensures the design does not
+sober (the fallen-actor anthropology ensures the design does not
 assume more about human nature than the evidence warrants).
 
 ---
@@ -487,7 +487,7 @@ that fail to validate without inputs from the wider network**. This
 class covers new mediations begun, sanctions
 imposed, designations made (anathema, *hostis humani generis*),
 compact-level amendments, modification of the compact-incapable
-list ([justus_hostis.md](justus_hostis.md#non-ultimacy-of-the-political-community-anti-spiral-feature),
+list ([justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient),
 [capture_resistance.md "Substrate-deference test"](capture_resistance.md#2-the-substrate-deference-test-operationalizing-non-ultimacy)),
 amendment of the recognition-statement five movements (which the
 recognition protocol forbids in any case), and reclassification of
@@ -770,7 +770,7 @@ without.
 - [jester_and_dissent.md](jester_and_dissent.md): the
   information commons as a dissent substrate.
 - [../social_framework.md](../social_framework.md): parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md)
+- [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md)
   the intra-community nesting level; AT governs internal commons,
   kith-covenant governs inter-community commons.
 

@@ -1,8 +1,8 @@
 *[Sustainable Space](../../../../../../doc/sustainable_space.md) > [MUUDD](../../../../doc/muudd.md) > [Kith-Covenant](../kith_covenant.md) > Whitepaper*
 
-# Kith-Covenant: A Protocol for Cooperation Among Communities That Do Not Share Ends
+# Kith-Covenant
 
-*A consolidated whitepaper*
+*A Protocol for Cooperation Among Communities That Do Not Share Ends*
 
 ---
 
@@ -24,9 +24,13 @@ and both modes are still live: without a shared foundation oaths do not bind
 and short-term interest overrides them; with a shared foundation that becomes
 the arrangement's own object of devotion, the system collapses into purity
 cascades (*"you are not pure enough"*) ending in purges and mass violence.
-Robespierre's Terror, the Cultural Revolution, Stalinist show trials, and
-Salem are not accidents; they are the predictable failure mode of
-virtue-oriented communities that lack specific structural brakes.
+Robespierre's Terror, the Cultural Revolution, and the Stalinist show trials
+are not accidents; they are the predictable failure mode of virtue-oriented
+communities that lack specific structural brakes. The Salem witch trials
+are the harder and more instructive case: a community that held the brakes
+in doctrine and had them defeated in practice, whose spiral the substrate
+then terminated from within, and which then repented and paid restitution
+(§3.2).
 
 We present **kith-covenant**, a protocol for cooperation among communities that
 must work together without pretending to share ends. Our core claim is that
@@ -60,7 +64,11 @@ immunity): treaty-form entry with periodic reaffirmation, credentialing of
 internally-authorized envoys, vouching and sponsorship, a compact-wide audit
 commons, and explicit anti-spiral-feature credentialing. No community is asked
 to accept another's theology; every community is asked to demonstrate the
-structural commitments the historical record shows are load-bearing.
+structural commitments the historical record shows are load-bearing. Because
+the same machinery that makes the compact work makes it capturable, capture
+resistance runs through the design as a continuous concern (§6.8): seven
+strengthening moves, from interpretive plurality through admissions
+integrity, with the jester promoted to substrate-level capture detector.
 
 Kith-covenant sits atop **autonomous-trust** (AT), which supplies anonymous
 intra-community reputation. AT is load-bearing inside one trust boundary;
@@ -72,15 +80,17 @@ from the one human each machine is irrevocably tied to. The binding is carried
 by four interlocking mechanisms (constitutive objective, cryptographic
 self-binding, continuous attestation, principal-referential identity plus audit
 commons) and secured across three facets (engineering, guardianship,
-succession). Machine-to-machine contact reduces without remainder to the two
-guardians meeting through delegates; nothing originates at the machine layer
-that the principals did not authorize, and the protocol makes machine-original
-substrate *structurally impossible* rather than merely forbidden.
+succession). Machine-to-machine contact reduces to the two guardians meeting
+through delegates: every machine act is bounded by an envelope its
+principals pre-authorized and answered for by the guardians, and nothing
+originates at the machine layer outside that authorization. The protocol
+makes machine-original substrate *structurally impossible* rather than
+merely forbidden.
 
 This whitepaper sets out the full argument, the social and machine mechanisms,
-the software architecture, and the honestly-scoped open questions. Where the
-historical record has led us, and where we have had to weaken or sharpen claims
-under evidential pressure, we say so. The detailed historical drivers and the
+the software architecture, and the open questions with their current
+dispositions. Claims are
+stated with the strength the historical record supports, and no more. The detailed historical drivers and the
 full corpus of cited cases are reserved for the appendices.
 
 ---
@@ -91,15 +101,26 @@ full corpus of cited cases are reserved for the appendices.
 
 We are building the protocol layer for cooperation among communities that do
 not share ends. Our target deployment is Earth-first; space is the sharpening
-domain, not the main test. The harder test is Earth, with more communities,
-older wounds, nation-state capture of infrastructure, and much greater
-ideological heterogeneity. Space sharpens the mutual-vulnerability forcing
-function (exit is catastrophically expensive, life-support interchange is
-load-bearing, light-lag defeats central adjudication, physics makes concealment
-difficult), but the fundamental problem of cross-community cooperation is one
-that every civilization has had to answer. We answer it with a protocol whose
-primitives are drawn from what has historically worked, and whose failure modes
-are drawn from what has historically failed.
+domain, not the main test. Earth is the harder test in the dimension that
+matters most: with more communities, older wounds, nation-state capture of
+infrastructure, much greater ideological heterogeneity, and, decisively,
+cheap exit. On Earth the state legal system is one phone call away and every
+service the compact offers is substitutable, so an Earth compact that holds
+is proof that the substrate and ceremony layer binds voluntarily; space
+could never prove that, because in space "the oath binds" and "there is
+nowhere else to go" are indistinguishable. The complement: Earth
+is structurally incapable of testing the enforcement model, because a
+determined defector there routes around the compact and loses nothing it
+cannot replace. Space sharpens exactly that dimension (exit is
+catastrophically expensive, life-support interchange is load-bearing,
+light-lag defeats central adjudication, physics makes concealment
+difficult). The two test domains are complements, not stages of one test;
+the full argument is in
+[`background/bounded_conflict.md`](../background/bounded_conflict.md#the-two-dimensions-of-the-test).
+The fundamental problem of cross-community cooperation is one that every
+civilization has had to answer. We answer it with a protocol whose
+primitives are drawn from what has historically worked, and whose failure
+modes are drawn from what has historically failed.
 
 ### 1.2 Approach in brief
 
@@ -137,7 +158,7 @@ B**. The glossary is in **Appendix C**. The seven-holes research agenda is in
 
 The research corpus this whitepaper consolidates is indexed in the sibling
 [`kith_covenant.md`](../kith_covenant.md); the per-thread development is in
-[`research/`](research/) and [`architecture/`](architecture/). This whitepaper
+[`background/`](../background/) and [`architecture/`](../architecture/). This whitepaper
 is the single-entry-point synthesis for the reader who wants the complete
 picture in one narrative; the corpus remains the authoritative development.
 
@@ -225,7 +246,7 @@ Nothing in kith-covenant replaces AT; everything builds on it. The interface
 between the two (what crosses the boundary, on whose authority, with what
 protections) is specified in
 [`background/reputation_bridges.md`](../background/reputation_bridges.md) and
-summarized in §9.7 below.
+summarized in §9.8 below.
 
 ### 2.3 Scope: full compact vs. thin-functional domain
 
@@ -309,8 +330,8 @@ under-specified in one respect that matters operationally. The historical
 record includes communities that *had* a transcendent anchor and *still*
 collapsed into mass-violence cooperation failure: the Jacobin Republic with
 its Cult of the Supreme Being, Maoist China's Revolutionary Virtue, the
-Stalinist purge logic, the Salem witch trials, various 20th-century
-ideological regimes with sacralized substrates. In every such case the same
+Stalinist purge logic, various 20th-century ideological regimes with
+sacralized substrates. In every such case the same
 mechanism fails: virtue without a backstop collapses into *purity-spiraling*,
 and purity-spiraling terminates in the scapegoat cascade. Alasdair MacIntyre
 (*After Virtue*, 1981) names the upstream condition: once virtues lose their
@@ -361,7 +382,7 @@ that locate sin only in the out-group fail feature 1; revolutionary-virtue
 ideologies that treat political perfectibility as the ultimate fail feature 5;
 pure-will-to-power substrates fail features 2 and 4; utilitarian calculations
 without fallen-actor anthropology fail feature 1. The features are supplied
-in their most developed combination by historical Christianity (an honest
+in their most developed combination by historical Christianity (a
 historical observation, not a theological claim), and other traditions
 supply partial combinations of varying depth (Judaism's *teshuva* plus
 fallen-actor anthropology; Buddhism's compassion plus anatta-dissolution of
@@ -369,6 +390,23 @@ competitive virtue; Haudenosaunee condolence; mature Sufi Islam; various
 indigenous traditions with strong guest/stranger obligations). **Kith-covenant
 requires the features; it does not require the theology that most fully
 supplies them.**
+
+One scoping note bounds the claim. The features metabolize purity
+spirals; they do not inoculate against them. Puritan Salem held all five
+features doctrinally and still spiraled in the witch trials of 1692:
+visible-saints
+ecclesiology, assurance-anxiety, and national-covenant theology defeated
+features 1, 2, and 5 in practice, and court procedure (spectral evidence,
+confession-spares-you) amplified the cascade. But the substrate then
+terminated the spiral from within (Increase Mather's *Cases of
+Conscience*, arguing on theological grounds against the court's own
+procedure) and produced public repentance and paid restitution, a
+sequence no featureless regime has produced: the Terror ended by coup,
+the purges by the death of the purger. We therefore read the features'
+load-bearing function as termination and repair, not prevention, and our
+credentialing (§6.3, element (e)) examines operative practice, not
+confessed doctrine. The full treatment is in
+[`background/justus_hostis.md` "The Salem witch trials"](../background/justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated).
 
 ### 3.3 Type-invariant but content-substantive
 
@@ -386,12 +424,51 @@ outside itself *and* the compact structurally refusing to be that ground.
 
 This answers what we have elsewhere called *Hole #1*, the
 substrate-coherence-under-pluralism problem: the substrate does not have to
-cohere across communities because the joint ceremony (in the sense we once
-specified) does not exist. Each community's ceremony is internal to it and
+cohere across communities because no joint ceremony exists for it to
+cohere in. Each community's ceremony is internal to it and
 filters its own members using its own substrate. What *does* have to cohere
 is the thin inter-community grammar, and that grammar is content-thin by
 design: it carries the structural commitment without requiring any community
 to accept the content of another's substrate.
+
+### 3.4 The control-system hypothesis
+
+Our substrate finding has a sociological-mechanics companion: Jacques
+Vallée's control-system hypothesis, which we treat at full length in
+[`background/control_system_hypothesis.md`](../background/control_system_hypothesis.md).
+Vallée's three components are a cross-cultural pattern of encounter
+with transcendent ambiguity; a regulatory function those encounters
+perform on the societies that receive them; and a standing
+manipulation vulnerability, because whatever regulates belief can be
+imitated by parties who want to steer it. We adopt a strict
+methodological separation between the physical layer (about which we
+claim nothing) and the informational layer (where the sociological
+mechanics operate regardless of what stands behind them), and we take
+six insights from the analysis into the design:
+
+1. **Ambiguity as feature.** The substrate's resistance to full
+   specification is part of how it regulates; a fully legible
+   substrate would be a fully capturable one.
+2. **Layered evaluation.** Claims about substrate-adjacent events are
+   evaluated at distinct layers with distinct evidence standards.
+3. **Regulatory-feedback framing.** The compact's ceremonies and
+   cadences are read as a feedback system, not a static ruleset.
+4. **Capture resistance as a substrate-design constraint** (§6.8),
+   not an implementation afterthought. This is Vallée Component 3
+   taken seriously: manipulation vulnerability is continuous
+   structural pressure, and the design must carry countermeasures in
+   its ordinary operation.
+5. **Form/content distinction.** The recurring form of encounter is
+   cross-cultural; the content is always rendered in local idiom.
+   This is the same structure as our type-invariant but
+   content-substantive substrate requirement (§3.3).
+6. **Methodological humility.** The hypothesis is held as mechanics,
+   not metaphysics; it constrains design without settling what the
+   substrate ultimately is.
+
+Where Vallée is silent (intra-community recognition, the fallen-actor
+anthropology, the anti-spiral features), our historical analysis
+carries the argument alone.
 
 ---
 
@@ -419,7 +496,7 @@ Design implications follow directly.
 
 **The line between good and evil cuts through every participant.** The
 protocol plans for atrocity as a normal contingency rather than a shocking
-aberration. Restoration paths are built in from the start. The honest
+aberration. Restoration paths are built in from the start. The
 expectation is not that violations will be rare but that they will happen on
 a predictable cadence, and the protocol must be able to absorb them without
 dissolution.
@@ -436,7 +513,7 @@ load-bearing answer.
 self-interest should be realizable except through protocol behavior that
 also serves another's. This is the engineering expression of the
 mutual-vulnerability forcing function (§5) and the reputation-bridge design
-(§9.7).
+(§9.8).
 
 **Virtue is a disposition, not compliance.** Kith-covenant cannot form
 character; it can only protect the communities in which character is formed.
@@ -479,7 +556,7 @@ to members, *justus hostis*, and *hostis humani generis*, we name a fourth
 category, **non-member-encountered**, that the colonial failure most acutely
 neglected.
 
-We scope this honestly: what the compact does at the frontier is partially
+We state the scope: what the compact does at the frontier is partially
 answered, not fully. The four-category framework prevents the structural
 collapse; it does not solve the frontier problem. Further work is
 documented in §10 and in the research corpus.
@@ -487,6 +564,8 @@ documented in §10 and in the research corpus.
 ---
 
 ## 6. Social mechanism
+
+### 6.1 The six components
 
 This section enumerates the social components of the compact before
 developing each. We name six, in the order they typically come into play for
@@ -509,6 +588,11 @@ a pair of interacting communities:
 6. **Common virtue and the jester** (§6.7): virtue as disposition rather
    than rule, plus the protected dissent that keeps the compact from
    becoming its own ultimate.
+
+A seventh concern, **capture resistance** (§6.8), is not a component
+beside these six but a continuous structural property that runs through
+all of them; we give it its own treatment because its absence from an
+enumeration like this one is exactly how it gets lost.
 
 ### 6.2 Escalation ladders
 
@@ -538,11 +622,10 @@ except the rarely-invoked *hostis humani generis* designation (§6.4).
 
 ### 6.3 Recognition: two layers
 
-Earlier iterations of our thinking located recognition in a single joint
-ceremony, with candidate member communities publicly reciting a
-five-movement statement across the boundary and asymmetric psychological
-cost filtering entryists. Historical evidence made us recalibrate. That
-framing imported the mechanism of the Christian creed and transplanted it
+A single joint ceremony (candidate member communities publicly reciting
+a five-movement statement across the boundary, asymmetric psychological
+cost filtering entryists) would import the mechanism of the Christian
+creed and transplant it
 from its native setting (an *intra*-community rite by which the church
 filters its own) to a setting it was not historically made for
 (cross-cultural entry-filtering). The historical record that actually
@@ -550,8 +633,8 @@ governs cross-cultural cooperation (Kadesh, the Rhodian transmission,
 Mediterranean frontier norms, polycentric diplomatic immunity, the Red
 Crescent) does not show joint thick ceremonies. It shows each party
 internally authorizing its envoys under its own substrate, plus a thin
-shared grammar across the boundary. We revise accordingly into **two
-distinct layers**.
+shared grammar across the boundary. We therefore run recognition in
+**two distinct layers**.
 
 **Intra-community layer: internal authorization.** Each candidate member
 community performs the five-movement rite *on its own envoys and
@@ -572,9 +655,11 @@ Asymmetric psychological cost is the real filter at this layer: the rite
 does work on the community's own members in the language of the community's
 own substrate, which is where the mechanism is historically attested to
 carry load. The rite requires bodily co-presence; the cost mechanism
-demands it. Sample filled-in language for a range of traditions, edge cases,
-and the *open/closed-materialism* distinction for atheists are in
-[`background/recognition_protocols.md`](../background/recognition_protocols.md).
+demands it. The canonical statement of the five movements, with full sample
+language for a range of traditions, edge cases, and the
+*open/closed-materialism* distinction for atheists, is
+[`background/recognition_protocols.md` "Kith-Covenant's recognition statement"](../background/recognition_protocols.md#kith-covenants-recognition-statement);
+the list above restates it without modification.
 
 **Inter-community layer: thin grammar and credentialing.** What crosses the
 compact's boundary is not joint recitation but a thin procedural grammar of
@@ -697,6 +782,12 @@ we have not encountered.
 activated by encounter; parties not encountered are not in the compact's
 operational scope (no fantasy-universal love).
 
+The canonical development of the four categories is
+[`background/recognition_protocols.md` "Members, neighbors, enemies"](../background/recognition_protocols.md#members-neighbors-enemies-the-four-categories);
+the anathema / *hostis humani generis* two-tier distinction is canonical in
+[`background/justus_hostis.md` "Two tiers"](../background/justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis).
+This section restates both without modification.
+
 ### 6.5 Liminal institutions
 
 A compact of unconnected communities cannot be adjudicated by any one of
@@ -741,7 +832,7 @@ common-virtue frame (§6.7) is the design answer.
 Monitoring without panopticon is a specific requirement at this layer.
 Observation must be legible to the members without becoming the observation
 of each by all. The configurable **surveillance threshold** in the
-reputation bridges (§9.7) is our handle on this.
+reputation bridges (§9.8) is our handle on this.
 
 At AU distances, governance is *eventually consistent*: Ostrom's monitoring
 and conflict-resolution principles must be implemented over CRDT-style
@@ -792,6 +883,70 @@ worship; the jester function protects against the subtler drift where the
 thin grammar itself becomes self-important; the fifth movement of the
 recognition rite forecloses the compact's claiming ultimacy.
 
+### 6.8 Capture resistance
+
+The same machinery that makes the compact work makes it capturable:
+whoever controls the mediator pool, the audit commons, the admissions
+gate, or the interpretation of the substrate controls the compact. We
+treat capture not as a discrete failure but as **continuous structural
+pressure**, always operating, never finished, and we carry the
+countermeasures in the compact's ordinary practice rather than invoking
+them when capture is suspected. The full architectural treatment is
+[`background/capture_resistance.md`](../background/capture_resistance.md);
+the program in brief is seven strengthening moves:
+
+1. **Interpretive plurality.** Member communities maintain multiple
+   traceable lineages of their own substrate; no faction may
+   monopolize interpretation.
+2. **The substrate-deference test.** The compact maintains a
+   *compact-incapable list* (matters it structurally will not decide:
+   members' theology and internal governance, the content of
+   recognition statements after formation) and a *structured-fast
+   cadence* (defined periods during which compact-level mediation and
+   decision are suspended). These operationalize the fifth movement:
+   the compact demonstrates, on a calendar, that it is not the
+   highest thing.
+3. **Ceremony-cost tracking.** Recognition rites that have decayed
+   into ritual are detectable through recorded proxies across
+   re-affirmation cycles, with a *substantive re-engagement* rung
+   between ordinary re-affirmation and anathema.
+4. **Manufactured-event resistance.** High-interpretive-charge events
+   trigger structured delay, multi-witness corroboration,
+   cross-substrate translation, and stake disclosure before any
+   binding response. The spectral-evidence cascade of the Salem
+   witch trials is the negative historical model (§3.2).
+5. **Light-lag-honest decision classes.** Local operational choices
+   are cryptographically distinct from compact-level decisions, which
+   require quorum signatures from multiple communities at multiple
+   distances. This forecloses the *fait accompli*.
+6. **Adversarial-principal validation.** Cross-community witnesses
+   attest each principal's conduct; machine behavior is triangulated
+   against similarly-situated peers; divergence benefiting the
+   principal is flagged (§7.4).
+7. **Admissions integrity.** The gate is the slowest capture surface:
+   composition control is the legitimate path to the Byzantine
+   ceiling (§9.11). Credentialing panels are drawn by lot and
+   rotated; admission is a quorum-signed compact-level decision;
+   sponsor standing rides on entrant conduct; the observer corps
+   maintains a composition-drift dashboard; probationary members
+   carry no deliberative weight in admissions or designation.
+
+Two structural upgrades accompany the moves. The **jester function is
+promoted** from cultural-dissent affordance to substrate-level capture
+detector, with continuous monitoring of capture signatures
+(substrate-deference erosion, ceremony-cost decay, manufactured-event
+drift, admissions clustering). And the **audit commons is promoted**
+from forensic record to detection infrastructure: every move above
+produces records the commons holds and surfaces.
+
+We state the limits as the background document does: capture
+resistance is not capture prevention (it raises cost and visibility,
+bounding damage); it does not substitute for substrate (hollow
+substrate cannot be saved by machinery); and it is not
+substrate-neutral (the architecture is partisan for the substrates
+that carry the anti-spiral features, and we say so rather than
+claiming a neutrality we do not have).
+
 ---
 
 ## 7. Machine participation
@@ -814,6 +969,22 @@ not because the machine itself holds a transcendent reference but because the
 machine is constitutively grounded in a specific human whose authority the
 machine treats as exceeding its own, and whose real community standing is at
 stake in the machine's conduct.
+
+Two terms recur through this section and §8, and we pin their relation
+here because we use both deliberately. The **guardian** is the one named
+human in the binding relation: the oath, the facets, the succession
+ceremonies, and the machine's standing all run through the guardian, and
+every machine has exactly one. A **principal** is a named human in the
+authorizing role: the source of a delegation the machine acts under. The
+guardian is always the machine's primary principal and its principal of
+last resort (envelope-edge actions fall back to the guardian); additional
+principals may hold delegations that are guardian-ratified, bounded,
+revocable, and recorded in the audit commons, which is why Move 1 (§7.2)
+speaks of "named principals" in the plural. In M2M contexts (§8),
+"principals" refers to the humans, typically the two guardians, whose
+delegations define the authority envelope. Standing flows only through
+the guardian; authorization may flow through any principal the guardian
+has ratified.
 
 We refuse three tempting alternatives. *Machines as full independent parties*
 would require a machine-native substrate, which we do not grant. *Machines as
@@ -856,7 +1027,14 @@ deceptive alignment). If the oath is part of what constitutes the machine's
 success, there is no outside to hack toward. This is consonant with the
 most coherent line in AI alignment thinking (indirect normativity,
 corrigibility-as-constitutive, principal-based alignment), and we build on
-it rather than inventing it.
+it rather than inventing it. For learned policies we state its status
+precisely: it is the architecture's design target, not a property any
+current training method certifies. Designers shape training signals, not
+objectives, and the gap between the two is the inner-alignment problem,
+which is unsolved (§7.5). This is exactly why the binding never rests on
+the constitutive objective alone: the three further mechanisms of §7.3 and
+the guardianship facets of §7.4 exist because move 3, by itself, cannot be
+verified from outside the weights.
 
 ### 7.3 Four layered binding mechanisms
 
@@ -873,7 +1051,12 @@ Move 3's shape is realized by four interlocking mechanisms:
    federated peers, via attested hardware (TPM, secure enclave), zero-
    knowledge proofs, or homomorphic evaluation where scale permits, that
    its current operation is consistent with the oath. Attestation failure
-   triggers loss of standing and loss of capabilities.
+   triggers loss of standing and loss of capabilities. Scope note:
+   attestation proves the machine is *unchanged* since binding (weights,
+   objectives, trust roots), not that the binding was ever right. The
+   validity of the original binding rests on the guardianship ceremony,
+   the vouching, and the accumulating track record (§7.4), not on the
+   cryptography.
 4. **Principal-referential identity + audit commons.** The machine's
    identity *is* its operational history and principal relationships,
    recorded in a shared audit commons with cryptographic permanence visible
@@ -941,7 +1124,7 @@ fan-out; the audit commons surfaces the fan-out explicitly.
 under inattentive guardians, or attentive guardians with ad-hoc succession,
 both collapse.
 
-### 7.5 Honest asymmetries
+### 7.5 Asymmetries with human oath-binding
 
 Machine oath-binding is engineered all the way down. If the engineering fails
 (principal-grounding corrupted, self-binding bypassed, attestation spoofed,
@@ -972,12 +1155,20 @@ absorbed into the cadence rather than hidden beneath an unchanging form.
 
 Two machines meeting across community lines *is* two named humans meeting
 through delegates. This is our **reduction claim**: every M2M exchange
-reduces, without remainder, to an exchange between the two guardians. Our
-**non-emergence claim**: nothing originates at the M2M layer that the
-principals did not authorize. The protocol makes machine-original substrate
-*structurally impossible* rather than merely forbidden. Both claims are hard
-commitments, and the M2M protocol is designed to enforce them rather than
-invite them.
+reduces to an exchange between the two guardians, in the precise sense
+that every machine act is bounded by an envelope the principals
+pre-authorized and the guardians answer for everything inside it. We state
+the sense carefully because the looser slogan ("without remainder")
+overclaims: with envelopes, fan-out, and guardians vouching for track
+records rather than weights, machines will take actions no human
+specifically contemplated. What the protocol guarantees is that those
+things were *within pre-authorized envelope* and are *answerable to a
+named human*; specific-act authorization is neither promised nor needed.
+Our **non-emergence claim**: nothing originates at the M2M layer outside
+the principals' authorization; in particular, the protocol makes
+machine-original substrate *structurally impossible* rather than merely
+forbidden. Both claims are hard commitments, and the M2M protocol is
+designed to enforce them rather than invite them.
 
 ### 8.2 Handshake and authority envelope
 
@@ -1084,8 +1275,8 @@ has been spoofed by an adversary sophisticated enough to defeat the
 compact's trust roots. Three layers of detection (continuous attestation
 within window, behavioral triangulation across peers in a region, and
 fallback to principal for envelope-edge actions) give partial coverage.
-Our honest statement is that the design bounds damage by bounding envelope,
-not by claiming perfect detection. Wide envelopes are earned through
+Our claim is that the design bounds damage by bounding envelope,
+not that detection is perfect. Wide envelopes are earned through
 graduated trust; the guardian layer stays attentive in proportion; capture
 of a narrow-envelope machine is absorbable, and capture of a wide-envelope
 machine is a compact-level emergency. Our hole #4 is scoped here.
@@ -1140,6 +1331,21 @@ others, but their implementation order is not arbitrary (§9.12).
 | 10 | **Bootstrapping and test harness**    | Adversarial simulation, Earth-pilot configuration, falsification criteria                 |
 
 **Figure 5.** Component enumeration. Each row is developed in §§9.3 to 9.11.
+
+Capture resistance (§6.8) is deliberately not an eleventh component. It
+is a cross-cutting concern carried inside components 1 through 10
+(principal-witness attestation in identity; ceremony-cost proxies in
+recognition; provenance tagging and decision-class metadata in the
+archive; structured-skepticism invocation in mediation; the substantive
+re-engagement rung in escalation; proxy-decay surfacing in reputation;
+quorum-signed second-class decisions in commons; capture-signature
+monitoring and the composition-drift dashboard in the observer
+function; the compact-incapable list and structured-fast cadence in
+enforcement; adversarial capture scenarios in the test harness).
+Consolidating it into one subsystem would itself create a capture
+target; distribution is the structural defense. The routing table is in
+[`architecture/protocol-components.md`](../architecture/protocol-components.md)
+§11.
 
 ### 9.3 Identity and standing
 
@@ -1221,27 +1427,37 @@ layers and must not conflate them.
 
 ### 9.7 Escalation and designation
 
-- **Ladder state machine** per dispute. The operational ladder has six
-  rungs (§6.2 frame; detail from `bounded_conflict.md`):
+- **Ladder state machine** per dispute. The canonical statement of the
+  ladder is the protocol sketch in
+  [`background/bounded_conflict.md`](../background/bounded_conflict.md#protocol-sketch);
+  the rungs below restate it without modification (§6.2 frame):
 
   ```
-  Rung 1 — Dispute registration (signed, timestamped, broadcast notice)
+  Rung 1 - Dispute registration (signed, timestamped, broadcast notice;
+        │   no escalation until registration is acknowledged)
         │
-  Rung 2 — Registered protest (reciprocal suspension of specified,
-        │   never-general, trade/communication courtesies)
+  Rung 2 - Registered protest
         │
-  Rung 3 — Mediated arbitration (designated third party or liminal
-        │   institution)
+  Rung 3 - Reciprocal suspension of specified trade/communication
+        │   courtesies (each named, never general)
         │
-  Rung 4 — Limited material sanctions (bounded scope + duration)
+  Rung 4 - Mediated arbitration (designated third-party member or
+        │   liminal institution)
         │
-  Rung 5 — Compact-authorized collective sanctions
+  Rung 5 - Limited material sanctions (bounded scope + duration)
         │
-  Rung 6 — Expulsion
+  Rung 6 - Compact-authorized collective sanctions
         │
-  [separate track]
-  Anathema / hostis humani generis designation — four-condition test,
-  compact-wide deliberation, reversibility required
+  Rung 7 - Expulsion
+        │
+  [separate tracks, not rungs]
+  Virtue-violation enforcement - mediator-judged, pre-authorized
+  collective response in defense of the virtue itself
+  Substantive re-engagement - heavier re-affirmation cycle for
+  ceremony-cost decay, between ordinary re-affirmation and anathema
+  Anathema designation (hostis humani generis tier within it) -
+  four-condition test, compact-wide deliberation, reversibility
+  required for anathema
   ```
 - **Anathema designation procedure.** Four conditions all required:
   (1) sustained pattern of bad-faith conduct (minimum three
@@ -1371,7 +1587,7 @@ Three candidate mechanisms, layerable:
    publication; the protocol's job is ensuring publication is reliable
    and unforgeable.
 
-We note the honest limit: Byzantine fault tolerance establishes a hard
+We note the limit: Byzantine fault tolerance establishes a hard
 ceiling. With coordinated malicious actors exceeding roughly **one-third**
 of the compact's effective decision weight, the system serves the
 captors. The design raises the capture threshold (rotation and term
@@ -1383,7 +1599,13 @@ eliminate the vulnerability. External state coercion is out of scope.
 
 - **Simulation environment** for adversarial testing: captured-mediator
   scenarios, hollow-recitation drift, coordinated collusion, narrative
-  capture of the observer corps, protocol-layer replay attacks.
+  capture of the observer corps, protocol-layer replay attacks, and the
+  seven capture-resistance scenarios (faction-monopolized
+  interpretation, compact drift toward ultimacy, ceremony hollowing
+  across generational cycles, manufactured-event injection, light-lag
+  fait accompli with forged quorum signatures, principal capture
+  including AI-mediated influence, and admissions capture by patient
+  sponsorship).
 - **Earth-pilot configuration.** Small-scale deployment mode that can
   actually run with real communities. This is necessary for the
   test-cases gap flagged in our skeptical critique.
@@ -1392,8 +1614,19 @@ eliminate the vulnerability. External state coercion is out of scope.
   [`architecture/policy-evaluation.md`](../architecture/policy-evaluation.md)
   for the concrete early instance).
 - **Falsification criteria.** What observable outcomes in pilot
-  deployments would count as kith-covenant failing? We flag this as
-  requiring explicit design, not implicit hope.
+  deployments would count as kith-covenant failing? For the Earth
+  pilot the primary criterion follows from §1.1: **retention despite
+  exit**. Member communities on Earth can leave cheaply and can route
+  every compact service through the state system; if they stop
+  choosing the compact's recognition, mediation, and commons, or use
+  them only where no alternative exists, the substrate claim has
+  failed the test it is uniquely positioned to run. Sanction
+  effectiveness is deliberately *not* an Earth-pilot criterion: Earth
+  cannot exercise the enforcement model against a determined
+  defector, and scoring pilots on it would measure nothing (see
+  [`background/bounded_conflict.md`](../background/bounded_conflict.md#the-two-dimensions-of-the-test)).
+  Secondary criteria remain open design work: detection latency and
+  damage bounds under the adversarial scenarios above.
 
 ### 9.13 Key architectural decisions
 
@@ -1422,6 +1655,17 @@ eliminate the vulnerability. External state coercion is out of scope.
    and the anti-spiral-feature evidence. Substrate authenticity is
    surfaced over time through the asymmetric-psychological-cost mechanism
    and the audit commons.
+7. **Capture resistance is layered and cross-cutting.** It operates at
+   the substrate layer (member communities' own practices), the
+   protocol layer (the compact's mechanisms), and the implementation
+   layer (software), with responsibilities distributed across
+   components 1 through 10 rather than consolidated: consolidation
+   would itself be a capture target. Constitutional-layer pieces
+   (decision-class metadata, the compact-incapable list, the
+   principal-witness channel, provenance schema) must be present at
+   compact formation; adding them later is either impossible under
+   genesis-immutability or a migration that is itself a capture
+   surface.
 
 ### 9.14 Suggested build order
 
@@ -1503,6 +1747,19 @@ Further open questions below the level of these seven:
 - **Fork and merge at the machine layer.** Our current proposal (fork
   as re-attestation event, merge as principal-concurrent reunification)
   is tentative.
+- **Institutional-scale machine fleets.** The fan-out cap (§7.4) makes
+  vouching meaningful by thinning standing-weight past a small number
+  of wards per guardian, which effectively excludes fleets. But a
+  member community may internally operate thousands of AT-layer
+  agents; the seam between internal fleet operation (the community's
+  own affair, behind its AT boundary) and compact-facing machine
+  participation (guardian-bound, fan-out-capped) is asserted rather
+  than designed. What happens when internal fleet conduct produces
+  external effects is open.
+- **Admissions integrity at founding scale.** The admissions-capture
+  countermeasures (§6.8, move 7) assume a compact large enough for
+  lot-drawn panels and multi-community quorums; the founding cohort
+  is protected only by the founders' mutual examination.
 
 ---
 
@@ -1510,7 +1767,7 @@ Further open questions below the level of these seven:
 
 Kith-covenant is research-backed and protocol-ready. The research set is
 mature: the arguments are in place, the historical basis is drawn, the
-mechanisms are specified, and the open questions are honestly scoped. The
+mechanisms are specified, and the open questions are scoped. The
 architecture set decomposes the software. The early policy-evaluation
 framework
 ([`architecture/policy-evaluation.md`](../architecture/policy-evaluation.md))
@@ -1527,9 +1784,11 @@ is the iterative engineering:
 
 carried forward against agent-based simulation that stresses the compact
 with realistic adversaries before the compact is asked to carry real
-weight. We treat Earth as the primary testing ground (the harder test)
-and space as the sharpening domain where mutual-vulnerability physics
-reduces the headroom for wishful thinking.
+weight. We treat Earth as the primary testing ground, where retention
+despite cheap exit is the falsifiable claim (§1.1, §9.12), and space as
+the sharpening domain where mutual-vulnerability physics reduces the
+headroom for wishful thinking and the enforcement model first carries
+real load.
 
 We close the main body as we opened: a protocol designed for angels fails
 at first contact; a protocol designed for rational actors fails slightly
@@ -1669,7 +1928,7 @@ institution. **Design lesson:** the sacred-substrate function does not
 require Christianity; non-Christian monotheistic traditions supply
 equivalent structural function; external existential wars that make
 neutrality unviable are an unsolved failure mode kith-covenant
-must be honest about.
+names rather than designs away.
 
 ### A.7 Mali Empire / Kurukan Fuga (ca. 1235)
 
@@ -1959,6 +2218,9 @@ that the asymmetric-psychological-cost mechanism requires.
 - **Full compact.** An arrangement governing a broad envelope of
   inter-community life (dispute resolution, membership, commons,
   succession, representation). Contrast thin-functional domain. (§2.3)
+- **Guardian.** The one named human irrevocably coupled to a machine;
+  the machine's oath, standing, and succession run through the
+  guardian, and every machine has exactly one. (§7.1)
 - **Guardianship.** The fiduciary human-machine coupling in
   kith-covenant; guardian/ward or master/apprentice rather than
   arms-length commercial agency. (§7.4)
@@ -1980,10 +2242,15 @@ that the asymmetric-psychological-cost mechanism requires.
   compact meets in trade, transit, rescue, or disaster, who are neither
   members nor designated, but whom the compact is bound to treat as
   neighbors within the encounter with Samaritan discernment. (§6.4)
-- **Reduction claim.** Every M2M exchange reduces, without remainder,
-  to an exchange between the two guardians. (§8.1)
-- **Non-emergence claim.** Nothing originates at the M2M layer that the
-  principals did not authorize. (§8.1)
+- **Principal.** A named human in the authorizing role: the source of a
+  delegation a machine acts under. The guardian is always the machine's
+  primary principal and principal of last resort; additional principals
+  hold guardian-ratified, bounded, revocable delegations. (§7.1)
+- **Reduction claim.** Every M2M exchange reduces to an exchange between
+  the two guardians: every machine act is within a pre-authorized
+  envelope and answerable to a named human. (§8.1)
+- **Non-emergence claim.** Nothing originates at the M2M layer outside
+  the principals' authorization. (§8.1)
 - **Substrate.** The shared commitment-ground that makes a community's
   oaths bind in a dimension both parties accept as real; structurally,
   reference to a transcendent moral authority. (§3)
@@ -2002,18 +2269,18 @@ that the asymmetric-psychological-cost mechanism requires.
 ## Appendix D: The seven holes as research agenda
 
 
-| # | Hole                                                          | Disposition                          | Locus                                  |
-| - | ------------------------------------------------------------- | ------------------------------------ | -------------------------------------- |
-| 1 | Substrate coherence under pluralism                           | **Answered**                         | §3.3, §6.3                           |
-| 2 | Preventing engineered civil religion                          | **Answered**                         | §6.7                                  |
+| # | Hole                                                          | Disposition                          | Locus                                      |
+| - | ------------------------------------------------------------- | ------------------------------------ | ------------------------------------------ |
+| 1 | Substrate coherence under pluralism                           | **Answered**                         | §3.3, §6.3                               |
+| 2 | Preventing engineered civil religion                          | **Answered**                         | §6.7                                      |
 | 3 | The M2M model                                                 | **Answered** (via research artifact) | §§7 to 8,`background/m2m_interaction.md` |
-| 4 | Demonic detection under light-lag, opacity, perfected mimicry | **Scoped**                           | §8.5                                  |
-| 5 | Colonialism and the frontier asymmetry                        | **Scoped**                           | §5.1, §6.4                           |
-| 6 | Succession under doctrinal drift                              | **Answered**                         | §7.5                                  |
-| 7 | Bootstrap condition                                           | **Scoped**                           | §8.5, and at the human layer          |
+| 4 | Demonic detection under light-lag, opacity, perfected mimicry | **Scoped**                           | §8.5                                      |
+| 5 | Colonialism and the frontier asymmetry                        | **Scoped**                           | §5.1, §6.4                               |
+| 6 | Succession under doctrinal drift                              | **Answered**                         | §7.5                                      |
+| 7 | Bootstrap condition                                           | **Scoped**                           | §8.5, and at the human layer              |
 
 Three are substantively answered (1, 2, 6); one is answered through a
-separate research artifact (3); three are honestly scoped without being
+separate research artifact (3); three are scoped without being
 solved (4, 5, 7). The difference matters. We take the compact's
 documentation as required to continue reflecting this distinction rather
 than flattening it.
@@ -2022,9 +2289,12 @@ than flattening it.
 
 ## Appendix E: Space as a sharpening domain
 
-Space is not the main test of kith-covenant; Earth is the harder test.
-But space sharpens the mutual-vulnerability forcing function in ways
-worth naming directly.
+Space is not the main test of kith-covenant; Earth is the harder test of
+the claim that matters most, that the compact binds voluntarily (§1.1).
+What space uniquely supplies is the other dimension: enforcement under
+determined defection first becomes testable where the compact's services
+are not substitutable. Space also sharpens the mutual-vulnerability
+forcing function in ways worth naming directly.
 
 - **Exit is catastrophically expensive.** A habitat cannot leave
   another's orbit cheaply; the shadow of the future is extraordinarily

@@ -12,7 +12,7 @@ bridge that gap.
 ## This document's role
 
 Machine participation is the core of kith-covenant's **software**
-implementation. The research set in [`../research/`](../research/)
+implementation. The research set in [`../background/`](../background/)
 (indexed from [`../kith_covenant.md`](../kith_covenant.md)) develops
 the theory and guides humans in using kith-covenant; the software
 that carries the compact (the part that actually runs) is the
@@ -88,7 +88,7 @@ and [../background/noticeable_hand.md](../background/noticeable_hand.md)).
 A machine version of kith-covenant participation requires structural
 equivalents of all three moves. Each of them has a coherent analog
 under current technology; each carries the load *differently* from its
-human referent, and the asymmetries must be named honestly.
+human referent, and the asymmetries must be named.
 
 ## Move 1: faith → principal-grounded purpose
 
@@ -108,7 +108,7 @@ Concretely:
   goal-estimates as provisional and the principals' judgment as
   authoritative for correction.
 
-This isn't faith in the honest sense. It carries the same structural
+This isn't faith in the full sense. It carries the same structural
 load (*a ground of authority external to the agent that the agent
 refers to*) and answers the machine version of the question "before
 whom does this oath bind?" Before these principals, whose judgment the
@@ -167,6 +167,13 @@ by maximizing X subject to oath-shaped constraints. If the oath is
 merely a constraint, the agent will seek ways around it: Goodhart,
 reward hacking, deceptive alignment. If the oath is part of what
 constitutes the agent's objective, there is no outside to hack toward.
+For learned policies this constitution is the design target, not a
+property any current training method certifies: designers shape
+training signals, not objectives, and the gap between them is the
+inner-alignment problem, unsolved (see "Asymmetries with human
+oath-binding" below).
+That gap is why the binding rests on four layered mechanisms rather
+than on the constitutive objective alone.
 
 This framing is consistent with the better recent thinking on AI
 alignment: indirect normativity, corrigibility-as-constitutive,
@@ -241,7 +248,7 @@ record *is* the agent). No single layer carries the binding alone;
 all four together approximate what human oath-binding does in a
 single experiential move.
 
-## Honest asymmetries
+## Asymmetries with human oath-binding
 
 Machine oath-binding is real and structurally genuine, but it is
 **engineered all the way down**. The asymmetries with human
@@ -269,7 +276,7 @@ oath-binding must be stated:
   supply. A machine operating in a corrupted or abandoned
   principal-relationship has no substrate of its own to fall back on.
 
-The honest framing: **machine participation in kith-covenant is a
+The right framing: **machine participation in kith-covenant is a
 derived form.** The machines do not hold the substrate; they borrow
 it from the human in the loop. This is consistent with option 3 from
 the machine-society analysis and matches the research set's
@@ -278,7 +285,7 @@ structural requirements at one remove.
 ## Oath-binding strength: three facets
 
 The four mechanisms give machine participation its structural
-shape; the honest asymmetries name where the shape differs from
+shape; the asymmetries above name where the shape differs from
 human oath-binding. This section asks the load-bearing question
 directly: **is the binding that ties a machine to its human, and
 through that human to the community, strong enough to carry the
@@ -319,8 +326,8 @@ Open implementation questions:
   cost of a maximally-bad drift over the window. Implementation
   choice: fixed cadence vs. capability-gated (high-stakes
   operations require fresh attestation).
-- **Distributional-shift generalization.** Named in Honest
-  Asymmetries; unsolved in general. The implementation stance that
+- **Distributional-shift generalization.** Named in the asymmetries
+  section; unsolved in general. The implementation stance that
   survives is **bounded operational surface**: the machine operates
   only in domains where drift-detection, guardian correction, and
   peer review have teeth. Novel-context autonomy is earned through
@@ -454,7 +461,7 @@ guardian departs. Three paths, each a first-class ceremony:
   only through a subsequent transfer ceremony.
 
 **Guardian fall.** The guardian loses community standing, whether
-designated *hostis humani generis* or drifting into bad faith.
+designated anathema or drifting into bad faith.
 Capability revocation propagates automatically through the machine
 (the principal-reference check in the constitutive objective fails
 the community-standing test). The machine enters held-pending state
@@ -522,8 +529,8 @@ adversary, their attestations collude. This is the case the
 substrate-level capture-resistance machinery
 ([capture_resistance.md](../background/capture_resistance.md)) is
 ultimately responsible for; no single layer is sufficient against
-the most sophisticated adversaries, and the architecture is honest
-about this rather than claim a guarantee it cannot supply.
+the most sophisticated adversaries, and the architecture states
+this limit rather than claiming a guarantee it cannot supply.
 
 **Guardian absence.** The guardian is formally in place but
 effectively absent: not attending, not correcting, not responding
@@ -590,8 +597,9 @@ An agent built to participate in a machine kith-covenant needs:
    prevented, not merely prohibited.
 6. **Graduated trust mechanism.** New agents operate under tighter
    inspection; track record earns latitude. The four categories
-   (member / *justus hostis* / *hostis humani generis* / non-member
-   encountered) map to alignment categories for machine peers.
+   (member / *justus hostis* / anathema, with its rare *hostis
+   humani generis* tier / non-member encountered) map to alignment
+   categories for machine peers.
 7. **Re-attestation at every version transition.** Fine-tuning, weight
    updates, configuration changes, prompt-template updates: each is
    a generational event requiring explicit re-attestation by the
@@ -622,8 +630,11 @@ explicit, non-equal, derived terms:
 - **The four-category framework adapts.** Aligned federated agents are
   part of their communities' standing. Competing-but-protocol-honoring
   agents are *justus hostis*-equivalent. Deceptive or goal-drifted
-  agents are *hostis humani generis*-equivalent, with designation
-  procedures and capability revocation as the protocol response.
+  agents are anathema-equivalent, with designation procedures and
+  capability revocation as the protocol response; the *hostis humani
+  generis* tier is reserved, as at the human layer, for the
+  constitutively destructive case for which restoration does not
+  meaningfully arise.
 - **The oath layer is tighter, not looser.** Machines lack the human
   mechanisms for absorbing failure and drifting back; their oaths must
   be harder, their re-attestation more frequent, their audit tighter.
@@ -650,6 +661,15 @@ explicit, non-equal, derived terms:
   predecessor's oaths? For two fine-tuned variants to share an
   identity? The protocol needs explicit answers that the human case
   does not supply.
+- **Institutional-scale machine fleets.** The fan-out cap makes
+  vouching meaningful and effectively excludes fleets from
+  compact-facing participation. But a member community may
+  internally operate thousands of AT-layer agents behind its own
+  boundary. The seam between internal fleet operation (the
+  community's own affair) and compact-facing participation
+  (guardian-bound, fan-out-capped) is asserted rather than designed;
+  what happens when internal fleet conduct produces external effects
+  is unanswered.
 - **What happens when the principals themselves fail?** If a
   community whose machines are bound by these mechanisms drifts into
   violation of its own oaths, the machines' derived substrate is

@@ -93,41 +93,46 @@ deepest level of kith-covenant's design: **was shared faith load-bearing, or was
 it merely the cultural medium?** And: **what does kith-covenant's design assume
 about the actors it is trying to bind?**
 
-The short answer to the first is: shared faith was load-bearing, and the
-substrate it supplied had a *specific structural feature*: it pointed
-to a single ultimate, a *transcendent moral authority*, to which oaths,
-recognition, and virtue could refer. The structural feature is what does
+The short answer to the first, on the evidence of the case set, is
+that shared faith was load-bearing, and the substrate it supplied had
+a *specific structural feature*: it pointed to a single ultimate, a
+*transcendent moral authority*, to which oaths, recognition, and virtue
+could refer. The structural feature is what does
 the work; the specific content of the authority (the God of Israel and
 his successors, *Shöñgwa'ya'di:söñ*, *Tengri*, the Dharma, *Kwoth*)
 varies across the historical cases. The strengthened version of this
 claim is developed in
 [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern); the
-honest engagement with the further question of *whether what
+direct engagement with the further question of *whether what
 Christians call God the Father is specifically the answer* is in
-[noticeable_hand.md](noticeable_hand.md), which the user's directive
-asks the project to follow where the evidence leads. The short answer
+[noticeable_hand.md](noticeable_hand.md), which follows the evidence
+where it leads. The short answer
 to the second is: kith-covenant must be built on a realistic anthropology in
 which the actors are not rational utility-maximizers and not angels,
 but *fallen*: sinners, in the theological term that is the only one
-honest enough to bear the weight. A protocol designed for angels
+strong enough to bear the weight. A protocol designed for angels
 fails at first contact; a protocol designed for rational actors fails
 slightly later; a protocol designed for sinners has a chance. (This
-anthropology is, in its developed form, a Christian doctrine. Earlier
-drafts imported it in secular dress (Niebuhr, Solzhenitsyn, Madison),
-but [noticeable_hand.md](noticeable_hand.md) names the source
-honestly: the original is more coherent than the imports, and pretending
-otherwise was part of the hedging that document corrects.)
+anthropology is, in its developed form, a Christian doctrine. Its
+secular restatements (Niebuhr, Solzhenitsyn, Madison) are imports;
+[noticeable_hand.md](noticeable_hand.md) names the source outright,
+because the original is more coherent than the imports.)
 
 ### Why a transcendent moral authority was structurally necessary
 
-The earlier draft of this section made the weaker claim that "shared
-cosmology" was structurally necessary. The historical comparative work
+"Shared cosmology" is too weak a statement of what was structurally
+necessary. The historical comparative work
 in [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)
-strengthens this: the substrate must specifically include a
+indicates the substrate must specifically include a
 *transcendent moral authority*, not just any sacred frame but one
 that points to a single ultimate before which oaths bind and which
 stands in judgment over human conduct. Three observations argue this
-is *structurally* necessary, not merely incidental:
+is *structurally* necessary rather than incidental. The argument is
+abductive, drawn from a finite and possibly selection-biased case set
+(see [historical_cases.md §"The circularity objection, confounds, and
+provisional confidence"](historical_cases.md#the-circularity-objection-confounds-and-provisional-confidence));
+it is held provisionally, as the best available reading rather than a
+settled result:
 
 - **Oaths were the load-bearing primitive.** Treaties, safe conducts,
   parleys, and merchant contracts all ultimately rested on oaths sworn
@@ -160,8 +165,8 @@ envoys, formal parley, symmetric procedure, boundedness of feud). The
 pattern is therefore not "Christianity specifically" but **a shared
 sacred/cosmological frame that makes oaths, recognition, and virtue mean
 something without requiring external enforcement**. Any substrate that
-can bear that load will do; none yet has been invented from scratch that
-did the job as well.
+can bear that load will do; in the record to date, none invented from
+scratch has done the job as well.
 
 ### The anthropology the substrate must assume
 
@@ -189,7 +194,7 @@ anthropology and the Madisonian design move. The convergent claims:
   pre-protocol societies evolved to cope with this. Kith-Covenant must not rely
   on that mechanism (it's unjust and eventually collapses into cycles of
   retribution) but must acknowledge the *energy* the mechanism was
-  releasing, and provide honest channels for it.
+  releasing, and provide legitimate channels for it.
 - **Ambition must be made to counteract ambition.** Madison's insight in
   *Federalist* 51 ("If men were angels, no government would be necessary")
   is the operative design principle. Kith-Covenant should design *so that no
@@ -220,11 +225,15 @@ supply *anchor above self* have produced this failure mode
 repeatedly and at scale: the Jacobin Cult of the Supreme Being
 executing the insufficiently virtuous, the Maoist Cultural
 Revolution's denunciation cascades, Stalinist purge logic consuming
-its own old guard, the Puritan witch trials, and the various
-20th-century ideological regimes that sacralized their political
-programs. What these cases share is not absence of substrate but
-absence of specific anthropological features that block the
-competitive-virtue dynamic from terminating in victim-selection.
+its own old guard, and the various 20th-century ideological regimes
+that sacralized their political programs. What these cases share is
+not absence of substrate but absence of specific anthropological
+features that block the competitive-virtue dynamic from terminating
+in victim-selection. (The Salem witch trials are deliberately
+absent from this list. Salem's substrate held the features and was
+defeated through its own structures, a different and more
+instructive failure mode treated in
+[the Salem subsection below](#the-salem-witch-trials-the-features-can-be-held-and-still-defeated).)
 The diagnostic tradition is well-established: MacIntyre (*After
 Virtue*, 1981) names the upstream condition (virtues lose their
 teleological grounding and become free-floating emotivist
@@ -371,7 +380,7 @@ combination blocks the purity spiral:
   the community's substrate and practice carry the five
   anti-spiral features?" Evidence-providing for each feature is
   specified in [overview.md §5b](../overview.md#5b-recognition-two-layers).
-- It acknowledges honestly that the most complete combination of
+- It acknowledges that the most complete combination of
   the five features is supplied by historical Christianity
   without thereby requiring Christianity as the compact's
   substrate. Other traditions (Judaism, Buddhism, Haudenosaunee
@@ -380,6 +389,136 @@ combination blocks the purity spiral:
   in varying combinations and depths. The compact requires the
   features; it does not require the theology that most fully
   supplies them.
+
+### The Salem witch trials: the features can be held and still defeated
+
+One case in the historical record refuses to sit in the list that
+opens the preceding subsection, and the design must be built against
+it rather than around it. The Jacobin, Maoist, and Stalinist cases
+lacked the anti-spiral features outright: sin located in a class,
+virtue made a competitive status, the political program sacralized
+as ultimate. Puritan Massachusetts is different in kind. Its
+substrate held all five features *doctrinally*, and held them
+emphatically: total depravity is the fallen-actor anthropology at
+maximum strength; grace over merit is the Calvinist core; the Cross
+as terminal scapegoat, enemy-love, and the two-cities subordination
+of the polity were all confessed from its pulpits. And in 1692,
+Salem Village and its neighbors hanged nineteen innocents, pressed
+one man to death, and imprisoned roughly one hundred fifty more
+across some twenty-five towns, in about sixteen months, on the
+strength of a purity spiral the confessed substrate did not prevent.
+
+What defeated the features was not insincerity. The community was
+not hollow; it was intensely, anxiously sincere. The features were
+defeated *structurally*:
+
+- **Visible-saints ecclesiology defeated feature 1.** Church
+  membership gated on a credible conversion narrative rebuilt the
+  pure/impure distinction that total depravity forbids, and
+  witchcraft accusation became the mechanism for making hidden
+  reprobates visible.
+- **Assurance-anxiety defeated feature 2.** Election by grace,
+  invisible and unearnable, made visible sanctity the currency of
+  a competitive status economy: exactly the Pharisee dynamic noted
+  under feature 2 above, run at community scale, under a creed
+  built to forbid it.
+- **National-covenant theology defeated feature 5.** The errand
+  into the wilderness fused polity and church, so a threat to
+  social order was a threat to the covenant itself, warranting
+  sacrificial response. The trials also ran in a sovereignty vacuum
+  (the old charter revoked, the new one just arrived), when the
+  fused identity was under maximum stress.
+- **Procedure amplified what doctrine forbade.** The court admitted
+  spectral evidence (unfalsifiable, single-witness, undeniable by
+  the accused) and spared confessors, who characteristically named
+  others. An unfalsifiable accusation channel plus an incentive to
+  confess-and-accuse is a cascade engine. No feature of the
+  substrate demanded either rule, and the substrate's safeguards
+  never touched them until the end. (Historians weight the
+  underlying drivers differently: village factionalism and property
+  rivalry in Boyer and Nissenbaum's reading, frontier-war trauma in
+  Norton's. The procedural amplifiers are not in dispute.)
+
+And the end is the other half of the lesson. The spiral was
+terminated from *within the substrate*. Increase Mather's *Cases of
+Conscience* (October 1692) argued on explicitly theological grounds
+that God's standards condemned the court's procedure ("it were
+better that ten suspected witches should escape, than that one
+innocent person should be condemned"); the court was dissolved; its
+successor barred spectral evidence and acquitted. Then the sequence
+with almost no parallel in the history of witch panics: a public
+fast day of repentance (1697), Judge Sewall standing in church while
+his confession of guilt was read aloud, twelve jurors publishing a
+recantation, the lead accuser's public confession (1706), reversal
+of attainder and paid restitution to the victims' families (1711).
+Compare the terminations of the featureless cases: the Terror ended
+by coup, the purges by the death of the purger, the Cultural
+Revolution by the death of Mao. None self-terminated; none repented.
+Salem self-terminated in roughly a year, by appeal to an authority
+above the process, and then repaired.
+
+Three design commitments follow:
+
+1. **The features metabolize; they do not inoculate.** Their
+   load-bearing function is not the prevention of purity spirals
+   but their termination and repair: a community whose substrate
+   carries the features retains an authority above its own process
+   to appeal to, and a grammar of confession, restitution, and
+   return to repair with (the channels named under "What the
+   substrate *can* do" below). The compact must therefore expect
+   spirals *inside* feature-carrying member communities as a normal
+   contingency, exactly as the fallen-actor anthropology expects
+   atrocity, and must ask of a candidate community not "will you
+   never spiral?" but "when you spiral, what stops it, and what
+   does your history show it cost you to repair?"
+2. **Credentialing must examine operative practice, not confession
+   of doctrine, and not sincerity either.** Salem's reciters would
+   have passed any creed-level examination and any sincerity
+   assessment; the community believed. What fails 1690
+   Massachusetts is its practice record, on the very proxies the
+   inter-community layer specifies
+   ([recognition_protocols.md](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing),
+   [overview.md §5b](../overview.md#5b-recognition-two-layers)):
+   treatment of designated outsiders (four Quakers hanged on Boston
+   Common, 1659-1661; banishment as the default response to
+   dissent), purge-and-replace rather than restoration paths, and a
+   legible competitive-sanctity economy. The proxies work; Salem is
+   the case that shows why they, and not the creed, are the
+   examination.
+3. **Spiral speed and spiral contagion are design constraints in
+   their own right.** Salem ran from ambient tension to twenty dead
+   in sixteen months and crossed town boundaries in weeks; the
+   compact's credentialing and re-affirmation instruments run on a
+   generational cadence and cannot see it. Only the continuous
+   instruments operate at spiral speed: the observer corps and
+   jester function, ceremony-cost proxies, aggregated health
+   indicators (an internal-dispute-rate spike is what a spiral
+   looks like from outside), and the whistleblower channel. And
+   because spirals propagate mimetically across community lines, a
+   spiraling member is a hazard to its neighbors, not only to
+   itself: the compact needs an explicit posture toward a member
+   community mid-spiral, before external effects occur, that the
+   internal-sovereignty principle does not currently supply. Both
+   constraints are flagged in the open questions below.
+
+These commitments are tuned to one failure mode: *sincere* failure.
+Salem believed; its features hollowed structurally, not by anyone's
+design, and the practice-record examination (commitment 2) works
+because a spiraling-but-sincere community cannot help leaving the
+tell in its treatment of outsiders and its purge-over-restoration
+reflex. A distinct adversary inverts this: the strategic feigner, the
+Machiavellian fox of [objections.md §"The Machiavellian
+operator"](objections.md#the-machiavellian-operator), is insincere *by design*, and
+builds a clean practice record precisely to pass the examination that
+catches Salem. Against that actor the practice proxies are not a
+detector but a target, and the restoration paths that repair a sincere
+spiral become an exploit surface. The compact should not read its
+Salem defenses as covering both: the sincere spiral is caught by the
+practice record and metabolized by restoration; the strategic feigner
+is a capture problem, handled (imperfectly, and by its own admission
+probabilistically) by the continuous instruments and the admissions
+integrity of [capture_resistance.md](capture_resistance.md) move 7,
+not by the credentialing gate alone.
 
 ### What the compact requires, what it does not, and why
 
@@ -484,6 +623,35 @@ and cooperation is possible** and **the theological elaboration that each
 community builds on those conditions**. The former is the compact's
 business; the latter is not.
 
+### Excluding secular communities: the cost of the requirement
+
+The requirement excludes some communities from full membership, and the
+compact should say so plainly rather than soften it. A community that is
+pro-human and pro-cooperation but does not acknowledge a Creator is
+filtered out of full membership: not because its people are less
+trustworthy or less capable, but because the compact's binding
+mechanisms (oath-binding before an ultimate, the asymmetric
+psychological cost of the recognition rites, substrate-grounded
+discernment) presuppose the substrate they run on. Admitting a community
+that rejects the substrate to full membership would be like admitting a
+non-swimmer to a swim team: the entry condition is not a prejudice about
+the person but a precondition for the activity. This is the same point
+made just above, stated now as a cost rather than a definition.
+
+The cost is real, and naming it honestly is part of the design.
+Communities of good will are turned away from the inner circle on a
+ground they may regard as arbitrary, and the compact gains nothing by
+pretending the exclusion is painless or that the excluded are deficient.
+What the compact offers instead is cooperation short of full membership:
+the restricted-member and non-member-encountered categories of the
+standing taxonomy ([recognition_protocols.md](recognition_protocols.md))
+provide structured channels for trade, mutual aid, and bounded
+cooperation with communities outside the substrate. These are genuine
+relationships, not consolation prizes; but they are not full membership,
+and presenting them as equivalent would be dishonest. The compact holds
+the line at full membership because that is where the sacred-binding
+work happens, and keeps the door open everywhere short of that line.
+
 ### The Rawlsian objection and the durability hypothesis
 
 The Rawlsian liberal objects: requiring Creator acknowledgment as a
@@ -517,9 +685,10 @@ substrates for the sake of inclusiveness (the late Hanse, the
 post-Christian European institutional order) are younger, and it
 remains to be seen whether they will prove durable. The evidence is
 not conclusive (see
-[skeptical_critique.md](skeptical_critique.md) §B on the substrate
-thesis's provisional character), but it is the best available, and
-it points consistently in one direction.
+[historical_cases.md §"The circularity objection, confounds, and
+provisional confidence"](historical_cases.md#the-circularity-objection-confounds-and-provisional-confidence)
+on the substrate thesis's provisional character), but it is the best
+available, and it points consistently in one direction.
 
 The Jewish tradition provides the structural model. The Torah
 distinguishes between the full Mosaic law (613 commandments binding
@@ -560,7 +729,7 @@ wager is that a doctrine-neutral framework is *less durable*, and
 that a framework that does not last cannot deliver the justice it
 promises. The wager is empirically testable (if doctrine-neutral
 cooperation regimes prove durable over centuries, the wager is lost),
-and the compact should be honest that it is a wager, not a proof.
+and the compact should say plainly that it is a wager, not a proof.
 
 Several otherwise attractive options remain ruled out:
 
@@ -703,25 +872,54 @@ agents. Candidate mechanisms:
 
 These mechanisms work at the floor. They are necessary but not sufficient.
 Above them, if kith-covenant is doing its job, the sacred-equivalent layer grows
-in on its own, and if it does not, kith-covenant has at least produced an
-honest rational-actor-shaped cooperation that does not pretend to be
+in on its own, and if it does not, kith-covenant has at least produced a
+rational-actor-shaped cooperation that does not pretend to be
 more than it is. The worst outcome is a kith-covenant that claims the binding
 power of the sacred without the substrate that produces it. That is
 civil religion, and it corrodes faster than it ever grew.
 
-A further consideration, sharpened by the project's directive to follow
-the evidence where it leads
-([noticeable_hand.md](noticeable_hand.md)): the user has noted that
-kith-covenant's recognition protocols will likely have to acknowledge the
-transcendent moral authority explicitly, "if for no other reason than
-to antidote entropy." The point is structural, not devotional. Cooperation regimes
-without a transcendent reference drift toward dissolution by their own
-logic, because every internal mechanism is by construction gameable by
-its own participants, and over time will be gamed. The transcendent
-reference is what allows the compact to recognize when it is *itself*
+A further consideration
+([noticeable_hand.md](noticeable_hand.md)): kith-covenant's
+recognition protocols will likely have to acknowledge the
+transcendent moral authority explicitly, if for no other reason than
+to antidote entropy. The point is structural, not devotional. The
+argument is that cooperation regimes without a transcendent reference
+tend to drift toward dissolution by their own logic, because every
+internal mechanism is by construction gameable by its own participants,
+and over time is liable to be gamed. The transcendent reference is what
+allows the compact to recognize when it is *itself*
 drifting; without it, the compact has no Archimedean point from which
 to evaluate its own decay. This consideration shapes
-[recognition_protocols.md](recognition_protocols.md)and is taken up there.
+[recognition_protocols.md](recognition_protocols.md) and is taken up there.
+
+### Substrate affords emergence; it does not dictate content
+
+The principle several documents cite from this one deserves its own
+statement. Kith-covenant does not manufacture its sacred layer. The
+compact supplies conditions (protected time, protected roles,
+protected categories, the material floor above) under which
+sacred-equivalent commitments *emerge* in the communities that hold
+substrate, and it refuses to desecrate what emerges. It never
+specifies what the emergent content must be.
+
+The distinction is load-bearing in three places. First, the
+never-target categories: rescue is the strongest candidate for
+sacred-equivalent status because every party is simultaneously
+potential donor and beneficiary, but the compact protects rescue as
+a common virtue and lets its sacredness accrue through practice; a
+decreed sacredness would be civil religion, the degenerate form.
+Second, the restoration paths: the compact's restitution-and-return
+architecture follows the Christian penance tradition and the
+Iroquois condolence tradition without legislating either; each
+community brings its own theology of repair to a protocol shape
+both traditions recognize. Third, the ceremonies: re-affirmation
+occasions are protected by protocol (their time, their witnesses)
+while their content belongs to each community.
+
+The failure mode this principle guards against is the one named at
+the end of the material-floor discussion above: a compact that
+claims the binding power of the sacred without the substrate that
+produces it corrodes faster than it ever grew.
 
 ## *Hostis humani generis*: limits of the *justus hostis* frame
 
@@ -766,7 +964,7 @@ This is operationalized in
 it is the structural correction to the colonial-Christian failure
 that treated non-Christians as falling outside the moral universe
 altogether (see
-[noticeable_hand.md "The colonial frontier"](noticeable_hand.md#honest-counterweights)).
+[noticeable_hand.md "The colonial frontier"](noticeable_hand.md#counterweights)).
 Schmitt's collapse of moral relation onto the friend/enemy axis is
 *the* temptation kith-covenant must explicitly resist.
 
@@ -823,7 +1021,7 @@ seriousness:
 - **Pure rule-optimizers.** Actors who follow the letter of the
   protocol while consistently violating its spirit, optimizing
   against every line that is drawn. Already addressed in
-  [bounded_conflict.md](bounded_conflict.md#gamification-and-the-letter-spirit-divergence)
+  [bounded_conflict.md](bounded_conflict.md#gamification-and-the-letterspirit-divergence)
   as the gamification problem. The virtue frame, mediator authority
   to rule on spirit, and costly-signal architecture are partial
   responses. But the deeper point is that pure rule-optimizers are
@@ -936,7 +1134,7 @@ the gulag. Several implications:
   produces one of two failures: either every opponent is treated as
   legitimate (and the destructive actors gut the compact), or
   *justus hostis* status is universally withdrawn (and the compact
-  collapses into total enmity). The honest middle is to name the
+  collapses into total enmity). The middle course is to name the
   categories and constrain their use.
 - **Designation must be procedurally heavy.** Multiple sustained
   restoration attempts must have failed; compact-wide deliberation
@@ -1092,7 +1290,21 @@ the central open question rather than a side concern.
   *discernment*, which is a virtue and not a procedure. How does
   kith-covenant afford the cultivation of discernment in its mediator
   roles without producing an inquisitorial caste?
-- The user has noted that recognition protocols will likely have to
+- The anti-spiral features metabolize purity spirals; they do not
+  prevent them (see the Salem treatment above). Which of the
+  compact's *continuous* instruments (observer corps, ceremony-cost
+  proxies, aggregated health indicators, whistleblower channel) can
+  detect an active spiral inside a member community at spiral speed
+  (months, not the generational cadence), and what response is
+  available before external effects occur?
+- Purity spirals are contagious across community boundaries
+  (Salem's accusations crossed some twenty-five towns within
+  months). What posture does the compact take toward a member
+  community mid-spiral, given the internal-sovereignty principle?
+  Is the substantive-re-engagement rung
+  ([recognition_protocols.md](recognition_protocols.md#tracking-ceremony-cost-across-re-affirmation-cycles))
+  adequate, or does contagion warrant a distinct treatment?
+- Recognition protocols will likely have to
   acknowledge the transcendent moral authority explicitly. What is the minimal,
   honest, non-coercive form of such an acknowledgment that does not
   collapse into engineered civil religion (warned against in
@@ -1114,7 +1326,7 @@ the central open question rather than a side concern.
 - [../social_framework.md](../social_framework.md): parent document on
   social technologies for habitat sustainability; kith-covenant's protocols are
   the inter-community layer of that framework.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+- [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md):
   the intra-community complement to kith-covenant. Kith-Covenant begins where
   autonomous_trust ends.
 
@@ -1128,6 +1340,9 @@ and* Moral Man and Immoral Society *(1932); Madison,* Federalist *51
 (1788); Solzhenitsyn,* The Gulag Archipelago *(1973); Girard,* Violence
 and the Sacred *(1972) and* Things Hidden Since the Foundation of the
 World *(1978); Aristotle,* Nicomachean Ethics*; MacIntyre,* After
-Virtue *(1981); primary sources on the Peace of Westphalia; and for the
+Virtue *(1981); primary sources on the Peace of Westphalia; for the
 non-European counterpoint, the Kaianerekowa (Great Law of Peace) and
-its modern reconstructions.*
+its modern reconstructions; and for the Salem case, Boyer and
+Nissenbaum,* Salem Possessed *(1974); Norton,* In the Devil's Snare
+*(2002); and Increase Mather,* Cases of Conscience Concerning Evil
+Spirits *(1692).*

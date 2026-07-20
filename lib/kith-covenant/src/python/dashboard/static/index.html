@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kith-covenant · capture-signal lenses</title>
+<style>
+  :root {
+    color-scheme: light;
+    --plane:        #f9f9f7;
+    --surface:      #fcfcfb;
+    --ink:          #0b0b0b;
+    --ink-2:        #52514e;
+    --muted:        #898781;
+    --grid:         #e1e0d9;
+    --axis:         #c3c2b7;
+    --border:       rgba(11,11,11,0.10);
+    --series-1:     #2a78d6;
+    --good:         #0ca30c;
+    --warning:      #fab219;
+    --serious:      #ec835a;
+    --critical:     #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --plane:      #0d0d0d;
+      --surface:    #1a1a19;
+      --ink:        #ffffff;
+      --ink-2:      #c3c2b7;
+      --muted:      #898781;
+      --grid:       #2c2c2a;
+      --axis:       #383835;
+      --border:     rgba(255,255,255,0.10);
+      --series-1:   #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plane:      #0d0d0d;
+    --surface:    #1a1a19;
+    --ink:        #ffffff;
+    --ink-2:      #c3c2b7;
+    --muted:      #898781;
+    --grid:       #2c2c2a;
+    --axis:       #383835;
+    --border:     rgba(255,255,255,0.10);
+    --series-1:   #3987e5;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--plane);
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  header {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+  header .sub { color: var(--ink-2); font-size: 13px; }
+  header .spacer { flex: 1; }
+  .badge {
+    font-size: 12px; color: var(--good);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px 10px; white-space: nowrap;
+  }
+  button.theme {
+    font: inherit; font-size: 12px; cursor: pointer;
+    background: var(--surface); color: var(--ink-2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px;
+  }
+  .toolbar {
+    padding: 12px 24px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--ink-2);
+  }
+  .toolbar select {
+    font: inherit; background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px;
+  }
+  .note {
+    margin: 0; padding: 10px 24px; font-size: 12.5px; color: var(--ink-2);
+    background: color-mix(in srgb, var(--warning) 8%, var(--plane));
+    border-bottom: 1px solid var(--border);
+  }
+  main {
+    display: grid; gap: 16px; padding: 20px 24px 48px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    max-width: 1200px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px; overflow: hidden;
+  }
+  .card h2 { font-size: 13.5px; margin: 0 0 2px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card .desc { font-size: 12px; color: var(--muted); margin: 0 0 14px; }
+  .tag { font-size: 10.5px; font-weight: 600; color: var(--series-1); border: 1px solid var(--border);
+         border-radius: 999px; padding: 1px 8px; letter-spacing: 0.02em; }
+
+  /* horizontal bars */
+  .bars { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+  .bar-label { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-val { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .bar-track { grid-column: 1 / -1; height: 10px; background: var(--grid); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--series-1); border-radius: 4px; min-width: 4px; }
+
+  /* stat tile */
+  .stat { display: flex; align-items: baseline; gap: 10px; }
+  .stat .num { font-size: 44px; font-weight: 680; line-height: 1; letter-spacing: -0.02em; }
+  .stat .status { font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .kv { margin-top: 14px; font-size: 12.5px; color: var(--ink-2); }
+  .kv div { display: flex; justify-content: space-between; padding: 3px 0; border-top: 1px solid var(--border); }
+  .kv .k { color: var(--muted); }
+
+  svg text { fill: var(--muted); font-size: 11px; }
+  .empty { color: var(--muted); font-size: 12.5px; font-style: italic; }
+  code.did { font-size: 11px; color: var(--muted); word-break: break-all; }
+</style>
+</head>
+<body>
+<header>
+  <h1>kith-covenant</h1>
+  <span class="sub">capture-signal lenses over a signed audit commons</span>
+  <span class="spacer"></span>
+  <span class="badge" id="verify-badge">verifying…</span>
+  <button class="theme" id="theme-btn">◑ theme</button>
+</header>
+
+<div class="toolbar">
+  <label for="actor">Recognition standing for:</label>
+  <select id="actor"></select>
+</div>
+
+<p class="note">
+  Descriptive only. The lenses surface flags with provenance and render no verdict —
+  adjudication is the mediator pool's work. Every count is traceable to a
+  crypto-verified record.
+</p>
+
+<main id="grid">
+  <section class="card" id="card-taint">
+    <h2>Sponsor stake &amp; taint <span class="tag" id="tag-taint"></span></h2>
+    <p class="desc">Does this sponsor's vouching precede misconduct?</p>
+    <div id="taint-body"></div>
+  </section>
+
+  <section class="card" id="card-composition">
+    <h2>Composition drift</h2>
+    <p class="desc">Who is concentrating admissions.</p>
+    <div id="composition-body" class="bars"></div>
+  </section>
+
+  <section class="card" id="card-decay">
+    <h2>Ceremony-cost decay <span class="tag" id="tag-decay"></span></h2>
+    <p class="desc">Re-affirmation witness count across rites (a hollowing signal).</p>
+    <div id="decay-body"></div>
+  </section>
+
+  <section class="card" id="card-feature">
+    <h2>Feature concern <span class="tag" id="tag-feature"></span></h2>
+    <p class="desc">Behavioral shadow of a hollow substrate, per anti-spiral feature.</p>
+    <div id="feature-body" class="bars"></div>
+  </section>
+
+  <section class="card" id="card-rejection">
+    <h2>Rejection pattern</h2>
+    <p class="desc">Concentration of non-admissions by rejector.</p>
+    <div id="rejection-body" class="bars"></div>
+  </section>
+
+  <section class="card" id="card-standing">
+    <h2>Recognition standing</h2>
+    <p class="desc">Derived standing and record counts for the selected actor.</p>
+    <div id="standing-body"></div>
+  </section>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const short = (did) => did ? did.replace(/^did:key:/, "") : "—";
+const trunc = (s, n = 16) => s.length > n ? s.slice(0, n) + "…" : s;
+const api = async (path) => (await fetch(path)).json();
+
+/* ---- theme toggle -------------------------------------------------- */
+$("theme-btn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light"
+             : cur === "light" ? "dark"
+             : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+  document.documentElement.setAttribute("data-theme", next);
+  drawDecay(lastDecay); // re-color the SVG line for the new theme
+});
+const cssvar = (name) => getComputedStyle(document.body).getPropertyValue(name).trim();
+
+/* ---- horizontal bars ----------------------------------------------- */
+function drawBars(el, rows) {
+  if (!rows.length) { el.innerHTML = '<p class="empty">No records in this commons.</p>'; return; }
+  const max = Math.max(...rows.map(r => r.value), 1);
+  el.innerHTML = rows.map(r => `
+    <div class="bar-row" title="${r.label}: ${r.value}">
+      <span class="bar-label">${r.label}</span>
+      <span class="bar-val">${r.value}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${Math.max(4, r.value / max * 100)}%"></span></span>
+    </div>`).join("");
+}
+
+/* ---- taint stat tile ----------------------------------------------- */
+function drawTaint(s) {
+  const rate = s.taint_rate;
+  let role = "good", word = "clean";
+  if (rate === null) { role = "muted"; word = "no probation data"; }
+  else if (rate >= 0.5) { role = "critical"; word = "high"; }
+  else if (rate > 0) { role = "serious"; word = "elevated"; }
+  const color = role === "muted" ? "var(--muted)" : `var(--${role})`;
+  const pct = rate === null ? "—" : Math.round(rate * 100) + "%";
+  $("taint-body").innerHTML = `
+    <div class="stat">
+      <span class="num" style="color:${color}">${pct}</span>
+      <span class="status" style="color:${color}"><span class="dot" style="background:${color}"></span>taint ${word}</span>
+    </div>
+    <div class="kv">
+      <div><span class="k">sponsor</span><span><code class="did">${trunc(short(s.sponsor), 22)}</code></span></div>
+      <div><span class="k">sponsees</span><span>${s.sponsees.length}</span></div>
+      <div><span class="k">tainted (adverse in probation)</span><span>${s.sponsees.filter(o => o.adverse_conduct.length).length}</span></div>
+    </div>`;
+}
+
+/* ---- ceremony-cost decay line -------------------------------------- */
+let lastDecay = null;
+function drawDecay(d) {
+  lastDecay = d;
+  const el = $("decay-body");
+  const pts = d.rites.map((r, i) => ({ i, cid: r[0], at: r[1], wc: r[2] }));
+  if (pts.length < 2) { el.innerHTML = '<p class="empty">Fewer than two rites — no trend yet.</p>'; return; }
+
+  const W = 320, H = 158, PAD = { l: 26, r: 16, t: 24, b: 26 };
+  const iw = W - PAD.l - PAD.r, ih = H - PAD.t - PAD.b;
+  const maxWc = Math.max(...pts.map(p => p.wc), 1);
+  const x = (i) => PAD.l + (pts.length === 1 ? iw / 2 : i / (pts.length - 1) * iw);
+  const y = (wc) => PAD.t + ih - (wc / maxWc) * ih;
+  const line = cssvar("--series-1"), grid = cssvar("--grid"), axis = cssvar("--axis"), ink2 = cssvar("--ink-2");
+
+  const ticks = [];
+  for (let v = 0; v <= maxWc; v++) {
+    const yy = y(v);
+    ticks.push(`<line x1="${PAD.l}" y1="${yy}" x2="${W - PAD.r}" y2="${yy}" stroke="${grid}" stroke-width="1"/>`);
+    ticks.push(`<text x="${PAD.l - 6}" y="${yy + 3}" text-anchor="end">${v}</text>`);
+  }
+  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(p.i).toFixed(1)},${y(p.wc).toFixed(1)}`).join(" ");
+  const dots = pts.map(p => `
+    <circle cx="${x(p.i)}" cy="${y(p.wc)}" r="4.5" fill="${line}" stroke="var(--surface)" stroke-width="2">
+      <title>rite ${p.i + 1}: ${p.wc} witnesses</title>
+    </circle>
+    <text x="${x(p.i)}" y="${y(p.wc) - 9}" text-anchor="middle" fill="${ink2}" font-weight="600">${p.wc}</text>`).join("");
+  const xlab = pts.map(p => `<text x="${x(p.i)}" y="${H - 8}" text-anchor="middle">r${p.i + 1}</text>`).join("");
+
+  const declined = d.witness_count_declined;
+  const widening = d.latest_gap_widening;
+  const flag = (on, label) => `<span class="status" style="color:var(--${on ? "critical" : "good"});margin-right:12px">
+      <span class="dot" style="background:var(--${on ? "critical" : "good"})"></span>${label}</span>`;
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="witness count per rite">
+      ${ticks.join("")}
+      <line x1="${PAD.l}" y1="${PAD.t}" x2="${PAD.l}" y2="${PAD.t + ih}" stroke="${axis}" stroke-width="1"/>
+      <path d="${path}" fill="none" stroke="${line}" stroke-width="2" stroke-linejoin="round"/>
+      ${dots}${xlab}
+    </svg>
+    <div style="margin-top:8px;font-size:12px">
+      ${flag(declined, "witnesses declined")}${flag(widening, "gaps widening")}
+    </div>`;
+}
+
+/* ---- standing ------------------------------------------------------ */
+function drawStanding(v) {
+  const len = (a) => (a || []).length;
+  const disputes = len(v.disputes_filed) + len(v.disputes_against);
+  $("standing-body").innerHTML = `
+    <div class="stat"><span class="num" style="font-size:26px">${v.standing ?? "—"}</span></div>
+    <div class="kv">
+      <div><span class="k">re-affirmation rites</span><span>${len(v.intra_rites)}</span></div>
+      <div><span class="k">conduct records</span><span>${len(v.conduct)}</span></div>
+      <div><span class="k">sponsorships received</span><span>${len(v.sponsorships_received)}</span></div>
+      <div><span class="k">disputes (filed + against)</span><span>${disputes}</span></div>
+    </div>`;
+}
+
+/* ---- lens cards pinned to their demonstrative actor ---------------- */
+async function loadLenses(byRole) {
+  $("tag-taint").textContent = "Hub";
+  $("tag-feature").textContent = "Drifting entrant";
+  $("tag-decay").textContent = "Reaffirmer";
+  const [stake, feat, decay] = await Promise.all([
+    api(`/api/sponsor-stake?did=${byRole.hub}`),
+    api(`/api/feature-concern?did=${byRole.drifting}`),
+    api(`/api/ceremony-cost-decay?did=${byRole.reaffirmer}`),
+  ]);
+  drawTaint(stake);
+  drawBars($("feature-body"), feat.per_feature.map(([f, n]) => ({ label: f, value: n })));
+  drawDecay(decay);
+}
+
+/* ---- standing card follows the selector ---------------------------- */
+async function loadStanding(did) {
+  drawStanding(await api(`/api/reputation?did=${did}`));
+}
+
+/* ---- commons-wide panels ------------------------------------------- */
+async function loadCommons() {
+  const [comp, rej] = await Promise.all([api("/api/composition"), api("/api/rejection-pattern")]);
+  drawBars($("composition-body"), comp.by_concentration.map(([did, n]) => ({ label: trunc(short(did)), value: n })));
+  drawBars($("rejection-body"), rej.by_concentration.map(([did, n]) => ({ label: trunc(short(did)), value: n })));
+}
+
+/* ---- boot ---------------------------------------------------------- */
+async function boot() {
+  const meta = await api("/api/meta");
+  $("verify-badge").textContent = `✓ ${meta.size} entries verify`;
+  const byRole = Object.fromEntries(meta.actors.map(a => [a.role, a.did]));
+  const sel = $("actor");
+  sel.innerHTML = meta.actors.map(a => `<option value="${a.did}"${a.role === "drifting" ? " selected" : ""}>${a.label}</option>`).join("");
+  sel.addEventListener("change", () => loadStanding(sel.value));
+  await Promise.all([loadCommons(), loadLenses(byRole), loadStanding(sel.value)]);
+}
+boot().catch(e => { $("verify-badge").textContent = "load error"; console.error(e); });
+</script>
+</body>
+</html>

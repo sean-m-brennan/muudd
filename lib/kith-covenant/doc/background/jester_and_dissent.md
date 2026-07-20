@@ -887,7 +887,7 @@ necessary for the compact's functioning.
   as the deepest grounding for the jester function.
 - [../social_framework.md](../social_framework.md): parent document;
   the five-role model's jester role.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+- [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md):
   the AT/kith-covenant boundary that the whistleblower function
   crosses.
 

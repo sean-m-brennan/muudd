@@ -19,7 +19,7 @@ import pytest
 
 from kith_covenant import (
     Archive, ReputationView, generate_keypair, reputation_of,
-    run_two_community_ceremony,
+    run_two_community_ceremony, rejection_pattern, ceremony_cost_decay,
 )
 
 
@@ -86,3 +86,62 @@ def test_invalid_did_raises_value_error(ceremony_archive):
     archive, _, _ = ceremony_archive
     with pytest.raises(ValueError):
         reputation_of(archive, "not-a-did")
+
+
+# --- v0 jester lenses (binding surface + degenerate paths) ------------------
+# The rich multi-rejection / declining-witness paths are covered exhaustively
+# by the Rust unit tests; the Python-reachable archive (a single two-community
+# ceremony) exercises the binding surface and the empty/single-point paths, and
+# cross-checks the ceremony-cost lens against the ReputationView projection.
+
+
+def test_rejection_pattern_inert_on_admission_only_archive(ceremony_archive):
+    archive, _, _ = ceremony_archive
+    p = rejection_pattern(archive)
+    assert p.total_rejections == 0
+    assert p.events == ()
+    assert p.by_rejector == ()
+    assert p.by_presenting == ()
+    assert p.by_feature == ()
+    assert p.by_concentration == ()
+    assert p.perspectives == ()
+
+
+def test_ceremony_cost_decay_single_rite_matches_projection(ceremony_archive):
+    archive, alpha, _ = ceremony_archive
+    d = ceremony_cost_decay(archive, alpha)
+    assert d.rite_count == 1
+    assert d.gaps_seconds == ()
+    assert d.witness_count_declined is False
+    assert d.latest_gap_widening is None
+    assert d.seconds_since_last is not None and d.seconds_since_last >= 0
+    assert d.first_witness_count == d.last_witness_count
+    # The lens and the ReputationView must agree on the same rite.
+    view = reputation_of(archive, alpha)
+    assert len(view.intra_rites) == 1
+    assert d.rites[0][0] == view.intra_rites[0].record_cid
+    assert d.rites[0][2] == view.intra_rites[0].witness_count
+
+
+def test_ceremony_cost_decay_empty_for_stranger(ceremony_archive):
+    archive, _, _ = ceremony_archive
+    _, _, stranger = generate_keypair()
+    d = ceremony_cost_decay(archive, stranger)
+    assert d.rite_count == 0
+    assert d.rites == ()
+    assert d.gaps_seconds == ()
+    assert d.first_witness_count is None
+    assert d.latest_gap_widening is None
+    assert d.seconds_since_last is None
+
+
+def test_ceremony_cost_decay_as_of_before_genesis_is_empty(ceremony_archive):
+    archive, alpha, _ = ceremony_archive
+    d = ceremony_cost_decay(archive, alpha, as_of=0)
+    assert d.rite_count == 0
+
+
+def test_jester_lens_invalid_did_raises(ceremony_archive):
+    archive, _, _ = ceremony_archive
+    with pytest.raises(ValueError):
+        ceremony_cost_decay(archive, "not-a-did")

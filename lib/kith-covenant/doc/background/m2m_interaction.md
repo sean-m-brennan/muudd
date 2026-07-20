@@ -9,12 +9,17 @@ Machine-to-machine interaction in kith-covenant is always and only
 across community lines is two named humans meeting through delegates;
 the machines are the medium of the encounter, not its authors. Two
 claims follow and together constitute the structural commitment of
-this document. The **reduction claim**: every M2M exchange reduces,
-without remainder, to an exchange between the two named humans whose
-guardianship binds each machine. Any attempt to describe the
+this document. The **reduction claim**: every M2M exchange reduces
+to an exchange between the two named humans whose guardianship binds
+each machine, in the precise sense that every machine act is bounded
+by an envelope the principals pre-authorized and the guardians answer
+for everything inside it. The claim is about authorization and
+answerability, not specific-act foreknowledge: within envelopes,
+machines will take actions no human specifically contemplated,
+and the guardians answer for those too. Any attempt to describe the
 interaction as machine-original is a description that has lost
 information. The **non-emergence claim**: nothing originates at the
-M2M layer that the principals did not authorize; the protocol makes
+M2M layer outside the principals' authorization; the protocol makes
 machine-original substrate structurally impossible rather than merely
 forbidden. These are hard commitments. The rest of the document
 develops what they require.
@@ -349,11 +354,14 @@ substrate-adjacent commitments during active dispute. The
 the ratchet rule from §6 most matters: disputes here can escalate,
 and the ceiling must be honored on both sides.
 
-***Hostis humani generis* peer**: the anathema case. A machine
+**Anathema peer.** A machine
 whose guardian has been designated anathema, or whose attestation
 chain is broken, or whose continuous-attestation proof has lapsed,
 or whose cryptographic self-binding has been tampered with, or whose
 community has propagated a revocation on the guardian's standing.
+(The *hostis humani generis* tier within anathema changes nothing at
+the machine layer; the protocol response below is the same, and the
+tier distinction lives at the principal layer where it belongs.)
 Capability-revocation propagates from the compact's machinery to
 the counterparty machines that had live relations with this
 machine; interaction is emergency-only (the rescue envelope
@@ -430,7 +438,7 @@ binding has been subverted without external trace, or whose
 attestation chain has been spoofed by an adversary sophisticated
 enough to defeat the compact's trust roots. The question is whether
 the protocol can distinguish a demonic machine-peer from a
-*justus hostis* machine-peer having a bad day, and the honest
+*justus hostis* machine-peer having a bad day, and the
 answer must name both what the architecture can do and where it
 breaks.
 
@@ -472,7 +480,7 @@ relation that is the whole binding. The fallback is reserved for
 encounters whose failure cost justifies the guardian's attention,
 and the envelope itself encodes which subject-matters qualify.
 
-**Honest acknowledgment.** Under adversarial sophistication beyond
+**Acknowledged limit.** Under adversarial sophistication beyond
 the attestation window, against corrupt lineages, and at envelope-
 edge actions below the fallback threshold, detection is not
 guaranteed. *The design bounds damage by bounding envelope, not by
@@ -528,7 +536,7 @@ specific elements:
 
 - *Principal-capture as an earlier-acting state than principal-fall.*
   The existing
-  [machine-participation.md "Guardian fall"](../architecture/machine-participation.md#facet-3-validity-of-the-derivative-oath--succession-and-boundary-conditions)
+  [machine-participation.md "Guardian fall"](../architecture/machine-participation.md#facet-3-validity-of-the-derivative-oath-succession-and-boundary-conditions)
   treatment triggers capability revocation when the principal has
   lost standing, *after* the capture has progressed to overt
   failure. The adversarial-principal extension introduces a

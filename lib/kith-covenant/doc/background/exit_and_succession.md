@@ -852,7 +852,7 @@ aggression and does not trigger the escalation ladder.
 - [jester_and_dissent.md](jester_and_dissent.md): the
   jester function as hollowing detector.
 - [../social_framework.md](../social_framework.md): parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+- [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md):
   the intra-community complement; internal governance that must
   persist through exit events.
 

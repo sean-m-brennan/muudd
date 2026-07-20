@@ -1,13 +1,16 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/kc-core",
-    "crates/kc-identity",
-    "crates/kc-ceremony",
-    "crates/kc-archive",
-    "crates/kc-reputation",
-    "crates/kc-pyo3",
-    "examples/two_communities_demo",
+    "src/rust/kc-core",
+    "src/rust/kc-identity",
+    "src/rust/kc-ceremony",
+    "src/rust/kc-conduct",
+    "src/rust/kc-mediation",
+    "src/rust/kc-escalation",
+    "src/rust/kc-archive",
+    "src/rust/kc-reputation",
+    "src/rust/kc-pyo3",
+    "src/rust/examples/two_communities_demo",
 ]
 
 [workspace.package]
@@ -52,11 +55,14 @@ pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
 proptest = "1.5"
 
 # Internal workspace crates
-kc-core = { path = "crates/kc-core" }
-kc-identity = { path = "crates/kc-identity" }
-kc-ceremony = { path = "crates/kc-ceremony" }
-kc-archive = { path = "crates/kc-archive" }
-kc-reputation = { path = "crates/kc-reputation" }
+kc-core = { path = "src/rust/kc-core" }
+kc-identity = { path = "src/rust/kc-identity" }
+kc-ceremony = { path = "src/rust/kc-ceremony" }
+kc-conduct = { path = "src/rust/kc-conduct" }
+kc-mediation = { path = "src/rust/kc-mediation" }
+kc-escalation = { path = "src/rust/kc-escalation" }
+kc-archive = { path = "src/rust/kc-archive" }
+kc-reputation = { path = "src/rust/kc-reputation" }
 
 [profile.release]
 lto = "thin"

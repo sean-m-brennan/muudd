@@ -180,7 +180,7 @@ itself where rule-frames collapse.
 
 ### Why this is a virtue list, not a rule list
 
-Several load-bearing consequences follow from the reframe:
+Several load-bearing consequences follow from the virtue frame:
 
 - **The list is not exhaustive and is not meant to be.** A
   virtue-oriented party reading this list will immediately see acts it
@@ -330,6 +330,46 @@ Earth is the harder test for structural reasons:
   ([justus_hostis.md](justus_hostis.md#the-sacred-substrate-and-the-fallen-actor))
   is on Earth.
 
+### The two dimensions of the test
+
+"Harder" needs precision, because an Earth pilot tests two different
+things, and it tests them with opposite strength.
+
+**Voluntary bindingness under weak forcing.** Here Earth is the
+decisive test, and the only one. On Earth every
+candidate community has exit: the state legal system is one phone call
+away, and every service the compact offers (recognition, mediation,
+commons, reputation) has a substitutable alternative. If communities
+keep using kith-covenant's machinery when leaving is cheap, the
+substrate and ceremony layer is demonstrably doing real work. Space
+can never prove this, because in space one cannot distinguish "the
+oath binds" from "there is nowhere else to go." Lex mercatoria is the
+precedent: merchants used it for centuries with royal courts fully
+available, because it was better. And when it decayed, it decayed the
+way an Earth pilot would: merchants drifted back to the royal courts
+as those became easier, *absorption by convenience* rather than
+violation. An Earth compact that holds against that
+pull has proven the part of the design that space physics would
+otherwise prove nothing about.
+
+**Enforcement under determined defection.** Here the relation
+inverts: Earth is structurally incapable of testing the teeth. A
+determined defector on Earth routes around the compact entirely and
+loses nothing it cannot replace, so reputation consequences,
+capability withdrawal, and transparency-as-teeth are never
+load-bearing there. Only space, where the compact's services are not
+substitutable, exercises the enforcement model against a party that
+actually wants out. An Earth pilot's success says nothing either way
+about the sanctions machinery, and should not be claimed as evidence
+for it.
+
+The falsification criterion for an Earth pilot follows from the first
+dimension, not the second: **retention despite exit**. The observable
+is whether member communities keep choosing the compact's recognition,
+mediation, and commons when leaving is cheap and the state system is
+available. Sanction effectiveness is not an Earth-pilot observable at
+all, and pilots should not be scored on it.
+
 Consequences for the research and development path:
 
 - **First compacts should be among Earth-bound communities.** Small
@@ -344,12 +384,11 @@ Consequences for the research and development path:
   problem that will not be solved by escaping gravity.
 - **Space-specific adaptations are an overlay, not the core.** Light-lag,
   scarcity-as-coercion, and physics-as-transparency are modifications
-  to a general design; they are not the design. Earlier draft language
-  that centered space-specificity has been moved later in the document
-  (§"Space-specific adaptations") and should be read as adjustments to
+  to a general design; they are not the design. The space-specific material later in the document
+  (§"Space-specific adaptations") should be read as adjustments to
   a design whose proving ground is Earth.
 
-This reframe has practical consequences for the simulation work under
+Earth-first testing has practical consequences for the simulation work under
 `lib/muudd`. Scenarios should include earthbound-community archetypes
 (denominational networks, diaspora federations, tribal confederations,
 ecological commons, cooperative-firm networks) and stress the compact
@@ -597,8 +636,11 @@ and [noticeable_hand.md](noticeable_hand.md), most of the
 full-compact regimes surveyed in this document's historical set
 shared a substrate of Christian oath-binding, and their erosion has
 correlated with the secularization of the international order. The
-research set's current form of the claim, after the substrate
-recalibration worked out in
+research set's form of the claim, held provisionally on a finite case
+set (see [historical_cases.md §"The circularity objection, confounds,
+and provisional confidence"](historical_cases.md#the-circularity-objection-confounds-and-provisional-confidence)),
+with the
+substrate scoping worked out in
 [historical_cases.md "Convergence without shared culture"](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases)
 and the anti-spiral formulation in
 [justus_hostis.md "The anti-spiral features"](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient),
@@ -622,19 +664,23 @@ common-virtue frame of this document depends on virtue cultivated
 in practicing communities and on the anti-spiral backstops that
 prevent virtue from collapsing into its characteristic failure mode
 (the purity spiral terminating in the scapegoat cascade: Jacobin,
-Maoist, Stalinist, Salem; MacIntyre 1981 and Girard 1978 supply the
-diagnostic tradition). Communities without anti-spiral structure
-produce bounded-conflict regimes that do not remain bounded;
-communities with shared transcendent anchor but missing anti-spiral
+Maoist, Stalinist; MacIntyre 1981 and Girard 1978 supply the
+diagnostic tradition; the Salem witch trials, where the features
+were held in doctrine and defeated in practice, are the separate
+case treated in
+[justus_hostis.md "The Salem witch trials"](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated)).
+In the record, communities without anti-spiral
+structure produce bounded-conflict regimes that do not remain bounded;
+communities with a shared transcendent anchor but missing anti-spiral
 features still produce the cascade. The Christian-Aristotelian-
 Thomistic synthesis is the deepest intellectual lineage of this
-document's virtue framework, and pretending otherwise (as earlier
-drafts implicitly did) was part of the ecumenical hedging that
-[noticeable_hand.md](noticeable_hand.md) corrects. What is *not*
+document's virtue framework; [noticeable_hand.md](noticeable_hand.md)
+names that lineage outright rather than in ecumenical dress. What is *not*
 claimed is that Christianity is the only possible substrate; what
 is claimed is that the anti-spiral features, most fully developed
-within Christianity, are the load-bearing structure, and that
-without them no bounded-conflict regime has sustained itself.
+within Christianity, are the load-bearing structure, and that in the
+cases surveyed no bounded-conflict regime has sustained itself without
+them.
 
 A separate scope note: cooperation in *thin functional domains*
 (commerce, maritime salvage, envoy protection, wounded-combatant
@@ -720,7 +766,7 @@ of human communities, and the historical record of attempts to
 forcibly eliminate them (the Soviet Union, Maoist China, the Khmer
 Rouge) is the evidence that the cure is worse than the disease.
 
-The honest answer to material disparity is **charity**: the
+The answer to material disparity is **charity**: the
 disposition to give generously to those in need, born of virtue and
 not compelled by institutional structure.
 
@@ -1151,7 +1197,7 @@ because it does not survive an earthquake; it is valuable for the
 centuries of habitation between earthquakes. The collusion
 vulnerability is the earthquake. The architecture is the house.
 
-### The honest assessment
+### The assessment
 
 These features raise the threshold. They do not eliminate the
 vulnerability. A sufficiently large, sufficiently patient, and
@@ -1197,7 +1243,7 @@ specific conditions:
   the condition the compact controls least and that may trigger the
   vulnerability regardless of institutional design.
 
-Kith-covenant's design should be honest about this limit. The
+Kith-covenant's design must state this limit. The
 compact's founding documents should acknowledge the collusion
 vulnerability explicitly. The vulnerability is a structural feature
 of all cooperative frameworks, including this one, rather than a flaw
@@ -1283,7 +1329,7 @@ the individual conspirator.
   the expulsion and withdrawal mechanics referenced in the protocol
   sketch.
 - [../social_framework.md](../social_framework.md): parent document.
-- [../../../../autonomous_trust/doc/autonomous_trust.md](../../../../autonomous_trust/doc/autonomous_trust.md):
+- [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md):
   intra-community enforcement is a precondition for a habitat to be
   a coherent party to an inter-habitat compact at all.
 

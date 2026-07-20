@@ -1,7 +1,2912 @@
 {
   "project": "kith-covenant",
-  "doi": [],
+  "doi": [
+    {
+      "citation": "10.1126/science.162.3859.1243"
+    },
+    {
+      "citation": "10.1038/364056a0"
+    },
+    {
+      "citation": "10.1016/0022-5193(75)90111-3"
+    },
+    {
+      "citation": "10.2307/1882010"
+    },
+    {
+      "citation": "10.1214/aos/1176343654"
+    },
+    {
+      "citation": "10.1145/4372.4373"
+    },
+    {
+      "citation": "10.1109/SFCS.1982.38"
+    },
+    {
+      "citation": "10.1098/rspb.2019.0202"
+    }
+  ],
   "bibjson": {
-    "records": []
+    "records": [
+      {
+        "type": "book",
+        "id": "schelling1966arms",
+        "citekey": "schelling1966arms",
+        "title": "Arms and Influence",
+        "year": "1966",
+        "author": [
+          {
+            "name": "Schelling, Thomas C."
+          }
+        ],
+        "publisher": "Yale University Press"
+      },
+      {
+        "type": "book",
+        "id": "schelling1960strategy",
+        "citekey": "schelling1960strategy",
+        "title": "The Strategy of Conflict",
+        "year": "1960",
+        "author": [
+          {
+            "name": "Schelling, Thomas C."
+          }
+        ],
+        "publisher": "Harvard University Press"
+      },
+      {
+        "type": "book",
+        "id": "axelrod1984evolution",
+        "citekey": "axelrod1984evolution",
+        "title": "The Evolution of Cooperation",
+        "year": "1984",
+        "author": [
+          {
+            "name": "Axelrod, Robert"
+          }
+        ],
+        "publisher": "Basic Books"
+      },
+      {
+        "type": "book",
+        "id": "aristotle350nicomachean",
+        "citekey": "aristotle350nicomachean",
+        "title": "Nicomachean Ethics",
+        "year": "-350",
+        "author": [
+          {
+            "name": "Aristotle"
+          }
+        ],
+        "note": "classical; multiple public-domain translations",
+        "link": [
+          {
+            "type": "fulltext_txt",
+            "url": "https://www.gutenberg.org/cache/epub/8438/pg8438.txt"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "macintyre1981after",
+        "citekey": "macintyre1981after",
+        "title": "After Virtue",
+        "year": "1981",
+        "author": [
+          {
+            "name": "MacIntyre, Alasdair"
+          }
+        ],
+        "publisher": "University of Notre Dame Press"
+      },
+      {
+        "type": "book",
+        "id": "macintyre1988whose",
+        "citekey": "macintyre1988whose",
+        "title": "Whose Justice? Which Rationality?",
+        "year": "1988",
+        "author": [
+          {
+            "name": "MacIntyre, Alasdair"
+          }
+        ],
+        "publisher": "University of Notre Dame Press"
+      },
+      {
+        "type": "book",
+        "id": "lemkin1944axis",
+        "citekey": "lemkin1944axis",
+        "title": "Axis Rule in Occupied Europe",
+        "year": "1944",
+        "author": [
+          {
+            "name": "Lemkin, Raphael"
+          }
+        ],
+        "publisher": "Carnegie Endowment for International Peace"
+      },
+      {
+        "type": "book",
+        "id": "gombrich2006theravada",
+        "citekey": "gombrich2006theravada",
+        "title": "Theravada Buddhism: A Social History from Ancient Benares to Modern Colombo",
+        "year": "2006",
+        "author": [
+          {
+            "name": "Gombrich, Richard"
+          }
+        ],
+        "publisher": "Routledge"
+      },
+      {
+        "type": "book",
+        "id": "harvey2013introduction",
+        "citekey": "harvey2013introduction",
+        "title": "An Introduction to Buddhism",
+        "year": "2013",
+        "author": [
+          {
+            "name": "Harvey, Peter"
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "strong2008experience",
+        "citekey": "strong2008experience",
+        "title": "The Experience of Buddhism: Sources and Interpretations",
+        "year": "2008",
+        "author": [
+          {
+            "name": "Strong, John S."
+          }
+        ],
+        "publisher": "Wadsworth"
+      },
+      {
+        "type": "book",
+        "id": "heirman2007spread",
+        "citekey": "heirman2007spread",
+        "title": "The Spread of Buddhism",
+        "year": "2007",
+        "editor": [
+          {
+            "name": "Heirman, Ann"
+          },
+          {
+            "name": "Bumbacher, Stephan Peter"
+          }
+        ],
+        "publisher": "Brill"
+      },
+      {
+        "type": "book",
+        "id": "rahula1956history",
+        "citekey": "rahula1956history",
+        "title": "History of Buddhism in Ceylon",
+        "year": "1956",
+        "author": [
+          {
+            "name": "Rahula, Walpola"
+          }
+        ],
+        "publisher": "M. D. Gunasena"
+      },
+      {
+        "type": "book",
+        "id": "bechert1966buddhismus",
+        "citekey": "bechert1966buddhismus",
+        "title": "Buddhismus, Staat und Gesellschaft in den Landern des Theravada-Buddhismus",
+        "year": "1966",
+        "author": [
+          {
+            "name": "Bechert, Heinz"
+          }
+        ],
+        "publisher": "Alfred Metzner",
+        "note": "3 vols., 1966-73"
+      },
+      {
+        "type": "book",
+        "id": "tambiah1976world",
+        "citekey": "tambiah1976world",
+        "title": "World Conqueror and World Renouncer",
+        "year": "1976",
+        "author": [
+          {
+            "name": "Tambiah, Stanley J."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "tambiah1984buddhist",
+        "citekey": "tambiah1984buddhist",
+        "title": "The Buddhist Saints of the Forest and the Cult of Amulets",
+        "year": "1984",
+        "author": [
+          {
+            "name": "Tambiah, Stanley J."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "blackburn2010locations",
+        "citekey": "blackburn2010locations",
+        "title": "Locations of Buddhism: Colonialism and Modernity in Sri Lanka",
+        "year": "2010",
+        "author": [
+          {
+            "name": "Blackburn, Anne M."
+          }
+        ],
+        "publisher": "University of Chicago Press"
+      },
+      {
+        "type": "book",
+        "id": "chen1964buddhism",
+        "citekey": "chen1964buddhism",
+        "title": "Buddhism in China: A Historical Survey",
+        "year": "1964",
+        "author": [
+          {
+            "name": "Ch'en, Kenneth"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "gregory1999buddhism",
+        "citekey": "gregory1999buddhism",
+        "title": "Buddhism in the Sung",
+        "year": "1999",
+        "editor": [
+          {
+            "name": "Gregory, Peter N."
+          },
+          {
+            "name": "Getz, Daniel A."
+          }
+        ],
+        "publisher": "University of Hawaii Press"
+      },
+      {
+        "type": "book",
+        "id": "schlutter2008how",
+        "citekey": "schlutter2008how",
+        "title": "How Zen Became Zen",
+        "year": "2008",
+        "author": [
+          {
+            "name": "Schlutter, Morten"
+          }
+        ],
+        "publisher": "University of Hawaii Press"
+      },
+      {
+        "type": "book",
+        "id": "buswell1989formation",
+        "citekey": "buswell1989formation",
+        "title": "The Formation of Ch'an Ideology in China and Korea",
+        "year": "1989",
+        "author": [
+          {
+            "name": "Buswell, Robert E."
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "buswell1992zen",
+        "citekey": "buswell1992zen",
+        "title": "The Zen Monastic Experience",
+        "year": "1992",
+        "author": [
+          {
+            "name": "Buswell, Robert E."
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "bodiford1993soto",
+        "citekey": "bodiford1993soto",
+        "title": "Soto Zen in Medieval Japan",
+        "year": "1993",
+        "author": [
+          {
+            "name": "Bodiford, William M."
+          }
+        ],
+        "publisher": "University of Hawaii Press"
+      },
+      {
+        "type": "book",
+        "id": "weinstein1987buddhism",
+        "citekey": "weinstein1987buddhism",
+        "title": "Buddhism under the T'ang",
+        "year": "1987",
+        "author": [
+          {
+            "name": "Weinstein, Stanley"
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "reischauer1955ennin",
+        "citekey": "reischauer1955ennin",
+        "title": "Ennin's Diary: The Record of a Pilgrimage to China in Search of the Law",
+        "year": "1955",
+        "author": [
+          {
+            "name": "Reischauer, Edwin O."
+          }
+        ],
+        "publisher": "Ronald Press"
+      },
+      {
+        "type": "book",
+        "id": "wriggins2004silk",
+        "citekey": "wriggins2004silk",
+        "title": "The Silk Road Journey with Xuanzang",
+        "year": "2004",
+        "author": [
+          {
+            "name": "Wriggins, Sally Hovey"
+          }
+        ],
+        "publisher": "Westview Press"
+      },
+      {
+        "type": "book",
+        "id": "baroni2000obaku",
+        "citekey": "baroni2000obaku",
+        "title": "Obaku Zen",
+        "year": "2000",
+        "author": [
+          {
+            "name": "Baroni, Helen J."
+          }
+        ],
+        "publisher": "University of Hawaii Press"
+      },
+      {
+        "type": "book",
+        "id": "snellgrove1968cultural",
+        "citekey": "snellgrove1968cultural",
+        "title": "A Cultural History of Tibet",
+        "year": "1968",
+        "author": [
+          {
+            "name": "Snellgrove, David"
+          },
+          {
+            "name": "Richardson, Hugh"
+          }
+        ],
+        "publisher": "Weidenfeld & Nicolson"
+      },
+      {
+        "type": "book",
+        "id": "kapstein2006tibetans",
+        "citekey": "kapstein2006tibetans",
+        "title": "The Tibetans",
+        "year": "2006",
+        "author": [
+          {
+            "name": "Kapstein, Matthew T."
+          }
+        ],
+        "publisher": "Blackwell"
+      },
+      {
+        "type": "book",
+        "id": "kapstein2000tibetan",
+        "citekey": "kapstein2000tibetan",
+        "title": "The Tibetan Assimilation of Buddhism",
+        "year": "2000",
+        "author": [
+          {
+            "name": "Kapstein, Matthew T."
+          }
+        ],
+        "publisher": "Oxford University Press"
+      },
+      {
+        "type": "book",
+        "id": "vanschaik2011tibet",
+        "citekey": "vanschaik2011tibet",
+        "title": "Tibet: A History",
+        "year": "2011",
+        "author": [
+          {
+            "name": "van Schaik, Sam"
+          }
+        ],
+        "publisher": "Yale University Press"
+      },
+      {
+        "type": "book",
+        "id": "davidson2005tibetan",
+        "citekey": "davidson2005tibetan",
+        "title": "Tibetan Renaissance",
+        "year": "2005",
+        "author": [
+          {
+            "name": "Davidson, Ronald M."
+          }
+        ],
+        "publisher": "Columbia University Press"
+      },
+      {
+        "type": "book",
+        "id": "dreyfus2003sound",
+        "citekey": "dreyfus2003sound",
+        "title": "The Sound of Two Hands Clapping",
+        "year": "2003",
+        "author": [
+          {
+            "name": "Dreyfus, Georges B. J."
+          }
+        ],
+        "publisher": "University of California Press"
+      },
+      {
+        "type": "book",
+        "id": "cabezon1994buddhism",
+        "citekey": "cabezon1994buddhism",
+        "title": "Buddhism and Language",
+        "year": "1994",
+        "author": [
+          {
+            "name": "Cabezon, Jose Ignacio"
+          }
+        ],
+        "publisher": "State University of New York Press"
+      },
+      {
+        "type": "book",
+        "id": "ruegg1995ordre",
+        "citekey": "ruegg1995ordre",
+        "title": "Ordre spirituel et ordre temporel dans la pensee bouddhique de l'Inde et du Tibet",
+        "year": "1995",
+        "author": [
+          {
+            "name": "Ruegg, David Seyfort"
+          }
+        ],
+        "publisher": "College de France"
+      },
+      {
+        "type": "book",
+        "id": "schwieger2015dalai",
+        "citekey": "schwieger2015dalai",
+        "title": "The Dalai Lama and the Emperor of China",
+        "year": "2015",
+        "author": [
+          {
+            "name": "Schwieger, Peter"
+          }
+        ],
+        "publisher": "Columbia University Press"
+      },
+      {
+        "type": "book",
+        "id": "tambiah1992buddhism",
+        "citekey": "tambiah1992buddhism",
+        "title": "Buddhism Betrayed? Religion, Politics, and Violence in Sri Lanka",
+        "year": "1992",
+        "author": [
+          {
+            "name": "Tambiah, Stanley J."
+          }
+        ],
+        "publisher": "University of Chicago Press"
+      },
+      {
+        "type": "book",
+        "id": "jerryson2018if",
+        "citekey": "jerryson2018if",
+        "title": "If You Meet the Buddha on the Road",
+        "year": "2018",
+        "author": [
+          {
+            "name": "Jerryson, Michael"
+          }
+        ],
+        "publisher": "Oxford University Press"
+      },
+      {
+        "type": "book",
+        "id": "walton2016buddhism",
+        "citekey": "walton2016buddhism",
+        "title": "Buddhism, Politics and Political Thought in Myanmar",
+        "year": "2016",
+        "author": [
+          {
+            "name": "Walton, Matthew J."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "bloom1965shinran",
+        "citekey": "bloom1965shinran",
+        "title": "Shinran's Gospel of Pure Grace",
+        "year": "1965",
+        "author": [
+          {
+            "name": "Bloom, Alfred"
+          }
+        ],
+        "publisher": "University of Arizona Press"
+      },
+      {
+        "type": "book",
+        "id": "hirota1982tannisho",
+        "citekey": "hirota1982tannisho",
+        "title": "Tannisho: A Record in Lament of Divergences",
+        "year": "1982",
+        "author": [
+          {
+            "name": "Hirota, Dennis"
+          }
+        ],
+        "note": "translation"
+      },
+      {
+        "type": "book",
+        "id": "dobbins1989jodo",
+        "citekey": "dobbins1989jodo",
+        "title": "Jodo Shinshu: Shin Buddhism in Medieval Japan",
+        "year": "1989",
+        "author": [
+          {
+            "name": "Dobbins, James C."
+          }
+        ],
+        "publisher": "Indiana University Press"
+      },
+      {
+        "type": "book",
+        "id": "girard1978things",
+        "citekey": "girard1978things",
+        "title": "Things Hidden Since the Foundation of the World",
+        "year": "1978",
+        "author": [
+          {
+            "name": "Girard, Rene"
+          }
+        ],
+        "publisher": "Stanford University Press"
+      },
+      {
+        "type": "book",
+        "id": "girard1999i",
+        "citekey": "girard1999i",
+        "title": "I See Satan Fall Like Lightning",
+        "year": "1999",
+        "author": [
+          {
+            "name": "Girard, Rene"
+          }
+        ],
+        "publisher": "Orbis Books"
+      },
+      {
+        "type": "book",
+        "id": "lefebure2000revelation",
+        "citekey": "lefebure2000revelation",
+        "title": "Revelation, the Religions, and Violence",
+        "year": "2000",
+        "author": [
+          {
+            "name": "Lefebure, Leo D."
+          }
+        ],
+        "publisher": "Orbis Books"
+      },
+      {
+        "type": "book",
+        "id": "buddhaghosa430visuddhimagga",
+        "citekey": "buddhaghosa430visuddhimagga",
+        "title": "Visuddhimagga (The Path of Purification)",
+        "year": "430",
+        "author": [
+          {
+            "name": "Buddhaghosa"
+          }
+        ],
+        "note": "5th c. CE; Pali"
+      },
+      {
+        "type": "book",
+        "id": "chekawayeshedorje1150seven",
+        "citekey": "chekawayeshedorje1150seven",
+        "title": "Seven Points of Mind Training",
+        "year": "1150",
+        "author": [
+          {
+            "name": "Chekawa Yeshe Dorje"
+          }
+        ],
+        "note": "12th c.; Tibetan lojong, with Pabongka commentary"
+      },
+      {
+        "type": "book",
+        "id": "nhathanh1998heart",
+        "citekey": "nhathanh1998heart",
+        "title": "The Heart of the Buddha's Teaching",
+        "year": "1998",
+        "author": [
+          {
+            "name": "Nhat Hanh, Thich"
+          }
+        ],
+        "publisher": "Broadway Books"
+      },
+      {
+        "type": "misc",
+        "id": "firstvaticancouncil1870pastor",
+        "citekey": "firstvaticancouncil1870pastor",
+        "title": "Pastor Aeternus",
+        "year": "1870",
+        "author": [
+          {
+            "name": "First Vatican Council"
+          }
+        ],
+        "note": "dogmatic constitution",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/decreesofvatican00vati/decreesofvatican00vati.pdf"
+          }
+        ]
+      },
+      {
+        "type": "misc",
+        "id": "secondvaticancouncil1964lumen",
+        "citekey": "secondvaticancouncil1964lumen",
+        "title": "Lumen Gentium",
+        "year": "1964",
+        "author": [
+          {
+            "name": "Second Vatican Council"
+          }
+        ],
+        "note": "dogmatic constitution on the Church"
+      },
+      {
+        "type": "book",
+        "id": "schmitt1928verfassungslehre",
+        "citekey": "schmitt1928verfassungslehre",
+        "title": "Verfassungslehre",
+        "year": "1928",
+        "author": [
+          {
+            "name": "Schmitt, Carl"
+          }
+        ],
+        "publisher": "Duncker & Humblot"
+      },
+      {
+        "type": "book",
+        "id": "ackerman1991we",
+        "citekey": "ackerman1991we",
+        "title": "We the People",
+        "year": "1991",
+        "author": [
+          {
+            "name": "Ackerman, Bruce"
+          }
+        ],
+        "publisher": "Harvard University Press"
+      },
+      {
+        "type": "book",
+        "id": "roznai2017unconstitutional",
+        "citekey": "roznai2017unconstitutional",
+        "title": "Unconstitutional Constitutional Amendments",
+        "year": "2017",
+        "author": [
+          {
+            "name": "Roznai, Yaniv"
+          }
+        ],
+        "publisher": "Oxford University Press"
+      },
+      {
+        "type": "misc",
+        "id": "congregationforthedoctrineofthefaith1978normae",
+        "citekey": "congregationforthedoctrineofthefaith1978normae",
+        "title": "Normae de modo procedendi in iudicandis praesumptis apparitionibus ac revelationibus",
+        "year": "1978",
+        "author": [
+          {
+            "name": "Congregation for the Doctrine of the Faith"
+          }
+        ],
+        "note": "norms for judging apparitions"
+      },
+      {
+        "type": "book",
+        "id": "vallee1979messengers",
+        "citekey": "vallee1979messengers",
+        "title": "Messengers of Deception: UFO Contacts and Cults",
+        "year": "1979",
+        "author": [
+          {
+            "name": "Vallee, Jacques"
+          }
+        ],
+        "publisher": "And/Or Press"
+      },
+      {
+        "type": "book",
+        "id": "goldreich2004foundations",
+        "citekey": "goldreich2004foundations",
+        "title": "Foundations of Cryptography, Volume 2",
+        "year": "2004",
+        "author": [
+          {
+            "name": "Goldreich, Oded"
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "misc",
+        "id": "hubinger2019risks",
+        "citekey": "hubinger2019risks",
+        "title": "Risks from Learned Optimization in Advanced Machine Learning Systems",
+        "year": "2019",
+        "author": [
+          {
+            "name": "Hubinger, Evan"
+          },
+          {
+            "name": "van Merwijk, Chris"
+          },
+          {
+            "name": "Mikulik, Vladimir"
+          },
+          {
+            "name": "Skalse, Joar"
+          },
+          {
+            "name": "Garrabrant, Scott"
+          }
+        ],
+        "note": "arXiv:1906.01820",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://arxiv.org/pdf/1906.01820"
+          }
+        ]
+      },
+      {
+        "type": "misc",
+        "id": "carlsmith2022is",
+        "citekey": "carlsmith2022is",
+        "title": "Is Power-Seeking AI an Existential Risk?",
+        "year": "2022",
+        "author": [
+          {
+            "name": "Carlsmith, Joseph"
+          }
+        ],
+        "note": "arXiv:2206.13353",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://arxiv.org/pdf/2206.13353"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "croxton2002peace",
+        "citekey": "croxton2002peace",
+        "title": "The Peace of Westphalia: A Historical Dictionary",
+        "year": "2002",
+        "author": [
+          {
+            "name": "Croxton, Derek"
+          },
+          {
+            "name": "Tischer, Anuschka"
+          }
+        ],
+        "publisher": "Greenwood Press"
+      },
+      {
+        "type": "book",
+        "id": "bougeant1767histoire",
+        "citekey": "bougeant1767histoire",
+        "title": "Histoire du traite de Westphalie",
+        "year": "1767",
+        "author": [
+          {
+            "name": "Bougeant, Guillaume-Hyacinthe"
+          }
+        ],
+        "note": "6 vols.",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/histoiredutrait05boug/histoiredutrait05boug.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "dickmann1959westfalische",
+        "citekey": "dickmann1959westfalische",
+        "title": "Der Westfalische Friede",
+        "year": "1959",
+        "author": [
+          {
+            "name": "Dickmann, Fritz"
+          }
+        ],
+        "publisher": "Aschendorff",
+        "note": "7th ed. 1998"
+      },
+      {
+        "type": "book",
+        "id": "parker1984thirty",
+        "citekey": "parker1984thirty",
+        "title": "The Thirty Years' War",
+        "year": "1984",
+        "author": [
+          {
+            "name": "Parker, Geoffrey"
+          }
+        ],
+        "publisher": "Routledge",
+        "note": "rev. 1997"
+      },
+      {
+        "type": "book",
+        "id": "asch1997thirty",
+        "citekey": "asch1997thirty",
+        "title": "The Thirty Years' War",
+        "year": "1997",
+        "author": [
+          {
+            "name": "Asch, Ronald G."
+          }
+        ],
+        "publisher": "Palgrave Macmillan"
+      },
+      {
+        "type": "book",
+        "id": "bonney2002thirty",
+        "citekey": "bonney2002thirty",
+        "title": "The Thirty Years' War",
+        "year": "2002",
+        "author": [
+          {
+            "name": "Bonney, Richard"
+          }
+        ],
+        "publisher": "Osprey"
+      },
+      {
+        "type": "book",
+        "id": "osiander1994states",
+        "citekey": "osiander1994states",
+        "title": "The States System of Europe, 1640-1990",
+        "year": "1994",
+        "author": [
+          {
+            "name": "Osiander, Andreas"
+          }
+        ],
+        "publisher": "Clarendon Press"
+      },
+      {
+        "type": "article",
+        "id": "osiander2001sovereignty",
+        "citekey": "osiander2001sovereignty",
+        "title": "Sovereignty, International Relations, and the Westphalian Myth",
+        "year": "2001",
+        "author": [
+          {
+            "name": "Osiander, Andreas"
+          }
+        ],
+        "journal": "International Organization",
+        "volume": "55:2"
+      },
+      {
+        "type": "book",
+        "id": "krasner1999sovereignty",
+        "citekey": "krasner1999sovereignty",
+        "title": "Sovereignty: Organized Hypocrisy",
+        "year": "1999",
+        "author": [
+          {
+            "name": "Krasner, Stephen D."
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "teschke2003myth",
+        "citekey": "teschke2003myth",
+        "title": "The Myth of 1648",
+        "year": "2003",
+        "author": [
+          {
+            "name": "Teschke, Benno"
+          }
+        ],
+        "publisher": "Verso"
+      },
+      {
+        "type": "book",
+        "id": "grotius1625jure",
+        "citekey": "grotius1625jure",
+        "title": "De Jure Belli ac Pacis",
+        "year": "1625",
+        "author": [
+          {
+            "name": "Grotius, Hugo"
+          }
+        ],
+        "note": "public domain; Liberty Fund / archive.org",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/hugonisgrottiide02grotuoft/hugonisgrottiide02grotuoft.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "pufendorf1672jure",
+        "citekey": "pufendorf1672jure",
+        "title": "De Jure Naturae et Gentium",
+        "year": "1672",
+        "author": [
+          {
+            "name": "Pufendorf, Samuel von"
+          }
+        ],
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_txt",
+            "url": "https://archive.org/download/oflawofnaturenat00pufe/oflawofnaturenat00pufe_djvu.txt"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "vattel1758droit",
+        "citekey": "vattel1758droit",
+        "title": "Le Droit des Gens",
+        "year": "1758",
+        "author": [
+          {
+            "name": "Vattel, Emer de"
+          }
+        ],
+        "note": "public domain; Liberty Fund",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/lawnationsorpri01chitgoog/lawnationsorpri01chitgoog.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "schmitt1950nomos",
+        "citekey": "schmitt1950nomos",
+        "title": "Der Nomos der Erde",
+        "year": "1950",
+        "author": [
+          {
+            "name": "Schmitt, Carl"
+          }
+        ],
+        "publisher": "Duncker & Humblot"
+      },
+      {
+        "type": "book",
+        "id": "koskenniemi2001gentle",
+        "citekey": "koskenniemi2001gentle",
+        "title": "The Gentle Civilizer of Nations",
+        "year": "2001",
+        "author": [
+          {
+            "name": "Koskenniemi, Martti"
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "head1992peace",
+        "citekey": "head1992peace",
+        "title": "The Peace of God: Social Violence and Religious Response in France around the Year 1000",
+        "year": "1992",
+        "editor": [
+          {
+            "name": "Head, Thomas"
+          },
+          {
+            "name": "Landes, Richard"
+          }
+        ],
+        "publisher": "Cornell University Press"
+      },
+      {
+        "type": "book",
+        "id": "landes1995relics",
+        "citekey": "landes1995relics",
+        "title": "Relics, Apocalypse, and the Deceits of History",
+        "year": "1995",
+        "author": [
+          {
+            "name": "Landes, Richard"
+          }
+        ],
+        "publisher": "Harvard University Press"
+      },
+      {
+        "type": "article",
+        "id": "cowdrey1970peace",
+        "citekey": "cowdrey1970peace",
+        "title": "The Peace and the Truce of God in the Eleventh Century",
+        "year": "1970",
+        "author": [
+          {
+            "name": "Cowdrey, H. E. J."
+          }
+        ],
+        "journal": "Past & Present",
+        "volume": "46"
+      },
+      {
+        "type": "book",
+        "id": "bonnauddelamare1939l",
+        "citekey": "bonnauddelamare1939l",
+        "title": "L'idee de paix a l'epoque carolingienne",
+        "year": "1939",
+        "author": [
+          {
+            "name": "Bonnaud-Delamare, Roger"
+          }
+        ],
+        "publisher": "Domat-Montchrestien"
+      },
+      {
+        "type": "book",
+        "id": "dollinger1970german",
+        "citekey": "dollinger1970german",
+        "title": "The German Hansa",
+        "year": "1970",
+        "author": [
+          {
+            "name": "Dollinger, Philippe"
+          }
+        ],
+        "publisher": "Macmillan",
+        "note": "English trans. 1999"
+      },
+      {
+        "type": "book",
+        "id": "fahlbusch2008stadtebunde",
+        "citekey": "fahlbusch2008stadtebunde",
+        "title": "Stadtebunde und Hansen",
+        "year": "2008",
+        "author": [
+          {
+            "name": "Fahlbusch, Friedrich Bernward"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "hammelkiesow2008die",
+        "citekey": "hammelkiesow2008die",
+        "title": "Die Hanse",
+        "year": "2008",
+        "author": [
+          {
+            "name": "Hammel-Kiesow, Rolf"
+          }
+        ],
+        "publisher": "C. H. Beck"
+      },
+      {
+        "type": "book",
+        "id": "berman1983law",
+        "citekey": "berman1983law",
+        "title": "Law and Revolution: The Formation of the Western Legal Tradition",
+        "year": "1983",
+        "author": [
+          {
+            "name": "Berman, Harold J."
+          }
+        ],
+        "publisher": "Harvard University Press"
+      },
+      {
+        "type": "book",
+        "id": "trakman1983law",
+        "citekey": "trakman1983law",
+        "title": "The Law Merchant: The Evolution of Commercial Law",
+        "year": "1983",
+        "author": [
+          {
+            "name": "Trakman, Leon E."
+          }
+        ],
+        "publisher": "Fred B. Rothman"
+      },
+      {
+        "type": "article",
+        "id": "kadens2012myth",
+        "citekey": "kadens2012myth",
+        "title": "The Myth of the Customary Law Merchant",
+        "year": "2012",
+        "author": [
+          {
+            "name": "Kadens, Emily"
+          }
+        ],
+        "journal": "Texas Law Review",
+        "volume": "90"
+      },
+      {
+        "type": "book",
+        "id": "harris2020going",
+        "citekey": "harris2020going",
+        "title": "Going the Distance: Eurasian Trade and the Rise of the Business Corporation, 1400-1700",
+        "year": "2020",
+        "author": [
+          {
+            "name": "Harris, Ron"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "greif2006institutions",
+        "citekey": "greif2006institutions",
+        "title": "Institutions and the Path to the Modern Economy",
+        "year": "2006",
+        "author": [
+          {
+            "name": "Greif, Avner"
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "incollection",
+        "id": "bautier1953les",
+        "citekey": "bautier1953les",
+        "title": "Les foires de Champagne",
+        "year": "1953",
+        "author": [
+          {
+            "name": "Bautier, Robert-Henri"
+          }
+        ],
+        "booktitle": "Recueils de la Societe Jean Bodin V"
+      },
+      {
+        "type": "article",
+        "id": "sachs2006from",
+        "citekey": "sachs2006from",
+        "title": "From St. Ives to Cyberspace: The Modern Distortion of the Medieval 'Law Merchant'",
+        "year": "2006",
+        "author": [
+          {
+            "name": "Sachs, Stephen E."
+          }
+        ],
+        "journal": "American University International Law Review",
+        "volume": "21"
+      },
+      {
+        "type": "book",
+        "id": "kiernan1988duel",
+        "citekey": "kiernan1988duel",
+        "title": "The Duel in European History",
+        "year": "1988",
+        "author": [
+          {
+            "name": "Kiernan, V. G."
+          }
+        ],
+        "publisher": "Oxford University Press"
+      },
+      {
+        "type": "book",
+        "id": "frevert1995men",
+        "citekey": "frevert1995men",
+        "title": "Men of Honour: A Social and Cultural History of the Duel",
+        "year": "1995",
+        "author": [
+          {
+            "name": "Frevert, Ute"
+          }
+        ],
+        "publisher": "Polity Press"
+      },
+      {
+        "type": "book",
+        "id": "billacois1990duel",
+        "citekey": "billacois1990duel",
+        "title": "The Duel: Its Rise and Fall in Early Modern France",
+        "year": "1990",
+        "author": [
+          {
+            "name": "Billacois, Francois"
+          }
+        ],
+        "publisher": "Yale University Press"
+      },
+      {
+        "type": "book",
+        "id": "mcaleer1994dueling",
+        "citekey": "mcaleer1994dueling",
+        "title": "Dueling: The Cult of Honor in Fin-de-Siecle Germany",
+        "year": "1994",
+        "author": [
+          {
+            "name": "McAleer, Kevin"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "baldick1965duel",
+        "citekey": "baldick1965duel",
+        "title": "The Duel: A History of Duelling",
+        "year": "1965",
+        "author": [
+          {
+            "name": "Baldick, Robert"
+          }
+        ],
+        "publisher": "Chapman & Hall"
+      },
+      {
+        "type": "book",
+        "id": "barrington1830personal",
+        "citekey": "barrington1830personal",
+        "title": "Personal Sketches of His Own Times",
+        "year": "1830",
+        "author": [
+          {
+            "name": "Barrington, Jonah"
+          }
+        ],
+        "note": "public domain; contains the Clonmel Code",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/personalsketche01barrgoog/personalsketche01barrgoog.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "augustineofhippo426civitate",
+        "citekey": "augustineofhippo426civitate",
+        "title": "De Civitate Dei (The City of God)",
+        "year": "426",
+        "author": [
+          {
+            "name": "Augustine of Hippo"
+          }
+        ],
+        "note": "5th c.; public domain (CCEL)",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://ccel.org/ccel/schaff/npnf102/cache/npnf102.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "aquinas1274summa",
+        "citekey": "aquinas1274summa",
+        "title": "Summa Theologiae",
+        "year": "1274",
+        "author": [
+          {
+            "name": "Aquinas, Thomas"
+          }
+        ],
+        "note": "1265-74; public domain English (CCEL)",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://ccel.org/ccel/aquinas/summa/cache/summa.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "luther1525servo",
+        "citekey": "luther1525servo",
+        "title": "De servo arbitrio (The Bondage of the Will)",
+        "year": "1525",
+        "author": [
+          {
+            "name": "Luther, Martin"
+          }
+        ],
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/martinlutheronb00colegoog/martinlutheronb00colegoog.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "calvin1559institutio",
+        "citekey": "calvin1559institutio",
+        "title": "Institutio Christianae Religionis (Institutes of the Christian Religion)",
+        "year": "1559",
+        "author": [
+          {
+            "name": "Calvin, John"
+          }
+        ],
+        "note": "1536, rev. 1559; public domain (CCEL)",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://ccel.org/ccel/calvin/institutes/cache/institutes.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "niebuhr1941nature",
+        "citekey": "niebuhr1941nature",
+        "title": "The Nature and Destiny of Man",
+        "year": "1941",
+        "author": [
+          {
+            "name": "Niebuhr, Reinhold"
+          }
+        ],
+        "publisher": "Charles Scribner's Sons"
+      },
+      {
+        "type": "book",
+        "id": "hauerwas1983peaceable",
+        "citekey": "hauerwas1983peaceable",
+        "title": "The Peaceable Kingdom",
+        "year": "1983",
+        "author": [
+          {
+            "name": "Hauerwas, Stanley"
+          }
+        ],
+        "publisher": "University of Notre Dame Press"
+      },
+      {
+        "type": "book",
+        "id": "yoder1972politics",
+        "citekey": "yoder1972politics",
+        "title": "The Politics of Jesus",
+        "year": "1972",
+        "author": [
+          {
+            "name": "Yoder, John Howard"
+          }
+        ],
+        "publisher": "Eerdmans"
+      },
+      {
+        "type": "book",
+        "id": "odonovan1996desire",
+        "citekey": "odonovan1996desire",
+        "title": "The Desire of the Nations",
+        "year": "1996",
+        "author": [
+          {
+            "name": "O'Donovan, Oliver"
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "ostrom1990governing",
+        "citekey": "ostrom1990governing",
+        "title": "Governing the Commons",
+        "year": "1990",
+        "author": [
+          {
+            "name": "Ostrom, Elinor"
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "ostrom2005understanding",
+        "citekey": "ostrom2005understanding",
+        "title": "Understanding Institutional Diversity",
+        "year": "2005",
+        "author": [
+          {
+            "name": "Ostrom, Elinor"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "lansing1991priests",
+        "citekey": "lansing1991priests",
+        "title": "Priests and Programmers",
+        "year": "1991",
+        "author": [
+          {
+            "name": "Lansing, J. Stephen"
+          }
+        ],
+        "publisher": "Princeton University Press",
+        "note": "rev. 2006"
+      },
+      {
+        "type": "book",
+        "id": "netting1981balancing",
+        "citekey": "netting1981balancing",
+        "title": "Balancing on an Alp",
+        "year": "1981",
+        "author": [
+          {
+            "name": "Netting, Robert McC."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "incollection",
+        "id": "mckean1992management",
+        "citekey": "mckean1992management",
+        "title": "Management of Traditional Common Lands (Iriai) in Japan",
+        "year": "1992",
+        "author": [
+          {
+            "name": "McKean, Margaret A."
+          }
+        ],
+        "booktitle": "Making the Commons Work"
+      },
+      {
+        "type": "book",
+        "id": "grotius1609mare",
+        "citekey": "grotius1609mare",
+        "title": "Mare Liberum",
+        "year": "1609",
+        "author": [
+          {
+            "name": "Grotius, Hugo"
+          }
+        ],
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/freedomofseasorr00grot/freedomofseasorr00grot.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "brewer1996early",
+        "citekey": "brewer1996early",
+        "title": "Early Modern Conceptions of Property",
+        "year": "1996",
+        "editor": [
+          {
+            "name": "Brewer, John"
+          },
+          {
+            "name": "Staves, Susan"
+          }
+        ],
+        "publisher": "Routledge"
+      },
+      {
+        "type": "book",
+        "id": "vallee1965anatomy",
+        "citekey": "vallee1965anatomy",
+        "title": "Anatomy of a Phenomenon: Unidentified Objects in Space",
+        "year": "1965",
+        "author": [
+          {
+            "name": "Vallee, Jacques"
+          }
+        ],
+        "publisher": "Henry Regnery"
+      },
+      {
+        "type": "book",
+        "id": "vallee1969passport",
+        "citekey": "vallee1969passport",
+        "title": "Passport to Magonia: From Folklore to Flying Saucers",
+        "year": "1969",
+        "author": [
+          {
+            "name": "Vallee, Jacques"
+          }
+        ],
+        "publisher": "Henry Regnery"
+      },
+      {
+        "type": "book",
+        "id": "vallee1975invisible",
+        "citekey": "vallee1975invisible",
+        "title": "The Invisible College",
+        "year": "1975",
+        "author": [
+          {
+            "name": "Vallee, Jacques"
+          }
+        ],
+        "publisher": "E. P. Dutton"
+      },
+      {
+        "type": "book",
+        "id": "vallee1991revelations",
+        "citekey": "vallee1991revelations",
+        "title": "Revelations: Alien Contact and Human Deception",
+        "year": "1991",
+        "author": [
+          {
+            "name": "Vallee, Jacques"
+          }
+        ],
+        "publisher": "Souvenir Press"
+      },
+      {
+        "type": "inproceedings",
+        "id": "vallee2003incommensurability",
+        "citekey": "vallee2003incommensurability",
+        "title": "Incommensurability, orthodoxy and the physics of high strangeness: a 6-layer model for anomalous phenomena",
+        "year": "2003",
+        "author": [
+          {
+            "name": "Vallee, Jacques"
+          },
+          {
+            "name": "Davis, Eric W."
+          }
+        ],
+        "booktitle": "Proceedings of the 6th International Symposium on the UFO Phenomenon, San Marino"
+      },
+      {
+        "type": "book",
+        "id": "vallee2014forbidden",
+        "citekey": "vallee2014forbidden",
+        "title": "Forbidden Science, Volumes 1-5",
+        "year": "2014",
+        "author": [
+          {
+            "name": "Vallee, Jacques"
+          }
+        ],
+        "publisher": "Anomalist Books",
+        "note": "journals 1957-2009, published 1996-2014"
+      },
+      {
+        "type": "article",
+        "id": "nolan2022improved",
+        "citekey": "nolan2022improved",
+        "title": "Improved instrumental techniques, including isotopic analysis, applicable to the characterization of unusual materials with potential relevance to aerospace forensics",
+        "year": "2022",
+        "author": [
+          {
+            "name": "Nolan, Garry P."
+          },
+          {
+            "name": "Vallee, Jacques F."
+          },
+          {
+            "name": "Jiang, Sizun"
+          },
+          {
+            "name": "Lemke, Larry G."
+          }
+        ],
+        "journal": "Progress in Aerospace Sciences",
+        "volume": "128:100788"
+      },
+      {
+        "type": "book",
+        "id": "eliade1957sacred",
+        "citekey": "eliade1957sacred",
+        "title": "The Sacred and the Profane: The Nature of Religion",
+        "year": "1957",
+        "author": [
+          {
+            "name": "Eliade, Mircea"
+          }
+        ],
+        "publisher": "Harcourt"
+      },
+      {
+        "type": "book",
+        "id": "jung1959flying",
+        "citekey": "jung1959flying",
+        "title": "Flying Saucers: A Modern Myth of Things Seen in the Skies",
+        "year": "1959",
+        "author": [
+          {
+            "name": "Jung, C. G."
+          }
+        ],
+        "publisher": "Routledge & Kegan Paul"
+      },
+      {
+        "type": "book",
+        "id": "durkheim1912elementary",
+        "citekey": "durkheim1912elementary",
+        "title": "The Elementary Forms of Religious Life",
+        "year": "1912",
+        "author": [
+          {
+            "name": "Durkheim, Emile"
+          }
+        ],
+        "note": "1915 Swain translation public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/Les_Formes_elementaires_de_la_vie_religieuse/Les_Formes_elementaires_de_la_vie_religieuse.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "geertz1973interpretation",
+        "citekey": "geertz1973interpretation",
+        "title": "The Interpretation of Cultures",
+        "year": "1973",
+        "author": [
+          {
+            "name": "Geertz, Clifford"
+          }
+        ],
+        "publisher": "Basic Books"
+      },
+      {
+        "type": "book",
+        "id": "latour2005reassembling",
+        "citekey": "latour2005reassembling",
+        "title": "Reassembling the Social: An Introduction to Actor-Network Theory",
+        "year": "2005",
+        "author": [
+          {
+            "name": "Latour, Bruno"
+          }
+        ],
+        "publisher": "Oxford University Press"
+      },
+      {
+        "type": "book",
+        "id": "hirschman1970exit",
+        "citekey": "hirschman1970exit",
+        "title": "Exit, Voice, and Loyalty",
+        "year": "1970",
+        "author": [
+          {
+            "name": "Hirschman, Albert O."
+          }
+        ],
+        "publisher": "Harvard University Press"
+      },
+      {
+        "type": "book",
+        "id": "fenton1998great",
+        "citekey": "fenton1998great",
+        "title": "The Great Law and the Longhouse",
+        "year": "1998",
+        "author": [
+          {
+            "name": "Fenton, William N."
+          }
+        ],
+        "publisher": "University of Oklahoma Press"
+      },
+      {
+        "type": "book",
+        "id": "macculloch2003reformation",
+        "citekey": "macculloch2003reformation",
+        "title": "The Reformation",
+        "year": "2003",
+        "author": [
+          {
+            "name": "MacCulloch, Diarmaid"
+          }
+        ],
+        "publisher": "Viking"
+      },
+      {
+        "type": "book",
+        "id": "kissinger2014world",
+        "citekey": "kissinger2014world",
+        "title": "World Order",
+        "year": "2014",
+        "author": [
+          {
+            "name": "Kissinger, Henry"
+          }
+        ],
+        "publisher": "Penguin Press"
+      },
+      {
+        "type": "misc",
+        "id": "europeanunion2007treaty",
+        "citekey": "europeanunion2007treaty",
+        "title": "Treaty of Lisbon, Article 50",
+        "year": "2007",
+        "author": [
+          {
+            "name": "European Union"
+          }
+        ],
+        "note": "withdrawal provisions"
+      },
+      {
+        "type": "book",
+        "id": "bogdanor2019brexit",
+        "citekey": "bogdanor2019brexit",
+        "title": "Brexit and the Constitution",
+        "year": "2019",
+        "author": [
+          {
+            "name": "Bogdanor, Vernon"
+          }
+        ],
+        "publisher": "Hart"
+      },
+      {
+        "type": "book",
+        "id": "north1990institutions",
+        "citekey": "north1990institutions",
+        "title": "Institutions, Institutional Change and Economic Performance",
+        "year": "1990",
+        "author": [
+          {
+            "name": "North, Douglass C."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "article",
+        "id": "mann1997sign",
+        "citekey": "mann1997sign",
+        "title": "A Sign in the Sky: Dating the League of the Haudenosaunee",
+        "year": "1997",
+        "author": [
+          {
+            "name": "Mann, Barbara A."
+          },
+          {
+            "name": "Fields, Jerry L."
+          }
+        ],
+        "journal": "American Indian Culture and Research Journal",
+        "volume": "21:2"
+      },
+      {
+        "type": "book",
+        "id": "parker1916constitution",
+        "citekey": "parker1916constitution",
+        "title": "The Constitution of the Five Nations",
+        "year": "1916",
+        "author": [
+          {
+            "name": "Parker, Arthur C."
+          }
+        ],
+        "publisher": "University of the State of New York",
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/constitutionoffi00park/constitutionoffi00park.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "wallace1946white",
+        "citekey": "wallace1946white",
+        "title": "The White Roots of Peace",
+        "year": "1946",
+        "author": [
+          {
+            "name": "Wallace, Paul A. W."
+          }
+        ],
+        "publisher": "University of Pennsylvania Press"
+      },
+      {
+        "type": "book",
+        "id": "niane1965sundiata",
+        "citekey": "niane1965sundiata",
+        "title": "Sundiata: An Epic of Old Mali",
+        "year": "1965",
+        "author": [
+          {
+            "name": "Niane, Djibril Tamsir"
+          }
+        ],
+        "publisher": "Longman"
+      },
+      {
+        "type": "article",
+        "id": "camara2013charter",
+        "citekey": "camara2013charter",
+        "title": "The Charter of Kurukan Fuga and the Mande Constitution",
+        "year": "2013",
+        "author": [
+          {
+            "name": "Camara, Seydou"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "morgan1986mongols",
+        "citekey": "morgan1986mongols",
+        "title": "The Mongols",
+        "year": "1986",
+        "author": [
+          {
+            "name": "Morgan, David"
+          }
+        ],
+        "publisher": "Blackwell",
+        "note": "rev. 2007"
+      },
+      {
+        "type": "book",
+        "id": "weatherford2004genghis",
+        "citekey": "weatherford2004genghis",
+        "title": "Genghis Khan and the Making of the Modern World",
+        "year": "2004",
+        "author": [
+          {
+            "name": "Weatherford, Jack"
+          }
+        ],
+        "publisher": "Crown"
+      },
+      {
+        "type": "book",
+        "id": "khadduri1966islamic",
+        "citekey": "khadduri1966islamic",
+        "title": "The Islamic Law of Nations: Shaybani's Siyar",
+        "year": "1966",
+        "author": [
+          {
+            "name": "Khadduri, Majid"
+          }
+        ],
+        "publisher": "Johns Hopkins Press"
+      },
+      {
+        "type": "book",
+        "id": "khadduri1955war",
+        "citekey": "khadduri1955war",
+        "title": "War and Peace in the Law of Islam",
+        "year": "1955",
+        "author": [
+          {
+            "name": "Khadduri, Majid"
+          }
+        ],
+        "publisher": "Johns Hopkins Press"
+      },
+      {
+        "type": "book",
+        "id": "cohen1994under",
+        "citekey": "cohen1994under",
+        "title": "Under Crescent and Cross",
+        "year": "1994",
+        "author": [
+          {
+            "name": "Cohen, Mark R."
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "lewis1984jews",
+        "citekey": "lewis1984jews",
+        "title": "The Jews of Islam",
+        "year": "1984",
+        "author": [
+          {
+            "name": "Lewis, Bernard"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "swanson1960birth",
+        "citekey": "swanson1960birth",
+        "title": "The Birth of the Gods",
+        "year": "1960",
+        "author": [
+          {
+            "name": "Swanson, Guy E."
+          }
+        ],
+        "publisher": "University of Michigan Press"
+      },
+      {
+        "type": "book",
+        "id": "norenzayan2013big",
+        "citekey": "norenzayan2013big",
+        "title": "Big Gods: How Religion Transformed Cooperation and Conflict",
+        "year": "2013",
+        "author": [
+          {
+            "name": "Norenzayan, Ara"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "welsford1935fool",
+        "citekey": "welsford1935fool",
+        "title": "The Fool: His Social and Literary History",
+        "year": "1935",
+        "author": [
+          {
+            "name": "Welsford, Enid"
+          }
+        ],
+        "publisher": "Faber & Faber"
+      },
+      {
+        "type": "book",
+        "id": "zijderveld1982reality",
+        "citekey": "zijderveld1982reality",
+        "title": "Reality in a Looking-Glass",
+        "year": "1982",
+        "author": [
+          {
+            "name": "Zijderveld, Anton C."
+          }
+        ],
+        "publisher": "Routledge & Kegan Paul"
+      },
+      {
+        "type": "book",
+        "id": "otto2001fools",
+        "citekey": "otto2001fools",
+        "title": "Fools Are Everywhere: The Court Jester Around the World",
+        "year": "2001",
+        "author": [
+          {
+            "name": "Otto, Beatrice K."
+          }
+        ],
+        "publisher": "University of Chicago Press"
+      },
+      {
+        "type": "book",
+        "id": "heschel1962prophets",
+        "citekey": "heschel1962prophets",
+        "title": "The Prophets",
+        "year": "1962",
+        "author": [
+          {
+            "name": "Heschel, Abraham Joshua"
+          }
+        ],
+        "publisher": "Harper & Row"
+      },
+      {
+        "type": "misc",
+        "id": "bonhoeffer1943after",
+        "citekey": "bonhoeffer1943after",
+        "title": "After Ten Years",
+        "year": "1943",
+        "author": [
+          {
+            "name": "Bonhoeffer, Dietrich"
+          }
+        ],
+        "note": "in Letters and Papers from Prison"
+      },
+      {
+        "type": "book",
+        "id": "gandhi1909hind",
+        "citekey": "gandhi1909hind",
+        "title": "Hind Swaraj",
+        "year": "1909",
+        "author": [
+          {
+            "name": "Gandhi, Mohandas K."
+          }
+        ],
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/hindswarajorindi00ganduoft/hindswarajorindi00ganduoft.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "forsythe2005humanitarians",
+        "citekey": "forsythe2005humanitarians",
+        "title": "The Humanitarians: The International Committee of the Red Cross",
+        "year": "2005",
+        "author": [
+          {
+            "name": "Forsythe, David P."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "book",
+        "id": "habermas1962structural",
+        "citekey": "habermas1962structural",
+        "title": "The Structural Transformation of the Public Sphere",
+        "year": "1962",
+        "author": [
+          {
+            "name": "Habermas, Jurgen"
+          }
+        ],
+        "publisher": "MIT Press"
+      },
+      {
+        "type": "book",
+        "id": "keane1991media",
+        "citekey": "keane1991media",
+        "title": "The Media and Democracy",
+        "year": "1991",
+        "author": [
+          {
+            "name": "Keane, John"
+          }
+        ],
+        "publisher": "Polity Press"
+      },
+      {
+        "type": "book",
+        "id": "benkler2006wealth",
+        "citekey": "benkler2006wealth",
+        "title": "The Wealth of Networks",
+        "year": "2006",
+        "author": [
+          {
+            "name": "Benkler, Yochai"
+          }
+        ],
+        "publisher": "Yale University Press"
+      },
+      {
+        "type": "book",
+        "id": "schmitt1932begriff",
+        "citekey": "schmitt1932begriff",
+        "title": "Der Begriff des Politischen",
+        "year": "1932",
+        "author": [
+          {
+            "name": "Schmitt, Carl"
+          }
+        ],
+        "publisher": "Duncker & Humblot"
+      },
+      {
+        "type": "book",
+        "id": "niebuhr1932moral",
+        "citekey": "niebuhr1932moral",
+        "title": "Moral Man and Immoral Society",
+        "year": "1932",
+        "author": [
+          {
+            "name": "Niebuhr, Reinhold"
+          }
+        ],
+        "publisher": "Charles Scribner's Sons"
+      },
+      {
+        "type": "incollection",
+        "id": "madison1788federalist",
+        "citekey": "madison1788federalist",
+        "title": "Federalist No. 51",
+        "year": "1788",
+        "author": [
+          {
+            "name": "Madison, James"
+          }
+        ],
+        "booktitle": "The Federalist Papers",
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_txt",
+            "url": "https://www.gutenberg.org/cache/epub/1404/pg1404.txt"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "solzhenitsyn1973gulag",
+        "citekey": "solzhenitsyn1973gulag",
+        "title": "The Gulag Archipelago",
+        "year": "1973",
+        "author": [
+          {
+            "name": "Solzhenitsyn, Aleksandr"
+          }
+        ],
+        "publisher": "Harper & Row"
+      },
+      {
+        "type": "book",
+        "id": "girard1972violence",
+        "citekey": "girard1972violence",
+        "title": "Violence and the Sacred",
+        "year": "1972",
+        "author": [
+          {
+            "name": "Girard, Rene"
+          }
+        ],
+        "publisher": "Johns Hopkins University Press"
+      },
+      {
+        "type": "book",
+        "id": "boyer1974salem",
+        "citekey": "boyer1974salem",
+        "title": "Salem Possessed: The Social Origins of Witchcraft",
+        "year": "1974",
+        "author": [
+          {
+            "name": "Boyer, Paul"
+          },
+          {
+            "name": "Nissenbaum, Stephen"
+          }
+        ],
+        "publisher": "Harvard University Press"
+      },
+      {
+        "type": "book",
+        "id": "norton2002devil",
+        "citekey": "norton2002devil",
+        "title": "In the Devil's Snare",
+        "year": "2002",
+        "author": [
+          {
+            "name": "Norton, Mary Beth"
+          }
+        ],
+        "publisher": "Alfred A. Knopf"
+      },
+      {
+        "type": "book",
+        "id": "mather1692cases",
+        "citekey": "mather1692cases",
+        "title": "Cases of Conscience Concerning Evil Spirits",
+        "year": "1692",
+        "author": [
+          {
+            "name": "Mather, Increase"
+          }
+        ],
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_txt",
+            "url": "https://archive.org/download/per_witchcraft-in-europe-and-america_mather-increase_1693_632/per_witchcraft-in-europe-and-america_mather-increase_1693_632_djvu.txt"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "turner1969ritual",
+        "citekey": "turner1969ritual",
+        "title": "The Ritual Process",
+        "year": "1969",
+        "author": [
+          {
+            "name": "Turner, Victor"
+          }
+        ],
+        "publisher": "Aldine"
+      },
+      {
+        "type": "book",
+        "id": "vangennep1909rites",
+        "citekey": "vangennep1909rites",
+        "title": "The Rites of Passage",
+        "year": "1909",
+        "author": [
+          {
+            "name": "van Gennep, Arnold"
+          }
+        ],
+        "note": "French original public domain"
+      },
+      {
+        "type": "book",
+        "id": "scott1954common",
+        "citekey": "scott1954common",
+        "title": "The Common Law of Mankind",
+        "year": "1954",
+        "author": [
+          {
+            "name": "Scott, James Brown"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "mitchell1904essay",
+        "citekey": "mitchell1904essay",
+        "title": "An Essay on the Early History of the Law Merchant",
+        "year": "1904",
+        "author": [
+          {
+            "name": "Mitchell, William"
+          }
+        ],
+        "publisher": "Cambridge University Press",
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/essayonearlyhist00mitcuoft/essayonearlyhist00mitcuoft.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "maiolo2007medieval",
+        "citekey": "maiolo2007medieval",
+        "title": "Medieval Sovereignty",
+        "year": "2007",
+        "author": [
+          {
+            "name": "Maiolo, Francesco"
+          }
+        ],
+        "publisher": "Eburon"
+      },
+      {
+        "type": "book",
+        "id": "luther1520freedom",
+        "citekey": "luther1520freedom",
+        "title": "The Freedom of a Christian",
+        "year": "1520",
+        "author": [
+          {
+            "name": "Luther, Martin"
+          }
+        ],
+        "note": "public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/worksofmartinlut02luth/worksofmartinlut02luth.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "kierkegaard1847works",
+        "citekey": "kierkegaard1847works",
+        "title": "Works of Love",
+        "year": "1847",
+        "author": [
+          {
+            "name": "Kierkegaard, Soren"
+          }
+        ],
+        "note": "original public domain"
+      },
+      {
+        "type": "book",
+        "id": "barth1942church",
+        "citekey": "barth1942church",
+        "title": "Church Dogmatics II/2",
+        "year": "1942",
+        "author": [
+          {
+            "name": "Barth, Karl"
+          }
+        ],
+        "publisher": "T&T Clark"
+      },
+      {
+        "type": "book",
+        "id": "bonhoeffer1937discipleship",
+        "citekey": "bonhoeffer1937discipleship",
+        "title": "Discipleship (The Cost of Discipleship)",
+        "year": "1937",
+        "author": [
+          {
+            "name": "Bonhoeffer, Dietrich"
+          }
+        ],
+        "publisher": "Chr. Kaiser Verlag"
+      },
+      {
+        "type": "book",
+        "id": "augustineofhippo397confessions",
+        "citekey": "augustineofhippo397confessions",
+        "title": "Confessions",
+        "year": "397",
+        "author": [
+          {
+            "name": "Augustine of Hippo"
+          }
+        ],
+        "note": "c. 397; public domain (CCEL)",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://ccel.org/ccel/schaff/npnf101/cache/npnf101.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "lewis1952mere",
+        "citekey": "lewis1952mere",
+        "title": "Mere Christianity",
+        "year": "1952",
+        "author": [
+          {
+            "name": "Lewis, C. S."
+          }
+        ],
+        "publisher": "Geoffrey Bles"
+      },
+      {
+        "type": "misc",
+        "id": "justinmartyr155first",
+        "citekey": "justinmartyr155first",
+        "title": "First Apology",
+        "year": "155",
+        "author": [
+          {
+            "name": "Justin Martyr"
+          }
+        ],
+        "note": "c. 155; public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://ccel.org/ccel/schaff/anf01/cache/anf01.pdf"
+          }
+        ]
+      },
+      {
+        "type": "misc",
+        "id": "justinmartyr161second",
+        "citekey": "justinmartyr161second",
+        "title": "Second Apology",
+        "year": "161",
+        "author": [
+          {
+            "name": "Justin Martyr"
+          }
+        ],
+        "note": "c. 161; public domain",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://ccel.org/ccel/schaff/anf01/cache/anf01.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "henrich2020weirdest",
+        "citekey": "henrich2020weirdest",
+        "title": "The WEIRDest People in the World",
+        "year": "2020",
+        "author": [
+          {
+            "name": "Henrich, Joseph"
+          }
+        ],
+        "publisher": "Farrar, Straus and Giroux"
+      },
+      {
+        "type": "book",
+        "id": "schuon1948transcendent",
+        "citekey": "schuon1948transcendent",
+        "title": "The Transcendent Unity of Religions",
+        "year": "1948",
+        "author": [
+          {
+            "name": "Schuon, Frithjof"
+          }
+        ],
+        "publisher": "Faber & Faber"
+      },
+      {
+        "type": "book",
+        "id": "smith1991world",
+        "citekey": "smith1991world",
+        "title": "The World's Religions",
+        "year": "1991",
+        "author": [
+          {
+            "name": "Smith, Huston"
+          }
+        ],
+        "publisher": "HarperOne"
+      },
+      {
+        "type": "misc",
+        "id": "catholicchurch1992catechism",
+        "citekey": "catholicchurch1992catechism",
+        "title": "Catechism of the Catholic Church",
+        "year": "1992",
+        "author": [
+          {
+            "name": "Catholic Church"
+          }
+        ],
+        "note": "paras 839-848"
+      },
+      {
+        "type": "book",
+        "id": "stark1996rise",
+        "citekey": "stark1996rise",
+        "title": "The Rise of Christianity",
+        "year": "1996",
+        "author": [
+          {
+            "name": "Stark, Rodney"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "stark2003for",
+        "citekey": "stark2003for",
+        "title": "For the Glory of God",
+        "year": "2003",
+        "author": [
+          {
+            "name": "Stark, Rodney"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "lopez2001story",
+        "citekey": "lopez2001story",
+        "title": "The Story of Buddhism",
+        "year": "2001",
+        "author": [
+          {
+            "name": "Lopez, Donald S."
+          }
+        ],
+        "publisher": "HarperOne"
+      },
+      {
+        "type": "book",
+        "id": "kelly1972early",
+        "citekey": "kelly1972early",
+        "title": "Early Christian Creeds",
+        "year": "1972",
+        "author": [
+          {
+            "name": "Kelly, J. N. D."
+          }
+        ],
+        "publisher": "Longman",
+        "note": "3rd ed."
+      },
+      {
+        "type": "book",
+        "id": "pelikan2003credo",
+        "citekey": "pelikan2003credo",
+        "title": "Credo: Historical and Theological Guide to Creeds and Confessions of Faith",
+        "year": "2003",
+        "author": [
+          {
+            "name": "Pelikan, Jaroslav"
+          }
+        ],
+        "publisher": "Yale University Press"
+      },
+      {
+        "type": "book",
+        "id": "kelly1964athanasian",
+        "citekey": "kelly1964athanasian",
+        "title": "The Athanasian Creed",
+        "year": "1964",
+        "author": [
+          {
+            "name": "Kelly, J. N. D."
+          }
+        ],
+        "publisher": "Adam & Charles Black"
+      },
+      {
+        "type": "book",
+        "id": "wilken2003spirit",
+        "citekey": "wilken2003spirit",
+        "title": "The Spirit of Early Christian Thought",
+        "year": "2003",
+        "author": [
+          {
+            "name": "Wilken, Robert Louis"
+          }
+        ],
+        "publisher": "Yale University Press"
+      },
+      {
+        "type": "book",
+        "id": "austin1962how",
+        "citekey": "austin1962how",
+        "title": "How to Do Things with Words",
+        "year": "1962",
+        "author": [
+          {
+            "name": "Austin, J. L."
+          }
+        ],
+        "publisher": "Oxford University Press"
+      },
+      {
+        "type": "book",
+        "id": "searle1969speech",
+        "citekey": "searle1969speech",
+        "title": "Speech Acts",
+        "year": "1969",
+        "author": [
+          {
+            "name": "Searle, John R."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "article",
+        "id": "atran2010evolution",
+        "citekey": "atran2010evolution",
+        "title": "The Evolution of Religion",
+        "year": "2010",
+        "author": [
+          {
+            "name": "Atran, Scott"
+          },
+          {
+            "name": "Henrich, Joseph"
+          }
+        ],
+        "journal": "Biological Theory",
+        "volume": "5"
+      },
+      {
+        "type": "book",
+        "id": "festinger1957theory",
+        "citekey": "festinger1957theory",
+        "title": "A Theory of Cognitive Dissonance",
+        "year": "1957",
+        "author": [
+          {
+            "name": "Festinger, Leon"
+          }
+        ],
+        "publisher": "Stanford University Press"
+      },
+      {
+        "type": "book",
+        "id": "rappaport1999ritual",
+        "citekey": "rappaport1999ritual",
+        "title": "Ritual and Religion in the Making of Humanity",
+        "year": "1999",
+        "author": [
+          {
+            "name": "Rappaport, Roy A."
+          }
+        ],
+        "publisher": "Cambridge University Press"
+      },
+      {
+        "type": "article",
+        "id": "foster1985who",
+        "citekey": "foster1985who",
+        "title": "On Who Spoke First at Iroquois-White Treaty Councils",
+        "year": "1985",
+        "author": [
+          {
+            "name": "Foster, Michael K."
+          }
+        ],
+        "journal": "Anthropologica",
+        "volume": "N.S. 27"
+      },
+      {
+        "type": "article",
+        "id": "milgrom1990role",
+        "citekey": "milgrom1990role",
+        "title": "The Role of Institutions in the Revival of Trade",
+        "year": "1990",
+        "author": [
+          {
+            "name": "Milgrom, Paul R."
+          },
+          {
+            "name": "North, Douglass C."
+          },
+          {
+            "name": "Weingast, Barry R."
+          }
+        ],
+        "journal": "Economics & Politics",
+        "volume": "2"
+      },
+      {
+        "type": "book",
+        "id": "goldsmith2006who",
+        "citekey": "goldsmith2006who",
+        "title": "Who Controls the Internet?",
+        "year": "2006",
+        "author": [
+          {
+            "name": "Goldsmith, Jack"
+          },
+          {
+            "name": "Wu, Tim"
+          }
+        ],
+        "publisher": "Oxford University Press"
+      },
+      {
+        "type": "book",
+        "id": "narayanan2016bitcoin",
+        "citekey": "narayanan2016bitcoin",
+        "title": "Bitcoin and Cryptocurrency Technologies",
+        "year": "2016",
+        "author": [
+          {
+            "name": "Narayanan, Arvind"
+          },
+          {
+            "name": "Bonneau, Joseph"
+          },
+          {
+            "name": "Felten, Edward"
+          },
+          {
+            "name": "Miller, Andrew"
+          },
+          {
+            "name": "Goldfeder, Steven"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "misc",
+        "id": "augustineofhippo412letter",
+        "citekey": "augustineofhippo412letter",
+        "title": "Letter 138 (to Marcellinus)",
+        "year": "412",
+        "author": [
+          {
+            "name": "Augustine of Hippo"
+          }
+        ],
+        "note": "public domain (NPNF)",
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://ccel.org/ccel/schaff/npnf101/cache/npnf101.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "luther1526whether",
+        "citekey": "luther1526whether",
+        "title": "Whether Soldiers, Too, Can Be Saved",
+        "year": "1526",
+        "author": [
+          {
+            "name": "Luther, Martin"
+          }
+        ],
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/in.ernet.dli.2015.58313/2015.58313.Works-Of-Martin-Luther-Volume-V.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "luther1523temporal",
+        "citekey": "luther1523temporal",
+        "title": "Temporal Authority: To What Extent It Should Be Obeyed",
+        "year": "1523",
+        "author": [
+          {
+            "name": "Luther, Martin"
+          }
+        ],
+        "link": [
+          {
+            "type": "fulltext_pdf",
+            "url": "https://archive.org/download/worksofmartinlut0003vari_e0b8/worksofmartinlut0003vari_e0b8.pdf"
+          }
+        ]
+      },
+      {
+        "type": "book",
+        "id": "niebuhr1935interpretation",
+        "citekey": "niebuhr1935interpretation",
+        "title": "An Interpretation of Christian Ethics",
+        "year": "1935",
+        "author": [
+          {
+            "name": "Niebuhr, Reinhold"
+          }
+        ],
+        "publisher": "Harper & Brothers"
+      },
+      {
+        "type": "book",
+        "id": "wink2003jesus",
+        "citekey": "wink2003jesus",
+        "title": "Jesus and Nonviolence: A Third Way",
+        "year": "2003",
+        "author": [
+          {
+            "name": "Wink, Walter"
+          }
+        ],
+        "publisher": "Fortress Press"
+      },
+      {
+        "type": "book",
+        "id": "wink1992engaging",
+        "citekey": "wink1992engaging",
+        "title": "Engaging the Powers",
+        "year": "1992",
+        "author": [
+          {
+            "name": "Wink, Walter"
+          }
+        ],
+        "publisher": "Fortress Press"
+      },
+      {
+        "type": "book",
+        "id": "wright2004matthew",
+        "citekey": "wright2004matthew",
+        "title": "Matthew for Everyone, Part 1",
+        "year": "2004",
+        "author": [
+          {
+            "name": "Wright, N. T."
+          }
+        ],
+        "publisher": "SPCK"
+      },
+      {
+        "type": "book",
+        "id": "davies1988critical",
+        "citekey": "davies1988critical",
+        "title": "A Critical and Exegetical Commentary on the Gospel According to Saint Matthew (ICC)",
+        "year": "1988",
+        "author": [
+          {
+            "name": "Davies, W. D."
+          },
+          {
+            "name": "Allison, Dale C."
+          }
+        ],
+        "publisher": "T&T Clark"
+      },
+      {
+        "type": "book",
+        "id": "walzer1977just",
+        "citekey": "walzer1977just",
+        "title": "Just and Unjust Wars",
+        "year": "1977",
+        "author": [
+          {
+            "name": "Walzer, Michael"
+          }
+        ],
+        "publisher": "Basic Books"
+      },
+      {
+        "type": "book",
+        "id": "axelrod1997complexity",
+        "citekey": "axelrod1997complexity",
+        "title": "The Complexity of Cooperation",
+        "year": "1997",
+        "author": [
+          {
+            "name": "Axelrod, Robert"
+          }
+        ],
+        "publisher": "Princeton University Press"
+      },
+      {
+        "type": "book",
+        "id": "lewis1969convention",
+        "citekey": "lewis1969convention",
+        "title": "Convention: A Philosophical Study",
+        "year": "1969",
+        "author": [
+          {
+            "name": "Lewis, David"
+          }
+        ],
+        "publisher": "Harvard University Press"
+      },
+      {
+        "type": "book",
+        "id": "binmore1994game",
+        "citekey": "binmore1994game",
+        "title": "Game Theory and the Social Contract",
+        "year": "1994",
+        "author": [
+          {
+            "name": "Binmore, Ken"
+          }
+        ],
+        "publisher": "MIT Press",
+        "note": "2 vols., 1994 & 1998"
+      }
+    ]
   }
 }

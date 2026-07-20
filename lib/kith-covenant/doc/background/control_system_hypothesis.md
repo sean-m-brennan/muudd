@@ -27,7 +27,7 @@ substance, across [justus_hostis.md](justus_hostis.md),
 position. Naming it both clarifies what kith-covenant is doing and connects the
 project to a thoughtful adjacent tradition.
 
-The posture, as in [noticeable_hand.md](noticeable_hand.md), is honest inquiry. Where
+The posture, as in [noticeable_hand.md](noticeable_hand.md), is open inquiry. Where
 Vallée's framework illuminates kith-covenant's design problem, that is reported
 plainly. Where it does not, or where it diverges, that is reported plainly too. The
 goal is not adoption of Vallée's specific theological or sociological commitments
@@ -160,7 +160,7 @@ available within Christian theology:
    the regulating reference: a personal Creator who entered history as a particular
    human being. The form is universal; the content is specific. This is
    structurally similar to the Justin Martyr / *logos spermatikos* move that
-   [noticeable_hand.md](noticeable_hand.md#the-catholic-perennialist-reading)
+   [noticeable_hand.md](noticeable_hand.md#the-catholic--perennialist-reading)
    already identifies as Christian theological precedent for the catholic reading.
 
 2. **Read Vallée against himself.** Vallée's framework is empirically committed to
@@ -174,7 +174,7 @@ available within Christian theology:
 Either move is theologically coherent. The point Vallée's framework makes vivid is
 that strong Christian particularism cannot simply assume its own cycle is unique
 without engaging the generality of the pattern. The colonial-frontier counterweight
-in [noticeable_hand.md](noticeable_hand.md#honest-counterweights) and the
+in [noticeable_hand.md](noticeable_hand.md#counterweights) and the
 Buddhist-longevity counterweight (treated at length in
 [buddhist_sangha.md](buddhist_sangha.md)) already require this engagement; Vallée's
 framework names the underlying problem in generic form.
@@ -324,7 +324,7 @@ Vallée's Component 3, that anchor-above-self machinery is vulnerable to
 instrumentalization, is the sharpest critique he supplies of any optimistic
 substrate framing. Kith-covenant's existing treatment of failure modes
 (intra-Christian violence, colonial selectivity in
-[noticeable_hand.md](noticeable_hand.md#honest-counterweights);
+[noticeable_hand.md](noticeable_hand.md#counterweights);
 capture resistance in
 [liminal_institutions.md](liminal_institutions.md)) addresses specific historical
 instances but does not develop the general structural problem.
@@ -354,7 +354,7 @@ treatment) but is now explicitly framed as pieces of a single architectural
 concern that must interlock.
 
 The colonial-frontier counterweight in
-[noticeable_hand.md](noticeable_hand.md#honest-counterweights) is a specific
+[noticeable_hand.md](noticeable_hand.md#counterweights) is a specific
 historical instance of what Vallée's framework predicts in general: the
 Christian substrate was *operationally captured* by an in-group definition of
 "neighbor" that contradicted the substrate's own scriptural mandate. The
@@ -405,7 +405,7 @@ Kith-covenant's documentation already exhibits this discipline
 is a clean example). Naming the discipline as a *method*, with Vallée's body of
 work as a precedent in a quite different domain, provides kith-covenant with a
 methodological lineage and vocabulary it currently improvises. It also positions
-kith-covenant honestly among the broader set of projects that take
+kith-covenant squarely among the broader set of projects that take
 contested-ontology data seriously without succumbing either to credulity or to
 premature dismissal.
 
@@ -554,10 +554,10 @@ operate together as a single feedback architecture.
   [m2m_interaction.md](m2m_interaction.md),
   [liminal_institutions.md](liminal_institutions.md)) addressed specific
   failure modes in fragments. The unified treatment is now developed in
-  [capture_resistance.md](capture_resistance.md), which catalogues six
+  [capture_resistance.md](capture_resistance.md), which catalogues seven
   strengthening moves and routes their implementation responsibilities
   through [protocol-components.md](../architecture/protocol-components.md).
-  The remaining open question is therefore narrower: are the six moves
+  The remaining open question is therefore narrower: are the seven moves
   *sufficient*, or does Vallée's general "manipulation vulnerability is
   structural" claim require additional countermeasures the unified
   treatment has not yet specified, particularly against
@@ -577,7 +577,7 @@ operate together as a single feedback architecture.
 ## Relationship to other documents
 
 - [capture_resistance.md](capture_resistance.md). The **operational
-  follow-on** to this document. The six strengthening moves catalogued
+  follow-on** to this document. The seven strengthening moves catalogued
   there are the unified architectural response to Vallée's Component 3
   (manipulation vulnerabilities). Where the present document analyzes
   the framework, capture_resistance.md routes the framework's design

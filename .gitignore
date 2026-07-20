@@ -2,6 +2,8 @@
 /master-environ.yaml
 /doc/research/muudd.bib
 /lib/kith-covenant/target/
+/lib/kith-covenant/src/python/kith_covenant/_core*.so
+/lib/kith-covenant/.pytest_cache/
 /lib/kith-covenant/doc/research/kith_covenant.bib
 /lib/kith-covenant/Cargo.lock
 /lib/kith-covenant/.idea/
@@ -9,3 +11,5 @@
 /**/__pycache__/
 /lib/kith-covenant/doc/**/*.pdf
 /docs/
+/lib/kith-covenant/doc/research/kith-covenant.bib
+/lib/kith-covenant/doc/research/*.txt

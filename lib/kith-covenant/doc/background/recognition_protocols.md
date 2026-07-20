@@ -20,12 +20,17 @@ seriously two converging conclusions from the prior research:
 
 - **The transcendent moral authority substrate finding** from
   [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern) and
-  [noticeable_hand.md](noticeable_hand.md): cooperation regimes that
-  endure across unconnected communities have rested on substrates
-  that point to a single ultimate. On the evidence, this is a
-  structural requirement for member communities, not merely an
-  interesting hypothesis. Recognition is where that requirement is
-  enacted at compact-formation.
+  [noticeable_hand.md](noticeable_hand.md): the cooperation regimes
+  that have endured across unconnected communities in the case set
+  rested on substrates that point to a single ultimate. The finding is
+  abductive and held provisionally (see
+  [historical_cases.md §"The circularity objection, confounds, and
+  provisional confidence"](historical_cases.md#the-circularity-objection-confounds-and-provisional-confidence)),
+  but it is the
+  consistent reading of the record, and kith-covenant adopts it as a
+  design requirement for member communities rather than leaving it as
+  an open question to be settled later. Recognition is where that
+  requirement is enacted at compact-formation.
 - **The anathema consideration** from
   [justus_hostis.md "Two tiers: anathema and *hostis humani generis*"](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis)
   and [bounded_conflict.md "Handling the anathema"](bounded_conflict.md#handling-the-anathema):
@@ -107,12 +112,11 @@ credentialing refreshed accordingly.
 
 ## Two layers: intra-community authorization and inter-community grammar
 
-Earlier drafts of this document located recognition in a single
-joint ceremony: candidate member communities would publicly recite
-the five-movement statement across the boundary, with asymmetric
-psychological cost filtering entryists at the compact's threshold.
-That framing imported the mechanism of the Christian creed and
-applied it at the wrong layer. The creed's historically attested
+A single joint ceremony (candidate member communities publicly
+reciting the five-movement statement across the boundary, with
+asymmetric psychological cost filtering entryists at the compact's
+threshold) would import the mechanism of the Christian creed and
+apply it at the wrong layer. The creed's historically attested
 work is *intra*-community filtering (the church filtering its own
 members), not cross-cultural entry-gating between communities that
 do not share substrate. When the historical record of actual
@@ -127,10 +131,10 @@ shared procedural grammar. The Red Crescent did not require Ottoman
 adoption of the Red Cross's theological background; it adjusted
 the symbol and kept the protective framework intact.
 
-The recognition mechanism revises accordingly into **two distinct
-layers**. The rest of this document is still largely about the
-intra-community layer; what moves is the layer at which the
-five-movement statement lives and the layer at which
+The recognition mechanism therefore runs in **two distinct
+layers**. The rest of this document is largely about the
+intra-community layer: that is where the
+five-movement statement lives and where
 asymmetric-psychological-cost work actually happens.
 
 ### The intra-community layer: where the five movements live
@@ -150,9 +154,9 @@ whose substrate was already making its claims on them. The rite
 doing its work at this layer is exactly the pattern the creed
 established.
 
-The five movements are unchanged, but their addressee is: the
-community addresses *itself* as it commissions its own
-representatives, not the compact as a whole.
+The five movements carry their full content at this layer; the
+addressee is the community itself, which addresses itself as it
+commissions its own representatives, not the compact as a whole.
 
 ### The inter-community layer: thin grammar and credentialing
 
@@ -228,7 +232,7 @@ interpretive monopoly visible at threshold.
 Three consequences follow for the rest of this document and the
 rest of the corpus.
 
-- **The creed analysis below is reframed as the intra-community
+- **The creed analysis below is the intra-community
   layer's mechanism, not the inter-community layer's.** The six
   mechanisms that make the creed work (surgical specificity,
   performative speech, asymmetric psychological cost, community
@@ -656,7 +660,7 @@ the recognition protocol that should not be compromised:
   recognition works on actual human cognition.
 
 The asymmetric psychological cost is, in the end, the answer to the
-puzzle the user named: how can "just words" do real work? They are
+puzzle: how can "just words" do real work? They are
 not just words. They are bodily, performative, sacred-weighted,
 community-amplified, repeated, and accountable utterances whose
 asymmetric cost on insincere reciters is what gives them their
@@ -664,7 +668,7 @@ filtering power. The Christian creed empirically demonstrated this
 for nearly two thousand years; kith-covenant inherits the architecture and
 adapts the content.
 
-#### Limits of the mechanism: honest acknowledgment
+#### Limits of the mechanism
 
 The arguments above state the mechanism at its strongest. A responsible
 treatment must also state where it weakens, because kith-covenant's
@@ -713,7 +717,7 @@ design should not be over-promised.
   whether it survives communities that *culturally normalize* the
   insincerity, are not well measured in the experimental literature.
 
-The honest position: asymmetric psychological cost is **one filter
+The conclusion: asymmetric psychological cost is **one filter
 among several** rather than a strong stand-alone filter. Its work is
 done in combination with (not instead of) conduct observation over
 time, material entanglement (trade, rescue, commons), costly signaling
@@ -902,7 +906,7 @@ in the form of *refusals* concrete enough to mean something:
 
 The *not merely rules* clause is where the gamification problem
 identified in
-[bounded_conflict.md "Gamification and the letter/spirit divergence"](bounded_conflict.md#gamification-and-the-letter-spirit-divergence)
+[bounded_conflict.md "Gamification and the letter/spirit divergence"](bounded_conflict.md#gamification-and-the-letterspirit-divergence)
 is preempted. A community that intends to follow the letter while
 gaming the spirit cannot honestly recite this; the recitation
 commits them to a virtue-cultivation, not to rule-compliance.
@@ -925,8 +929,8 @@ judged or even dissolved if it ceases to do so.
 > We will not idolize this compact, nor allow it to idolize
 > itself."*
 
-This is the **antidote-to-entropy commitment** that the user has
-named as essential. Without it, the compact has no Archimedean point
+This is the **antidote-to-entropy commitment**, and it is
+essential. Without it, the compact has no Archimedean point
 from which to evaluate its own decay. With it, every member has
 explicitly committed to recognizing when the compact has become
 something other than what it was formed to be, and to acting on
@@ -1141,7 +1145,7 @@ re-entry.
 Recognition sits at the center of a larger question the prior
 documents addressed imprecisely: *who counts as a neighbor, and what
 is owed to whom?* The colonial-Christian failure mode discussed in
-[noticeable_hand.md "The colonial frontier"](noticeable_hand.md#honest-counterweights)
+[noticeable_hand.md "The colonial frontier"](noticeable_hand.md#counterweights)
 was a failure to extend *neighbor* status to those encountered across
 ethnic and religious boundaries, a failure to follow the parable of
 the Good Samaritan (Luke 10:25-37), which Christ offered precisely in
@@ -1178,7 +1182,7 @@ is much tighter and more useful:
   owed without seeing what is there.
 
 With this precision in place, the operational categories can be
-named. What the prior documents treated as an implicit two (member /
+named. What is implicitly a two-category scheme (member /
 non-member) is better articulated as four, distinguished by the
 nature of the relationship to the compact and of the encounter in
 which that relationship operates.
@@ -1240,8 +1244,8 @@ unless the evidence is overwhelming. See
 
 ### 4. Non-members encountered
 
-This is the category the prior documents have been silently
-omitting, and the one that the neighbor-question requires sharp
+This is the category most easily omitted in silence, and the one
+that the neighbor-question requires sharp
 thinking about. Non-members are communities not in the compact,
 not designated anathema, not in active *justus hostis*-style
 conflict. The compact encounters such communities
@@ -1377,18 +1381,18 @@ Two subcases:
   and 5 in their full theistic form. They commit to the virtues,
   acknowledge their own fallenness, and recognize the other; they
   do not name a transcendent moral authority they do not believe in. The compact accepts
-  the asymmetry honestly.
+  the asymmetry and names it as such.
 - **Closed materialism**: a community that asserts materialism as
   the final word and holds that other communities' theistic claims
   are simply false. Such a community cannot honestly recite Movement
   3 (recognition of the other's substrate as bearing the same
   structural role) because they hold the others' substrate is
   illusion. They are not capable of being members and the compact
-  should be honest about this.
+  should say so rather than soften the incompatibility.
 
 The distinction matters because it preserves the substrate-affords-
 emergence principle (kith-covenant does not legislate theology) while
-being honest that the substrate-finding has structural consequences
+stating that the substrate-finding has structural consequences
 the design cannot wish away.
 
 ### The forced recitation
@@ -1448,12 +1452,13 @@ allowed itself to be captured.
 
 ## Antidote to entropy
 
-The user's framing is exact: the recognition statement, particularly
+The framing is exact: the recognition statement, particularly
 Movement 1 and Movement 5, is *the antidote to entropy*. Cooperation
-regimes without a transcendent reference drift toward dissolution by
-their own internal logic: every mechanism is gameable by its own
-participants, and over time, will be gamed. The transcendent reference
-is the Archimedean point from which the compact can recognize when it
+regimes without a transcendent reference tend to drift toward
+dissolution by their own internal logic: every mechanism is gameable
+by its own participants, and over time is liable to be gamed. The
+transcendent reference is the Archimedean point from which the compact
+can recognize when it
 is itself drifting.
 
 Three observations on this:
@@ -1475,7 +1480,7 @@ Three observations on this:
   those are matters for the communities to work out across time, in
   their own ways, beyond the compact's authority.
 - **The acknowledgment may, over time, contribute to the convergence
-  the user's catholic / perennialist hypothesis suggests is possible.**
+  the catholic / perennialist hypothesis suggests is possible.**
   Communities that work together in compacts whose foundational acts
   acknowledge a single ultimate may, in their own ways and at their
   own paces, come to recognize that the ultimates they name in their

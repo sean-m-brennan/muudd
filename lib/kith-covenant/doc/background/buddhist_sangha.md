@@ -294,7 +294,7 @@ episodes deserve naming:
   Buddhist identity functioned as an in-group marker against
   designated out-groups. The parallel with Christian colonial
   selectivity (discussed in
-  [noticeable_hand.md](noticeable_hand.md#the-colonial-frontier-counterweight))
+  [noticeable_hand.md](noticeable_hand.md#counterweights))
   is close: the substrate's own scriptural mandate (universal
   compassion; the Brahmaviharas including metta to enemies) was
   explicitly violated by its nominal carriers. Whether this
@@ -1088,7 +1088,8 @@ structurally different from the historical revelation, and reasonable
 analysts differ on whether it is functionally equivalent or merely a
 partial analogue.
 
-The honest reading is: Buddhism supplies a real anti-sacrificial
+The reading the evidence supports: Buddhism supplies a real
+anti-sacrificial
 structure that operates through different means than Christianity,
 at meaningful depth, and the question of whether it is as
 structurally robust as the Christian form remains live. The
@@ -1187,7 +1188,7 @@ demonstrates that the features can be *bypassed* when the tradition
 is weaponized as ethnic or political identity rather than received
 as its own scriptural mandate. This is parallel to the Christian
 colonial selectivity counterweight in
-[noticeable_hand.md](noticeable_hand.md#the-colonial-frontier-counterweight).
+[noticeable_hand.md](noticeable_hand.md#counterweights).
 Neither tradition's supplying of the features immunizes its nominal
 carriers from betraying them. The features describe what the
 substrate *makes available*; they do not describe what the substrate
@@ -1271,7 +1272,7 @@ mercatoria). The question for the Christian-particularist is
 whether Buddhism has produced the *second kind* of regime, not just
 the first.
 
-The honest answer is that Buddhism has produced the first kind in
+The answer is that Buddhism has produced the first kind in
 greater abundance and longer duration than Christianity, and the
 second kind in weaker forms. The *yön-chö* relationship is the
 closest Buddhist analogue to Westphalia; it is real but is narrower
@@ -1308,10 +1309,9 @@ the sangha evidence is:
 > from.
 
 This is a narrower but more defensible Christian-particularist
-position than the one
-[noticeable_hand.md](noticeable_hand.md#the-hypothesis-stated-in-its-strongest-form)
-initially stated. The present document's empirical work makes this
-narrowing honest rather than concessive.
+position than
+[noticeable_hand.md's strongest form](noticeable_hand.md#the-hypothesis-stated-in-its-strongest-form).
+The narrowing is evidence-driven, not concessive.
 
 ---
 

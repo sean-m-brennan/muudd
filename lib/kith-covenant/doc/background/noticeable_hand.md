@@ -24,7 +24,7 @@ documents conflated: *what is true* about the substrate of human
 cooperation, and *what should kith-covenant presuppose* in its working
 design. These can come apart.
 
-The posture here is honest inquiry, not apologia and not anti-apologia.
+The posture here is open inquiry, not apologia and not anti-apologia.
 Christianity's claims are taken seriously as propositions about
 reality, not treated as cultural artifacts to be relativized. The same
 courtesy is extended to other traditions. Where the evidence weighs in
@@ -97,9 +97,8 @@ Geneva-Convention framework with its culturally-pluralized emblems
 well-documented, centuries-long examples of cross-cultural
 cooperation among communities that did not share substrate.
 
-The prior framing of this document treated the filter's output as
-if it were the whole record, and that was a mistake. Honest
-accounting requires separating two questions:
+The filter's output is not the whole record. A correct
+accounting separates two questions:
 
 - **At the full-compact scale**, where a compact governs a broad
   envelope of inter-community life, not merely a bounded functional
@@ -121,9 +120,9 @@ The two scales are not in competition; they are doing different
 work. Kith-covenant proposes to operate as a full compact and is
 therefore subject to the substrate finding at that scale. But
 kith-covenant will *also* do thin-functional-domain work (in life
-support, rescue, orbital debris, communications), and should be
-honest that for that work the thin-domain preconditions are what
-the historical record actually shows. Treating the full-compact
+support, rescue, orbital debris, communications), and should
+state plainly that for that work the thin-domain preconditions are
+what the historical record actually shows. Treating the full-compact
 substrate requirement as if it applied at every scale would both
 overclaim the evidence and underweight the genuine mechanism by
 which most historical cross-cultural cooperation has in fact
@@ -160,7 +159,7 @@ to count, and (per
 fit the predicted brittleness of cooperation regimes built without a
 transcendent-moral-authority substrate.
 
-The honest summary: **the empirical record of voluntary peer
+The summary: **the empirical record of voluntary peer
 cooperation among unconnected communities is dominated by Christian
 cases, with Buddhist and Iroquois cases as the principal
 non-Christian counterparts.** Whatever theological reading we adopt
@@ -177,7 +176,7 @@ a transcendent reality, call it the substrate of moral order.
 Without that received element, cooperation reverts to the
 default: predation, faction, war.**
 
-This is the hypothesis the user has asked be taken seriously. It is
+This is the hypothesis this document takes seriously. It is
 a *theological* hypothesis, not a sociological one. It claims that
 something divine is involved in the stable cases, not merely that
 they share certain structural features. The structural features
@@ -270,9 +269,8 @@ Several lines of evidence and argument support this reading:
   centers (humans as sinners, capable of evil, requiring containment
   and grace) is in its developed form a Christian doctrine
   (Augustine, Niebuhr, the entire Western tradition of Christian
-  realism). Earlier drafts of kith-covenant's documentation tried to import
-  this anthropology in secular dress; the Christian original is
-  more coherent than the imports.
+  realism). The Christian original is more coherent than its
+  secular imports.
 
 The reading further holds that the multiple long-running Christian
 cooperation regimes are not coincidence: Christianity provides the
@@ -356,8 +354,8 @@ sovereigns honoring safe-conducts to opponents in active war;
 Iroquois nations giving up the right of feud) are individually
 substantial, and the explanations available within naturalism
 (reputation, iterated game equilibria, kin selection extended) are
-not obviously sufficient. The most honest naturalist reading
-probably has to admit that the theistic cases work *better* than
+not obviously sufficient. A naturalist reading that faces the
+data has to admit that the theistic cases work *better* than
 naturalism alone predicts.
 
 ## Comparing the readings
@@ -398,10 +396,10 @@ the design implications for kith-covenant are nearly identical:
 - A Christian member of kith-covenant will see grace at work; a Buddhist
   member will see the Dharma; a Haudenosaunee member will see the
   Creator's work; a perennialist will see all of these as one.
-- Kith-Covenant's documentation can be honest about the historical pattern
-  without taking sides on the ultimate question.
+- Kith-Covenant's documentation can state the historical pattern
+  plainly without taking sides on the ultimate question.
 
-## Honest counterweights
+## Counterweights
 
 Three serious difficulties for any strong Christian reading deserve
 direct acknowledgment.
@@ -409,9 +407,9 @@ direct acknowledgment.
 **Intra-Christian violence.** If Christianity provides the substrate
 for cooperation, *why was the Thirty Years' War necessary in the
 first place?* Why the Wars of Religion? Why the Albigensian Crusade?
-Why centuries of intra-Christian persecution? The honest Christian
-answer is that the substrate is given but human use of it is
-fallen. Christians can refuse the grace as readily as anyone else,
+Why centuries of intra-Christian persecution? The Christian answer
+that takes the record seriously is that the substrate is given but
+human use of it is fallen. Christians can refuse the grace as readily as anyone else,
 and the worst Christian failures occur precisely when Christianity
 is weaponized as ideology rather than received as gift. But this
 move is potentially unfalsifiable; one always says "true Christianity
@@ -423,7 +421,7 @@ to be defined out of the substrate.
 of history's most spectacular violations of *justus hostis* in their
 treatment of non-European peoples, even while maintaining the
 *jus publicum* among themselves. If the substrate provides the
-grace, why so unevenly? The honest reading is that the European
+grace, why so unevenly? What the record shows is that the European
 substrate was *operating selectively*, treating Christians as peers
 and non-Christians as outside the moral universe. This is the
 colonial blind spot of the *jus publicum* discussed in
@@ -442,8 +440,7 @@ foundational Christian commandment is *love thy neighbor as
 thyself* (Lev 19:18, taken up by Christ in Matt 22:39, Mark 12:31,
 and the Lukan version that is decisive here). The Lukan rendering
 is precisely the version where the lawyer asks "and who is my
-neighbor?" This is the question that the user's observation correctly
-identifies as foundational. Christ's answer is the parable of the
+neighbor?" That question is foundational. Christ's answer is the parable of the
 Good Samaritan (Luke 10:25-37). The Samaritan, despised heretic
 to the Jewish audience, is the neighbor, *because he showed mercy
 to the stranger left for dead by the side of the road.* The
@@ -617,13 +614,13 @@ Across all three readings:
   treating each person as bearing equal standing regardless of their
   community of origin.
 
-The nuance: **kith-covenant's documentation should be honest that the
-historical evidence weighs in particular directions, rather than
-pretending to a neutrality the evidence does not support.** The
-earlier ecumenical-secular framing in
-[justus_hostis.md](justus_hostis.md) and other documents can be
-maintained for *design* purposes (kith-covenant must work for members
-across traditions) but should be supplemented with honest reportage
+The nuance: **kith-covenant's documentation should say outright that
+the historical evidence weighs in particular directions, rather than
+pretend to a neutrality the evidence does not support.** The
+ecumenical-secular framing in
+[justus_hostis.md](justus_hostis.md) and other documents serves
+*design* purposes (kith-covenant must work for members
+across traditions) but should be supplemented with plain reportage
 of what the historical pattern shows, and with explicit
 acknowledgment that the pattern is most consistent with the
 hypothesis that something genuinely transcendent is at work.
@@ -645,7 +642,7 @@ This document distinguishes two questions the rest of kith-covenant's
 research has tended to conflate.
 
 **The truth-finding question:** *What is actually the case about the
-substrate of human cooperation?* This document's honest answer is
+substrate of human cooperation?* This document's answer is
 that the historical evidence is most consistent with the hypothesis
 that something genuinely transcendent is involved: that grace, in
 some sense and from some source, is a real feature of stable
@@ -661,30 +658,30 @@ examination, though it remains a coherent overall worldview.
 working architecture?* The answer is that kith-covenant must function for
 members across the three readings: it cannot require Christian
 commitment, perennialist commitment, or naturalist commitment from
-its members. Its protocols must work whether the user believes God
+its members. Its protocols must work whether the member believes God
 the Father is sustaining cooperation, that the Dharma is, that
 *Shöñgwa'ya'di:söñ* is, or that nothing transcendent is at all. The
 *structural requirement* (transcendent-moral-authority substrate within member
 communities) is a constraint the design can impose; the *content
 requirement* is not.
 
-These two questions can be held simultaneously. Kith-Covenant can be honest
-in its documentation about what the evidence shows, while remaining
+These two questions can be held simultaneously. Kith-Covenant's
+documentation can state what the evidence shows while remaining
 compatible with the design constraint that members do not have to
-share the conclusion. This is not hedging if it is honestly stated:
+share the conclusion. This is not hedging if it is stated outright:
 it is the recognition that historical evidence has its limits and
 that working software cannot adjudicate ultimate questions.
 
-The proposition the user offered (*that what Christians call God the
-Father is the answer, giving grace to the cooperative and meaning to
-the virtuous*) is, on the present analysis, the strongest single
+The proposition *that what Christians call God the Father is the
+answer, giving grace to the cooperative and meaning to the virtuous*
+is, on the present analysis, the strongest single
 account of the evidence available. It is not the only account
 consistent with the evidence; the catholic reading is also strong,
 and the naturalist reading remains coherent overall while being
 weakest on the specific cases. Kith-Covenant cannot adopt the proposition
 as doctrine, because kith-covenant is not a church. But kith-covenant's
 documentation should not pretend the proposition is implausible
-when the evidence in fact supports it. The honest middle is to
+when the evidence in fact supports it. The middle course is to
 state the proposition as a hypothesis with the support it has,
 acknowledge where it remains contested, and let members resolve the
 question for themselves within their own substrates.
@@ -723,7 +720,7 @@ question for themselves within their own substrates.
   being a soft religious test that excludes secular communities,
   and is that exclusion theologically honest if the evidence
   supports it?
-- The user's framing ("the *noticeable* hand of God") inverts
+- This document's framing ("the *noticeable* hand of God") inverts
   Adam Smith's invisible hand. The fact of stable cooperation,
   rather than the mechanism within cooperation, is itself the
   noticeable evidence. What other domains might bear the same
@@ -746,8 +743,8 @@ question for themselves within their own substrates.
   [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)
   and the still-stronger possibility taken seriously here (that
   Christianity may be specifically correct) both warrant updates to
-  that document, in proportion to whatever conclusions the user
-  wishes the project to commit to.
+  that document, in proportion to whatever conclusions the project
+  commits to.
 - [bounded_conflict.md](bounded_conflict.md): the common-virtue
   section there appeals to virtue-ethics traditions that have their
   deepest grounding in the Christian and Aristotelian-Thomistic

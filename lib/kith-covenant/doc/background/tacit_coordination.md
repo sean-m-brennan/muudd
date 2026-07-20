@@ -298,7 +298,7 @@ optimizing against the letter of the protocol while violating its
 spirit.
 
 The connection to the gamification problem
-([bounded_conflict.md](bounded_conflict.md#gamification-and-the-letter-spirit-divergence))
+([bounded_conflict.md](bounded_conflict.md#gamification-and-the-letterspirit-divergence))
 is direct: a community that games the letter has to fake its costly
 signals as well as fake its formal compliance, and the costly signals
 are by construction harder to fake. The protocol's deepest
