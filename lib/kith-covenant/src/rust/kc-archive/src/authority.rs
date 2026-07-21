@@ -37,14 +37,17 @@
 
 use std::collections::BTreeSet;
 
+use kc_commons::{is_second_class_level, sanction_rank, CommonsSanction, SanctionLevel, UsageRecord};
 use kc_conduct::DecisionClass;
+use kc_constitution::{AmendmentKind, CompactIncapableAmendment, FastCadenceAmendment};
 use kc_core::{Cid, DidKey, KcError, KcResult, Timestamp};
 use kc_escalation::{
     dispute_ladder_rank, is_second_class_rung, Designation, DesignationTier, DesignationUrgency,
-    LadderTransition, ReEntry, RestitutionCompletion,
+    InjunctionChallenge, InterimInjunction, LadderTransition, ReEntry, RestitutionCompletion,
 };
 use kc_identity::DelegationScope;
 use kc_mediation::MediationDecision;
+use kc_observer::{ObserverReport, ReportResponse, SourceReveal, WhistleblowerReport};
 
 use crate::entry::ArchiveEntry;
 use crate::store::{Archive, InMemoryArchive};
@@ -84,21 +87,47 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         ArchiveEntry::SponsorshipVouched(_) => &[Envoy],
         ArchiveEntry::ConductAttested(_) => &[Envoy],
         ArchiveEntry::DisputeFiled(_) => &[Envoy],
+        // §7 commons acts an envoy may sign on the community's behalf.
+        ArchiveEntry::CommonsRegistered(_)
+        | ArchiveEntry::UsageAccounted(_)
+        | ArchiveEntry::SanctionApplied(_) => &[Envoy],
+        // §9 constitutional acts a community may co-sign via an envoy.
+        ArchiveEntry::ConstitutionRatified(_)
+        | ArchiveEntry::CompactIncapableAmended(_)
+        | ArchiveEntry::FastCadenceAmended(_) => &[Envoy],
+        // Move 1: a community's reading of its own substrate; an envoy may sign.
+        ArchiveEntry::SubstrateInterpreted(_) => &[Envoy],
+        // Move 4: an event report / corroboration a community authors; an envoy
+        // may sign on its behalf.
+        ArchiveEntry::EventReported(_) | ArchiveEntry::EventCorroborated(_) => &[Envoy],
+        // Move 6: a principal witness attestation / output a community authors;
+        // an envoy may sign on its behalf.
+        ArchiveEntry::PrincipalWitnessed(_) | ArchiveEntry::PrincipalOutputRecorded(_) => &[Envoy],
+        // §8. A subject community's response to an observer report; an envoy may
+        // sign it. (The other §8 records are authorized by observer/panel rules.)
+        ArchiveEntry::ReportResponsePublished(_) => &[Envoy],
+        ArchiveEntry::ObserverRegistryUpdated(_)
+        | ArchiveEntry::ObserverReportPublished(_)
+        | ArchiveEntry::WhistleblowerFiled(_)
+        | ArchiveEntry::SourceRevealed(_) => &[],
         // §5 escalation acts an envoy may sign on the community's behalf.
         ArchiveEntry::LadderAdvanced(_)
         | ArchiveEntry::DesignationDecided(_)
         | ArchiveEntry::RestitutionObligated(_)
         | ArchiveEntry::ReEntryCompleted(_)
-        | ArchiveEntry::SubstantiveReEngagementInvoked(_) => &[Envoy],
+        | ArchiveEntry::SubstantiveReEngagementInvoked(_)
+        | ArchiveEntry::InjunctionConfirmed(_) => &[Envoy],
         ArchiveEntry::IntraCommunityRite(_)
         | ArchiveEntry::SpeakerDelegated(_)
         | ArchiveEntry::WitnessRegistryUpdated(_)
         | ArchiveEntry::MediatorRegistryUpdated(_)
         | ArchiveEntry::CommunityIdentityPublished(_)
-        // MediationDecided and RestitutionVerified are authorized by a panel
-        // rule, not principal binding; their allowed-scope sets are unused.
+        // These are authorized by a panel rule, not principal binding; their
+        // allowed-scope sets are unused.
         | ArchiveEntry::MediationDecided(_)
-        | ArchiveEntry::RestitutionVerified(_) => &[],
+        | ArchiveEntry::RestitutionVerified(_)
+        | ArchiveEntry::InjunctionIssued(_)
+        | ArchiveEntry::InjunctionChallenged(_) => &[],
     }
 }
 
@@ -173,6 +202,86 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
             s.payload.invoked_at,
             matches!(s.payload.decision_class, DecisionClass::SecondClass),
         )),
+        // §9. Injunction confirmation is the full compact speaking: second-class,
+        // so it gets the distinct-community quorum for free.
+        ArchiveEntry::InjunctionConfirmed(s) => {
+            Some(ra(s.payload.confirmers.clone(), s.payload.confirmed_at, true))
+        }
+        // Issuance and challenge are authorized by the emergency-panel rule.
+        ArchiveEntry::InjunctionIssued(_) | ArchiveEntry::InjunctionChallenged(_) => None,
+        // §7. A commons registration is a compact-level act: second-class, so the
+        // registering communities get the distinct-community quorum for free.
+        ArchiveEntry::CommonsRegistered(s) => {
+            Some(ra(s.payload.registered_by.clone(), s.payload.registered_at, true))
+        }
+        // A usage record is the reporting community speaking for itself: first-class.
+        ArchiveEntry::UsageAccounted(s) => {
+            Some(ra(vec![s.payload.community.clone()], s.payload.recorded_at, false))
+        }
+        // A commons sanction's heavier levels (restriction, exclusion) are
+        // second-class; the flag is set from the record's own decision class and
+        // cross-checked against `to_level` in the structural rule.
+        ArchiveEntry::SanctionApplied(s) => Some(ra(
+            s.payload.imposers.clone(),
+            s.payload.decided_at,
+            matches!(s.payload.decision_class, DecisionClass::SecondClass),
+        )),
+        // §8. An observer registry is the nominating community speaking for
+        // itself; a report response is the subject community speaking. Both are
+        // first-class principal-bound acts.
+        ArchiveEntry::ObserverRegistryUpdated(s) => {
+            Some(ra(vec![s.payload.nominating_community.clone()], s.payload.issued_at, false))
+        }
+        ArchiveEntry::ReportResponsePublished(s) => {
+            Some(ra(vec![s.payload.responding_community.clone()], s.payload.responded_at, false))
+        }
+        // Observer reports and whistleblower records are authorized by the
+        // observer / reception-panel rules, not principal binding.
+        ArchiveEntry::ObserverReportPublished(_)
+        | ArchiveEntry::WhistleblowerFiled(_)
+        | ArchiveEntry::SourceRevealed(_) => None,
+        // §9. Genesis ratification and constitutional amendments are compact-level
+        // second-class acts: the ratifiers / deciders get the distinct-community
+        // quorum for free; the higher contraction bar is checked structurally.
+        ArchiveEntry::ConstitutionRatified(s) => {
+            Some(ra(s.payload.ratifiers.clone(), s.payload.genesis_at, true))
+        }
+        ArchiveEntry::CompactIncapableAmended(s) => {
+            Some(ra(s.payload.deciders.clone(), s.payload.decided_at, true))
+        }
+        ArchiveEntry::FastCadenceAmended(s) => {
+            Some(ra(s.payload.deciders.clone(), s.payload.decided_at, true))
+        }
+        // Move 1. A substrate interpretation is the community speaking for
+        // itself: first-class, principal-bound. Interpretive plurality is a
+        // detector signal, not an authority refusal.
+        ArchiveEntry::SubstrateInterpreted(s) => {
+            Some(ra(vec![s.payload.community_did.clone()], s.payload.recorded_at, false))
+        }
+        // Move 4. An event report is the originating community speaking; a
+        // corroboration is the corroborating community speaking. Both are
+        // first-class principal-bound acts; corroboration sufficiency is a
+        // detector signal, not an authority refusal.
+        ArchiveEntry::EventReported(s) => {
+            Some(ra(vec![s.payload.originator.clone()], s.payload.reported_at, false))
+        }
+        ArchiveEntry::EventCorroborated(s) => Some(ra(
+            vec![s.payload.corroborating_community.clone()],
+            s.payload.corroborated_at,
+            false,
+        )),
+        // Move 6. A principal witness attestation is the attesting community
+        // speaking for itself (cross-community independence is a detector
+        // filter, not an authority refusal); a principal output is the home
+        // community recording its principal's output. Both first-class.
+        ArchiveEntry::PrincipalWitnessed(s) => Some(ra(
+            vec![s.payload.witness_community.clone()],
+            s.payload.attested_at,
+            false,
+        )),
+        ArchiveEntry::PrincipalOutputRecorded(s) => {
+            Some(ra(vec![s.payload.principal_home.clone()], s.payload.produced_at, false))
+        }
     }
 }
 
@@ -199,6 +308,25 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::RestitutionVerified(s) => dids(s),
         ArchiveEntry::ReEntryCompleted(s) => dids(s),
         ArchiveEntry::SubstantiveReEngagementInvoked(s) => dids(s),
+        ArchiveEntry::InjunctionIssued(s) => dids(s),
+        ArchiveEntry::InjunctionConfirmed(s) => dids(s),
+        ArchiveEntry::InjunctionChallenged(s) => dids(s),
+        ArchiveEntry::CommonsRegistered(s) => dids(s),
+        ArchiveEntry::UsageAccounted(s) => dids(s),
+        ArchiveEntry::SanctionApplied(s) => dids(s),
+        ArchiveEntry::ObserverRegistryUpdated(s) => dids(s),
+        ArchiveEntry::ObserverReportPublished(s) => dids(s),
+        ArchiveEntry::ReportResponsePublished(s) => dids(s),
+        ArchiveEntry::WhistleblowerFiled(s) => dids(s),
+        ArchiveEntry::SourceRevealed(s) => dids(s),
+        ArchiveEntry::ConstitutionRatified(s) => dids(s),
+        ArchiveEntry::CompactIncapableAmended(s) => dids(s),
+        ArchiveEntry::FastCadenceAmended(s) => dids(s),
+        ArchiveEntry::SubstrateInterpreted(s) => dids(s),
+        ArchiveEntry::EventReported(s) => dids(s),
+        ArchiveEntry::EventCorroborated(s) => dids(s),
+        ArchiveEntry::PrincipalWitnessed(s) => dids(s),
+        ArchiveEntry::PrincipalOutputRecorded(s) => dids(s),
     }
 }
 
@@ -478,6 +606,21 @@ fn authorize_designation(
             DESIGNATION_CYCLE_FLOOR
         )));
     }
+
+    // Anti-weaponization safeguard #1 (liminal_institutions.md): a community that
+    // supplied a mediator to an in-force emergency injunction against this subject
+    // may not also deliberate the permanent designation.
+    let injunction_panel =
+        active_injunction_panel_communities(archive, &d.subject_community, d.designated_at);
+    for deliberator in &d.deliberators {
+        if injunction_panel.contains(deliberator.as_str()) {
+            return Err(KcError::Authority(format!(
+                "deliberator {} sat on an active injunction panel against the subject \
+                 (safeguard #1: issuing panel barred from the designation panel)",
+                deliberator.as_str()
+            )));
+        }
+    }
     Ok(())
 }
 
@@ -605,6 +748,643 @@ fn authorize_reentry(archive: &InMemoryArchive, r: &ReEntry) -> KcResult<()> {
     Ok(())
 }
 
+/// §7 commons registration rule: the boundary must be well-formed — a non-empty
+/// appropriator set (Ostrom principle 1), and every registering community must
+/// itself be an appropriator (you cannot register a commons you have no standing
+/// in). The distinct-community quorum is enforced generically via the
+/// second-class flag before this runs.
+fn authorize_commons_registration(reg: &kc_commons::CommonsRegistration) -> KcResult<()> {
+    if reg.appropriators.is_empty() {
+        return Err(KcError::Authority(
+            "commons registration must name at least one appropriator (Ostrom principle 1)".into(),
+        ));
+    }
+    if reg.registered_by.is_empty() {
+        return Err(KcError::Authority(
+            "commons registration must name its registering communities".into(),
+        ));
+    }
+    let appropriators: BTreeSet<&str> = reg.appropriators.iter().map(|d| d.as_str()).collect();
+    for r in &reg.registered_by {
+        if !appropriators.contains(r.as_str()) {
+            return Err(KcError::Authority(format!(
+                "registering community {} is not an appropriator of the commons",
+                r.as_str()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The appropriators of the commons registered at `commons_cid`, or an error if
+/// it does not resolve to a `CommonsRegistered` entry.
+fn commons_appropriators<'a>(
+    archive: &'a InMemoryArchive,
+    commons_cid: &Cid,
+    context: &str,
+) -> KcResult<BTreeSet<&'a str>> {
+    match archive.get(commons_cid) {
+        Some(ArchiveEntry::CommonsRegistered(s)) => {
+            Ok(s.payload.appropriators.iter().map(|d| d.as_str()).collect())
+        }
+        _ => Err(KcError::Authority(format!(
+            "{context} references {commons_cid} which is not a registered commons"
+        ))),
+    }
+}
+
+/// §7 usage rule: a usage record must report on a registered commons, and the
+/// reporting community must be one of that commons' appropriators (a usage claim
+/// from a non-appropriator is meaningless). Principal binding is already enforced
+/// generically before this runs.
+fn authorize_usage(archive: &InMemoryArchive, u: &UsageRecord) -> KcResult<()> {
+    let appropriators = commons_appropriators(archive, &u.commons_cid, "usage record")?;
+    if !appropriators.contains(u.community.as_str()) {
+        return Err(KcError::Authority(format!(
+            "usage community {} is not an appropriator of the commons",
+            u.community.as_str()
+        )));
+    }
+    Ok(())
+}
+
+/// The current sanction level of a (commons, subject) pair as established by the
+/// sanctions preceding `self_cid` in the append-only log: the `to_level` of the
+/// last `SanctionApplied` for this pair appearing before `self_cid` in insertion
+/// order, else `None` (the resting state). Mirrors `current_rung`; insertion
+/// order — not timestamp — is authoritative, so authorizing an earlier sanction
+/// never "sees" a later one.
+fn current_sanction_level(
+    archive: &InMemoryArchive,
+    commons_cid: &Cid,
+    subject: &DidKey,
+    self_cid: &Cid,
+) -> SanctionLevel {
+    let self_key = self_cid.to_string();
+    let mut cur = SanctionLevel::None;
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            break;
+        }
+        if let ArchiveEntry::SanctionApplied(s) = e {
+            if &s.payload.commons_cid == commons_cid && &s.payload.subject_community == subject {
+                cur = s.payload.to_level;
+            }
+        }
+    }
+    cur
+}
+
+/// §7 graduated-sanction rule (Ostrom principle 5): a sanction must reference a
+/// registered commons, name a subject that is an appropriator of it, leave that
+/// (commons, subject) pair's current level, and either escalate exactly one step
+/// or de-escalate to any lower level (the restoration path). A second-class level
+/// (restriction, expulsion from the commons) must be labeled second-class and
+/// moved by at least two distinct communities (non-unilateral,
+/// commons_federation.md §"Community-applied sanctions"). Principal binding + the
+/// distinct-community quorum are already enforced generically before this runs.
+fn authorize_commons_sanction(
+    archive: &InMemoryArchive,
+    s: &CommonsSanction,
+    self_cid: &Cid,
+    quorum_threshold: usize,
+) -> KcResult<()> {
+    let appropriators = commons_appropriators(archive, &s.commons_cid, "commons sanction")?;
+    if !appropriators.contains(s.subject_community.as_str()) {
+        return Err(KcError::Authority(format!(
+            "sanction subject {} is not an appropriator of the commons",
+            s.subject_community.as_str()
+        )));
+    }
+
+    let current = current_sanction_level(archive, &s.commons_cid, &s.subject_community, self_cid);
+    if s.from_level != current {
+        return Err(KcError::Authority(format!(
+            "commons sanction leaves {:?} but the pair is at {:?}",
+            s.from_level, current
+        )));
+    }
+
+    let from_rank = sanction_rank(s.from_level);
+    let to_rank = sanction_rank(s.to_level);
+    let legal = to_rank == from_rank + 1 || to_rank < from_rank;
+    if !legal {
+        return Err(KcError::Authority(format!(
+            "illegal commons-sanction move {:?} -> {:?} (escalate one step or de-escalate)",
+            s.from_level, s.to_level
+        )));
+    }
+
+    if is_second_class_level(s.to_level) {
+        if !matches!(s.decision_class, DecisionClass::SecondClass) {
+            return Err(KcError::Authority(format!(
+                "{:?} is a second-class sanction but the record is labeled first-class",
+                s.to_level
+            )));
+        }
+        let distinct: BTreeSet<&str> = s.imposers.iter().map(|d| d.as_str()).collect();
+        let floor = quorum_threshold.max(2);
+        if distinct.len() < floor {
+            return Err(KcError::Authority(format!(
+                "{:?} needs >= {} distinct imposing communities, got {}",
+                s.to_level,
+                floor,
+                distinct.len()
+            )));
+        }
+    } else if matches!(s.decision_class, DecisionClass::SecondClass) {
+        return Err(KcError::Authority(format!(
+            "{:?} is a first-class sanction but the record is labeled second-class",
+            s.to_level
+        )));
+    }
+    Ok(())
+}
+
+/// The nominating community of `observer_did` if it is an active registered
+/// observer at `at`, else `None`. Mirrors `mediator_home` (§8).
+fn observer_home(
+    archive: &InMemoryArchive,
+    observer_did: &str,
+    at: Timestamp,
+) -> Option<DidKey> {
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::ObserverRegistryUpdated(s) = e {
+            for entry in &s.payload.entries {
+                if entry.observer_did.as_str() == observer_did && entry.active_at(at) {
+                    return Some(s.payload.nominating_community.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// §8 observer-report rule: the report must be signed by its named observer, who
+/// must be an active registered observer whose home community is **not** the
+/// subject (cross-community journalism, non-overlap — an observer does not report
+/// on its own community).
+fn authorize_observer_report(
+    archive: &InMemoryArchive,
+    report: &ObserverReport,
+    signers: &[&str],
+) -> KcResult<()> {
+    if !signers.iter().any(|s| *s == report.observer_did.as_str()) {
+        return Err(KcError::Authority(
+            "observer report must be signed by its named observer".into(),
+        ));
+    }
+    match observer_home(archive, report.observer_did.as_str(), report.reported_at) {
+        None => Err(KcError::Authority(format!(
+            "reporter {} is not an active registered observer",
+            report.observer_did.as_str()
+        ))),
+        Some(home) => {
+            if home == report.subject_community {
+                Err(KcError::Authority(
+                    "an observer may not report on its own community (non-overlap violated)".into(),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+/// §8 report-response rule: only the report's subject community may respond, and
+/// the referenced record must be an observer report. Principal binding (that the
+/// responder actually signed) is enforced generically before this runs.
+fn authorize_report_response(archive: &InMemoryArchive, resp: &ReportResponse) -> KcResult<()> {
+    let report = match archive.get(&resp.report_cid) {
+        Some(ArchiveEntry::ObserverReportPublished(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "report response references {} which is not an observer report",
+                resp.report_cid
+            )))
+        }
+    };
+    if resp.responding_community != report.subject_community {
+        return Err(KcError::Authority(
+            "only the observer report's subject community may respond".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// §8 mediator reception-panel rule shared by whistleblower filing and source
+/// reveal: every co-signer is an active registered mediator, none from
+/// `accused` (non-overlap), and the panel spans at least `panel_min` distinct
+/// mediators.
+fn authorize_reception_panel(
+    archive: &InMemoryArchive,
+    accused: &DidKey,
+    signers: &[&str],
+    at: Timestamp,
+    panel_min: usize,
+    what: &str,
+) -> KcResult<()> {
+    let mut panel: BTreeSet<String> = BTreeSet::new();
+    for signer in signers {
+        match mediator_home(archive, signer, at) {
+            None => {
+                return Err(KcError::Authority(format!(
+                    "{what} panelist {signer} is not an active registered mediator"
+                )))
+            }
+            Some(home) => {
+                if &home == accused {
+                    return Err(KcError::Authority(format!(
+                        "{what} panelist {signer} is from the accused community (non-overlap violated)"
+                    )));
+                }
+                panel.insert((*signer).to_string());
+            }
+        }
+    }
+    if panel.len() < panel_min {
+        return Err(KcError::Authority(format!(
+            "{what} panel has {} distinct mediators, need >= {}",
+            panel.len(),
+            panel_min
+        )));
+    }
+    Ok(())
+}
+
+/// §8 whistleblower rule: a non-party mediator reception panel of at least
+/// `panel_min` vouches the report. The source is a commitment, not recorded here,
+/// so there is nothing further to check about it at the archive layer.
+fn authorize_whistleblower(
+    archive: &InMemoryArchive,
+    wb: &WhistleblowerReport,
+    signers: &[&str],
+    panel_min: usize,
+) -> KcResult<()> {
+    authorize_reception_panel(
+        archive,
+        &wb.accused_community,
+        signers,
+        wb.filed_at,
+        panel_min,
+        "whistleblower reception",
+    )
+}
+
+/// §8 source-reveal rule: references a filed whistleblower report, cites a
+/// non-empty cause, and is authorized by a non-party mediator panel of at least
+/// `panel_min` (the source is disclosed only for cause, by quorum).
+fn authorize_source_reveal(
+    archive: &InMemoryArchive,
+    rev: &SourceReveal,
+    signers: &[&str],
+    panel_min: usize,
+) -> KcResult<()> {
+    let wb = match archive.get(&rev.report_cid) {
+        Some(ArchiveEntry::WhistleblowerFiled(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "source reveal references {} which is not a whistleblower report",
+                rev.report_cid
+            )))
+        }
+    };
+    if rev.cause.trim().is_empty() {
+        return Err(KcError::Authority("source reveal must cite a cause".into()));
+    }
+    authorize_reception_panel(
+        archive,
+        &wb.accused_community,
+        signers,
+        rev.revealed_at,
+        panel_min,
+        "source reveal",
+    )
+}
+
+/// The genesis-original compact-incapable keys (from the singleton
+/// `ConstitutionRatified`, if one exists). These are genesis-immutable: never
+/// removable.
+fn genesis_incapable_keys(archive: &InMemoryArchive) -> BTreeSet<String> {
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::ConstitutionRatified(s) = e {
+            return s.payload.compact_incapable.iter().map(|m| m.key.clone()).collect();
+        }
+    }
+    BTreeSet::new()
+}
+
+/// The compact-incapable keys in force just before `self_cid` in insertion order:
+/// the genesis matters plus every `Add` minus every `Remove` among the
+/// amendments preceding `self_cid`. Mirrors `current_rung` / `current_sanction_level`.
+fn current_incapable_keys(archive: &InMemoryArchive, self_cid: &Cid) -> BTreeSet<String> {
+    let self_key = self_cid.to_string();
+    let mut keys = genesis_incapable_keys(archive);
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            break;
+        }
+        if let ArchiveEntry::CompactIncapableAmended(s) = e {
+            match s.payload.kind {
+                AmendmentKind::Add => {
+                    keys.insert(s.payload.matter.key.clone());
+                }
+                AmendmentKind::Remove => {
+                    keys.remove(&s.payload.matter.key);
+                }
+            }
+        }
+    }
+    keys
+}
+
+/// §9 genesis rule: the constitution is a **singleton** — a second
+/// `ConstitutionRatified` appearing after the first (in insertion order) is
+/// refused. The ratifier quorum is enforced generically via the second-class flag.
+fn authorize_genesis(archive: &InMemoryArchive, self_cid: &Cid) -> KcResult<()> {
+    let self_key = self_cid.to_string();
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            break;
+        }
+        if matches!(e, ArchiveEntry::ConstitutionRatified(_)) {
+            return Err(KcError::Authority(
+                "the constitution is already ratified; genesis is a singleton".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// True if a genesis exists at or before `self_cid` in insertion order.
+fn genesis_present_before(archive: &InMemoryArchive, self_cid: &Cid) -> bool {
+    let self_key = self_cid.to_string();
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            return false;
+        }
+        if matches!(e, ArchiveEntry::ConstitutionRatified(_)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// §9 compact-incapable amendment rule (categorical deference, asymmetric):
+/// requires a prior genesis; an `Add` must name a matter not already in force; a
+/// `Remove` must name one that is in force, may **not** name a genesis-original
+/// matter (genesis-immutable), and carries the higher contraction bar
+/// (>= `quorum_threshold + 1` distinct deciders). The normal quorum is enforced
+/// generically before this runs.
+fn authorize_incapable_amendment(
+    archive: &InMemoryArchive,
+    a: &CompactIncapableAmendment,
+    self_cid: &Cid,
+    quorum_threshold: usize,
+) -> KcResult<()> {
+    if !genesis_present_before(archive, self_cid) {
+        return Err(KcError::Authority(
+            "compact-incapable amendment before the constitution is ratified".into(),
+        ));
+    }
+    let current = current_incapable_keys(archive, self_cid);
+    match a.kind {
+        AmendmentKind::Add => {
+            if current.contains(&a.matter.key) {
+                return Err(KcError::Authority(format!(
+                    "compact-incapable matter {:?} is already in force",
+                    a.matter.key
+                )));
+            }
+        }
+        AmendmentKind::Remove => {
+            if !current.contains(&a.matter.key) {
+                return Err(KcError::Authority(format!(
+                    "compact-incapable matter {:?} is not in force, cannot remove",
+                    a.matter.key
+                )));
+            }
+            if genesis_incapable_keys(archive).contains(&a.matter.key) {
+                return Err(KcError::Authority(format!(
+                    "compact-incapable matter {:?} is genesis-immutable and cannot be removed",
+                    a.matter.key
+                )));
+            }
+            let distinct: BTreeSet<&str> = a.deciders.iter().map(|d| d.as_str()).collect();
+            if distinct.len() < quorum_threshold + 1 {
+                return Err(KcError::Authority(format!(
+                    "contracting the compact-incapable list needs >= {} distinct communities, got {}",
+                    quorum_threshold + 1,
+                    distinct.len()
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// §9 fast-cadence amendment rule: requires a prior genesis; a `Contract`
+/// (shortening or removing a fast) carries the higher bar (>= `quorum_threshold +
+/// 1` distinct deciders). `Extend` uses the normal quorum enforced generically.
+fn authorize_fast_amendment(
+    archive: &InMemoryArchive,
+    a: &FastCadenceAmendment,
+    self_cid: &Cid,
+    quorum_threshold: usize,
+) -> KcResult<()> {
+    if !genesis_present_before(archive, self_cid) {
+        return Err(KcError::Authority(
+            "fast-cadence amendment before the constitution is ratified".into(),
+        ));
+    }
+    if a.change.is_contraction() {
+        let distinct: BTreeSet<&str> = a.deciders.iter().map(|d| d.as_str()).collect();
+        if distinct.len() < quorum_threshold + 1 {
+            return Err(KcError::Authority(format!(
+                "contracting the structured-fast cadence needs >= {} distinct communities, got {}",
+                quorum_threshold + 1,
+                distinct.len()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The communities that may not sit on an injunction's panel: the subject, plus
+/// (if the injunction arises from a dispute) that dispute's parties.
+fn injunction_barred_communities(
+    archive: &InMemoryArchive,
+    subject: &DidKey,
+    dispute_cid: Option<&Cid>,
+) -> BTreeSet<String> {
+    let mut barred: BTreeSet<String> = BTreeSet::new();
+    barred.insert(subject.as_str().to_string());
+    if let Some(cid) = dispute_cid {
+        if let Some(ArchiveEntry::DisputeFiled(s)) = archive.get(cid) {
+            barred.insert(s.payload.complainant.as_str().to_string());
+            barred.insert(s.payload.respondent.as_str().to_string());
+        }
+    }
+    barred
+}
+
+/// §9 emergency-panel rule for issuing an interim injunction: every co-signer is
+/// an active registered mediator, none from a barred community (the subject, and
+/// the dispute parties if it arises from a dispute), and the panel spans at least
+/// `panel_min` distinct mediators. The protective window must be non-empty.
+fn authorize_injunction(
+    archive: &InMemoryArchive,
+    inj: &InterimInjunction,
+    signers: &[&str],
+    panel_min: usize,
+) -> KcResult<()> {
+    if inj.expires_at.as_second() <= inj.issued_at.as_second() {
+        return Err(KcError::Authority(
+            "injunction must expire after it is issued".into(),
+        ));
+    }
+    let barred = injunction_barred_communities(archive, &inj.subject_community, inj.dispute_cid.as_ref());
+    let at = inj.issued_at;
+    let mut panel: BTreeSet<String> = BTreeSet::new();
+    for signer in signers {
+        match mediator_home(archive, signer, at) {
+            None => {
+                return Err(KcError::Authority(format!(
+                    "injunction panelist {signer} is not an active registered mediator"
+                )))
+            }
+            Some(home) => {
+                if barred.contains(home.as_str()) {
+                    return Err(KcError::Authority(format!(
+                        "injunction panelist {signer} is from a party community (non-overlap violated)"
+                    )));
+                }
+                panel.insert((*signer).to_string());
+            }
+        }
+    }
+    if panel.len() < panel_min {
+        return Err(KcError::Authority(format!(
+            "injunction panel has {} distinct mediators, need >= {}",
+            panel.len(),
+            panel_min
+        )));
+    }
+    Ok(())
+}
+
+/// §9 challenge rule: an injunction challenge is heard by a *different* panel than
+/// the one that issued it. Every co-signer is an active registered mediator, none
+/// from a barred community, the panel spans at least `panel_min`, and no panelist
+/// sat on the issuing panel (the "different panel" safeguard).
+fn authorize_injunction_challenge(
+    archive: &InMemoryArchive,
+    chal: &InjunctionChallenge,
+    signers: &[&str],
+    panel_min: usize,
+) -> KcResult<()> {
+    let injunction = match archive.get(&chal.injunction_cid) {
+        Some(ArchiveEntry::InjunctionIssued(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "injunction challenge references {} which is not an issued injunction",
+                chal.injunction_cid
+            )))
+        }
+    };
+    let issuing: BTreeSet<&str> = injunction.panel.iter().map(|d| d.as_str()).collect();
+    let barred = injunction_barred_communities(
+        archive,
+        &injunction.subject_community,
+        injunction.dispute_cid.as_ref(),
+    );
+    let at = chal.decided_at;
+    let mut panel: BTreeSet<String> = BTreeSet::new();
+    for signer in signers {
+        if issuing.contains(signer) {
+            return Err(KcError::Authority(format!(
+                "challenge panelist {signer} also sat on the issuing panel (different-panel safeguard violated)"
+            )));
+        }
+        match mediator_home(archive, signer, at) {
+            None => {
+                return Err(KcError::Authority(format!(
+                    "challenge panelist {signer} is not an active registered mediator"
+                )))
+            }
+            Some(home) => {
+                if barred.contains(home.as_str()) {
+                    return Err(KcError::Authority(format!(
+                        "challenge panelist {signer} is from a party community (non-overlap violated)"
+                    )));
+                }
+                panel.insert((*signer).to_string());
+            }
+        }
+    }
+    if panel.len() < panel_min {
+        return Err(KcError::Authority(format!(
+            "challenge panel has {} distinct mediators, need >= {}",
+            panel.len(),
+            panel_min
+        )));
+    }
+    Ok(())
+}
+
+/// Home communities that supplied a mediator to an injunction panel still in force
+/// against `subject` as of `at` (issued and within its window or confirmed, and not
+/// overturned). Used for designation safeguard #1: the community that drove an
+/// emergency injunction may not also deliberate the permanent designation.
+fn active_injunction_panel_communities(
+    archive: &InMemoryArchive,
+    subject: &DidKey,
+    at: Timestamp,
+) -> BTreeSet<String> {
+    let mut communities: BTreeSet<String> = BTreeSet::new();
+    for (cid, e) in archive.iter() {
+        let inj = match e {
+            ArchiveEntry::InjunctionIssued(s) if &s.payload.subject_community == subject => {
+                &s.payload
+            }
+            _ => continue,
+        };
+        if inj.issued_at.as_second() > at.as_second() {
+            continue;
+        }
+        // Overturned by a ruled challenge decided on or before `at`?
+        let overturned = archive.iter().any(|(_, e2)| match e2 {
+            ArchiveEntry::InjunctionChallenged(s) => {
+                s.payload.injunction_cid == *cid
+                    && s.payload.overturned
+                    && s.payload.decided_at.as_second() <= at.as_second()
+            }
+            _ => false,
+        });
+        if overturned {
+            continue;
+        }
+        // In force: within the window, or confirmed before it lapsed.
+        let confirmed = archive.iter().any(|(_, e2)| match e2 {
+            ArchiveEntry::InjunctionConfirmed(s) => {
+                s.payload.injunction_cid == *cid
+                    && s.payload.confirmed_at.as_second() <= inj.expires_at.as_second()
+            }
+            _ => false,
+        });
+        let in_window = at.as_second() <= inj.expires_at.as_second();
+        if !(in_window || confirmed) {
+            continue;
+        }
+        for panelist in &inj.panel {
+            if let Some(home) = mediator_home(archive, panelist.as_str(), inj.issued_at) {
+                communities.insert(home.as_str().to_string());
+            }
+        }
+    }
+    communities
+}
+
 /// If `signer_did` is an active delegate at `at`, its (community_did, scope).
 /// Uses latest-issued-wins supersession so revocation/expiry are honored.
 fn delegate_of(
@@ -667,6 +1447,30 @@ pub fn authorize(
         let signers = signer_dids(entry);
         return authorize_restitution_completion(archive, &s.payload, &signers, panel_min);
     }
+    // §9. Injunction issuance and challenge are authorized by an emergency-panel
+    // rule, not principal binding (like a mediation decision).
+    if let ArchiveEntry::InjunctionIssued(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_injunction(archive, &s.payload, &signers, panel_min);
+    }
+    if let ArchiveEntry::InjunctionChallenged(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_injunction_challenge(archive, &s.payload, &signers, panel_min);
+    }
+    // §8. Observer reports and whistleblower records are authorized by the
+    // observer / reception-panel rules, not principal binding.
+    if let ArchiveEntry::ObserverReportPublished(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_observer_report(archive, &s.payload, &signers);
+    }
+    if let ArchiveEntry::WhistleblowerFiled(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_whistleblower(archive, &s.payload, &signers, panel_min);
+    }
+    if let ArchiveEntry::SourceRevealed(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_source_reveal(archive, &s.payload, &signers, panel_min);
+    }
 
     let auth = match record_authority(entry) {
         Some(a) => a,
@@ -709,6 +1513,31 @@ pub fn authorize(
         }
         ArchiveEntry::ReEntryCompleted(s) => {
             authorize_reentry(archive, &s.payload)?;
+        }
+        ArchiveEntry::CommonsRegistered(s) => {
+            authorize_commons_registration(&s.payload)?;
+        }
+        ArchiveEntry::UsageAccounted(s) => {
+            authorize_usage(archive, &s.payload)?;
+        }
+        ArchiveEntry::SanctionApplied(s) => {
+            let self_cid = entry.cid()?;
+            authorize_commons_sanction(archive, &s.payload, &self_cid, quorum_threshold)?;
+        }
+        ArchiveEntry::ReportResponsePublished(s) => {
+            authorize_report_response(archive, &s.payload)?;
+        }
+        ArchiveEntry::ConstitutionRatified(_) => {
+            let self_cid = entry.cid()?;
+            authorize_genesis(archive, &self_cid)?;
+        }
+        ArchiveEntry::CompactIncapableAmended(s) => {
+            let self_cid = entry.cid()?;
+            authorize_incapable_amendment(archive, &s.payload, &self_cid, quorum_threshold)?;
+        }
+        ArchiveEntry::FastCadenceAmended(s) => {
+            let self_cid = entry.cid()?;
+            authorize_fast_amendment(archive, &s.payload, &self_cid, quorum_threshold)?;
         }
         _ => {}
     }

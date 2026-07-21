@@ -92,4 +92,29 @@ python src/python/examples/escalation_demo.py >/dev/null
 echo "  ✓ exit 0"
 
 echo
+echo "=== python src/python/examples/injunction_demo.py ==="
+python src/python/examples/injunction_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/commons_demo.py ==="
+python src/python/examples/commons_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/observer_demo.py ==="
+python src/python/examples/observer_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/constitution_demo.py ==="
+python src/python/examples/constitution_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/capture_harness_demo.py ==="
+python src/python/examples/capture_harness_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
 echo "=== all checks passed ==="

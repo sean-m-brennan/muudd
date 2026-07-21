@@ -63,6 +63,16 @@ DECISION_OUTCOMES = ("Upheld", "Dismissed", "Settled", "Referred")
 # §5 designation tiers and urgencies.
 DESIGNATION_TIERS = ("Anathema", "HostisHumaniGeneris")
 DESIGNATION_URGENCIES = ("Normal", "Expedited")
+# §9 compact-gated capabilities an interim injunction can suspend.
+CAPABILITIES = (
+    "RescueCoordination", "Navigation", "Trade", "CommonsWithdrawal", "Communication",
+)
+# §7 the five compact-level commons.
+COMMONS_KINDS = (
+    "LifeSupport", "Communication", "Navigation", "KnowledgeArchive", "Rescue",
+)
+# §7 graduated-sanction ladder levels (rising severity; None is the resting state).
+SANCTION_LEVELS = ("None", "Monitoring", "Warning", "Restriction", "Exclusion")
 
 
 @dataclass(frozen=True)
@@ -172,6 +182,131 @@ def vouch(
     return archive.append_sponsorship(
         sponsor.priv, sponsor.did, sponsor.principal, entrant_did,
         sponsored_at, probation_until, statement, admission_cid,
+    )
+
+
+def attest_interpretation(
+    archive,
+    community: Signer,
+    lineage_id: str,
+    interpreter_did: str,
+    *,
+    divergence: str = "",
+    interprets_cid: Optional[str] = None,
+    references: Optional[Sequence[str]] = None,
+    recorded_at: Optional[int] = None,
+) -> str:
+    """Record one point on `community`'s interpretive lineage of its own
+    substrate (capture move 1). The reading is attributed to
+    `community.principal` and signed by `community.did`/`.priv` (which may be a
+    delegate key). `lineage_id` names the interpretive line; `interpreter_did`
+    is the internal author (the plurality unit). Multiple records under distinct
+    lineages and interpreters demonstrate the plurality the protocol requires;
+    a monopoly is what the `interpretive_plurality` lens surfaces. Returns the
+    CID."""
+    if recorded_at is None:
+        recorded_at = now_seconds()
+    return archive.append_interpretation(
+        community.priv, community.did, community.principal, lineage_id,
+        interpreter_did, divergence, interprets_cid,
+        list(references) if references else [], recorded_at,
+    )
+
+
+def report_event(
+    archive,
+    originator: Signer,
+    summary: str,
+    *,
+    high_interpretive_charge: bool = False,
+    sudden_onset: bool = False,
+    originator_holds_stake: bool = False,
+    aligned_faction: Optional[str] = None,
+    declared_incentives: str = "",
+    information_history: str = "",
+    disclosed_interests: Optional[Sequence[str]] = None,
+    onset_at: Optional[int] = None,
+    reported_at: Optional[int] = None,
+) -> str:
+    """Inject an event report into the compact, provenance-tagged at intake
+    (capture move 4). Attributed to `originator.principal`, signed by
+    `originator.did`/`.priv`. The booleans are the structured-skepticism
+    qualifying triggers; `aligned_faction` is the conveniently-aligned faction
+    DID (or None). Returns the entry CID (pass it to `corroborate_event`)."""
+    if reported_at is None:
+        reported_at = now_seconds()
+    return archive.append_event(
+        originator.priv, originator.did, originator.principal, summary,
+        high_interpretive_charge, sudden_onset, originator_holds_stake,
+        aligned_faction, declared_incentives, information_history,
+        list(disclosed_interests) if disclosed_interests else [],
+        onset_at, reported_at,
+    )
+
+
+def corroborate_event(
+    archive,
+    community: Signer,
+    event_cid: str,
+    *,
+    translation: Optional[str] = None,
+    corroborated_at: Optional[int] = None,
+) -> str:
+    """Independently corroborate an event report's observable facts (capture
+    move 4). Attributed to `community.principal`, signed by
+    `community.did`/`.priv`. Distinct communities other than the originator are
+    what the structured-skepticism lens counts. Returns the CID."""
+    if corroborated_at is None:
+        corroborated_at = now_seconds()
+    return archive.append_corroboration(
+        community.priv, community.did, community.principal, event_cid,
+        translation, corroborated_at,
+    )
+
+
+def attest_principal(
+    archive,
+    witness: Signer,
+    principal_did: str,
+    principal_home: str,
+    *,
+    basis: str = "",
+    attested_at: Optional[int] = None,
+) -> str:
+    """Record `witness` cross-attesting a principal's validity (capture move 6).
+    Attributed to `witness.principal`, signed by `witness.did`/`.priv`. The
+    attestation counts toward independent validation only when the witness is
+    neither the principal nor its `principal_home` community — that filter lives
+    in the `adversarial_principal` lens, not here. Returns the CID."""
+    if attested_at is None:
+        attested_at = now_seconds()
+    return archive.append_principal_witness(
+        witness.priv, witness.did, witness.principal, principal_did,
+        principal_home, basis, attested_at,
+    )
+
+
+def record_principal_output(
+    archive,
+    home: Signer,
+    principal_did: str,
+    cohort: str,
+    matter: str,
+    decision: str,
+    *,
+    favors_home: bool = False,
+    produced_at: Optional[int] = None,
+) -> str:
+    """Record a machine principal's output for triangulation (capture move 6).
+    The output is attributed to `home.principal` (the home community recording
+    its principal's output) and signed by `home.did`/`.priv`. Outputs sharing a
+    `cohort` and `matter` are compared; `favors_home` declares whether the
+    decision benefits the principal's own side. Returns the CID."""
+    if produced_at is None:
+        produced_at = now_seconds()
+    return archive.append_principal_output(
+        home.priv, home.did, principal_did, home.principal, cohort, matter,
+        decision, favors_home, produced_at,
     )
 
 
@@ -603,15 +738,401 @@ def invoke_substantive_reengagement(
     )
 
 
+def issue_injunction(
+    archive,
+    subject_did: str,
+    panel: Sequence[Signer],
+    harm: str,
+    protective_measures: str,
+    revoked_capabilities: Sequence[str],
+    *,
+    dispute_cid: Optional[str] = None,
+    issued_at: Optional[int] = None,
+    expires_at: Optional[int] = None,
+) -> str:
+    """Issue an interim injunction against `subject_did` (§9), co-signed by the
+    emergency mediator `panel`. `revoked_capabilities` are `CAPABILITIES` names
+    suspended while the injunction is in force. `expires_at` defaults to
+    `issued_at + 90 days`. The authority pass enforces a non-party mediator panel
+    (>= panel_min active registered mediators, none from the subject or, if
+    `dispute_cid` is given, its parties). Returns the injunction CID (referenced
+    by `confirm_injunction` / `challenge_injunction`)."""
+    if not panel:
+        raise ValueError("an injunction needs at least one panelist")
+    for cap in revoked_capabilities:
+        if cap not in CAPABILITIES:
+            raise ValueError(f"capability must be one of {CAPABILITIES}, got {cap!r}")
+    return archive.issue_injunction(
+        [s.priv for s in panel], [s.did for s in panel],
+        subject_did, harm, protective_measures, list(revoked_capabilities),
+        dispute_cid, issued_at, expires_at,
+    )
+
+
+def confirm_injunction(
+    archive,
+    injunction_cid: str,
+    confirmers: Sequence[Signer],
+    *,
+    confirmed_at: Optional[int] = None,
+) -> str:
+    """Confirm an injunction (§9) — the full compact ratifying it, co-signed by a
+    distinct-community quorum. A confirmation arriving before the injunction's
+    expiry lets it persist past its 90-day window. Returns the CID."""
+    if not confirmers:
+        raise ValueError("a confirmation needs at least one confirmer")
+    return archive.confirm_injunction(
+        [s.priv for s in confirmers], [s.did for s in confirmers],
+        injunction_cid, confirmed_at,
+    )
+
+
+def challenge_injunction(
+    archive,
+    injunction_cid: str,
+    panel: Sequence[Signer],
+    overturned: bool,
+    *,
+    reasoning: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Challenge an injunction (§9), heard by a *different* mediator `panel` than
+    the one that issued it. The authority pass enforces disjointness from the
+    issuing panel plus the non-party rule. `overturned=True` ends the injunction.
+    Returns the CID."""
+    if not panel:
+        raise ValueError("a challenge needs at least one panelist")
+    return archive.challenge_injunction(
+        [s.priv for s in panel], [s.did for s in panel],
+        injunction_cid, bool(overturned), reasoning, decided_at,
+    )
+
+
+# --- §7 Commons governance --------------------------------------------------
+#
+# These facades author root-signed commons records. The archive's authority pass
+# (`check_authority`) enforces the structural rules: a boundary-defined,
+# second-class registration; usage self-reported by an appropriator; and a
+# graduated sanction that follows the current level, does not skip, and carries a
+# distinct-community quorum at its second-class levels (Restriction, Exclusion).
+
+
+def register_commons(
+    archive,
+    kind: str,
+    name: str,
+    appropriators: Sequence[str],
+    registrars: Sequence[Signer],
+    *,
+    description: str = "",
+    provision_rule: str = "",
+    registered_at: Optional[int] = None,
+) -> str:
+    """Register a compact-level commons (§7), co-signed by `registrars`. `kind` is
+    one of `COMMONS_KINDS`; `appropriators` are the member DIDs with draw rights
+    (Ostrom's boundary). Registration is a second-class act: the authority pass
+    requires a distinct-community quorum, and every registrar must itself be an
+    appropriator. Returns the commons CID (pass it to `record_usage`,
+    `apply_sanction`, and the reputation gate)."""
+    if kind not in COMMONS_KINDS:
+        raise ValueError(f"kind must be one of {COMMONS_KINDS}, got {kind!r}")
+    if not registrars:
+        raise ValueError("registration needs at least one registrar")
+    if not appropriators:
+        raise ValueError("a commons needs at least one appropriator")
+    return archive.register_commons(
+        [s.priv for s in registrars], [s.did for s in registrars],
+        kind, name, description, list(appropriators), provision_rule, registered_at,
+    )
+
+
+def record_usage(
+    archive,
+    commons_cid: str,
+    community: Signer,
+    consumed: int,
+    contributed: int,
+    *,
+    period_start: Optional[int] = None,
+    period_end: Optional[int] = None,
+    recorded_at: Optional[int] = None,
+) -> str:
+    """Record `community`'s self-reported usage of a commons (§7), signed by and
+    attributed to it. First-class; the authority pass requires the reporter be an
+    appropriator of `commons_cid`. `consumed`/`contributed` are dimensionless
+    units in the commons' own terms and feed `free_rider_signals`. Returns the
+    CID."""
+    return archive.record_usage(
+        community.priv, community.did, commons_cid,
+        int(consumed), int(contributed), period_start, period_end, recorded_at,
+    )
+
+
+def apply_sanction(
+    archive,
+    commons_cid: str,
+    subject_did: str,
+    from_level: str,
+    to_level: str,
+    imposers: Sequence[Signer],
+    *,
+    basis: str = "",
+    references: Optional[Sequence[str]] = None,
+    decision_class: str = "FirstClass",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Apply a graduated-sanction step against `subject_did` on a commons (§7),
+    co-signed by `imposers`. `from_level`/`to_level` are `SANCTION_LEVELS` names.
+    The authority pass requires the move to leave the pair's current level and
+    either escalate one step or de-escalate to any lower level (restoration); the
+    second-class levels (Restriction, Exclusion) require
+    `decision_class="SecondClass"` and at least two distinct imposing communities.
+    Returns the CID."""
+    if not imposers:
+        raise ValueError("a sanction needs at least one imposer")
+    for lvl in (from_level, to_level):
+        if lvl not in SANCTION_LEVELS:
+            raise ValueError(f"level must be one of {SANCTION_LEVELS}, got {lvl!r}")
+    if decision_class not in DECISION_CLASSES:
+        raise ValueError(f"decision_class must be one of {DECISION_CLASSES}")
+    return archive.apply_sanction(
+        [s.priv for s in imposers], [s.did for s in imposers],
+        commons_cid, subject_did, from_level, to_level,
+        basis, list(references or []), decision_class, decided_at,
+    )
+
+
+# --- §8 Observer / jester corps ---------------------------------------------
+#
+# The cross-community journalism function. Observers are nominated by member
+# communities and report publicly and attributably on *other* communities; the
+# subject answers with an appended response, never by suppression. The
+# whistleblower channel carries only a commitment to the source, revealable by a
+# mediator panel for cause. The archive's authority pass enforces the structural
+# rules (non-party observer, subject-only response, non-party reception panel).
+
+
+def new_observer(archive=None) -> Signer:
+    """Mint a fresh keypair to serve as an observer identity. Like a mediator, an
+    observer's public key is carried in its community's `ObserverRegistry` entry
+    (see `register_observers`) and resolves from there, so it needs no separately
+    published identity for its report signature to verify. `archive` is accepted
+    and ignored for call-site symmetry. Returns a `Signer`."""
+    _ = archive
+    priv, pub, did = _core.generate_ed25519_keypair()
+    return Signer(did=did, priv=priv, pub=pub)
+
+
+def register_observers(
+    archive,
+    community: Signer,
+    observers: Sequence[tuple[Signer, str]],
+    *,
+    valid_from: Optional[int] = None,
+    valid_until: Optional[int] = None,
+) -> str:
+    """Publish `community`'s roster of nominated observers (§8), signed by the
+    community root. Each entry is `(observer_signer, declared_perspective)`; the
+    declared perspective is kept explicit so readers weigh a report as advocacy.
+    The compact-wide corps is the union of every community's registry (latest per
+    community supersedes). Returns the CID."""
+    if not observers:
+        raise ValueError("at least one observer is required")
+    if valid_from is None:
+        valid_from = now_seconds()
+    return archive.register_observers(
+        community.priv, community.did,
+        [(o.pub, o.did, perspective) for (o, perspective) in observers],
+        valid_from, valid_until,
+    )
+
+
+def publish_observer_report(
+    archive,
+    observer: Signer,
+    subject_did: str,
+    declared_perspective: str,
+    summary: str,
+    *,
+    references: Optional[Sequence[str]] = None,
+    observed_at: Optional[int] = None,
+    reported_at: Optional[int] = None,
+) -> str:
+    """Publish an attributed observer report on `subject_did` (§8), signed by
+    `observer`. The authority pass requires the observer be a registered,
+    non-party member of the corps (an observer may not report on its own
+    community). Publication is irrevocable. Returns the report CID (pass it to
+    `respond_to_report`)."""
+    return archive.publish_observer_report(
+        observer.priv, observer.did, subject_did, declared_perspective, summary,
+        list(references or []), observed_at, reported_at,
+    )
+
+
+def respond_to_report(
+    archive,
+    community: Signer,
+    report_cid: str,
+    response: str,
+    *,
+    responded_at: Optional[int] = None,
+) -> str:
+    """Append `community`'s public response to an observer report (§8). Only the
+    report's subject community may respond; the response never suppresses the
+    report. Returns the CID."""
+    return archive.respond_to_report(
+        community.priv, community.did, report_cid, response, responded_at,
+    )
+
+
+def file_whistleblower(
+    archive,
+    accused_did: str,
+    source_commitment: str,
+    claim: str,
+    reception_panel: Sequence[Signer],
+    *,
+    references: Optional[Sequence[str]] = None,
+    filed_at: Optional[int] = None,
+) -> str:
+    """File an insider whistleblower report against `accused_did` (§8), co-signed
+    by a mediator `reception_panel`. `source_commitment` is a CID committing to
+    the source (e.g. `cid_of` of identity+nonce); the source identity is never
+    passed in or stored. The authority pass requires a non-party reception panel.
+    Returns the report CID."""
+    if not reception_panel:
+        raise ValueError("a reception panel needs at least one mediator")
+    return archive.file_whistleblower(
+        [s.priv for s in reception_panel], [s.did for s in reception_panel],
+        accused_did, source_commitment, claim, list(references or []), filed_at,
+    )
+
+
+def reveal_source(
+    archive,
+    report_cid: str,
+    panel: Sequence[Signer],
+    cause: str,
+    disclosed_source: str,
+    *,
+    revealed_at: Optional[int] = None,
+) -> str:
+    """Disclose a whistleblower's source (§8), co-signed by a mediator `panel` and
+    citing a non-empty `cause`. The disclosure is gated on the panel quorum; use
+    only for named cause. Returns the CID."""
+    if not panel:
+        raise ValueError("a reveal needs at least one panelist")
+    if not cause.strip():
+        raise ValueError("a source reveal must cite a cause")
+    return archive.reveal_source(
+        [s.priv for s in panel], [s.did for s in panel],
+        report_cid, cause, disclosed_source, revealed_at,
+    )
+
+
+# --- §9 Substrate-deference (constitutional layer) --------------------------
+#
+# The compact-incapable list and the structured-fast cadence: the operational
+# test of the compact's non-ultimacy. Genesis is a quorum-ratified singleton with
+# genesis-immutable matters; amendments are second-class and asymmetric —
+# expansion easy, contraction hard (Remove of a genesis matter refused entirely).
+
+# §9 compact-incapable amendment directions.
+AMENDMENT_KINDS = ("Add", "Remove")
+# §9 structured-fast amendment directions.
+FAST_CHANGES = ("Extend", "Contract")
+
+
+def ratify_constitution(
+    archive,
+    ratifiers: Sequence[Signer],
+    incapable: Sequence[tuple[str, str]],
+    fast_periods: Sequence[tuple[str, int, int]],
+    *,
+    genesis_at: Optional[int] = None,
+) -> str:
+    """Ratify the founding constitution (§9), co-signed by `ratifiers`. `incapable`
+    is a list of `(key, description)` compact-incapable matters (genesis-immutable);
+    `fast_periods` is a list of `(label, start, end)` structured-fast windows.
+    Second-class (needs a distinct-community quorum) and a singleton per archive.
+    Returns the CID."""
+    if not ratifiers:
+        raise ValueError("ratification needs at least one ratifier")
+    return archive.ratify_constitution(
+        [s.priv for s in ratifiers], [s.did for s in ratifiers],
+        [(k, d) for (k, d) in incapable],
+        [(lbl, int(start), int(end)) for (lbl, start, end) in fast_periods],
+        genesis_at,
+    )
+
+
+def amend_compact_incapable(
+    archive,
+    kind: str,
+    matter_key: str,
+    deciders: Sequence[Signer],
+    *,
+    matter_description: str = "",
+    rationale: str = "",
+    decision_class: str = "SecondClass",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Amend the compact-incapable list (§9). `kind` is one of `AMENDMENT_KINDS`.
+    `Add` (expansion) uses the normal quorum; `Remove` (contraction) requires the
+    higher bar and is refused for a genesis-original matter. Returns the CID."""
+    if kind not in AMENDMENT_KINDS:
+        raise ValueError(f"kind must be one of {AMENDMENT_KINDS}, got {kind!r}")
+    if not deciders:
+        raise ValueError("an amendment needs at least one decider")
+    return archive.amend_compact_incapable(
+        [s.priv for s in deciders], [s.did for s in deciders],
+        kind, matter_key, matter_description, rationale, decision_class, decided_at,
+    )
+
+
+def amend_fast_cadence(
+    archive,
+    change: str,
+    label: str,
+    start: int,
+    end: int,
+    deciders: Sequence[Signer],
+    *,
+    rationale: str = "",
+    decision_class: str = "SecondClass",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Amend the structured-fast cadence (§9). `change` is one of `FAST_CHANGES`;
+    `Contract` carries the higher bar. `(label, start, end)` is the resulting fast
+    period. Returns the CID."""
+    if change not in FAST_CHANGES:
+        raise ValueError(f"change must be one of {FAST_CHANGES}, got {change!r}")
+    if not deciders:
+        raise ValueError("an amendment needs at least one decider")
+    return archive.amend_fast_cadence(
+        [s.priv for s in deciders], [s.did for s in deciders],
+        change, label, int(start), int(end), rationale, decision_class, decided_at,
+    )
+
+
 __all__ = [
     "Signer", "new_identity", "delegate_speaker", "revoke_delegation", "vouch",
+    "attest_interpretation", "report_event", "corroborate_event",
+    "attest_principal", "record_principal_output",
     "record_conduct", "record_concern", "designate_anathema", "lift_designation",
     "record_non_admission", "run_intra_rite", "new_mediator",
     "register_mediators", "file_dispute", "decide_mediation",
     "file_ladder_transition", "decide_designation", "impose_restitution",
     "verify_restitution", "complete_reentry", "invoke_substantive_reengagement",
+    "issue_injunction", "confirm_injunction", "challenge_injunction",
+    "register_commons", "record_usage", "apply_sanction",
+    "new_observer", "register_observers", "publish_observer_report",
+    "respond_to_report", "file_whistleblower", "reveal_source",
+    "ratify_constitution", "amend_compact_incapable", "amend_fast_cadence",
+    "AMENDMENT_KINDS", "FAST_CHANGES",
     "now_seconds",
     "CONDUCT_KINDS", "ANTI_SPIRAL_FEATURES", "BEARINGS", "SEVERITIES",
     "LADDER_RUNGS", "DECISION_CLASSES", "DELEGATION_SCOPES", "DECISION_OUTCOMES",
-    "DESIGNATION_TIERS", "DESIGNATION_URGENCIES",
+    "DESIGNATION_TIERS", "DESIGNATION_URGENCIES", "CAPABILITIES",
+    "COMMONS_KINDS", "SANCTION_LEVELS",
 ]

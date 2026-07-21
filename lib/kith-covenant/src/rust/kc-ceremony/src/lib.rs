@@ -16,6 +16,8 @@
 
 pub mod inter;
 pub mod intra;
+pub mod lineage;
 pub mod recitation;
 
+pub use lineage::SubstrateInterpretation;
 pub use recitation::{Movement, Recitation, RecitationVersion};

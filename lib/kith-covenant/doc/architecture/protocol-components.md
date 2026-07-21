@@ -106,12 +106,160 @@ carried here directly: see §10 and "Open design questions" below.
 > threshold (no single community may dominate the pool), and the full escalation
 > ladder state machine (§5). See `src/rust/kc-mediation/`.
 >
-> Components §§5, 7, 8, 9, 10 (escalation, commons governance, jester,
-> enforcement, test harness) are otherwise *not*
-> implemented and remain as described below. MVP crypto is Ed25519-only;
+> **§7 Commons governance (v1, 2026-07-21).** The `kc-commons` crate implements
+> a bounded first slice applying Ostrom's design principles to the five space
+> commons: a **commons registry** (`CommonsRegistration` — a `CommonsKind`, the
+> appropriator set that is Ostrom's clear boundary, and a provision rule; a
+> **second-class** act requiring a distinct-community quorum, every registrar an
+> appropriator), **usage accounting** (`UsageRecord` — a community's first-class,
+> self-signed consumed/contributed report), and the **graduated-sanction ledger**
+> (`CommonsSanction` — an append-only `SanctionLevel` ladder Monitoring → Warning
+> → Restriction → Exclusion, mirroring the §5 dispute ladder: a move leaves the
+> pair's current level and either escalates one step or de-escalates to any lower
+> level as the restoration path; the second-class levels Restriction/Exclusion
+> carry the distinct-community quorum). The structural rules are enforced through
+> the §5 authority pass (`authorize_commons_registration`, `authorize_usage`,
+> `authorize_commons_sanction` with a `current_sanction_level` helper), so
+> **light-lag-honest decision-class enforcement** (§3/§7) is realized here as the
+> existing multi-community quorum check. `kc-reputation` projects a community's
+> current per-commons sanction level (`CommonsSanctionSummary`, restored commons
+> dropping out) and a `commons_level` gate, and carries a read-only
+> `free_rider_signals` lens (per-appropriator consumed/contributed tallies and a
+> net-draw ranking — the tragedy-of-the-virtues made countable, no verdict).
+> Authorable from Python (`register_commons`, `record_usage`, `apply_sanction`,
+> `commons_level`, `free_rider_signals`);
+> `src/python/examples/commons_demo.py` walks a registration, usage, a graduated
+> escalation with restoration, and the three moves the protocol refuses.
+> **Deferred to later slices:** the full CRDT/BFT consensus mechanics and the
+> signature-latency window, nested inter-compact enterprises, threshold-sealed
+> usage, ZK selective-disclosure of usage, the commons-specific escalation
+> trigger (the "commons equivalent of the anathema designation" open question),
+> and the constitutional reclassification machinery (a §9 substrate-deference
+> concern). See `src/rust/kc-commons/`.
+>
+> **§8 Observer / jester corps (v1, 2026-07-21).** The `kc-observer` crate
+> promotes the read-only capture lenses into a corps with standing. An
+> **observer-corps registry** (`ObserverRegistry` / `ObserverEntry` — nominated
+> observers carrying a **declared perspective**, superseding per community like
+> the mediator/witness registries; `resolve_did` gained an observer arm) backs
+> **attributed public reporting**: an `ObserverReport` is signed by a registered
+> observer whose home community is **not** the subject (cross-community
+> journalism, non-overlap), and the subject answers with an appended
+> `ReportResponse` that never suppresses it (the Type-4-heterodoxy visibility
+> mechanism the escalation ladder cannot reach). The **whistleblower channel**
+> (`WhistleblowerReport`) is filed by a non-party mediator **reception panel** and
+> stores only a `source_commitment` — the source identity is never recorded; a
+> `SourceReveal` discloses it solely on a mediator-panel quorum citing named
+> cause. `kc-reputation` projects a community's `observer_reports` (with
+> responses) and `whistleblower_reports_against` (never the source, only whether a
+> reveal has occurred), and an `observer_dashboard` aggregator bundles the
+> sponsorship-composition and rejection lenses with per-community report tallies
+> — the **composition-drift dashboard**. Authorable from Python
+> (`register_observers`, `publish_observer_report`, `respond_to_report`,
+> `file_whistleblower`, `reveal_source`, `observer_dashboard`);
+> `src/python/examples/observer_demo.py` walks a report with response, a
+> whistleblower with a for-cause reveal, the dashboard, and the three moves the
+> protocol refuses. **Deferred to later slices (MVP crypto is Ed25519-only):**
+> ring-signature source *anonymity* (prove insider membership without revealing
+> which member), threshold-*encrypted* source records, the **substrate-deference**
+> half of the §8 dashboard (needs §9's compact-incapable list and structured-fast
+> state), observer pool-share and rotation caps, and secure out-of-band
+> whistleblower transport. See `src/rust/kc-observer/`.
+>
+> **§9 Substrate-deference test (v1, 2026-07-21).** The `kc-constitution` crate
+> operationalizes non-ultimacy as a versioned, signed constitutional layer (the
+> post-hoc enforcement candidates — reputation/directory, capability-based, and
+> transparency — are already realized by the §5 authority pass, the §9 injunction
+> capability-gate, and the append-only archive respectively). `ConstitutionGenesis`
+> founds the **compact-incapable list** (matters the compact will not decide — a
+> member's internal theology, governance, recognition-statement content) and the
+> **structured-fast cadence** (`FastPeriod` windows during which deliberation
+> pauses); it is quorum-ratified and a **singleton** per archive, and its matters
+> are **genesis-immutable**. `CompactIncapableAmendment` and
+> `FastCadenceAmendment` are second-class and **asymmetric**: expansion (Add /
+> Extend) uses the normal quorum, contraction (Remove / Contract) requires the
+> higher bar (`quorum+1`), and a genesis-original matter can never be removed —
+> the asymmetry that reflects the capture risk. `kc-reputation` exposes the
+> `constitution_state` projection, the `compact_incapable` (categorical) and
+> `in_structured_fast` (temporal) **deference gates**, and the
+> `substrate_deference` **erosion report** — the list's size and add/remove drift
+> with a contraction flag, the fast cadence and its contraction count, and
+> deliberative acts initiated during a fast (**fast deviations**). Per the
+> research the fast is honored by practice and made *legible* here, not
+> hard-refused; the erosion report is the substrate-deference half of the §8
+> dashboard the observer slice deferred. Authorable from Python
+> (`ratify_constitution`, `amend_compact_incapable`, `amend_fast_cadence`,
+> `constitution_state`, `compact_incapable`, `in_structured_fast`,
+> `substrate_deference`); `src/python/examples/constitution_demo.py` walks
+> ratification, the gates, an expansion, an erosion report, and the moves the
+> protocol refuses (second genesis, removing a genesis matter, contracting below
+> the higher bar). **Deferred to later slices:** recurring/calendar fast schedules
+> (v1 uses explicit windows), automatic escalation on detected erosion, and any
+> hard-refusal of deliberative acts during a fast. See `src/rust/kc-constitution/`.
+>
+> **§10 Capture-resistance test harness (v1, 2026-07-21).** §10 is a *harness*,
+> not a protocol component with records, so it is realized as a Python module
+> (`src/python/kith_covenant/harness.py`) driving the real public API — the honest
+> generalization of the hand-authored refusal cases, which are themselves Python.
+> `run_harness()` runs the **seven capture-resistance scenarios** and scores each
+> against **falsification criteria stated in advance** (module constants for
+> detection latency and damage bounds — the §10 requirement that failure be
+> defined explicitly, not implicitly). The four scenarios whose detectors are
+> built are exercised end-to-end on fresh, time-evolving archives and scored
+> PASS/FAIL: **move 2** compact-incapable erosion (via `substrate_deference`'s
+> contraction flag), **move 3** ceremony hollowing across cycles (via
+> `ceremony_cost_decay`), **move 5** light-lag fait-accompli by forged quorum (a
+> single faction's second-class act, rejected by `check_authority`; `verify_all`
+> is the crypto backstop), and **move 7** admissions capture by patient
+> sponsorship (via `composition_graph` concentration). The three whose detectors
+> are deferred past this MVP — **move 1** faction-monopolized interpretation,
+> **move 4** manufactured-event injection, **move 6** principal capture — are
+> reported as **unsupported**, each naming the missing capability, so coverage
+> gaps are surfaced rather than silently omitted. `detection latency` and `damage`
+> are the primary metrics per scenario. `src/python/examples/capture_harness_demo.py`
+> prints the scoreboard. **Deferred to later slices:** the Earth-pilot deployment
+> configuration and the live-`autonomous_trust` integration harness (both need a
+> real deployment, not a simulator); continuous/background scenario execution;
+> and the three unsupported scenarios, which unblock as their detectors are built.
+>
+> **§10 detectors for moves 1, 4, 6 (v2, 2026-07-21).** The three deferred
+> detectors are now built, and their scenarios are scored PASS on fresh,
+> time-evolving archives through the same public API — the harness now reports
+> **7 supported, 7/7 passed**. **Move 1** faction-monopolized interpretation: the
+> new `kc_ceremony::lineage::SubstrateInterpretation` record carries a community's
+> attested readings of its own substrate (lineage id + interpreter), and the
+> `interpretive_plurality` lens surfaces a single-interpreter/single-lineage
+> monopoly while clearing a community that demonstrates distinct lineages and
+> interpreters. **Move 4** manufactured-event injection: the new `kc-provenance`
+> crate carries `EventReport` (provenance-tagged at intake — originator, declared
+> incentives, information history, stake disclosure, and the structured-skepticism
+> qualifying triggers) and `EventCorroboration`; the `structured_skepticism` lens
+> flags a qualifying event as under-corroborated the moment it lands (before it
+> can drive action) and clears it once distinct non-originator communities
+> corroborate. **Move 6** principal capture: the new `kc-principal` crate carries
+> `PrincipalWitnessAttestation` (cross-community validity attestation) and
+> `PrincipalOutput` (for triangulation); the `adversarial_principal` lens counts
+> cross-community witnesses (excluding the principal and its home) and flags an
+> output diverging from the cohort majority toward the principal's own benefit.
+> All three follow the established jester-lens contract — flags with provenance,
+> no verdict; thresholds live with the caller. **Deferred to later slices:**
+> anti-sockpuppet proof of interpreter independence (move 1); enforced structured
+> delay, cross-substrate translation semantics, and the retroactive bad-faith
+> finding (move 4); the cryptographically separable witness chain, statistical
+> triangulation of continuous behavior, and collusive whole-cohort capture
+> (move 6). Records are Ed25519-signed, first-class, principal-bound.
+>
+> **All ten components now have an MVP v1 slice** (uncommitted on
+> `feature/research`), and all seven capture-resistance scenarios have a built,
+> scored detector. What remains is not whole components but the parts each
+> slice explicitly deferred (catalogued per §-paragraph above and in §11) plus the
+> two deployment-dependent §10 items. MVP crypto is Ed25519-only;
 > `Alg` is an enum whose shape preserves a future non-lattice PQC slot. The
-> remaining capture-resistance responsibilities carried inside §§1-10 and
-> catalogued in §11 are likewise not implemented in the current MVP.
+> capture-resistance responsibilities carried inside §§1-10 and catalogued in §11
+> are realized by the slices above: interpretive-plurality evidence (§1/§2),
+> manufactured-event provenance and structured-skepticism (§3/§4), and
+> adversarial-principal validation (§1/§6) are the detectors the §10 harness now
+> exercises end-to-end.
 
 Capture resistance is a cross-cutting architectural concern, not a
 component: each component below carries capture-resistance

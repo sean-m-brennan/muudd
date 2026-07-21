@@ -27,12 +27,15 @@
 //! they can range over the whole compact (all communities, all sponsors) in a
 //! single pass.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use kc_archive::{ArchiveEntry, InMemoryArchive};
 use kc_ceremony::inter::AntiSpiralFeature;
+use kc_commons::sanction_rank;
 use kc_conduct::ConductBearing;
+use kc_constitution::{AmendmentKind, FastPeriod, IncapableMatter};
 use kc_core::{time, Cid, DidKey, Timestamp};
+use kc_escalation::dispute_ladder_rank;
 
 /// One sponsor→entrant edge as of the query time, carrying the record CID so
 /// any flag drawn from the graph is traceable.
@@ -93,6 +96,377 @@ pub fn composition_graph(archive: &InMemoryArchive, as_of: Option<Timestamp>) ->
     }
     graph.edges.sort_by(|a, b| a.sponsored_at.cmp(&b.sponsored_at));
     graph
+}
+
+// ---------------------------------------------------------------------------
+// Move 1 interpretive-plurality lens (over a community's substrate readings).
+// ---------------------------------------------------------------------------
+
+/// One published interpretation as of the query, carrying the record CID so any
+/// plurality/monopoly flag is traceable back to a signed record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineagePoint {
+    pub record_cid: Cid,
+    pub lineage_id: String,
+    pub interpreter: DidKey,
+    pub interprets_cid: Option<Cid>,
+    pub recorded_at: Timestamp,
+}
+
+/// A member community's interpretive lineages of its own substrate, plus the
+/// per-lineage and per-interpreter counts (capture_resistance.md move 1). The
+/// capture signature is a *monopoly*: a single interpreter or a single lineage
+/// cornering the interpretive function so substrate-deference quietly becomes
+/// faction-deference. This lens makes plurality (and its absence) countable and
+/// renders **no verdict** — a low count may be a young community, not a captured
+/// one, so the monopoly threshold lives with the caller (the §10 harness).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct InterpretivePluralityReport {
+    /// The community's interpretations, oldest first (traceable).
+    pub interpretations: Vec<LineagePoint>,
+    /// lineage_id → number of interpretations under it, as of the query.
+    pub lineages: BTreeMap<String, usize>,
+    /// interpreter DID → number of interpretations it authored.
+    pub by_interpreter: BTreeMap<String, usize>,
+}
+
+impl InterpretivePluralityReport {
+    /// Number of distinct interpretive lineages.
+    pub fn distinct_lineages(&self) -> usize {
+        self.lineages.len()
+    }
+    /// Number of distinct interpreters — the anti-monopoly count.
+    pub fn distinct_interpreters(&self) -> usize {
+        self.by_interpreter.len()
+    }
+    /// Interpreters ordered by descending share of interpretations — the
+    /// concentration ranking a monopoly heads.
+    pub fn interpreter_concentration(&self) -> Vec<(String, usize)> {
+        descending(self.by_interpreter.clone())
+    }
+    /// The positive signal move 1 asks a community to demonstrate: more than one
+    /// lineage AND more than one interpreter. Its absence is not proof of
+    /// capture (the caller owns the monopoly threshold), only its absence.
+    pub fn plurality_demonstrated(&self) -> bool {
+        self.distinct_lineages() >= 2 && self.distinct_interpreters() >= 2
+    }
+}
+
+/// Build the interpretive-plurality report for `community` as of `as_of`
+/// (default now), over the `SubstrateInterpreted` records whose subject is that
+/// community. Distinctness is keyed on the interpreter DID and lineage id, never
+/// on record count, so a prolific single interpreter cannot fake plurality.
+pub fn interpretive_plurality(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    as_of: Option<Timestamp>,
+) -> InterpretivePluralityReport {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut report = InterpretivePluralityReport::default();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::SubstrateInterpreted(signed) = entry {
+            let s = &signed.payload;
+            if &s.community_did != community || s.recorded_at > as_of {
+                continue;
+            }
+            report.interpretations.push(LineagePoint {
+                record_cid: cid.clone(),
+                lineage_id: s.lineage_id.clone(),
+                interpreter: s.interpreter_did.clone(),
+                interprets_cid: s.interprets_cid.clone(),
+                recorded_at: s.recorded_at,
+            });
+            *report.lineages.entry(s.lineage_id.clone()).or_insert(0) += 1;
+            *report
+                .by_interpreter
+                .entry(s.interpreter_did.as_str().to_string())
+                .or_insert(0) += 1;
+        }
+    }
+    report
+        .interpretations
+        .sort_by(|a, b| a.recorded_at.cmp(&b.recorded_at));
+    report
+}
+
+// ---------------------------------------------------------------------------
+// Move 4 structured-skepticism lens (over event reports + corroborations).
+// ---------------------------------------------------------------------------
+
+/// One event's provenance summary as of the query, carrying the report CID so
+/// any under-corroboration flag is traceable.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventProvenance {
+    pub event_cid: Cid,
+    pub originator: DidKey,
+    pub reported_at: Timestamp,
+    /// Does the event meet the structured-skepticism criteria?
+    pub qualifies: bool,
+    /// Which qualifying triggers fired, for the reader.
+    pub triggers: Vec<String>,
+    /// Are the provenance tags (declared incentives, information history, and a
+    /// stake-holding originator's disclosure) present?
+    pub provenance_complete: bool,
+    /// Distinct communities that corroborated the report, excluding the
+    /// originator (self-corroboration does not count).
+    pub corroborators: Vec<DidKey>,
+    /// The faction the event is conveniently aligned with, if any.
+    pub aligned_faction: Option<DidKey>,
+}
+
+/// Provenance and corroboration status of every event report in the archive
+/// (capture_resistance.md move 4; liminal_institutions.md structured-skepticism
+/// protocol). The lens makes the protocol *legible* — which qualifying events
+/// still lack independent corroboration, so the loudest interpreter has not yet
+/// been checked — and renders **no verdict**; the corroboration threshold and
+/// any consequent delay are the caller's (the §10 harness / the mediator pool).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SkepticismReport {
+    /// Events oldest first (traceable).
+    pub events: Vec<EventProvenance>,
+}
+
+impl SkepticismReport {
+    /// Number of events that meet the structured-skepticism criteria.
+    pub fn qualifying_events(&self) -> usize {
+        self.events.iter().filter(|e| e.qualifies).count()
+    }
+    /// The CIDs of qualifying events with fewer than `min` distinct
+    /// corroborators — the loudest-interpreter window still open.
+    pub fn under_corroborated(&self, min: usize) -> Vec<Cid> {
+        self.events
+            .iter()
+            .filter(|e| e.qualifies && e.corroborators.len() < min)
+            .map(|e| e.event_cid.clone())
+            .collect()
+    }
+}
+
+/// Build the structured-skepticism report over the whole archive as of `as_of`
+/// (default now). Corroborators are counted as **distinct communities other
+/// than the originator**, keyed by DID, so an originator cannot self-corroborate
+/// or a single ally corroborate repeatedly to fake independent support.
+pub fn structured_skepticism(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> SkepticismReport {
+    let as_of = as_of.unwrap_or_else(time::now);
+    // event_cid string → (community DID string → community DidKey), distinct.
+    let mut corroborations: BTreeMap<String, BTreeMap<String, DidKey>> = BTreeMap::new();
+    let mut events: Vec<(Cid, &kc_provenance::EventReport)> = Vec::new();
+    for (cid, entry) in archive.iter() {
+        match entry {
+            ArchiveEntry::EventReported(signed) => {
+                let e = &signed.payload;
+                if e.reported_at > as_of {
+                    continue;
+                }
+                events.push((cid.clone(), e));
+            }
+            ArchiveEntry::EventCorroborated(signed) => {
+                let c = &signed.payload;
+                if c.corroborated_at > as_of {
+                    continue;
+                }
+                corroborations
+                    .entry(c.event_cid.to_string())
+                    .or_default()
+                    .insert(
+                        c.corroborating_community.as_str().to_string(),
+                        c.corroborating_community.clone(),
+                    );
+            }
+            _ => {}
+        }
+    }
+
+    let mut report = SkepticismReport::default();
+    for (cid, e) in events {
+        let corroborators: Vec<DidKey> = corroborations
+            .get(&cid.to_string())
+            .map(|m| {
+                m.iter()
+                    .filter(|(k, _)| k.as_str() != e.originator.as_str())
+                    .map(|(_, d)| d.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        report.events.push(EventProvenance {
+            event_cid: cid,
+            originator: e.originator.clone(),
+            reported_at: e.reported_at,
+            qualifies: e.qualifies(),
+            triggers: e
+                .qualifying_triggers()
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect(),
+            provenance_complete: e.provenance_complete(),
+            corroborators,
+            aligned_faction: e.aligned_faction.clone(),
+        });
+    }
+    report.events.sort_by(|a, b| a.reported_at.cmp(&b.reported_at));
+    report
+}
+
+// ---------------------------------------------------------------------------
+// Move 6 adversarial-principal lens (over witness attestations + outputs).
+// ---------------------------------------------------------------------------
+
+/// A cross-community attestation of a principal's validity as of the query —
+/// only those from a witness that is neither the principal nor its home
+/// community (the independence move 6 requires).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CrossWitness {
+    pub record_cid: Cid,
+    pub witness_community: DidKey,
+    pub attested_at: Timestamp,
+}
+
+/// A matter on which the principal's decision diverged from its cohort's
+/// majority, carrying the record CID and whether the divergence benefits the
+/// principal's own side.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutputDivergence {
+    pub output_cid: Cid,
+    pub cohort: String,
+    pub matter: String,
+    pub principal_decision: String,
+    pub cohort_majority: String,
+    /// Distinct peer principals compared on this matter.
+    pub peers_compared: usize,
+    pub favors_home: bool,
+}
+
+/// Adversarial-principal validation for a principal (capture_resistance.md move
+/// 6; m2m_interaction.md). Two independent signals, neither a verdict:
+/// **cross-community witness** count (validity that does not rest on the
+/// principal's own or its home community's attestation) and **output
+/// triangulation** against similarly-situated principals (divergence toward the
+/// principal's own benefit). The caller decides what count/divergence is
+/// actionable.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PrincipalValidationReport {
+    pub cross_witnesses: Vec<CrossWitness>,
+    pub divergences: Vec<OutputDivergence>,
+}
+
+impl PrincipalValidationReport {
+    /// Distinct communities (other than the principal / its home) that have
+    /// attested the principal — the independent-validation count.
+    pub fn distinct_cross_witnesses(&self) -> usize {
+        self.cross_witnesses
+            .iter()
+            .map(|w| w.witness_community.as_str())
+            .collect::<BTreeSet<_>>()
+            .len()
+    }
+    /// Divergences in a direction that benefits the principal's own side — the
+    /// capture signature.
+    pub fn self_benefiting_divergences(&self) -> usize {
+        self.divergences.iter().filter(|d| d.favors_home).count()
+    }
+}
+
+/// Build the adversarial-principal report for `principal` as of `as_of`
+/// (default now). Cross-witnesses count only communities other than the
+/// principal and its home; triangulation compares the principal's decision on
+/// each (cohort, matter) against the majority among **distinct peer
+/// principals** (deduped by DID, latest output per peer), so one prolific peer
+/// cannot swing the ensemble.
+pub fn adversarial_principal(
+    archive: &InMemoryArchive,
+    principal: &DidKey,
+    as_of: Option<Timestamp>,
+) -> PrincipalValidationReport {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut report = PrincipalValidationReport::default();
+
+    // (cohort, matter) → peer principal DID → (latest decision, produced_at).
+    let mut peers: BTreeMap<(String, String), BTreeMap<String, (String, Timestamp)>> =
+        BTreeMap::new();
+    // The principal's own outputs: (cid, cohort, matter, decision, favors_home).
+    let mut own: Vec<(Cid, String, String, String, bool)> = Vec::new();
+
+    for (cid, entry) in archive.iter() {
+        match entry {
+            ArchiveEntry::PrincipalWitnessed(signed) => {
+                let a = &signed.payload;
+                if a.attested_at > as_of || &a.principal_did != principal {
+                    continue;
+                }
+                if a.witness_community.as_str() != principal.as_str()
+                    && a.witness_community.as_str() != a.principal_home.as_str()
+                {
+                    report.cross_witnesses.push(CrossWitness {
+                        record_cid: cid.clone(),
+                        witness_community: a.witness_community.clone(),
+                        attested_at: a.attested_at,
+                    });
+                }
+            }
+            ArchiveEntry::PrincipalOutputRecorded(signed) => {
+                let o = &signed.payload;
+                if o.produced_at > as_of {
+                    continue;
+                }
+                if &o.principal_did == principal {
+                    own.push((
+                        cid.clone(),
+                        o.cohort.clone(),
+                        o.matter.clone(),
+                        o.decision.clone(),
+                        o.favors_home,
+                    ));
+                } else {
+                    let slot = peers
+                        .entry((o.cohort.clone(), o.matter.clone()))
+                        .or_default()
+                        .entry(o.principal_did.as_str().to_string())
+                        .or_insert((o.decision.clone(), o.produced_at));
+                    if o.produced_at >= slot.1 {
+                        *slot = (o.decision.clone(), o.produced_at);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for (cid, cohort, matter, decision, favors_home) in own {
+        let Some(peer_map) = peers.get(&(cohort.clone(), matter.clone())) else {
+            continue;
+        };
+        if peer_map.is_empty() {
+            continue;
+        }
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+        for (_, (d, _)) in peer_map.iter() {
+            *counts.entry(d.clone()).or_insert(0) += 1;
+        }
+        // Highest count; ties broken by the lexically smallest decision.
+        let majority = counts
+            .into_iter()
+            .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(&a.0)))
+            .map(|(k, _)| k)
+            .unwrap();
+        if decision != majority {
+            report.divergences.push(OutputDivergence {
+                output_cid: cid,
+                cohort,
+                matter,
+                principal_decision: decision,
+                cohort_majority: majority,
+                peers_compared: peer_map.len(),
+                favors_home,
+            });
+        }
+    }
+
+    report.cross_witnesses.sort_by(|a, b| a.attested_at.cmp(&b.attested_at));
+    report.divergences.sort_by(|a, b| a.matter.cmp(&b.matter));
+    report
 }
 
 /// One entrant a sponsor vouched for, with the count of adverse conduct
@@ -444,4 +818,367 @@ pub fn ceremony_cost_decay(
         .last()
         .map(|r| as_of.as_second() - r.sealed_at.as_second());
     decay
+}
+
+// ---------------------------------------------------------------------------
+// §7 commons free-rider lens (read-only, over usage records).
+// ---------------------------------------------------------------------------
+
+/// One appropriator's cumulative draw and contribution on a commons, with the
+/// usage-record CIDs for traceability.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsageTally {
+    pub community: DidKey,
+    pub consumed: u64,
+    pub contributed: u64,
+    pub record_count: usize,
+    pub evidence: Vec<Cid>,
+}
+
+impl UsageTally {
+    /// `consumed - contributed` as a signed net draw (positive = drew more than
+    /// it returned). i128 avoids u64 underflow.
+    pub fn net_draw(&self) -> i128 {
+        self.consumed as i128 - self.contributed as i128
+    }
+    /// `consumed / contributed`, `None` when `contributed == 0` (a nonzero draw
+    /// against zero contribution is the strongest free-rider shape but is left
+    /// for the reader to weigh via `net_draw`, not collapsed into a verdict).
+    pub fn draw_ratio(&self) -> Option<f64> {
+        if self.contributed == 0 {
+            None
+        } else {
+            Some(self.consumed as f64 / self.contributed as f64)
+        }
+    }
+}
+
+/// Compact-wide free-rider signal for one commons (Ostrom principle 4 monitoring;
+/// commons_federation.md §"The tragedy-of-the-virtues problem"). Per-appropriator
+/// consumed/contributed tallies over the commons' usage records. Surfaces the
+/// asymmetry between what communities drew and what they returned and renders **no
+/// verdict** — whether an imbalance is free-riding, and what to do about it, is
+/// the mediator pool's call. Every tally is traceable to signed usage records by
+/// the CIDs it carries.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FreeRiderReport {
+    /// Per-appropriator tallies, ordered by community DID.
+    pub tallies: Vec<UsageTally>,
+}
+
+impl FreeRiderReport {
+    pub fn total_consumed(&self) -> u64 {
+        self.tallies.iter().map(|t| t.consumed).sum()
+    }
+    pub fn total_contributed(&self) -> u64 {
+        self.tallies.iter().map(|t| t.contributed).sum()
+    }
+    /// Communities whose consumption exceeds contribution, ordered by descending
+    /// net draw — the ranking a free-rider dashboard would head with.
+    pub fn by_net_draw(&self) -> Vec<(String, i128)> {
+        let mut v: Vec<(String, i128)> = self
+            .tallies
+            .iter()
+            .filter(|t| t.net_draw() > 0)
+            .map(|t| (t.community.as_str().to_string(), t.net_draw()))
+            .collect();
+        v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        v
+    }
+}
+
+/// Compute the free-rider report for the commons registered at `commons_cid`, as
+/// of `as_of` (defaults to now). Aggregates every usage record referencing that
+/// commons whose `recorded_at <= as_of`.
+pub fn free_rider_signals(
+    archive: &InMemoryArchive,
+    commons_cid: &Cid,
+    as_of: Option<Timestamp>,
+) -> FreeRiderReport {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut tallies: BTreeMap<String, UsageTally> = BTreeMap::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::UsageAccounted(signed) = entry {
+            let u = &signed.payload;
+            if &u.commons_cid != commons_cid || u.recorded_at > as_of {
+                continue;
+            }
+            let t = tallies.entry(u.community.as_str().to_string()).or_insert_with(|| UsageTally {
+                community: u.community.clone(),
+                consumed: 0,
+                contributed: 0,
+                record_count: 0,
+                evidence: vec![],
+            });
+            t.consumed = t.consumed.saturating_add(u.consumed);
+            t.contributed = t.contributed.saturating_add(u.contributed);
+            t.record_count += 1;
+            t.evidence.push(cid.clone());
+        }
+    }
+    FreeRiderReport { tallies: tallies.into_values().collect() }
+}
+
+// ---------------------------------------------------------------------------
+// §8 observer dashboard (read-only aggregation — the composition-drift board).
+// ---------------------------------------------------------------------------
+
+/// The observer corps's compact-wide capture-signature view (protocol-components
+/// §8 "composition-drift dashboard"). It bundles the admissions-integrity lenses
+/// already computed elsewhere — the sponsorship [`CompositionGraph`] (composition
+/// drift) and the [`RejectionPattern`] (who rejects whom) — with the §8 activity
+/// tallies: attributed observer reports per subject community and whistleblower
+/// reports per accused community. Like every jester lens it surfaces flags with
+/// provenance (the embedded structs carry their CIDs) and renders **no verdict**.
+/// The *substrate-deference* half of the §8 dashboard (compact-incapable-list
+/// state, structured-fast cadence) is deferred with §9.
+#[derive(Debug, Clone, Default)]
+pub struct ObserverDashboard {
+    pub composition: CompositionGraph,
+    pub rejections: RejectionPattern,
+    /// Subject community DID → attributed observer reports against it, descending.
+    pub observer_reports_by_subject: Vec<(String, usize)>,
+    /// Accused community DID → whistleblower reports against it, descending. The
+    /// source is never counted or exposed.
+    pub whistleblowers_by_accused: Vec<(String, usize)>,
+}
+
+fn descending(map: BTreeMap<String, usize>) -> Vec<(String, usize)> {
+    let mut v: Vec<(String, usize)> = map.into_iter().collect();
+    v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    v
+}
+
+/// Build the observer dashboard as of `as_of` (defaults to now).
+pub fn observer_dashboard(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> ObserverDashboard {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut reports: BTreeMap<String, usize> = BTreeMap::new();
+    let mut whistles: BTreeMap<String, usize> = BTreeMap::new();
+    for (_, entry) in archive.iter() {
+        match entry {
+            ArchiveEntry::ObserverReportPublished(s) if s.payload.reported_at <= as_of => {
+                *reports.entry(s.payload.subject_community.as_str().to_string()).or_insert(0) += 1;
+            }
+            ArchiveEntry::WhistleblowerFiled(s) if s.payload.filed_at <= as_of => {
+                *whistles.entry(s.payload.accused_community.as_str().to_string()).or_insert(0) += 1;
+            }
+            _ => {}
+        }
+    }
+    ObserverDashboard {
+        composition: composition_graph(archive, Some(as_of)),
+        rejections: rejection_pattern(archive, Some(as_of)),
+        observer_reports_by_subject: descending(reports),
+        whistleblowers_by_accused: descending(whistles),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// §9 substrate-deference (constitutional layer) — state, gates, erosion.
+// ---------------------------------------------------------------------------
+
+/// The compact's constitutional state as of a query time: whether it is ratified,
+/// the compact-incapable matters currently in force (genesis + adds − removes),
+/// and the current structured-fast cadence (genesis periods overlaid by the
+/// latest amendment per label).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ConstitutionState {
+    pub ratified: bool,
+    pub compact_incapable: Vec<IncapableMatter>,
+    pub fast_periods: Vec<FastPeriod>,
+}
+
+/// Compute the constitution as of `as_of` (defaults to now). Amendments with
+/// `decided_at <= as_of` are applied in insertion order.
+pub fn constitution_state(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> ConstitutionState {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut ratified = false;
+    let mut matters: BTreeMap<String, IncapableMatter> = BTreeMap::new();
+    let mut periods: BTreeMap<String, FastPeriod> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        match e {
+            ArchiveEntry::ConstitutionRatified(s) if s.payload.genesis_at <= as_of => {
+                ratified = true;
+                for m in &s.payload.compact_incapable {
+                    matters.insert(m.key.clone(), m.clone());
+                }
+                for p in &s.payload.fast_periods {
+                    periods.insert(p.label.clone(), p.clone());
+                }
+            }
+            ArchiveEntry::CompactIncapableAmended(s) if s.payload.decided_at <= as_of => {
+                match s.payload.kind {
+                    AmendmentKind::Add => {
+                        matters.insert(s.payload.matter.key.clone(), s.payload.matter.clone());
+                    }
+                    AmendmentKind::Remove => {
+                        matters.remove(&s.payload.matter.key);
+                    }
+                }
+            }
+            ArchiveEntry::FastCadenceAmended(s) if s.payload.decided_at <= as_of => {
+                periods.insert(s.payload.period.label.clone(), s.payload.period.clone());
+            }
+            _ => {}
+        }
+    }
+    ConstitutionState {
+        ratified,
+        compact_incapable: matters.into_values().collect(),
+        fast_periods: periods.into_values().collect(),
+    }
+}
+
+/// §9 categorical-deference gate: is `matter_key` a matter the compact will not
+/// decide (in force as of `as_of`)? A caller contemplating a first-order decision
+/// on a member's internal affairs checks this and declines when true.
+pub fn compact_incapable(
+    archive: &InMemoryArchive,
+    matter_key: &str,
+    as_of: Option<Timestamp>,
+) -> bool {
+    constitution_state(archive, as_of)
+        .compact_incapable
+        .iter()
+        .any(|m| m.key == matter_key)
+}
+
+/// §9 temporal-deference gate: the label of the structured-fast period containing
+/// `at` in the cadence in force then, or `None` if the compact is not fasting.
+pub fn in_structured_fast(archive: &InMemoryArchive, at: Timestamp) -> Option<String> {
+    constitution_state(archive, Some(at))
+        .fast_periods
+        .into_iter()
+        .find(|p| p.contains(at))
+        .map(|p| p.label)
+}
+
+/// A deliberative compact act initiated during a structured fast — a **deviation**
+/// the observer corps surfaces (capture_resistance.md: the fast is honored by
+/// social practice, made legible here, not hard-refused by the authority pass).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FastDeviation {
+    pub record_cid: Cid,
+    /// The archive entry kind (`DisputeFiled`, `DesignationDecided`, …).
+    pub kind: String,
+    pub at: Timestamp,
+    pub fast_label: String,
+}
+
+/// The substrate-deference / erosion report (protocol-components §9
+/// "erosion-detection alerting"; completes the substrate-deference half of the §8
+/// dashboard). Read-only, no verdict: it makes the compact's non-ultimacy legible
+/// — the size and drift of the compact-incapable list, the fast cadence and its
+/// contraction count, and deliberative acts initiated during a fast — so members
+/// and the jester can see drift toward ultimacy before any single act looks wrong.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SubstrateDeferenceReport {
+    pub ratified: bool,
+    /// Compact-incapable matters currently in force.
+    pub incapable_current: usize,
+    /// `Add` amendments accepted-or-attempted as of the query (expansion).
+    pub incapable_added: usize,
+    /// `Remove` amendments as of the query (contraction).
+    pub incapable_removed: usize,
+    /// True when any protection has been rolled back — a compact-incapable matter
+    /// removed or a fast period contracted. The erosion signal: contraction of the
+    /// deference commitments is exactly the early sign of drift toward ultimacy the
+    /// observer corps should see (surfaced, not judged). (Note: a *net* count is
+    /// not the signal — a matter can only be removed if it was earlier added, so
+    /// removals never exceed additions; the presence of any rollback is what
+    /// matters.)
+    pub contraction_detected: bool,
+    /// Structured-fast periods currently in the cadence.
+    pub fast_period_count: usize,
+    /// Total seconds of structured fast currently scheduled.
+    pub fast_seconds_total: i64,
+    /// Fast-cadence `Contract` amendments as of the query (shrinkage).
+    pub fast_contractions: usize,
+    /// Deliberative acts initiated during a fast window, oldest first.
+    pub fast_deviations: Vec<FastDeviation>,
+}
+
+/// The deliberative-initiation timestamp and kind of `entry`, if it is a
+/// compact-level *initiating* act (a new mediation, a designation, or an
+/// escalation up the dispute or commons ladder). De-escalations, injunctions
+/// (emergency), and registry/response records are not initiations.
+fn deliberative_initiation(entry: &ArchiveEntry) -> Option<(Timestamp, &'static str)> {
+    match entry {
+        ArchiveEntry::DisputeFiled(s) => Some((s.payload.filed_at, "DisputeFiled")),
+        ArchiveEntry::DesignationDecided(s) => Some((s.payload.designated_at, "DesignationDecided")),
+        ArchiveEntry::LadderAdvanced(s) => {
+            let from = dispute_ladder_rank(s.payload.from_rung);
+            let to = dispute_ladder_rank(s.payload.to_rung);
+            match (from, to) {
+                (Some(f), Some(t)) if t > f => Some((s.payload.transitioned_at, "LadderAdvanced")),
+                _ => None,
+            }
+        }
+        ArchiveEntry::SanctionApplied(s) => {
+            if sanction_rank(s.payload.to_level) > sanction_rank(s.payload.from_level) {
+                Some((s.payload.decided_at, "SanctionApplied"))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Compute the substrate-deference report as of `as_of` (defaults to now).
+pub fn substrate_deference(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> SubstrateDeferenceReport {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let state = constitution_state(archive, Some(as_of));
+
+    let mut added = 0usize;
+    let mut removed = 0usize;
+    let mut fast_contractions = 0usize;
+    for (_, e) in archive.iter() {
+        match e {
+            ArchiveEntry::CompactIncapableAmended(s) if s.payload.decided_at <= as_of => {
+                match s.payload.kind {
+                    AmendmentKind::Add => added += 1,
+                    AmendmentKind::Remove => removed += 1,
+                }
+            }
+            ArchiveEntry::FastCadenceAmended(s) if s.payload.decided_at <= as_of => {
+                if s.payload.change.is_contraction() {
+                    fast_contractions += 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let mut deviations = vec![];
+    for (cid, e) in archive.iter() {
+        if let Some((at, kind)) = deliberative_initiation(e) {
+            if at <= as_of {
+                if let Some(label) = state.fast_periods.iter().find(|p| p.contains(at)) {
+                    deviations.push(FastDeviation {
+                        record_cid: cid.clone(),
+                        kind: kind.to_string(),
+                        at,
+                        fast_label: label.label.clone(),
+                    });
+                }
+            }
+        }
+    }
+    deviations.sort_by_key(|d| d.at);
+
+    SubstrateDeferenceReport {
+        ratified: state.ratified,
+        incapable_current: state.compact_incapable.len(),
+        incapable_added: added,
+        incapable_removed: removed,
+        contraction_detected: removed > 0 || fast_contractions > 0,
+        fast_period_count: state.fast_periods.len(),
+        fast_seconds_total: state.fast_periods.iter().map(|p| p.seconds()).sum(),
+        fast_contractions,
+        fast_deviations: deviations,
+    }
 }

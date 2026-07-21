@@ -1507,3 +1507,1038 @@ mod escalation {
         bad(&a, &re2);
     }
 }
+
+// --- §9 interim injunction authority ----------------------------------------
+
+mod injunction {
+    use super::*;
+    use crate::authority::DEFAULT_WAITING_PERIOD_SECONDS;
+    use kc_escalation::{
+        Capability, DeliberationCycle, Designation, DesignationTier, DesignationUrgency,
+        InjunctionChallenge, InjunctionConfirmation, InterimInjunction, RestitutionCompletion,
+        RestitutionObligation,
+    };
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const NINETY_DAYS: i64 = 90 * 24 * 3600;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn bad(a: &InMemoryArchive, cid: &Cid) {
+        assert!(authorize(a, a.get(cid).unwrap(), Q, P).is_err(), "expected rejection");
+    }
+
+    fn issue(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        dispute_cid: Option<Cid>,
+        revoked: Vec<Capability>,
+        panel: &[(&DidKey, &PrivKey)],
+        issued: i64,
+        expires: i64,
+    ) -> Cid {
+        let panel_dids = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let inj = Signed::build(
+            InterimInjunction {
+                subject_community: subject.clone(),
+                dispute_cid,
+                harm: "ongoing interference".into(),
+                protective_measures: "suspend the named capabilities".into(),
+                revoked_capabilities: revoked,
+                panel: panel_dids,
+                issued_at: ts(issued),
+                expires_at: ts(expires),
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::InjunctionIssued(inj)).unwrap()
+    }
+
+    fn confirm(
+        a: &mut InMemoryArchive,
+        injunction_cid: Cid,
+        confirmers: &[(&DidKey, &PrivKey)],
+        at: i64,
+    ) -> Cid {
+        let dids = confirmers.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            confirmers.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let c = Signed::build(
+            InjunctionConfirmation { injunction_cid, confirmers: dids, confirmed_at: ts(at) },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::InjunctionConfirmed(c)).unwrap()
+    }
+
+    fn challenge(
+        a: &mut InMemoryArchive,
+        injunction_cid: Cid,
+        panel: &[(&DidKey, &PrivKey)],
+        overturned: bool,
+        at: i64,
+    ) -> Cid {
+        let panel_dids = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let ch = Signed::build(
+            InjunctionChallenge {
+                injunction_cid,
+                panel: panel_dids,
+                overturned,
+                reasoning: "the harm was not ongoing".into(),
+                decided_at: ts(at),
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::InjunctionChallenged(ch)).unwrap()
+    }
+
+    /// Subject S plus three non-party communities C/D/E each with one mediator.
+    /// Returns (s, [mC, mD, mE]).
+    fn injunction_fixture(a: &mut InMemoryArchive) -> (DidKey, Vec<(DidKey, PrivKey)>) {
+        let (s, _sp) = community(a, "S", ts(1));
+        let (c, cp) = community(a, "C", ts(1));
+        let (d, dp) = community(a, "D", ts(1));
+        let (e, ep) = community(a, "E", ts(1));
+        let mut pool = vec![];
+        pool.extend(add_mediators(a, &c, &cp, 1, ts(1)));
+        pool.extend(add_mediators(a, &d, &dp, 1, ts(1)));
+        pool.extend(add_mediators(a, &e, &ep, 1, ts(1)));
+        (s, pool)
+    }
+
+    #[test]
+    fn injunction_valid_emergency_panel_is_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (s, pool) = injunction_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100 + NINETY_DAYS);
+        ok(&a, &inj);
+    }
+
+    #[test]
+    fn injunction_below_panel_minimum_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, pool) = injunction_fixture(&mut a);
+        // Only two non-party mediators — below panel_min.
+        let small: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let inj_small = issue(&mut a, &s, None, vec![Capability::Trade], &small, 100, 100 + NINETY_DAYS);
+        bad(&a, &inj_small);
+    }
+
+    #[test]
+    fn injunction_party_mediator_violates_non_overlap() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = community(&mut a, "S", ts(1));
+        let (c, cp) = community(&mut a, "C", ts(1));
+        let (d, dp) = community(&mut a, "D", ts(1));
+        let mc = add_mediators(&mut a, &c, &cp, 1, ts(1));
+        let md = add_mediators(&mut a, &d, &dp, 1, ts(1));
+        // The subject nominates a mediator and seats it on its own injunction panel.
+        let sm = add_mediators(&mut a, &s, &sp, 1, ts(1));
+        let panel = [(&mc[0].0, &mc[0].1), (&md[0].0, &md[0].1), (&sm[0].0, &sm[0].1)];
+        let inj = issue(&mut a, &s, None, vec![Capability::Navigation], &panel, 100, 100 + NINETY_DAYS);
+        bad(&a, &inj);
+    }
+
+    #[test]
+    fn injunction_zero_window_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, pool) = injunction_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100);
+        bad(&a, &inj);
+    }
+
+    #[test]
+    fn injunction_challenge_by_different_panel_ok_same_panel_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, pool) = injunction_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100 + NINETY_DAYS);
+        ok(&a, &inj);
+        // A challenge co-signed by an issuing panelist violates the different-panel rule.
+        let (f, fp) = community(&mut a, "F", ts(1));
+        let (g, gp) = community(&mut a, "G", ts(1));
+        let mf = add_mediators(&mut a, &f, &fp, 1, ts(1));
+        let mg = add_mediators(&mut a, &g, &gp, 1, ts(1));
+        let same = [(&pool[0].0, &pool[0].1), (&mf[0].0, &mf[0].1), (&mg[0].0, &mg[0].1)];
+        let ch_same = challenge(&mut a, inj, &same, true, 200);
+        bad(&a, &ch_same);
+        // A wholly disjoint, non-party panel is authorized.
+        let (h, hp) = community(&mut a, "H", ts(1));
+        let mh = add_mediators(&mut a, &h, &hp, 1, ts(1));
+        let diff = [(&mf[0].0, &mf[0].1), (&mg[0].0, &mg[0].1), (&mh[0].0, &mh[0].1)];
+        let ch_diff = challenge(&mut a, inj, &diff, true, 200);
+        ok(&a, &ch_diff);
+    }
+
+    #[test]
+    fn injunction_confirmation_needs_distinct_quorum() {
+        let mut a = InMemoryArchive::new();
+        let (s, pool) = injunction_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100 + NINETY_DAYS);
+        // Two distinct communities confirm (second-class quorum).
+        let (m, mp) = community(&mut a, "M", ts(1));
+        let (n, np) = community(&mut a, "N", ts(1));
+        let good = confirm(&mut a, inj, &[(&m, &mp), (&n, &np)], 200);
+        ok(&a, &good);
+        // A single community cannot meet the quorum.
+        let solo = confirm(&mut a, inj, &[(&m, &mp)], 200);
+        bad(&a, &solo);
+    }
+
+    // ---- designation safeguard #1 (issuing panel barred from designation) ----
+
+    fn bad_faith_cycle(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        imposer: &DidKey,
+        imposer_priv: &PrivKey,
+        base: i64,
+    ) -> Cid {
+        let ob = Signed::build(
+            RestitutionObligation {
+                subject_community: subject.clone(),
+                beneficiary: imposer.clone(),
+                dispute_cid: None,
+                terms: "restore".into(),
+                imposed_by: vec![imposer.clone()],
+                due_by: None,
+                decision_class: DecisionClass::FirstClass,
+                imposed_at: ts(base),
+            },
+            &[(imposer.as_str(), imposer_priv)],
+        )
+        .unwrap();
+        let ob_cid = a.append(ArchiveEntry::RestitutionObligated(ob)).unwrap();
+        let done = Signed::build(
+            RestitutionCompletion {
+                obligation_cid: ob_cid,
+                verifiers: vec![imposer.clone()],
+                satisfied: true,
+                narrative: "done".into(),
+                verified_at: ts(base + 1),
+            },
+            &[(imposer.as_str(), imposer_priv)],
+        )
+        .unwrap();
+        let done_cid = a.append(ArchiveEntry::RestitutionVerified(done)).unwrap();
+        a.append(ArchiveEntry::ConductAttested(conduct(
+            vec![subject.clone()],
+            &[(imposer, imposer_priv)],
+            DecisionClass::FirstClass,
+            ts(base + 2),
+        )))
+        .unwrap();
+        done_cid
+    }
+
+    fn cycle(idx: u32, rep: &DidKey, opened: i64, concluded: i64) -> DeliberationCycle {
+        DeliberationCycle {
+            cycle_index: idx,
+            representatives: vec![rep.clone()],
+            opened_at: ts(opened),
+            concluded_at: ts(concluded),
+            reasoning: "r".into(),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn designation(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        deliberators: &[(&DidKey, &PrivKey)],
+        cited: Vec<Cid>,
+        cycles: Vec<DeliberationCycle>,
+        at: Timestamp,
+    ) -> Cid {
+        let delibs = deliberators.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            deliberators.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let dz = Signed::build(
+            Designation {
+                subject_community: subject.clone(),
+                tier: DesignationTier::Anathema,
+                urgency: DesignationUrgency::Normal,
+                deliberators: delibs,
+                criteria: "three graver failed restorations".into(),
+                cited_acts: vec![Cid::of_bytes(b"act")],
+                failed_restoration_cycles: cited,
+                deliberation_cycles: cycles,
+                reversal_conditions: Some("changed conduct over probation".into()),
+                reexamine_after: Some(ts(99_999)),
+                decision_class: DecisionClass::SecondClass,
+                designated_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::DesignationDecided(dz)).unwrap()
+    }
+
+    const W: i64 = DEFAULT_WAITING_PERIOD_SECONDS;
+
+    #[test]
+    fn designation_blocked_when_deliberator_sat_on_active_injunction_panel() {
+        let mut a = InMemoryArchive::new();
+        let (s, _sp) = community(&mut a, "S", ts(1));
+        let (p, pp) = community(&mut a, "P", ts(1));
+        let (qc, qp) = community(&mut a, "Q", ts(1));
+        // Two further communities supply the rest of the injunction panel.
+        let (c, cp) = community(&mut a, "C", ts(1));
+        let (d, dp) = community(&mut a, "D", ts(1));
+        // P — a would-be designation deliberator — also nominates a mediator.
+        let mp = add_mediators(&mut a, &p, &pp, 1, ts(1));
+        let mc = add_mediators(&mut a, &c, &cp, 1, ts(1));
+        let md = add_mediators(&mut a, &d, &dp, 1, ts(1));
+        let cycles = vec![
+            bad_faith_cycle(&mut a, &s, &p, &pp, 100),
+            bad_faith_cycle(&mut a, &s, &p, &pp, 200),
+            bad_faith_cycle(&mut a, &s, &p, &pp, 300),
+        ];
+        let panel = [(&mp[0].0, &mp[0].1), (&mc[0].0, &mc[0].1), (&md[0].0, &md[0].1)];
+        // Active injunction against S, panel includes P's mediator.
+        let _inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 400, 400 + NINETY_DAYS);
+        // Designation deliberated by P (overlaps the issuing panel) and Q -> blocked.
+        let dz = designation(&mut a, &s, &[(&p, &pp), (&qc, &qp)], cycles.clone(),
+            vec![cycle(0, &p, 1000, 1100), cycle(1, &p, 1100 + W, 1200 + W)], ts(2000));
+        bad(&a, &dz);
+
+        // Once the injunction is overturned by a different panel before the
+        // designation, P is no longer on an *active* panel and it passes.
+        let (e, ep) = community(&mut a, "E", ts(1));
+        let (f, fp) = community(&mut a, "F", ts(1));
+        let (g, gp) = community(&mut a, "G", ts(1));
+        let me = add_mediators(&mut a, &e, &ep, 1, ts(1));
+        let mf = add_mediators(&mut a, &f, &fp, 1, ts(1));
+        let mg = add_mediators(&mut a, &g, &gp, 1, ts(1));
+        let diff = [(&me[0].0, &me[0].1), (&mf[0].0, &mf[0].1), (&mg[0].0, &mg[0].1)];
+        let _ch = challenge(&mut a, _inj, &diff, true, 500);
+        // ts(2001) so this designation differs from the blocked one above (distinct CID).
+        let dz2 = designation(&mut a, &s, &[(&p, &pp), (&qc, &qp)], cycles,
+            vec![cycle(0, &p, 1000, 1100), cycle(1, &p, 1100 + W, 1200 + W)], ts(2001));
+        ok(&a, &dz2);
+    }
+}
+
+// --- §7 commons governance authority ----------------------------------------
+
+mod commons {
+    use super::*;
+    use kc_commons::{CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, UsageRecord};
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn bad(a: &InMemoryArchive, cid: &Cid) {
+        assert!(authorize(a, a.get(cid).unwrap(), Q, P).is_err(), "expected rejection");
+    }
+
+    /// Register a commons whose appropriators are exactly `parties`, co-signed by
+    /// all of them (so the second-class quorum is satisfied whenever len >= 2).
+    fn register(
+        a: &mut InMemoryArchive,
+        kind: CommonsKind,
+        parties: &[(&DidKey, &PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = parties.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = parties.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind,
+                name: "shared resource".into(),
+                description: "a compact-level commons".into(),
+                appropriators: dids.clone(),
+                provision_rule: "provision scales with draw".into(),
+                registered_by: dids,
+                registered_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap()
+    }
+
+    fn usage(
+        a: &mut InMemoryArchive,
+        commons_cid: Cid,
+        community: &DidKey,
+        priv_: &PrivKey,
+        consumed: u64,
+        contributed: u64,
+        at: Timestamp,
+    ) -> Cid {
+        let u = Signed::build(
+            UsageRecord {
+                commons_cid,
+                community: community.clone(),
+                consumed,
+                contributed,
+                period_start: at,
+                period_end: at,
+                recorded_at: at,
+            },
+            &[(community.as_str(), priv_)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::UsageAccounted(u)).unwrap()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn sanction(
+        a: &mut InMemoryArchive,
+        commons_cid: Cid,
+        subject: &DidKey,
+        from: SanctionLevel,
+        to: SanctionLevel,
+        imposers: &[(&DidKey, &PrivKey)],
+        dc: DecisionClass,
+        at: Timestamp,
+    ) -> Cid {
+        let ids: Vec<DidKey> = imposers.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = imposers.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let s = Signed::build(
+            CommonsSanction {
+                commons_cid,
+                subject_community: subject.clone(),
+                from_level: from,
+                to_level: to,
+                basis: "overdraw beyond the provision rule".into(),
+                references: vec![],
+                imposers: ids,
+                decision_class: dc,
+                decided_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::SanctionApplied(s)).unwrap()
+    }
+
+    /// Three appropriators A, B, C of one commons; B is the misbehaving subject.
+    /// Returns (a, a_priv, b, c, c_priv, commons_cid).
+    #[allow(clippy::type_complexity)]
+    fn fixture(
+        a: &mut InMemoryArchive,
+    ) -> (DidKey, PrivKey, DidKey, DidKey, PrivKey, Cid) {
+        let (ca, ca_priv) = community(a, "A", ts(10));
+        let (cb, _cb_priv) = community(a, "B", ts(10));
+        let (cc, cc_priv) = community(a, "C", ts(10));
+        let commons = register(
+            a,
+            CommonsKind::Communication,
+            &[(&ca, &ca_priv), (&cb, &_cb_priv), (&cc, &cc_priv)],
+            ts(50),
+        );
+        (ca, ca_priv, cb, cc, cc_priv, commons)
+    }
+
+    #[test]
+    fn register_usage_and_graduated_sanction_are_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cc, cc_priv, commons) = fixture(&mut a);
+        ok(&a, &commons);
+        // Graduated escalation on B, imposed by A and C (two distinct communities).
+        let s1 = sanction(&mut a, commons, &cb, SanctionLevel::None, SanctionLevel::Monitoring,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(100));
+        ok(&a, &s1);
+        let s2 = sanction(&mut a, commons, &cb, SanctionLevel::Monitoring, SanctionLevel::Warning,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(200));
+        ok(&a, &s2);
+        let s3 = sanction(&mut a, commons, &cb, SanctionLevel::Warning, SanctionLevel::Restriction,
+            &[(&ca, &ca_priv), (&cc, &cc_priv)], DecisionClass::SecondClass, ts(300));
+        ok(&a, &s3);
+    }
+
+    #[test]
+    fn usage_by_appropriator_is_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv) = community(&mut a, "A", ts(10));
+        let (cb, cb_priv) = community(&mut a, "B", ts(10));
+        let commons = register(&mut a, CommonsKind::Navigation,
+            &[(&ca, &ca_priv), (&cb, &cb_priv)], ts(50));
+        let u = usage(&mut a, commons, &cb, &cb_priv, 100, 40, ts(100));
+        ok(&a, &u);
+    }
+
+    #[test]
+    fn registration_below_quorum_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv) = community(&mut a, "A", ts(10));
+        // A single-community registration is second-class and fails the quorum.
+        let solo = register(&mut a, CommonsKind::LifeSupport, &[(&ca, &ca_priv)], ts(50));
+        bad(&a, &solo);
+    }
+
+    #[test]
+    fn registrant_must_be_an_appropriator() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv) = community(&mut a, "A", ts(10));
+        let (cb, cb_priv) = community(&mut a, "B", ts(10));
+        let (cc, cc_priv) = community(&mut a, "C", ts(10));
+        // Registered_by = {A, C} but appropriators = {A, B}: C is not an appropriator.
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind: CommonsKind::Rescue,
+                name: "rescue net".into(),
+                description: "d".into(),
+                appropriators: vec![ca.clone(), cb.clone()],
+                provision_rule: "r".into(),
+                registered_by: vec![ca.clone(), cc.clone()],
+                registered_at: ts(50),
+            },
+            &[(ca.as_str(), &ca_priv), (cc.as_str(), &cc_priv)],
+        )
+        .unwrap();
+        let _ = cb_priv;
+        let cid = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn usage_by_non_appropriator_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv) = community(&mut a, "A", ts(10));
+        let (cb, cb_priv) = community(&mut a, "B", ts(10));
+        let (cx, cx_priv) = community(&mut a, "X", ts(10));
+        let commons = register(&mut a, CommonsKind::Communication,
+            &[(&ca, &ca_priv), (&cb, &cb_priv)], ts(50));
+        // X is not an appropriator of the commons.
+        let u = usage(&mut a, commons, &cx, &cx_priv, 10, 0, ts(100));
+        bad(&a, &u);
+    }
+
+    #[test]
+    fn usage_on_unregistered_commons_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv) = community(&mut a, "A", ts(10));
+        // A CID that does not resolve to a CommonsRegistered entry.
+        let u = usage(&mut a, Cid::of_bytes(b"nope"), &ca, &ca_priv, 10, 0, ts(100));
+        bad(&a, &u);
+    }
+
+    #[test]
+    fn sanction_rejects_skipping_a_level() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cc, cc_priv, commons) = fixture(&mut a);
+        // None -> Restriction skips Monitoring and Warning.
+        let s = sanction(&mut a, commons, &cb, SanctionLevel::None, SanctionLevel::Restriction,
+            &[(&ca, &ca_priv), (&cc, &cc_priv)], DecisionClass::SecondClass, ts(100));
+        bad(&a, &s);
+    }
+
+    #[test]
+    fn sanction_rejects_wrong_from_level() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, _cc, _cc_priv, commons) = fixture(&mut a);
+        // The pair is at None, but this claims to leave Warning.
+        let s = sanction(&mut a, commons, &cb, SanctionLevel::Warning, SanctionLevel::Restriction,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(100));
+        bad(&a, &s);
+    }
+
+    #[test]
+    fn sanction_second_class_level_needs_quorum_and_label() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cc, cc_priv, commons) = fixture(&mut a);
+        let s1 = sanction(&mut a, commons, &cb, SanctionLevel::None, SanctionLevel::Monitoring,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(100));
+        ok(&a, &s1);
+        let s2 = sanction(&mut a, commons, &cb, SanctionLevel::Monitoring, SanctionLevel::Warning,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(200));
+        ok(&a, &s2);
+        // Restriction by a single community, labeled second-class: fails the quorum.
+        let solo = sanction(&mut a, commons, &cb, SanctionLevel::Warning, SanctionLevel::Restriction,
+            &[(&ca, &ca_priv)], DecisionClass::SecondClass, ts(300));
+        bad(&a, &solo);
+        // Restriction labeled first-class: fails the class cross-check.
+        let mislabeled = sanction(&mut a, commons, &cb, SanctionLevel::Warning, SanctionLevel::Restriction,
+            &[(&ca, &ca_priv), (&cc, &cc_priv)], DecisionClass::FirstClass, ts(301));
+        bad(&a, &mislabeled);
+    }
+
+    #[test]
+    fn sanction_deescalation_is_first_class_and_legal() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cc, cc_priv, commons) = fixture(&mut a);
+        let s1 = sanction(&mut a, commons, &cb, SanctionLevel::None, SanctionLevel::Monitoring,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(100));
+        ok(&a, &s1);
+        let s2 = sanction(&mut a, commons, &cb, SanctionLevel::Monitoring, SanctionLevel::Warning,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(200));
+        ok(&a, &s2);
+        let s3 = sanction(&mut a, commons, &cb, SanctionLevel::Warning, SanctionLevel::Restriction,
+            &[(&ca, &ca_priv), (&cc, &cc_priv)], DecisionClass::SecondClass, ts(300));
+        ok(&a, &s3);
+        // Restoration: Restriction -> None in a single first-class de-escalation.
+        let s4 = sanction(&mut a, commons, &cb, SanctionLevel::Restriction, SanctionLevel::None,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(400));
+        ok(&a, &s4);
+    }
+
+    #[test]
+    fn sanction_on_non_appropriator_subject_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv) = community(&mut a, "A", ts(10));
+        let (cb, cb_priv) = community(&mut a, "B", ts(10));
+        let (cx, _cx_priv) = community(&mut a, "X", ts(10));
+        let commons = register(&mut a, CommonsKind::Communication,
+            &[(&ca, &ca_priv), (&cb, &cb_priv)], ts(50));
+        // X is not an appropriator, so it cannot be sanctioned on this commons.
+        let s = sanction(&mut a, commons, &cx, SanctionLevel::None, SanctionLevel::Monitoring,
+            &[(&ca, &ca_priv)], DecisionClass::FirstClass, ts(100));
+        bad(&a, &s);
+    }
+}
+
+// --- §8 observer / jester authority -----------------------------------------
+
+mod observer {
+    use super::*;
+    use kc_observer::{
+        ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
+        WhistleblowerReport,
+    };
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn bad(a: &InMemoryArchive, cid: &Cid) {
+        assert!(authorize(a, a.get(cid).unwrap(), Q, P).is_err(), "expected rejection");
+    }
+
+    /// Register `n` observers nominated by `community`, returned as (did, priv).
+    fn add_observers(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        root_priv: &PrivKey,
+        n: usize,
+        at: Timestamp,
+    ) -> Vec<(DidKey, PrivKey)> {
+        let mut entries = vec![];
+        let mut out = vec![];
+        for _ in 0..n {
+            let (opriv, opub) = keys::generate(Alg::Ed25519).unwrap();
+            let odid = DidKey::from_pubkey(&opub).unwrap();
+            entries.push(ObserverEntry {
+                observer_did: odid.clone(),
+                observer_pubkey: opub,
+                declared_perspective: "labor-rights".into(),
+                valid_from: at,
+                valid_until: None,
+            });
+            out.push((odid, opriv));
+        }
+        let reg = Signed::build(
+            ObserverRegistry { nominating_community: community.clone(), entries, issued_at: at },
+            &[(community.as_str(), root_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ObserverRegistryUpdated(reg)).unwrap();
+        out
+    }
+
+    fn report(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        observer: &(DidKey, PrivKey),
+        at: Timestamp,
+    ) -> Cid {
+        let rep = Signed::build(
+            ObserverReport {
+                subject_community: subject.clone(),
+                observer_did: observer.0.clone(),
+                declared_perspective: "labor-rights".into(),
+                summary: "authoritarian internal hierarchy".into(),
+                references: vec![],
+                observed_at: at,
+                reported_at: at,
+            },
+            &[(observer.0.as_str(), &observer.1)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ObserverReportPublished(rep)).unwrap()
+    }
+
+    fn respond(
+        a: &mut InMemoryArchive,
+        report_cid: Cid,
+        responder: &DidKey,
+        resp_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let r = Signed::build(
+            ReportResponse {
+                report_cid,
+                responding_community: responder.clone(),
+                response: "our council is by consent".into(),
+                responded_at: at,
+            },
+            &[(responder.as_str(), resp_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ReportResponsePublished(r)).unwrap()
+    }
+
+    fn whistleblow(
+        a: &mut InMemoryArchive,
+        accused: &DidKey,
+        panel: &[(&DidKey, &PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let ids: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let wb = Signed::build(
+            WhistleblowerReport {
+                accused_community: accused.clone(),
+                source_commitment: Cid::of_bytes(b"commit"),
+                claim: "coerced labor".into(),
+                references: vec![],
+                reception_panel: ids,
+                filed_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::WhistleblowerFiled(wb)).unwrap()
+    }
+
+    fn reveal(
+        a: &mut InMemoryArchive,
+        report_cid: Cid,
+        panel: &[(&DidKey, &PrivKey)],
+        cause: &str,
+        at: Timestamp,
+    ) -> Cid {
+        let ids: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let rev = Signed::build(
+            SourceReveal {
+                report_cid,
+                panel: ids,
+                cause: cause.into(),
+                disclosed_source: "did:key:zMember".into(),
+                revealed_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::SourceRevealed(rev)).unwrap()
+    }
+
+    /// Subject S, a reporting community R with one observer, plus a three-mediator
+    /// non-party pool C/D/E. Returns (s, s_priv, obs, pool).
+    #[allow(clippy::type_complexity)]
+    fn fixture(
+        a: &mut InMemoryArchive,
+    ) -> (DidKey, PrivKey, (DidKey, PrivKey), Vec<(DidKey, PrivKey)>) {
+        let (s, s_priv) = community(a, "S", ts(10));
+        let (r, r_priv) = community(a, "R", ts(10));
+        let obs = add_observers(a, &r, &r_priv, 1, ts(10)).pop().unwrap();
+        let (cc, cc_priv) = community(a, "C", ts(10));
+        let (cd, cd_priv) = community(a, "D", ts(10));
+        let (ce, ce_priv) = community(a, "E", ts(10));
+        let mut pool = vec![];
+        pool.extend(add_mediators(a, &cc, &cc_priv, 1, ts(10)));
+        pool.extend(add_mediators(a, &cd, &cd_priv, 1, ts(10)));
+        pool.extend(add_mediators(a, &ce, &ce_priv, 1, ts(10)));
+        (s, s_priv, obs, pool)
+    }
+
+    #[test]
+    fn non_party_observer_report_and_subject_response_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, obs, _pool) = fixture(&mut a);
+        let rep = report(&mut a, &s, &obs, ts(100));
+        ok(&a, &rep);
+        let resp = respond(&mut a, rep, &s, &s_priv, ts(200));
+        ok(&a, &resp);
+    }
+
+    #[test]
+    fn observer_reporting_on_own_community_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = add_observers(&mut a, &r, &r_priv, 1, ts(10)).pop().unwrap();
+        // The observer's home community R is the subject: non-overlap violated.
+        let rep = report(&mut a, &r, &obs, ts(100));
+        bad(&a, &rep);
+    }
+
+    #[test]
+    fn unregistered_observer_report_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv) = community(&mut a, "S", ts(10));
+        let (od, opriv) = {
+            let (sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+            (DidKey::from_pubkey(&pk).unwrap(), sk)
+        };
+        let rep = report(&mut a, &s, &(od, opriv), ts(100));
+        bad(&a, &rep);
+    }
+
+    #[test]
+    fn only_subject_may_respond_to_a_report() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, obs, _pool) = fixture(&mut a);
+        let (other, other_priv) = community(&mut a, "Other", ts(10));
+        let rep = report(&mut a, &s, &obs, ts(100));
+        let resp = respond(&mut a, rep, &other, &other_priv, ts(200));
+        bad(&a, &resp);
+    }
+
+    #[test]
+    fn whistleblower_non_party_panel_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, _obs, pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let wb = whistleblow(&mut a, &s, &panel, ts(100));
+        ok(&a, &wb);
+    }
+
+    #[test]
+    fn whistleblower_panel_from_accused_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, _obs, pool) = fixture(&mut a);
+        // The accused S also nominates a mediator and seats it on the reception panel.
+        let s_meds = add_mediators(&mut a, &s, &s_priv, 1, ts(10));
+        let mut panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        panel.push((&s_meds[0].0, &s_meds[0].1));
+        let wb = whistleblow(&mut a, &s, &panel, ts(100));
+        bad(&a, &wb);
+    }
+
+    #[test]
+    fn whistleblower_panel_below_minimum_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, _obs, pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let wb = whistleblow(&mut a, &s, &panel, ts(100));
+        bad(&a, &wb);
+    }
+
+    #[test]
+    fn source_reveal_requires_cause_and_valid_panel() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, _obs, pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let wb = whistleblow(&mut a, &s, &panel, ts(100));
+        // Empty cause: rejected.
+        let no_cause = reveal(&mut a, wb, &panel, "", ts(200));
+        bad(&a, &no_cause);
+        // For cause, by a non-party panel: authorized.
+        let good = reveal(&mut a, wb, &panel, "source recanted; claim contested", ts(300));
+        ok(&a, &good);
+    }
+}
+
+// --- §9 substrate-deference (constitution) authority ------------------------
+
+mod constitution {
+    use super::*;
+    use kc_constitution::{
+        AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
+        FastChange, FastPeriod, IncapableMatter,
+    };
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn bad(a: &InMemoryArchive, cid: &Cid) {
+        assert!(authorize(a, a.get(cid).unwrap(), Q, P).is_err(), "expected rejection");
+    }
+
+    fn matter(k: &str) -> IncapableMatter {
+        IncapableMatter { key: k.into(), description: k.into() }
+    }
+
+    fn ratify(
+        a: &mut InMemoryArchive,
+        matters: &[&str],
+        ratifiers: &[(&DidKey, &PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = ratifiers.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = ratifiers.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let g = Signed::build(
+            ConstitutionGenesis {
+                compact_incapable: matters.iter().map(|k| matter(k)).collect(),
+                fast_periods: vec![FastPeriod { label: "annual".into(), start: ts(1000), end: ts(2000) }],
+                ratifiers: dids,
+                genesis_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ConstitutionRatified(g)).unwrap()
+    }
+
+    fn amend_incapable(
+        a: &mut InMemoryArchive,
+        kind: AmendmentKind,
+        key: &str,
+        deciders: &[(&DidKey, &PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = deciders.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = deciders.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let am = Signed::build(
+            CompactIncapableAmendment {
+                kind,
+                matter: matter(key),
+                rationale: "r".into(),
+                deciders: dids,
+                decision_class: DecisionClass::SecondClass,
+                decided_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::CompactIncapableAmended(am)).unwrap()
+    }
+
+    fn amend_fast(
+        a: &mut InMemoryArchive,
+        change: FastChange,
+        deciders: &[(&DidKey, &PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = deciders.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = deciders.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let am = Signed::build(
+            FastCadenceAmendment {
+                change,
+                period: FastPeriod { label: "annual".into(), start: ts(1000), end: ts(1500) },
+                rationale: "r".into(),
+                deciders: dids,
+                decision_class: DecisionClass::SecondClass,
+                decided_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::FastCadenceAmended(am)).unwrap()
+    }
+
+    /// Four communities A/B/C/D (enough for the contraction bar of quorum+1).
+    fn communities(a: &mut InMemoryArchive) -> Vec<(DidKey, PrivKey)> {
+        ["A", "B", "C", "D"].iter().map(|n| community(a, n, ts(10))).collect()
+    }
+
+    #[test]
+    fn genesis_quorum_and_singleton() {
+        // Quorum: a single ratifier fails (isolated archive, since an unauthorized
+        // genesis still counts against the singleton check for any later one).
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        let solo = ratify(&mut a, &["internal-theology"], &[(&c[0].0, &c[0].1)], ts(50));
+        bad(&a, &solo);
+
+        // Fresh archive: two ratifiers authorized; a second genesis is refused.
+        let mut b = InMemoryArchive::new();
+        let cb = communities(&mut b);
+        let g = ratify(&mut b, &["internal-theology"],
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(60));
+        ok(&b, &g);
+        let g2 = ratify(&mut b, &["x"], &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(70));
+        bad(&b, &g2);
+    }
+
+    #[test]
+    fn add_matter_then_reject_duplicate() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        ratify(&mut a, &["internal-theology"], &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        let add = amend_incapable(&mut a, AmendmentKind::Add, "aesthetics",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(100));
+        ok(&a, &add);
+        // Adding the genesis matter again (already in force) is rejected.
+        let dup = amend_incapable(&mut a, AmendmentKind::Add, "internal-theology",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(110));
+        bad(&a, &dup);
+    }
+
+    #[test]
+    fn genesis_matter_is_immutable() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        ratify(&mut a, &["internal-theology"], &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        // Even at the high bar, a genesis-original matter cannot be removed.
+        let rm = amend_incapable(&mut a, AmendmentKind::Remove, "internal-theology",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(100));
+        bad(&a, &rm);
+    }
+
+    #[test]
+    fn remove_added_matter_needs_higher_bar() {
+        // Normal quorum (2) fails the contraction bar. (Isolated: an unauthorized
+        // Remove still shifts the walked list state for a later record.)
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        ratify(&mut a, &["internal-theology"], &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        amend_incapable(&mut a, AmendmentKind::Add, "aesthetics",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(100));
+        let rm2 = amend_incapable(&mut a, AmendmentKind::Remove, "aesthetics",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(200));
+        bad(&a, &rm2);
+
+        // Fresh archive: Remove at the higher bar (3 distinct) is authorized.
+        let mut b = InMemoryArchive::new();
+        let cb = communities(&mut b);
+        ratify(&mut b, &["internal-theology"], &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(60));
+        amend_incapable(&mut b, AmendmentKind::Add, "aesthetics",
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(100));
+        let rm3 = amend_incapable(&mut b, AmendmentKind::Remove, "aesthetics",
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1), (&cb[2].0, &cb[2].1)], ts(300));
+        ok(&b, &rm3);
+    }
+
+    #[test]
+    fn remove_absent_and_amend_before_genesis_rejected() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        // Amendment before any genesis.
+        let early = amend_incapable(&mut a, AmendmentKind::Add, "x",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(40));
+        bad(&a, &early);
+        ratify(&mut a, &["internal-theology"], &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        // Removing a matter that is not in force.
+        let rm = amend_incapable(&mut a, AmendmentKind::Remove, "never-added",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(100));
+        bad(&a, &rm);
+    }
+
+    #[test]
+    fn fast_contract_needs_higher_bar_extend_does_not() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        ratify(&mut a, &["internal-theology"], &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        // Extend at normal quorum (2): authorized.
+        let ext = amend_fast(&mut a, FastChange::Extend, &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(100));
+        ok(&a, &ext);
+        // Contract at normal quorum (2): fails the higher bar.
+        let con2 = amend_fast(&mut a, FastChange::Contract, &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(200));
+        bad(&a, &con2);
+        // Contract at the higher bar (3): authorized.
+        let con3 = amend_fast(&mut a, FastChange::Contract,
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(300));
+        ok(&a, &con3);
+    }
+}

@@ -12,6 +12,11 @@ kc-ceremony = { workspace = true }
 kc-conduct = { workspace = true }
 kc-mediation = { workspace = true }
 kc-escalation = { workspace = true }
+kc-commons = { workspace = true }
+kc-observer = { workspace = true }
+kc-constitution = { workspace = true }
+kc-provenance = { workspace = true }
+kc-principal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

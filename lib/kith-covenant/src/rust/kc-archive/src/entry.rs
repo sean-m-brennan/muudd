@@ -20,14 +20,22 @@
 
 use kc_ceremony::inter::{InterCommunityWitnessRecord, NonAdmissionRecord, SponsorshipRecord};
 use kc_ceremony::intra::IntraCommunityRiteRecord;
+use kc_ceremony::lineage::SubstrateInterpretation;
+use kc_commons::{CommonsRegistration, CommonsSanction, UsageRecord};
 use kc_conduct::ConductRecord;
+use kc_constitution::{CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment};
 use kc_core::{Cid, KcResult, Signed};
+use kc_observer::{
+    ObserverRegistry, ObserverReport, ReportResponse, SourceReveal, WhistleblowerReport,
+};
 use kc_escalation::{
-    Designation, LadderTransition, ReEntry, RestitutionCompletion, RestitutionObligation,
-    SubstantiveReEngagement,
+    Designation, InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition,
+    ReEntry, RestitutionCompletion, RestitutionObligation, SubstantiveReEngagement,
 };
 use kc_identity::{CommunityIdentity, SpeakerDelegation, WitnessRegistry};
 use kc_mediation::{DisputeRecord, MediationDecision, MediatorRegistry};
+use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
+use kc_provenance::{EventCorroboration, EventReport};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +72,60 @@ pub enum ArchiveEntry {
     ReEntryCompleted(Signed<ReEntry>),
     /// A deliberate invocation of the substantive-re-engagement rung (§5).
     SubstantiveReEngagementInvoked(Signed<SubstantiveReEngagement>),
+    /// An interim injunction issued by an emergency mediator panel (§9).
+    InjunctionIssued(Signed<InterimInjunction>),
+    /// The full compact's confirmation of an injunction (§9), co-signed by quorum.
+    InjunctionConfirmed(Signed<InjunctionConfirmation>),
+    /// A challenge to an injunction heard by a different panel (§9).
+    InjunctionChallenged(Signed<InjunctionChallenge>),
+    /// Registration of a compact-level commons (§7), second-class, co-signed by
+    /// the registering communities.
+    CommonsRegistered(Signed<CommonsRegistration>),
+    /// A community's self-reported usage accounting for a commons (§7).
+    UsageAccounted(Signed<UsageRecord>),
+    /// A step along a commons' graduated-sanction ladder (§7); heavier levels are
+    /// co-signed by the imposing quorum.
+    SanctionApplied(Signed<CommonsSanction>),
+    /// A community's roster of nominated observers (§8). The corps is the union
+    /// across communities; supersedes by latest `issued_at` per community.
+    ObserverRegistryUpdated(Signed<ObserverRegistry>),
+    /// An attributed public observer report on a community (§8), signed by a
+    /// non-party registered observer.
+    ObserverReportPublished(Signed<ObserverReport>),
+    /// A subject community's appended response to an observer report (§8).
+    ReportResponsePublished(Signed<ReportResponse>),
+    /// An insider whistleblower report (§8), co-signed by a mediator reception
+    /// panel; carries only a commitment to the source, never the source itself.
+    WhistleblowerFiled(Signed<WhistleblowerReport>),
+    /// A quorum-gated, for-cause disclosure of a whistleblower's source (§8).
+    SourceRevealed(Signed<SourceReveal>),
+    /// The founding constitutional artifact (§9): the initial compact-incapable
+    /// list and structured-fast cadence, quorum-ratified. Singleton per archive.
+    ConstitutionRatified(Signed<ConstitutionGenesis>),
+    /// A second-class amendment to the compact-incapable list (§9).
+    CompactIncapableAmended(Signed<CompactIncapableAmendment>),
+    /// A second-class amendment to the structured-fast cadence (§9).
+    FastCadenceAmended(Signed<FastCadenceAmendment>),
+    /// A community's attested reading of its own substrate (capture move 1): one
+    /// point on a traceable interpretive lineage. Multiple distinct lineages /
+    /// interpreters are the plurality the protocol requires; the
+    /// `interpretive_plurality` lens surfaces a monopoly.
+    SubstrateInterpreted(Signed<SubstrateInterpretation>),
+    /// A claim injected into the compact, provenance-tagged at intake (capture
+    /// move 4). The `structured_skepticism` lens surfaces a qualifying event
+    /// that is under-corroborated or missing its provenance tags.
+    EventReported(Signed<EventReport>),
+    /// An independent corroboration of an event report's observable facts by
+    /// another community (capture move 4).
+    EventCorroborated(Signed<EventCorroboration>),
+    /// A cross-community attestation of a principal's validity (capture move 6).
+    /// The `adversarial_principal` lens counts it only when the witness is
+    /// neither the principal nor its home community.
+    PrincipalWitnessed(Signed<PrincipalWitnessAttestation>),
+    /// A machine output recorded for triangulation against similarly-situated
+    /// principals (capture move 6). Divergence toward the principal's own
+    /// benefit is the capture signature the lens surfaces.
+    PrincipalOutputRecorded(Signed<PrincipalOutput>),
 }
 
 impl ArchiveEntry {
@@ -86,6 +148,25 @@ impl ArchiveEntry {
             Self::RestitutionVerified(_) => "RestitutionVerified",
             Self::ReEntryCompleted(_) => "ReEntryCompleted",
             Self::SubstantiveReEngagementInvoked(_) => "SubstantiveReEngagementInvoked",
+            Self::InjunctionIssued(_) => "InjunctionIssued",
+            Self::InjunctionConfirmed(_) => "InjunctionConfirmed",
+            Self::InjunctionChallenged(_) => "InjunctionChallenged",
+            Self::CommonsRegistered(_) => "CommonsRegistered",
+            Self::UsageAccounted(_) => "UsageAccounted",
+            Self::SanctionApplied(_) => "SanctionApplied",
+            Self::ObserverRegistryUpdated(_) => "ObserverRegistryUpdated",
+            Self::ObserverReportPublished(_) => "ObserverReportPublished",
+            Self::ReportResponsePublished(_) => "ReportResponsePublished",
+            Self::WhistleblowerFiled(_) => "WhistleblowerFiled",
+            Self::SourceRevealed(_) => "SourceRevealed",
+            Self::ConstitutionRatified(_) => "ConstitutionRatified",
+            Self::CompactIncapableAmended(_) => "CompactIncapableAmended",
+            Self::FastCadenceAmended(_) => "FastCadenceAmended",
+            Self::SubstrateInterpreted(_) => "SubstrateInterpreted",
+            Self::EventReported(_) => "EventReported",
+            Self::EventCorroborated(_) => "EventCorroborated",
+            Self::PrincipalWitnessed(_) => "PrincipalWitnessed",
+            Self::PrincipalOutputRecorded(_) => "PrincipalOutputRecorded",
         }
     }
 

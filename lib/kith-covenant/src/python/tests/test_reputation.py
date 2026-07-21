@@ -20,6 +20,9 @@ import pytest
 from kith_covenant import (
     Archive, ReputationView, generate_keypair, reputation_of,
     run_two_community_ceremony, rejection_pattern, ceremony_cost_decay,
+    interpretive_plurality, new_identity, attest_interpretation, now_seconds,
+    structured_skepticism, report_event, corroborate_event,
+    adversarial_principal, attest_principal, record_principal_output,
 )
 
 
@@ -145,3 +148,157 @@ def test_jester_lens_invalid_did_raises(ceremony_archive):
     archive, _, _ = ceremony_archive
     with pytest.raises(ValueError):
         ceremony_cost_decay(archive, "not-a-did")
+
+
+# --- move 1 interpretive-plurality lens (binding surface) -------------------
+
+
+def test_interpretive_plurality_flags_monopoly():
+    arch = Archive()
+    t0 = now_seconds()
+    member = new_identity(arch, "Member", t0)
+    faction = new_identity(arch, "Faction", t0)
+    for i in range(3):
+        attest_interpretation(arch, member, "canonical", faction.did, recorded_at=t0 + i)
+    r = interpretive_plurality(arch, member.did, as_of=t0 + 10)
+    assert r.distinct_lineages == 1
+    assert r.distinct_interpreters == 1
+    assert r.plurality_demonstrated is False
+    assert r.interpreter_concentration[0] == (faction.did, 3)
+    assert len(r.interpretations) == 3
+
+
+def test_interpretive_plurality_clears_a_plural_community():
+    arch = Archive()
+    t0 = now_seconds()
+    member = new_identity(arch, "Member", t0)
+    i1 = new_identity(arch, "Interp-1", t0)
+    i2 = new_identity(arch, "Interp-2", t0)
+    attest_interpretation(arch, member, "canonical", i1.did, recorded_at=t0 + 1)
+    attest_interpretation(arch, member, "reformist", i2.did, recorded_at=t0 + 2)
+    r = interpretive_plurality(arch, member.did, as_of=t0 + 10)
+    assert r.distinct_lineages == 2
+    assert r.distinct_interpreters == 2
+    assert r.plurality_demonstrated is True
+
+
+def test_interpretive_plurality_empty_for_stranger():
+    arch = Archive()
+    _, _, stranger = generate_keypair()
+    r = interpretive_plurality(arch, stranger)
+    assert r.interpretations == ()
+    assert r.distinct_lineages == 0
+    assert r.plurality_demonstrated is False
+
+
+def test_interpretive_plurality_invalid_did_raises():
+    arch = Archive()
+    with pytest.raises(ValueError):
+        interpretive_plurality(arch, "not-a-did")
+
+
+# --- move 4 structured-skepticism lens (binding surface) --------------------
+
+
+def _manufactured(arch, originator, at):
+    return report_event(
+        arch, originator, "a sudden, convenient omen",
+        high_interpretive_charge=True, sudden_onset=True,
+        originator_holds_stake=True, aligned_faction=originator.did,
+        reported_at=at,
+    )
+
+
+def test_structured_skepticism_flags_uncorroborated_manufactured_event():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    _manufactured(arch, a, t0 + 100)
+    r = structured_skepticism(arch, as_of=t0 + 1000)
+    assert r.qualifying_events == 1
+    assert r.events[0].corroborators == ()
+    assert r.events[0].provenance_complete is False
+    assert len(r.under_corroborated(2)) == 1
+
+
+def test_structured_skepticism_clears_corroborated_event():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    b = new_identity(arch, "Community-B", t0)
+    c = new_identity(arch, "Community-C", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    # Self-corroboration and a duplicate ally do not count.
+    corroborate_event(arch, a, ev, corroborated_at=t0 + 120)
+    corroborate_event(arch, b, ev, corroborated_at=t0 + 200)
+    corroborate_event(arch, b, ev, corroborated_at=t0 + 250)
+    assert len(structured_skepticism(arch, as_of=t0 + 1000).under_corroborated(2)) == 1
+    # A second distinct community clears it.
+    corroborate_event(arch, c, ev, corroborated_at=t0 + 300)
+    cleared = structured_skepticism(arch, as_of=t0 + 1000)
+    assert cleared.events[0].corroborators == (b.did, c.did) or set(
+        cleared.events[0].corroborators
+    ) == {b.did, c.did}
+    assert cleared.under_corroborated(2) == ()
+
+
+def test_structured_skepticism_inert_on_empty_archive():
+    arch = Archive()
+    r = structured_skepticism(arch)
+    assert r.events == ()
+    assert r.qualifying_events == 0
+    assert r.under_corroborated(2) == ()
+
+
+# --- move 6 adversarial-principal lens (binding surface) --------------------
+
+
+def _cohort(arch, t0):
+    """A home + captured principal, plus three cohort peers answering 'admit'."""
+    home = new_identity(arch, "Home", t0)
+    captured = new_identity(arch, "Captured", t0)
+    for i in range(3):
+        ph = new_identity(arch, f"PeerHome-{i}", t0)
+        pp = new_identity(arch, f"Peer-{i}", t0)
+        record_principal_output(
+            arch, ph, pp.did, "admissions-review", "M1", "admit",
+            favors_home=False, produced_at=t0 + i,
+        )
+    return home, captured
+
+
+def test_adversarial_principal_flags_self_benefiting_divergence():
+    arch = Archive()
+    t0 = now_seconds()
+    home, captured = _cohort(arch, t0)
+    record_principal_output(
+        arch, home, captured.did, "admissions-review", "M1", "reject",
+        favors_home=True, produced_at=t0 + 100,
+    )
+    r = adversarial_principal(arch, captured.did, as_of=t0 + 1000)
+    assert r.self_benefiting_divergences == 1
+    d = r.divergences[0]
+    assert d.principal_decision == "reject"
+    assert d.cohort_majority == "admit"
+    assert d.peers_compared == 3
+    assert d.favors_home is True
+
+
+def test_adversarial_principal_cross_witness_excludes_self_and_home():
+    arch = Archive()
+    t0 = now_seconds()
+    home, captured = _cohort(arch, t0)
+    attest_principal(arch, home, captured.did, home.did, attested_at=t0 + 100)
+    assert adversarial_principal(arch, captured.did, as_of=t0 + 1000).distinct_cross_witnesses == 0
+    outsider = new_identity(arch, "Outsider", t0)
+    attest_principal(arch, outsider, captured.did, home.did, attested_at=t0 + 200)
+    assert adversarial_principal(arch, captured.did, as_of=t0 + 1000).distinct_cross_witnesses == 1
+
+
+def test_adversarial_principal_inert_for_stranger():
+    arch = Archive()
+    _, _, stranger = generate_keypair()
+    r = adversarial_principal(arch, stranger)
+    assert r.cross_witnesses == ()
+    assert r.divergences == ()
+    assert r.self_benefiting_divergences == 0

@@ -196,6 +196,72 @@ pub struct SubstantiveReEngagementSummary {
     pub invoked_at: Timestamp,
 }
 
+/// One interim injunction naming this community as subject (§9), with its
+/// derived status and the capabilities it revokes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InjunctionSummary {
+    pub record_cid: Cid,
+    pub harm: String,
+    pub protective_measures: String,
+    /// The capabilities this injunction revokes, as their string names.
+    pub revoked_capabilities: Vec<String>,
+    /// One of `Active`, `Confirmed`, `Lapsed`, `Overturned` (derived as of the
+    /// lookup's `as_of`).
+    pub status: String,
+    pub issued_at: Timestamp,
+    pub expires_at: Timestamp,
+}
+
+/// The current graduated-sanction level standing against this community on one
+/// commons (§7), from the latest `SanctionApplied` for the pair. Absent when the
+/// pair is at rest (level `None`): the projection lists only commons where a
+/// sanction currently stands.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommonsSanctionSummary {
+    /// The latest sanction record establishing the current level.
+    pub record_cid: Cid,
+    pub commons_cid: Cid,
+    /// The commons' `CommonsKind` name, or `Unknown` if it does not resolve.
+    pub kind: String,
+    /// The current `SanctionLevel` name (`Monitoring`/`Warning`/`Restriction`/`Exclusion`).
+    pub current_level: String,
+    pub basis: String,
+    pub decided_at: Timestamp,
+}
+
+/// One subject community's public response appended to an observer report (§8).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReportResponseSummary {
+    pub record_cid: Cid,
+    pub response: String,
+    pub responded_at: Timestamp,
+}
+
+/// One attributed observer report naming this community as subject (§8), joined
+/// with any appended responses. The declared perspective is carried so a reader
+/// weighs the report as advocacy, not neutral fact.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ObserverReportSummary {
+    pub record_cid: Cid,
+    pub observer_did: DidKey,
+    pub declared_perspective: String,
+    pub summary: String,
+    pub observed_at: Timestamp,
+    pub reported_at: Timestamp,
+    pub responses: Vec<ReportResponseSummary>,
+}
+
+/// One whistleblower report naming this community as accused (§8). The source is
+/// **never** projected — only whether a for-cause reveal has since disclosed it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WhistleblowerSummary {
+    pub record_cid: Cid,
+    pub claim: String,
+    pub filed_at: Timestamp,
+    /// `true` once a `SourceRevealed` for-cause disclosure references this report.
+    pub source_revealed: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReputationView {
     pub community_did: DidKey,
@@ -225,4 +291,20 @@ pub struct ReputationView {
     pub restitutions: Vec<RestitutionSummary>,
     /// Substantive-re-engagement invocations against this community (§5).
     pub substantive_reengagements: Vec<SubstantiveReEngagementSummary>,
+    /// Interim injunctions naming this community, oldest first (§9).
+    pub injunctions: Vec<InjunctionSummary>,
+    /// Capabilities currently revoked from this community — the union across all
+    /// `Active` or `Confirmed` injunctions (§9 capability-gating), sorted. The
+    /// effective capability set is `Capability::all()` minus this set.
+    pub revoked_capabilities: Vec<String>,
+    /// Commons on which a graduated sanction currently stands against this
+    /// community (§7), at their current level, oldest first. Commons at rest
+    /// (level `None`) are omitted.
+    pub commons_sanctions: Vec<CommonsSanctionSummary>,
+    /// Attributed observer reports naming this community as subject (§8), oldest
+    /// first, each joined with its appended responses.
+    pub observer_reports: Vec<ObserverReportSummary>,
+    /// Whistleblower reports naming this community as accused (§8), oldest first.
+    /// The source is never included.
+    pub whistleblower_reports_against: Vec<WhistleblowerSummary>,
 }

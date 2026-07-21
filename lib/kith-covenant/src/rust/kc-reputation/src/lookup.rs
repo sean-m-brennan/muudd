@@ -20,15 +20,17 @@
 use std::collections::{HashMap, HashSet};
 
 use kc_archive::{ArchiveEntry, InMemoryArchive};
+use kc_commons::{CommonsSanction, SanctionLevel};
 use kc_conduct::{ConductKind, LadderRung};
 use kc_core::{time, Cid, DidKey, Timestamp};
 use kc_identity::SpeakerDelegation;
 
 use crate::view::{
-    ConductSummary, DelegationSummary, DesignationSummary, DisputeSummary, InterAdmissionSummary,
-    InterNonAdmissionSummary, IntraRiteSummary, RecognitionStanding, ReEntrySummary,
-    RejectionSummary, ReputationView, RestitutionSummary, SponsorshipSummary,
-    SubstantiveReEngagementSummary, WitnessSummary,
+    CommonsSanctionSummary, ConductSummary, DelegationSummary, DesignationSummary, DisputeSummary,
+    InjunctionSummary, InterAdmissionSummary, InterNonAdmissionSummary, IntraRiteSummary,
+    ObserverReportSummary, RecognitionStanding, ReEntrySummary, RejectionSummary,
+    ReportResponseSummary, ReputationView, RestitutionSummary, SponsorshipSummary,
+    SubstantiveReEngagementSummary, WhistleblowerSummary, WitnessSummary,
 };
 
 pub fn lookup(
@@ -57,6 +59,11 @@ pub fn lookup(
         reentries: vec![],
         restitutions: vec![],
         substantive_reengagements: vec![],
+        injunctions: vec![],
+        revoked_capabilities: vec![],
+        commons_sanctions: vec![],
+        observer_reports: vec![],
+        whistleblower_reports_against: vec![],
     };
 
     // Latest CommunityIdentityPublished with created_at <= as_of wins.
@@ -222,6 +229,24 @@ pub fn lookup(
                     });
                 }
             }
+            ArchiveEntry::InjunctionIssued(signed) => {
+                let inj = &signed.payload;
+                if &inj.subject_community == community_did && inj.issued_at <= as_of {
+                    view.injunctions.push(InjunctionSummary {
+                        record_cid: cid.clone(),
+                        harm: inj.harm.clone(),
+                        protective_measures: inj.protective_measures.clone(),
+                        revoked_capabilities: inj
+                            .revoked_capabilities
+                            .iter()
+                            .map(|c| c.as_str().to_string())
+                            .collect(),
+                        status: String::new(), // derived by the status join below
+                        issued_at: inj.issued_at,
+                        expires_at: inj.expires_at,
+                    });
+                }
+            }
             _ => {}
         }
     }
@@ -382,6 +407,152 @@ pub fn lookup(
         d.reversed = reversed.contains(&d.record_cid.to_string());
     }
 
+    // §9 injunction status derivation. For each injunction naming this community,
+    // scan confirmations and overturning challenges (visible as of `as_of`):
+    //   Overturned  — a challenge ruled to overturn it (terminal, wins over all).
+    //   Confirmed   — a compact-quorum confirmation arrived before it expired.
+    //   Active      — issued, still within its window, unconfirmed.
+    //   Lapsed      — the window passed with no confirmation.
+    // Capabilities are revoked while Active or Confirmed (not Overturned/Lapsed);
+    // their union (sorted) is the community's currently-revoked set.
+    for inj in &mut view.injunctions {
+        let cid_s = inj.record_cid.to_string();
+        let overturned = archive.iter().any(|(_, e)| match e {
+            ArchiveEntry::InjunctionChallenged(s) => {
+                s.payload.injunction_cid.to_string() == cid_s
+                    && s.payload.overturned
+                    && s.payload.decided_at <= as_of
+            }
+            _ => false,
+        });
+        let confirmed = archive.iter().any(|(_, e)| match e {
+            ArchiveEntry::InjunctionConfirmed(s) => {
+                s.payload.injunction_cid.to_string() == cid_s
+                    && s.payload.confirmed_at <= as_of
+                    && s.payload.confirmed_at <= inj.expires_at
+            }
+            _ => false,
+        });
+        inj.status = if overturned {
+            "Overturned"
+        } else if confirmed {
+            "Confirmed"
+        } else if as_of <= inj.expires_at {
+            "Active"
+        } else {
+            "Lapsed"
+        }
+        .to_string();
+    }
+    let mut revoked: HashSet<String> = HashSet::new();
+    for inj in &view.injunctions {
+        if inj.status == "Active" || inj.status == "Confirmed" {
+            for cap in &inj.revoked_capabilities {
+                revoked.insert(cap.clone());
+            }
+        }
+    }
+    view.revoked_capabilities = revoked.into_iter().collect();
+    view.revoked_capabilities.sort();
+
+    // §7 commons sanctions naming this community as subject. The current level per
+    // commons is the `to_level` of the latest sanction (decided_at <= as_of;
+    // insertion order breaks a tie), joined with the commons' kind. Only commons
+    // whose current level is not `None` are surfaced (a restored pair is at rest).
+    let mut commons_kind: HashMap<String, String> = HashMap::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::CommonsRegistered(s) = entry {
+            commons_kind.insert(cid.to_string(), s.payload.kind.as_str().to_string());
+        }
+    }
+    let mut latest_sanction: HashMap<String, (Timestamp, &Cid, &CommonsSanction)> = HashMap::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::SanctionApplied(s) = entry {
+            let p = &s.payload;
+            if &p.subject_community == community_did && p.decided_at <= as_of {
+                let key = p.commons_cid.to_string();
+                let supersede = latest_sanction.get(&key).map_or(true, |(at, _, _)| p.decided_at >= *at);
+                if supersede {
+                    latest_sanction.insert(key, (p.decided_at, cid, p));
+                }
+            }
+        }
+    }
+    for (commons_key, (_, cid, p)) in latest_sanction {
+        if matches!(p.to_level, SanctionLevel::None) {
+            continue;
+        }
+        view.commons_sanctions.push(CommonsSanctionSummary {
+            record_cid: cid.clone(),
+            commons_cid: p.commons_cid.clone(),
+            kind: commons_kind.get(&commons_key).cloned().unwrap_or_else(|| "Unknown".into()),
+            current_level: p.to_level.as_str().to_string(),
+            basis: p.basis.clone(),
+            decided_at: p.decided_at,
+        });
+    }
+    view.commons_sanctions.sort_by_key(|s| s.decided_at);
+
+    // §8 observer reports naming this community as subject, joined with the
+    // responses appended to each (a report_cid -> its responses map, in
+    // record-time order).
+    let mut responses: HashMap<String, Vec<ReportResponseSummary>> = HashMap::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::ReportResponsePublished(s) = entry {
+            let r = &s.payload;
+            if r.responded_at <= as_of {
+                responses.entry(r.report_cid.to_string()).or_default().push(ReportResponseSummary {
+                    record_cid: cid.clone(),
+                    response: r.response.clone(),
+                    responded_at: r.responded_at,
+                });
+            }
+        }
+    }
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::ObserverReportPublished(s) = entry {
+            let rep = &s.payload;
+            if &rep.subject_community == community_did && rep.reported_at <= as_of {
+                let mut resp =
+                    responses.get(&cid.to_string()).cloned().unwrap_or_default();
+                resp.sort_by_key(|r| r.responded_at);
+                view.observer_reports.push(ObserverReportSummary {
+                    record_cid: cid.clone(),
+                    observer_did: rep.observer_did.clone(),
+                    declared_perspective: rep.declared_perspective.clone(),
+                    summary: rep.summary.clone(),
+                    observed_at: rep.observed_at,
+                    reported_at: rep.reported_at,
+                    responses: resp,
+                });
+            }
+        }
+    }
+    view.observer_reports.sort_by_key(|s| s.reported_at);
+
+    // §8 whistleblower reports naming this community as accused. The source is
+    // never projected — only whether a for-cause reveal has since disclosed it.
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::WhistleblowerFiled(s) = entry {
+            let wb = &s.payload;
+            if &wb.accused_community == community_did && wb.filed_at <= as_of {
+                let revealed = archive.iter().any(|(_, e)| match e {
+                    ArchiveEntry::SourceRevealed(r) => {
+                        r.payload.report_cid == *cid && r.payload.revealed_at <= as_of
+                    }
+                    _ => false,
+                });
+                view.whistleblower_reports_against.push(WhistleblowerSummary {
+                    record_cid: cid.clone(),
+                    claim: wb.claim.clone(),
+                    filed_at: wb.filed_at,
+                    source_revealed: revealed,
+                });
+            }
+        }
+    }
+    view.whistleblower_reports_against.sort_by_key(|s| s.filed_at);
+
     view.intra_rites.sort_by_key(|s| s.sealed_at);
     view.conduct.sort_by_key(|s| s.recorded_at);
     view.sponsorships_given.sort_by_key(|s| s.sponsored_at);
@@ -390,8 +561,57 @@ pub fn lookup(
     view.reentries.sort_by_key(|s| s.completed_at);
     view.restitutions.sort_by_key(|s| s.imposed_at);
     view.substantive_reengagements.sort_by_key(|s| s.invoked_at);
+    view.injunctions.sort_by_key(|s| s.issued_at);
     view.standing = derive_standing(&view);
     view
+}
+
+/// §9 capability gate: `true` unless `capability` is currently revoked from
+/// `community_did` by an active or confirmed interim injunction, as of `as_of`.
+/// Membership implies all capabilities; an injunction is the only thing that
+/// removes one. The `capability` argument is a `Capability` name (see
+/// `Capability::as_str`); an unknown name is never in the revoked set, so it
+/// simply returns `true`.
+pub fn has_capability(
+    archive: &InMemoryArchive,
+    community_did: &DidKey,
+    capability: &str,
+    as_of: Option<Timestamp>,
+) -> bool {
+    let view = lookup(archive, community_did, as_of);
+    !view.revoked_capabilities.iter().any(|c| c == capability)
+}
+
+/// §7 commons gate: the graduated-sanction level standing against `community_did`
+/// on the commons registered at `commons_cid`, as of `as_of` — the `to_level` of
+/// the latest `SanctionApplied` for the pair, or [`SanctionLevel::None`] if none
+/// stands. A caller enforcing a restriction checks whether this is
+/// `Restriction`/`Exclusion`; drawdown is unrestricted at `None`/`Monitoring`/
+/// `Warning`. Independent of the commons registration itself resolving — an
+/// orphaned sanction still reports its level.
+pub fn commons_level(
+    archive: &InMemoryArchive,
+    community_did: &DidKey,
+    commons_cid: &Cid,
+    as_of: Option<Timestamp>,
+) -> SanctionLevel {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut level = SanctionLevel::None;
+    let mut best: Option<Timestamp> = None;
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::SanctionApplied(s) = entry {
+            let p = &s.payload;
+            if &p.subject_community == community_did
+                && &p.commons_cid == commons_cid
+                && p.decided_at <= as_of
+                && best.map_or(true, |b| p.decided_at >= b)
+            {
+                best = Some(p.decided_at);
+                level = p.to_level;
+            }
+        }
+    }
+    level
 }
 
 fn derive_standing(view: &ReputationView) -> RecognitionStanding {

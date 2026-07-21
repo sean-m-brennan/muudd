@@ -25,16 +25,23 @@ pub mod lookup;
 pub mod view;
 
 pub use analytics::{
-    ceremony_cost_decay, composition_graph, feature_concern_profile, rejection_pattern,
-    sponsor_stake, CeremonyCostDecay, CompositionGraph, FeatureConcernProfile, RejectionEvent,
-    RejectionPattern, RitePoint, SponseeOutcome, SponsorEdge, SponsorStakeReport,
+    adversarial_principal, ceremony_cost_decay, compact_incapable, composition_graph,
+    constitution_state, feature_concern_profile, free_rider_signals, in_structured_fast,
+    interpretive_plurality, observer_dashboard, rejection_pattern, sponsor_stake,
+    structured_skepticism, substrate_deference, CeremonyCostDecay, CompositionGraph,
+    ConstitutionState, CrossWitness, EventProvenance, FastDeviation, FeatureConcernProfile,
+    FreeRiderReport, InterpretivePluralityReport, LineagePoint, ObserverDashboard,
+    OutputDivergence, PrincipalValidationReport, RejectionEvent, RejectionPattern, RitePoint,
+    SkepticismReport, SponseeOutcome, SponsorEdge, SponsorStakeReport, SubstrateDeferenceReport,
+    UsageTally,
 };
-pub use lookup::lookup;
+pub use lookup::{commons_level, has_capability, lookup};
 pub use view::{
-    ConductSummary, DelegationSummary, DesignationSummary, DisputeSummary, InterAdmissionSummary,
-    InterNonAdmissionSummary, IntraRiteSummary, ReEntrySummary, RecognitionStanding,
-    RejectionSummary, ReputationView, RestitutionSummary, SponsorshipSummary,
-    SubstantiveReEngagementSummary, WitnessSummary,
+    CommonsSanctionSummary, ConductSummary, DelegationSummary, DesignationSummary, DisputeSummary,
+    InjunctionSummary, InterAdmissionSummary, InterNonAdmissionSummary, IntraRiteSummary,
+    ObserverReportSummary, ReEntrySummary, RecognitionStanding, RejectionSummary,
+    ReportResponseSummary, ReputationView, RestitutionSummary, SponsorshipSummary,
+    SubstantiveReEngagementSummary, WhistleblowerSummary, WitnessSummary,
 };
 
 #[cfg(test)]

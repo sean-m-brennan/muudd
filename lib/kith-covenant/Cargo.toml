@@ -7,6 +7,11 @@ members = [
     "src/rust/kc-conduct",
     "src/rust/kc-mediation",
     "src/rust/kc-escalation",
+    "src/rust/kc-commons",
+    "src/rust/kc-observer",
+    "src/rust/kc-constitution",
+    "src/rust/kc-provenance",
+    "src/rust/kc-principal",
     "src/rust/kc-archive",
     "src/rust/kc-reputation",
     "src/rust/kc-pyo3",
@@ -61,6 +66,11 @@ kc-ceremony = { path = "src/rust/kc-ceremony" }
 kc-conduct = { path = "src/rust/kc-conduct" }
 kc-mediation = { path = "src/rust/kc-mediation" }
 kc-escalation = { path = "src/rust/kc-escalation" }
+kc-commons = { path = "src/rust/kc-commons" }
+kc-observer = { path = "src/rust/kc-observer" }
+kc-constitution = { path = "src/rust/kc-constitution" }
+kc-provenance = { path = "src/rust/kc-provenance" }
+kc-principal = { path = "src/rust/kc-principal" }
 kc-archive = { path = "src/rust/kc-archive" }
 kc-reputation = { path = "src/rust/kc-reputation" }
 

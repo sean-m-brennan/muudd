@@ -111,6 +111,17 @@ impl InMemoryArchive {
                 }
             }
         }
+        // 5. Observer registry entry active in its validity window (§8). Lets a
+        //    registered observer's signature on a report resolve.
+        for entry in self.entries.values() {
+            if let ArchiveEntry::ObserverRegistryUpdated(s) = entry {
+                for e in &s.payload.entries {
+                    if e.observer_did.as_str() == did && e.active_at(at) {
+                        return Some(e.observer_pubkey.clone());
+                    }
+                }
+            }
+        }
         None
     }
 
@@ -209,6 +220,82 @@ impl Archive for InMemoryArchive {
             }
             ArchiveEntry::SubstantiveReEngagementInvoked(s) => {
                 let at = s.payload.invoked_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::InjunctionIssued(s) => {
+                let at = s.payload.issued_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::InjunctionConfirmed(s) => {
+                let at = s.payload.confirmed_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::InjunctionChallenged(s) => {
+                let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::CommonsRegistered(s) => {
+                let at = s.payload.registered_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::UsageAccounted(s) => {
+                let at = s.payload.recorded_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::SanctionApplied(s) => {
+                let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::ObserverRegistryUpdated(s) => {
+                let at = s.payload.issued_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::ObserverReportPublished(s) => {
+                let at = s.payload.reported_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::ReportResponsePublished(s) => {
+                let at = s.payload.responded_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::WhistleblowerFiled(s) => {
+                let at = s.payload.filed_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::SourceRevealed(s) => {
+                let at = s.payload.revealed_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::ConstitutionRatified(s) => {
+                let at = s.payload.genesis_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::CompactIncapableAmended(s) => {
+                let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::FastCadenceAmended(s) => {
+                let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::SubstrateInterpreted(s) => {
+                let at = s.payload.recorded_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::EventReported(s) => {
+                let at = s.payload.reported_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::EventCorroborated(s) => {
+                let at = s.payload.corroborated_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::PrincipalWitnessed(s) => {
+                let at = s.payload.attested_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::PrincipalOutputRecorded(s) => {
+                let at = s.payload.produced_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
         }

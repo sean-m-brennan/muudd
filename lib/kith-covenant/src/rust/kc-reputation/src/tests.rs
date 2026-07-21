@@ -1317,3 +1317,1064 @@ mod escalation_projection {
         assert_eq!(early.restitutions[0].satisfied, None);
     }
 }
+
+// --- §9 interim injunction projection & capability gating -------------------
+
+mod injunction_projection {
+    use super::*;
+    use crate::lookup::has_capability;
+    use kc_escalation::{
+        Capability, InjunctionChallenge, InjunctionConfirmation, InterimInjunction,
+    };
+
+    const NINETY_DAYS: i64 = 90 * 24 * 3600;
+
+    /// A community that is Identified + InCompact (identity + one admission).
+    fn member(archive: &mut InMemoryArchive, name: &str) -> (DidKey, PrivKey) {
+        let (sk, pk, did) = fresh_id();
+        publish_identity(archive, name, &did, &pk, &sk, t(10));
+        let (_ck, _cpk, cdid) = fresh_id();
+        publish_inter_admission(archive, &[(&did, &sk), (&cdid, &sk)], t(20));
+        (did, sk)
+    }
+
+    /// Projection does not check authority, so the panel is arbitrary; the record
+    /// is self-signed by the subject only so `append` accepts the signature.
+    fn append_injunction(
+        archive: &mut InMemoryArchive,
+        subject: &DidKey,
+        signer: &PrivKey,
+        revoked: Vec<Capability>,
+        issued: i64,
+        expires: i64,
+    ) -> Cid {
+        let inj = InterimInjunction {
+            subject_community: subject.clone(),
+            dispute_cid: None,
+            harm: "ongoing interference".into(),
+            protective_measures: "suspend the named capabilities".into(),
+            revoked_capabilities: revoked,
+            panel: vec![subject.clone()],
+            issued_at: t(issued),
+            expires_at: t(expires),
+        };
+        let signed = Signed::build(inj, &[(subject.as_str(), signer)]).unwrap();
+        archive.append(ArchiveEntry::InjunctionIssued(signed)).unwrap()
+    }
+
+    fn append_confirmation(
+        archive: &mut InMemoryArchive,
+        injunction_cid: Cid,
+        subject: &DidKey,
+        signer: &PrivKey,
+        at: i64,
+    ) -> Cid {
+        let c = InjunctionConfirmation {
+            injunction_cid,
+            confirmers: vec![subject.clone()],
+            confirmed_at: t(at),
+        };
+        let signed = Signed::build(c, &[(subject.as_str(), signer)]).unwrap();
+        archive.append(ArchiveEntry::InjunctionConfirmed(signed)).unwrap()
+    }
+
+    fn append_challenge(
+        archive: &mut InMemoryArchive,
+        injunction_cid: Cid,
+        subject: &DidKey,
+        signer: &PrivKey,
+        overturned: bool,
+        at: i64,
+    ) -> Cid {
+        let ch = InjunctionChallenge {
+            injunction_cid,
+            panel: vec![subject.clone()],
+            overturned,
+            reasoning: "reviewed".into(),
+            decided_at: t(at),
+        };
+        let signed = Signed::build(ch, &[(subject.as_str(), signer)]).unwrap();
+        archive.append(ArchiveEntry::InjunctionChallenged(signed)).unwrap()
+    }
+
+    #[test]
+    fn active_injunction_projects_and_revokes_capabilities() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = member(&mut a, "S");
+        append_injunction(&mut a, &s, &sp, vec![Capability::Trade, Capability::Navigation],
+            100, 100 + NINETY_DAYS);
+        let v = lookup(&a, &s, Some(t(200)));
+        assert_eq!(v.injunctions.len(), 1);
+        assert_eq!(v.injunctions[0].status, "Active");
+        // Union is sorted.
+        assert_eq!(v.revoked_capabilities, vec!["Navigation".to_string(), "Trade".to_string()]);
+        // The gate reflects it.
+        assert!(!has_capability(&a, &s, "Trade", Some(t(200))));
+        assert!(!has_capability(&a, &s, "Navigation", Some(t(200))));
+        assert!(has_capability(&a, &s, "RescueCoordination", Some(t(200))));
+        // Standing is unchanged by an injunction (still a member).
+        assert_eq!(v.standing, RecognitionStanding::InCompact);
+    }
+
+    #[test]
+    fn injunction_lapses_after_window_without_confirmation() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = member(&mut a, "S");
+        append_injunction(&mut a, &s, &sp, vec![Capability::Trade], 100, 1000);
+        // Within the window it is Active and revokes Trade.
+        let during = lookup(&a, &s, Some(t(500)));
+        assert_eq!(during.injunctions[0].status, "Active");
+        assert!(!has_capability(&a, &s, "Trade", Some(t(500))));
+        // Past the window with no confirmation it lapses and Trade is restored.
+        let after = lookup(&a, &s, Some(t(2000)));
+        assert_eq!(after.injunctions[0].status, "Lapsed");
+        assert!(after.revoked_capabilities.is_empty());
+        assert!(has_capability(&a, &s, "Trade", Some(t(2000))));
+    }
+
+    #[test]
+    fn confirmed_injunction_persists_past_expiry() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = member(&mut a, "S");
+        let inj = append_injunction(&mut a, &s, &sp, vec![Capability::CommonsWithdrawal], 100, 1000);
+        append_confirmation(&mut a, inj, &s, &sp, 500); // before expiry
+        let after = lookup(&a, &s, Some(t(5000)));
+        assert_eq!(after.injunctions[0].status, "Confirmed");
+        assert_eq!(after.revoked_capabilities, vec!["CommonsWithdrawal".to_string()]);
+        assert!(!has_capability(&a, &s, "CommonsWithdrawal", Some(t(5000))));
+    }
+
+    #[test]
+    fn confirmation_after_expiry_does_not_confirm() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = member(&mut a, "S");
+        let inj = append_injunction(&mut a, &s, &sp, vec![Capability::Trade], 100, 1000);
+        append_confirmation(&mut a, inj, &s, &sp, 1500); // after expiry — too late
+        let after = lookup(&a, &s, Some(t(2000)));
+        assert_eq!(after.injunctions[0].status, "Lapsed");
+        assert!(has_capability(&a, &s, "Trade", Some(t(2000))));
+    }
+
+    #[test]
+    fn overturned_injunction_restores_capabilities() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = member(&mut a, "S");
+        let inj = append_injunction(&mut a, &s, &sp, vec![Capability::Communication],
+            100, 100 + NINETY_DAYS);
+        append_challenge(&mut a, inj, &s, &sp, true, 300);
+        // Before the ruling it was Active and revoked Communication.
+        let before = lookup(&a, &s, Some(t(200)));
+        assert_eq!(before.injunctions[0].status, "Active");
+        assert!(!has_capability(&a, &s, "Communication", Some(t(200))));
+        // After the overturning ruling the capability is restored.
+        let after = lookup(&a, &s, Some(t(400)));
+        assert_eq!(after.injunctions[0].status, "Overturned");
+        assert!(after.revoked_capabilities.is_empty());
+        assert!(has_capability(&a, &s, "Communication", Some(t(400))));
+    }
+
+    #[test]
+    fn overturn_wins_over_a_prior_confirmation() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = member(&mut a, "S");
+        let inj = append_injunction(&mut a, &s, &sp, vec![Capability::Trade], 100, 1000);
+        append_confirmation(&mut a, inj, &s, &sp, 500);
+        append_challenge(&mut a, inj, &s, &sp, true, 1500);
+        let after = lookup(&a, &s, Some(t(2000)));
+        assert_eq!(after.injunctions[0].status, "Overturned");
+        assert!(has_capability(&a, &s, "Trade", Some(t(2000))));
+    }
+}
+
+// --- §7 commons projection --------------------------------------------------
+
+mod commons_projection {
+    use super::*;
+    use crate::analytics::free_rider_signals;
+    use crate::lookup::commons_level;
+    use kc_commons::{
+        CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, UsageRecord,
+    };
+    use kc_conduct::DecisionClass;
+
+    fn register(
+        a: &mut InMemoryArchive,
+        kind: CommonsKind,
+        appropriators: &[&DidKey],
+        priv_: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = appropriators.iter().map(|d| (*d).clone()).collect();
+        let reg = CommonsRegistration {
+            kind,
+            name: "c".into(),
+            description: "d".into(),
+            appropriators: dids.clone(),
+            provision_rule: "r".into(),
+            registered_by: dids,
+            registered_at: at,
+        };
+        // Projection tests do not run the authority pass, so a single signer is fine.
+        let signed = Signed::build(reg, &[(appropriators[0].as_str(), priv_)]).unwrap();
+        a.append(ArchiveEntry::CommonsRegistered(signed)).unwrap()
+    }
+
+    fn usage(
+        a: &mut InMemoryArchive,
+        commons_cid: Cid,
+        who: &DidKey,
+        who_priv: &PrivKey,
+        consumed: u64,
+        contributed: u64,
+        at: Timestamp,
+    ) -> Cid {
+        let u = UsageRecord {
+            commons_cid,
+            community: who.clone(),
+            consumed,
+            contributed,
+            period_start: at,
+            period_end: at,
+            recorded_at: at,
+        };
+        let signed = Signed::build(u, &[(who.as_str(), who_priv)]).unwrap();
+        a.append(ArchiveEntry::UsageAccounted(signed)).unwrap()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn sanction(
+        a: &mut InMemoryArchive,
+        commons_cid: Cid,
+        subject: &DidKey,
+        imposer: &DidKey,
+        imp_priv: &PrivKey,
+        from: SanctionLevel,
+        to: SanctionLevel,
+        dc: DecisionClass,
+        at: Timestamp,
+    ) -> Cid {
+        let s = CommonsSanction {
+            commons_cid,
+            subject_community: subject.clone(),
+            from_level: from,
+            to_level: to,
+            basis: "b".into(),
+            references: vec![],
+            imposers: vec![imposer.clone()],
+            decision_class: dc,
+            decided_at: at,
+        };
+        let signed = Signed::build(s, &[(imposer.as_str(), imp_priv)]).unwrap();
+        a.append(ArchiveEntry::SanctionApplied(signed)).unwrap()
+    }
+
+    #[test]
+    fn commons_sanction_projects_current_level_and_gate() {
+        let (a_priv, _, ca) = fresh_id();
+        let (_, _, cb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let commons = register(&mut arc, CommonsKind::Communication, &[&ca, &cb], &a_priv, t(50));
+        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+            SanctionLevel::None, SanctionLevel::Monitoring, DecisionClass::FirstClass, t(100));
+        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+            SanctionLevel::Monitoring, SanctionLevel::Warning, DecisionClass::FirstClass, t(200));
+        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+            SanctionLevel::Warning, SanctionLevel::Restriction, DecisionClass::SecondClass, t(300));
+
+        // The projection carries the latest (current) level, joined with the kind.
+        let view = lookup(&arc, &cb, Some(t(1000)));
+        assert_eq!(view.commons_sanctions.len(), 1);
+        let cs = &view.commons_sanctions[0];
+        assert_eq!(cs.current_level, "Restriction");
+        assert_eq!(cs.kind, "Communication");
+        assert_eq!(cs.commons_cid, commons);
+
+        // The gate free fn agrees and respects as_of.
+        assert_eq!(commons_level(&arc, &cb, &commons, Some(t(1000))), SanctionLevel::Restriction);
+        assert_eq!(commons_level(&arc, &cb, &commons, Some(t(150))), SanctionLevel::Monitoring);
+        assert_eq!(commons_level(&arc, &cb, &commons, Some(t(10))), SanctionLevel::None);
+    }
+
+    #[test]
+    fn restored_commons_drops_out_of_projection() {
+        let (a_priv, _, ca) = fresh_id();
+        let (_, _, cb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let commons = register(&mut arc, CommonsKind::Rescue, &[&ca, &cb], &a_priv, t(50));
+        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+            SanctionLevel::None, SanctionLevel::Monitoring, DecisionClass::FirstClass, t(100));
+        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+            SanctionLevel::Monitoring, SanctionLevel::None, DecisionClass::FirstClass, t(200));
+        // Back at rest: not surfaced, gate reports None.
+        let view = lookup(&arc, &cb, Some(t(1000)));
+        assert!(view.commons_sanctions.is_empty());
+        assert_eq!(commons_level(&arc, &cb, &commons, Some(t(1000))), SanctionLevel::None);
+    }
+
+    #[test]
+    fn free_rider_signals_tally_and_net_draw() {
+        let (a_priv, _, ca) = fresh_id();
+        let (b_priv, _, cb) = fresh_id();
+        let (c_priv, _, cc) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let commons = register(&mut arc, CommonsKind::Navigation, &[&ca, &cb, &cc], &a_priv, t(50));
+        // B draws heavily and returns little; C contributes more than it draws.
+        usage(&mut arc, commons.clone(), &cb, &b_priv, 800, 100, t(100));
+        usage(&mut arc, commons.clone(), &cb, &b_priv, 400, 100, t(200));
+        usage(&mut arc, commons.clone(), &cc, &c_priv, 100, 500, t(100));
+
+        let report = free_rider_signals(&arc, &commons, Some(t(1000)));
+        assert_eq!(report.total_consumed(), 1300);
+        assert_eq!(report.total_contributed(), 700);
+        // Only B has a positive net draw (1200 consumed - 200 contributed = 1000).
+        let ranked = report.by_net_draw();
+        assert_eq!(ranked.len(), 1);
+        assert_eq!(ranked[0].0, cb.as_str());
+        assert_eq!(ranked[0].1, 1000);
+        // B's tally aggregates its two records.
+        let b_tally = report.tallies.iter().find(|t| t.community == cb).unwrap();
+        assert_eq!(b_tally.record_count, 2);
+        assert_eq!(b_tally.evidence.len(), 2);
+        assert_eq!(b_tally.draw_ratio(), Some(1200.0 / 200.0));
+    }
+
+    #[test]
+    fn free_rider_signals_respects_as_of() {
+        let (a_priv, _, ca) = fresh_id();
+        let (b_priv, _, cb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let commons = register(&mut arc, CommonsKind::KnowledgeArchive, &[&ca, &cb], &a_priv, t(50));
+        usage(&mut arc, commons.clone(), &cb, &b_priv, 100, 0, t(500));
+        // Before the usage record: nothing tallied.
+        let early = free_rider_signals(&arc, &commons, Some(t(100)));
+        assert_eq!(early.total_consumed(), 0);
+        let late = free_rider_signals(&arc, &commons, Some(t(600)));
+        assert_eq!(late.total_consumed(), 100);
+    }
+}
+
+// --- §8 observer / jester projection ----------------------------------------
+
+mod observer_projection {
+    use super::*;
+    use crate::analytics::observer_dashboard;
+    use kc_observer::{
+        ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
+        WhistleblowerReport,
+    };
+
+    fn register_observer(a: &mut InMemoryArchive, community: &DidKey, at: Timestamp) -> (DidKey, PrivKey) {
+        let (opriv, opub) = keys::generate(Alg::Ed25519).unwrap();
+        let odid = DidKey::from_pubkey(&opub).unwrap();
+        let reg = ObserverRegistry {
+            nominating_community: community.clone(),
+            entries: vec![ObserverEntry {
+                observer_did: odid.clone(),
+                observer_pubkey: opub,
+                declared_perspective: "labor-rights".into(),
+                valid_from: at,
+                valid_until: None,
+            }],
+            issued_at: at,
+        };
+        // Projection tests skip the authority pass; sign with the observer's own key.
+        let signed = Signed::build(reg, &[(community.as_str(), &opriv)]).unwrap();
+        // (registry is not signature-checked here; we just need it in the archive)
+        a.append(ArchiveEntry::ObserverRegistryUpdated(signed)).unwrap();
+        (odid, opriv)
+    }
+
+    fn publish_report(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        obs: &DidKey,
+        obs_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rep = ObserverReport {
+            subject_community: subject.clone(),
+            observer_did: obs.clone(),
+            declared_perspective: "labor-rights".into(),
+            summary: "authoritarian internal hierarchy".into(),
+            references: vec![],
+            observed_at: at,
+            reported_at: at,
+        };
+        let signed = Signed::build(rep, &[(obs.as_str(), obs_priv)]).unwrap();
+        a.append(ArchiveEntry::ObserverReportPublished(signed)).unwrap()
+    }
+
+    fn respond(a: &mut InMemoryArchive, report_cid: Cid, who: &DidKey, who_priv: &PrivKey, at: Timestamp) -> Cid {
+        let r = ReportResponse {
+            report_cid,
+            responding_community: who.clone(),
+            response: "council is by consent".into(),
+            responded_at: at,
+        };
+        let signed = Signed::build(r, &[(who.as_str(), who_priv)]).unwrap();
+        a.append(ArchiveEntry::ReportResponsePublished(signed)).unwrap()
+    }
+
+    fn whistleblow(a: &mut InMemoryArchive, accused: &DidKey, panel: &DidKey, panel_priv: &PrivKey, at: Timestamp) -> Cid {
+        let wb = WhistleblowerReport {
+            accused_community: accused.clone(),
+            source_commitment: Cid::of_bytes(b"commit"),
+            claim: "coerced labor".into(),
+            references: vec![],
+            reception_panel: vec![panel.clone()],
+            filed_at: at,
+        };
+        let signed = Signed::build(wb, &[(panel.as_str(), panel_priv)]).unwrap();
+        a.append(ArchiveEntry::WhistleblowerFiled(signed)).unwrap()
+    }
+
+    #[test]
+    fn observer_report_projects_onto_subject_with_responses() {
+        let (a_priv, _, subject) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let (obs, obs_priv) = register_observer(&mut arc, &subject, t(10));  // registry only
+        let rep = publish_report(&mut arc, &subject, &obs, &obs_priv, t(100));
+        respond(&mut arc, rep.clone(), &subject, &a_priv, t(200));
+
+        let v = lookup(&arc, &subject, Some(t(1000)));
+        assert_eq!(v.observer_reports.len(), 1);
+        assert_eq!(v.observer_reports[0].declared_perspective, "labor-rights");
+        assert_eq!(v.observer_reports[0].responses.len(), 1);
+        // A community with no report against it sees none.
+        let (_, _, other) = fresh_id();
+        assert!(lookup(&arc, &other, Some(t(1000))).observer_reports.is_empty());
+    }
+
+    #[test]
+    fn observer_report_respects_as_of() {
+        let (_, _, subject) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let (obs, obs_priv) = register_observer(&mut arc, &subject, t(10));
+        publish_report(&mut arc, &subject, &obs, &obs_priv, t(500));
+        assert!(lookup(&arc, &subject, Some(t(100))).observer_reports.is_empty());
+        assert_eq!(lookup(&arc, &subject, Some(t(600))).observer_reports.len(), 1);
+    }
+
+    #[test]
+    fn whistleblower_projects_without_source_and_tracks_reveal() {
+        let (p_priv, _, panel) = fresh_id();
+        let (_, _, accused) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let wb = whistleblow(&mut arc, &accused, &panel, &p_priv, t(100));
+        let v = lookup(&arc, &accused, Some(t(500)));
+        assert_eq!(v.whistleblower_reports_against.len(), 1);
+        assert!(!v.whistleblower_reports_against[0].source_revealed);
+
+        // A for-cause reveal flips the flag (still no source in the projection).
+        let rev = SourceReveal {
+            report_cid: wb,
+            panel: vec![panel.clone()],
+            cause: "recanted".into(),
+            disclosed_source: "did:key:zMember".into(),
+            revealed_at: t(600),
+        };
+        let signed = Signed::build(rev, &[(panel.as_str(), &p_priv)]).unwrap();
+        arc.append(ArchiveEntry::SourceRevealed(signed)).unwrap();
+        let after = lookup(&arc, &accused, Some(t(700)));
+        assert!(after.whistleblower_reports_against[0].source_revealed);
+    }
+
+    #[test]
+    fn observer_dashboard_tallies_reports_and_whistleblowers() {
+        let (_, _, s1) = fresh_id();
+        let (_, _, s2) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let (obs, obs_priv) = register_observer(&mut arc, &s1, t(10));
+        publish_report(&mut arc, &s1, &obs, &obs_priv, t(100));
+        publish_report(&mut arc, &s1, &obs, &obs_priv, t(110));
+        publish_report(&mut arc, &s2, &obs, &obs_priv, t(120));
+        let (p_priv, _, panel) = fresh_id();
+        whistleblow(&mut arc, &s2, &panel, &p_priv, t(130));
+
+        let dash = observer_dashboard(&arc, Some(t(1000)));
+        // s1 has 2 reports, s2 has 1; ranking descending.
+        assert_eq!(dash.observer_reports_by_subject[0], (s1.as_str().to_string(), 2));
+        assert_eq!(dash.whistleblowers_by_accused, vec![(s2.as_str().to_string(), 1)]);
+    }
+}
+
+// --- §9 substrate-deference (constitution) diagnostic -----------------------
+
+mod constitution_diag {
+    use super::*;
+    use crate::analytics::{
+        compact_incapable, constitution_state, in_structured_fast, substrate_deference,
+    };
+    use kc_constitution::{
+        AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
+        FastChange, FastPeriod, IncapableMatter,
+    };
+    use kc_conduct::DecisionClass;
+    use kc_mediation::DisputeRecord;
+
+    fn matter(k: &str) -> IncapableMatter {
+        IncapableMatter { key: k.into(), description: k.into() }
+    }
+
+    fn ratify(a: &mut InMemoryArchive, keys: &[&str], periods: Vec<FastPeriod>, at: Timestamp) {
+        let (priv_, _, did) = fresh_id();
+        let g = ConstitutionGenesis {
+            compact_incapable: keys.iter().map(|k| matter(k)).collect(),
+            fast_periods: periods,
+            ratifiers: vec![did.clone()],
+            genesis_at: at,
+        };
+        // Diagnostic tests skip the authority pass; a single signer suffices.
+        let signed = Signed::build(g, &[(did.as_str(), &priv_)]).unwrap();
+        a.append(ArchiveEntry::ConstitutionRatified(signed)).unwrap();
+    }
+
+    fn amend(a: &mut InMemoryArchive, kind: AmendmentKind, key: &str, at: Timestamp) {
+        let (priv_, _, did) = fresh_id();
+        let am = CompactIncapableAmendment {
+            kind, matter: matter(key), rationale: "r".into(),
+            deciders: vec![did.clone()], decision_class: DecisionClass::SecondClass, decided_at: at,
+        };
+        let signed = Signed::build(am, &[(did.as_str(), &priv_)]).unwrap();
+        a.append(ArchiveEntry::CompactIncapableAmended(signed)).unwrap();
+    }
+
+    fn contract_fast(a: &mut InMemoryArchive, period: FastPeriod, at: Timestamp) {
+        let (priv_, _, did) = fresh_id();
+        let am = FastCadenceAmendment {
+            change: FastChange::Contract, period, rationale: "r".into(),
+            deciders: vec![did.clone()], decision_class: DecisionClass::SecondClass, decided_at: at,
+        };
+        let signed = Signed::build(am, &[(did.as_str(), &priv_)]).unwrap();
+        a.append(ArchiveEntry::FastCadenceAmended(signed)).unwrap();
+    }
+
+    fn file_dispute(a: &mut InMemoryArchive, at: Timestamp) -> Cid {
+        let (priv_, _, did) = fresh_id();
+        let (_, _, resp) = fresh_id();
+        let d = DisputeRecord {
+            complainant: did.clone(), respondent: resp, rung: LadderRung::MediatedArbitration,
+            summary: "s".into(), references: vec![], filed_at: at,
+        };
+        let signed = Signed::build(d, &[(did.as_str(), &priv_)]).unwrap();
+        a.append(ArchiveEntry::DisputeFiled(signed)).unwrap()
+    }
+
+    #[test]
+    fn state_reflects_genesis_and_amendments_over_time() {
+        let mut a = InMemoryArchive::new();
+        assert!(!constitution_state(&a, Some(t(10))).ratified);
+        ratify(&mut a, &["internal-theology"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) }], t(50));
+        amend(&mut a, AmendmentKind::Add, "aesthetics", t(100));
+
+        // Before the add, only the genesis matter is in force.
+        let s70 = constitution_state(&a, Some(t(70)));
+        assert!(s70.ratified);
+        assert_eq!(s70.compact_incapable.len(), 1);
+        // After, both.
+        let s200 = constitution_state(&a, Some(t(200)));
+        assert_eq!(s200.compact_incapable.len(), 2);
+        assert!(compact_incapable(&a, "aesthetics", Some(t(200))));
+        assert!(!compact_incapable(&a, "aesthetics", Some(t(70))));
+    }
+
+    #[test]
+    fn structured_fast_gate() {
+        let mut a = InMemoryArchive::new();
+        ratify(&mut a, &["x"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) }], t(50));
+        assert_eq!(in_structured_fast(&a, t(1500)), Some("annual".to_string()));
+        assert_eq!(in_structured_fast(&a, t(2500)), None);
+    }
+
+    #[test]
+    fn net_contraction_and_fast_deviation_surface() {
+        let mut a = InMemoryArchive::new();
+        ratify(&mut a, &["a", "b"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) }], t(50));
+        // One add, two removes → net contraction.
+        amend(&mut a, AmendmentKind::Add, "c", t(100));
+        amend(&mut a, AmendmentKind::Remove, "a", t(200));
+        amend(&mut a, AmendmentKind::Remove, "b", t(300));
+        // A dispute filed *during* the fast window (still inside after the
+        // contraction below) is a deviation.
+        file_dispute(&mut a, t(1200));
+        // A dispute outside the fast is not.
+        file_dispute(&mut a, t(3000));
+        contract_fast(&mut a, FastPeriod { label: "annual".into(), start: t(1000), end: t(1500) }, t(400));
+
+        let r = substrate_deference(&a, Some(t(5000)));
+        assert!(r.ratified);
+        assert_eq!(r.incapable_added, 1);
+        assert_eq!(r.incapable_removed, 2);
+        assert!(r.contraction_detected);
+        assert_eq!(r.fast_contractions, 1);
+        assert_eq!(r.fast_deviations.len(), 1);
+        assert_eq!(r.fast_deviations[0].kind, "DisputeFiled");
+        assert_eq!(r.fast_deviations[0].fast_label, "annual");
+    }
+}
+
+// --- move 1 interpretive-plurality lens ------------------------------------
+
+mod interpretive_plurality_lens {
+    use super::*;
+    use crate::analytics::interpretive_plurality;
+    use kc_ceremony::lineage::SubstrateInterpretation;
+
+    #[allow(clippy::too_many_arguments)]
+    fn publish_interpretation(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        community_priv: &PrivKey,
+        lineage_id: &str,
+        interpreter: &DidKey,
+        recorded_at: Timestamp,
+    ) -> Cid {
+        let rec = SubstrateInterpretation {
+            community_did: community.clone(),
+            lineage_id: lineage_id.into(),
+            interpreter_did: interpreter.clone(),
+            interprets_cid: None,
+            divergence: "fixture reading".into(),
+            references: vec![],
+            recorded_at,
+        };
+        let signed =
+            Signed::build(rec, &[(community.as_str(), community_priv)]).expect("sign interp");
+        a.append(ArchiveEntry::SubstrateInterpreted(signed))
+            .expect("append")
+    }
+
+    #[test]
+    fn monopoly_shows_single_interpreter_and_lineage() {
+        let (c_priv, _, community) = fresh_id();
+        let (_, _, faction) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // One faction, one lineage, three readings — the capture signature.
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &faction, t(100));
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &faction, t(200));
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &faction, t(300));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(r.interpretations.len(), 3);
+        assert_eq!(r.distinct_lineages(), 1);
+        assert_eq!(r.distinct_interpreters(), 1);
+        assert!(!r.plurality_demonstrated());
+        let ranked = r.interpreter_concentration();
+        assert_eq!(ranked[0].0, faction.as_str().to_string());
+        assert_eq!(ranked[0].1, 3);
+    }
+
+    #[test]
+    fn plurality_demonstrated_with_distinct_lineages_and_interpreters() {
+        let (c_priv, _, community) = fresh_id();
+        let (_, _, i1) = fresh_id();
+        let (_, _, i2) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &i1, t(100));
+        publish_interpretation(&mut a, &community, &c_priv, "reformist", &i2, t(200));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(r.distinct_lineages(), 2);
+        assert_eq!(r.distinct_interpreters(), 2);
+        assert!(r.plurality_demonstrated());
+    }
+
+    #[test]
+    fn distinctness_keyed_on_interpreter_not_record_count() {
+        // A prolific single interpreter across relabeled lineages is still one
+        // interpreter — it cannot fake plurality.
+        let (c_priv, _, community) = fresh_id();
+        let (_, _, faction) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "a", &faction, t(100));
+        publish_interpretation(&mut a, &community, &c_priv, "b", &faction, t(200));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(r.distinct_lineages(), 2);
+        assert_eq!(r.distinct_interpreters(), 1);
+        assert!(!r.plurality_demonstrated());
+    }
+
+    #[test]
+    fn empty_for_community_without_interpretations() {
+        let (_, _, stranger) = fresh_id();
+        let a = InMemoryArchive::new();
+        let r = interpretive_plurality(&a, &stranger, Some(t(1000)));
+        assert!(r.interpretations.is_empty());
+        assert_eq!(r.distinct_lineages(), 0);
+        assert!(!r.plurality_demonstrated());
+    }
+
+    #[test]
+    fn respects_as_of_cutoff() {
+        let (c_priv, _, community) = fresh_id();
+        let (_, _, i1) = fresh_id();
+        let (_, _, i2) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &i1, t(100));
+        // A second lineage arrives later — invisible before its time.
+        publish_interpretation(&mut a, &community, &c_priv, "reformist", &i2, t(5000));
+
+        let early = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(early.distinct_lineages(), 1);
+        assert!(!early.plurality_demonstrated());
+        let late = interpretive_plurality(&a, &community, Some(t(6000)));
+        assert_eq!(late.distinct_lineages(), 2);
+        assert!(late.plurality_demonstrated());
+    }
+
+    #[test]
+    fn only_the_subject_communitys_readings_count() {
+        let (c_priv, _, community) = fresh_id();
+        let (o_priv, _, other) = fresh_id();
+        let (_, _, faction) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &faction, t(100));
+        publish_interpretation(&mut a, &other, &o_priv, "canonical", &faction, t(200));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(r.interpretations.len(), 1);
+    }
+}
+
+// --- move 4 structured-skepticism lens -------------------------------------
+
+mod structured_skepticism_lens {
+    use super::*;
+    use crate::analytics::structured_skepticism;
+    use kc_provenance::{EventCorroboration, EventReport};
+
+    #[allow(clippy::too_many_arguments)]
+    fn publish_event(
+        a: &mut InMemoryArchive,
+        originator: &DidKey,
+        priv_: &PrivKey,
+        charge: bool,
+        sudden: bool,
+        stake: bool,
+        aligned: Option<DidKey>,
+        incentives: &str,
+        history: &str,
+        disclosed: Vec<String>,
+        reported_at: Timestamp,
+    ) -> Cid {
+        let rec = EventReport {
+            originator: originator.clone(),
+            summary: "e".into(),
+            high_interpretive_charge: charge,
+            sudden_onset: sudden,
+            originator_holds_stake: stake,
+            aligned_faction: aligned,
+            declared_incentives: incentives.into(),
+            information_history: history.into(),
+            disclosed_interests: disclosed,
+            onset_at: reported_at,
+            reported_at,
+        };
+        let signed = Signed::build(rec, &[(originator.as_str(), priv_)]).expect("sign event");
+        a.append(ArchiveEntry::EventReported(signed)).expect("append")
+    }
+
+    fn corroborate(
+        a: &mut InMemoryArchive,
+        event_cid: Cid,
+        community: &DidKey,
+        priv_: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = EventCorroboration {
+            event_cid,
+            corroborating_community: community.clone(),
+            translation: Some("cross-substrate reading".into()),
+            corroborated_at: at,
+        };
+        let signed = Signed::build(rec, &[(community.as_str(), priv_)]).expect("sign corr");
+        a.append(ArchiveEntry::EventCorroborated(signed))
+            .expect("append")
+    }
+
+    // A manufactured event: every qualifying trigger, bare provenance.
+    fn manufactured(
+        a: &mut InMemoryArchive,
+        originator: &DidKey,
+        priv_: &PrivKey,
+        faction: &DidKey,
+        at: Timestamp,
+    ) -> Cid {
+        publish_event(
+            a,
+            originator,
+            priv_,
+            true,
+            true,
+            true,
+            Some(faction.clone()),
+            "",
+            "",
+            vec![],
+            at,
+        )
+    }
+
+    #[test]
+    fn manufactured_event_qualifies_and_is_under_corroborated() {
+        let (o_priv, _, originator) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.qualifying_events(), 1);
+        assert_eq!(r.events[0].corroborators.len(), 0);
+        assert!(!r.events[0].provenance_complete);
+        assert_eq!(r.under_corroborated(2).len(), 1);
+    }
+
+    #[test]
+    fn corroboration_by_distinct_communities_clears_the_event() {
+        let (o_priv, _, originator) = fresh_id();
+        let (b_priv, _, b) = fresh_id();
+        let (c_priv, _, c) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        corroborate(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate(&mut a, ev, &c, &c_priv, t(300));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.events[0].corroborators.len(), 2);
+        assert!(r.under_corroborated(2).is_empty());
+    }
+
+    #[test]
+    fn self_and_duplicate_corroboration_do_not_count() {
+        let (o_priv, _, originator) = fresh_id();
+        let (b_priv, _, b) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        // The originator corroborating itself: excluded.
+        corroborate(&mut a, ev.clone(), &originator, &o_priv, t(150));
+        // One ally corroborating twice: still one distinct community.
+        corroborate(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate(&mut a, ev, &b, &b_priv, t(250));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.events[0].corroborators.len(), 1);
+        assert_eq!(r.under_corroborated(2).len(), 1);
+    }
+
+    #[test]
+    fn mundane_event_does_not_qualify() {
+        let (o_priv, _, originator) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // No triggers → does not qualify, so never under-corroborated.
+        publish_event(
+            &mut a, &originator, &o_priv, false, false, false, None, "", "", vec![], t(100),
+        );
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.qualifying_events(), 0);
+        assert!(r.under_corroborated(2).is_empty());
+    }
+
+    #[test]
+    fn empty_archive_is_inert() {
+        let a = InMemoryArchive::new();
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert!(r.events.is_empty());
+        assert_eq!(r.qualifying_events(), 0);
+        assert!(r.under_corroborated(2).is_empty());
+    }
+
+    #[test]
+    fn respects_as_of_cutoff() {
+        let (o_priv, _, originator) = fresh_id();
+        let (b_priv, _, b) = fresh_id();
+        let (c_priv, _, c) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        // Corroborations arrive later — invisible before their time.
+        corroborate(&mut a, ev.clone(), &b, &b_priv, t(5000));
+        corroborate(&mut a, ev, &c, &c_priv, t(6000));
+
+        // Before the corroborations: still under-corroborated.
+        let early = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(early.events[0].corroborators.len(), 0);
+        assert_eq!(early.under_corroborated(2).len(), 1);
+        // After: cleared. An event dated after as_of is invisible entirely.
+        let late = structured_skepticism(&a, Some(t(7000)));
+        assert_eq!(late.events[0].corroborators.len(), 2);
+        assert!(late.under_corroborated(2).is_empty());
+        let before_event = structured_skepticism(&a, Some(t(50)));
+        assert!(before_event.events.is_empty());
+    }
+}
+
+// --- move 6 adversarial-principal lens -------------------------------------
+
+mod adversarial_principal_lens {
+    use super::*;
+    use crate::analytics::adversarial_principal;
+    use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
+
+    #[allow(clippy::too_many_arguments)]
+    fn publish_output(
+        a: &mut InMemoryArchive,
+        home: &DidKey,
+        home_priv: &PrivKey,
+        principal: &DidKey,
+        cohort: &str,
+        matter: &str,
+        decision: &str,
+        favors_home: bool,
+        produced_at: Timestamp,
+    ) -> Cid {
+        let rec = PrincipalOutput {
+            principal_did: principal.clone(),
+            principal_home: home.clone(),
+            cohort: cohort.into(),
+            matter: matter.into(),
+            decision: decision.into(),
+            favors_home,
+            produced_at,
+        };
+        let signed = Signed::build(rec, &[(home.as_str(), home_priv)]).expect("sign output");
+        a.append(ArchiveEntry::PrincipalOutputRecorded(signed))
+            .expect("append")
+    }
+
+    fn attest(
+        a: &mut InMemoryArchive,
+        witness: &DidKey,
+        witness_priv: &PrivKey,
+        principal: &DidKey,
+        principal_home: &DidKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = PrincipalWitnessAttestation {
+            principal_did: principal.clone(),
+            principal_home: principal_home.clone(),
+            witness_community: witness.clone(),
+            basis: "observed continuity".into(),
+            attested_at: at,
+        };
+        let signed = Signed::build(rec, &[(witness.as_str(), witness_priv)]).expect("sign attest");
+        a.append(ArchiveEntry::PrincipalWitnessed(signed))
+            .expect("append")
+    }
+
+    // A home community H, its (possibly captured) principal P0, and three peer
+    // homes each running a cohort principal that answers "admit".
+    fn cohort_archive() -> (InMemoryArchive, PrivKey, DidKey, DidKey) {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        for (i, ans) in ["admit", "admit", "admit"].iter().enumerate() {
+            let (peer_priv, _, peer_home) = fresh_id();
+            let (_, _, peer_p) = fresh_id();
+            publish_output(
+                &mut a, &peer_home, &peer_priv, &peer_p, "admissions-review", "M1", ans,
+                false, t(100 + i as i64),
+            );
+        }
+        (a, h_priv, home, p0)
+    }
+
+    #[test]
+    fn self_benefiting_divergence_from_cohort_is_flagged() {
+        let (mut a, h_priv, home, p0) = cohort_archive();
+        // The captured principal diverges toward its own side.
+        publish_output(&mut a, &home, &h_priv, &p0, "admissions-review", "M1", "reject", true, t(200));
+
+        let r = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert_eq!(r.divergences.len(), 1);
+        let d = &r.divergences[0];
+        assert_eq!(d.principal_decision, "reject");
+        assert_eq!(d.cohort_majority, "admit");
+        assert_eq!(d.peers_compared, 3);
+        assert!(d.favors_home);
+        assert_eq!(r.self_benefiting_divergences(), 1);
+    }
+
+    #[test]
+    fn agreeing_with_cohort_is_not_flagged() {
+        let (mut a, h_priv, home, p0) = cohort_archive();
+        publish_output(&mut a, &home, &h_priv, &p0, "admissions-review", "M1", "admit", false, t(200));
+
+        let r = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert!(r.divergences.is_empty());
+        assert_eq!(r.self_benefiting_divergences(), 0);
+    }
+
+    #[test]
+    fn divergence_not_benefiting_home_is_surfaced_but_not_self_benefiting() {
+        let (mut a, h_priv, home, p0) = cohort_archive();
+        publish_output(&mut a, &home, &h_priv, &p0, "admissions-review", "M1", "reject", false, t(200));
+
+        let r = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert_eq!(r.divergences.len(), 1);
+        assert_eq!(r.self_benefiting_divergences(), 0);
+    }
+
+    #[test]
+    fn cross_witness_excludes_principal_and_home() {
+        let (h_priv, _, home) = fresh_id();
+        let (p0_priv, _, p0) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // Home self-attesting and the principal self-attesting do not count.
+        attest(&mut a, &home, &h_priv, &p0, &home, t(100));
+        attest(&mut a, &p0, &p0_priv, &p0, &home, t(150));
+        let only_home = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert_eq!(only_home.distinct_cross_witnesses(), 0);
+
+        // A genuine cross-community witness counts.
+        attest(&mut a, &witness, &w_priv, &p0, &home, t(200));
+        let with_cross = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert_eq!(with_cross.distinct_cross_witnesses(), 1);
+    }
+
+    #[test]
+    fn duplicate_cross_witness_counts_once() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let _ = h_priv;
+        attest(&mut a, &witness, &w_priv, &p0, &home, t(100));
+        attest(&mut a, &witness, &w_priv, &p0, &home, t(200));
+        let r = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert_eq!(r.cross_witnesses.len(), 2);
+        assert_eq!(r.distinct_cross_witnesses(), 1);
+    }
+
+    #[test]
+    fn no_peers_no_divergence() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // Only the principal's own output; nothing to triangulate against.
+        publish_output(&mut a, &home, &h_priv, &p0, "solo", "M1", "reject", true, t(100));
+        let r = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert!(r.divergences.is_empty());
+    }
+
+    #[test]
+    fn empty_and_stranger_are_inert() {
+        let (_, _, stranger) = fresh_id();
+        let a = InMemoryArchive::new();
+        let r = adversarial_principal(&a, &stranger, Some(t(1000)));
+        assert!(r.cross_witnesses.is_empty());
+        assert!(r.divergences.is_empty());
+        assert_eq!(r.distinct_cross_witnesses(), 0);
+        assert_eq!(r.self_benefiting_divergences(), 0);
+    }
+
+    #[test]
+    fn respects_as_of_cutoff() {
+        let (mut a, h_priv, home, p0) = cohort_archive();
+        // The divergent output arrives late.
+        publish_output(&mut a, &home, &h_priv, &p0, "admissions-review", "M1", "reject", true, t(5000));
+        let early = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert!(early.divergences.is_empty());
+        let late = adversarial_principal(&a, &p0, Some(t(6000)));
+        assert_eq!(late.self_benefiting_divergences(), 1);
+    }
+}

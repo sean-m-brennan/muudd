@@ -41,7 +41,10 @@ use kc_conduct::{
     ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity,
 };
 use kc_ceremony::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
+use kc_ceremony::lineage::SubstrateInterpretation;
 use kc_ceremony::recitation::{Recitation, RecitationVersion};
+use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
+use kc_provenance::{EventCorroboration, EventReport};
 use kc_core::{keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, Signed, Timestamp};
 use kc_identity::{
     CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessEntry, WitnessRegistry,
@@ -50,8 +53,20 @@ use kc_identity::{
 use kc_mediation::{
     DecisionOutcome, DisputeRecord, MediationDecision, MediatorEntry, MediatorRegistry,
 };
+use kc_commons::{
+    CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, UsageRecord,
+};
+use kc_observer::{
+    ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
+    WhistleblowerReport,
+};
+use kc_constitution::{
+    AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
+    FastChange, FastPeriod, IncapableMatter,
+};
 use kc_escalation::{
-    DeliberationCycle, Designation, DesignationTier, DesignationUrgency, LadderTransition, ReEntry,
+    Capability, DeliberationCycle, Designation, DesignationTier, DesignationUrgency,
+    InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition, ReEntry,
     ReEntryWitnessAttestation, RestitutionCompletion, RestitutionObligation,
     SubstantiveReEngagement,
 };
@@ -509,6 +524,565 @@ impl PyArchive {
             .map_err(kc_err_to_py)
     }
 
+    // ---- §9 Interim injunction authoring (capability-gating) -------------
+
+    /// Issue an interim injunction against a community (§9), co-signed by the
+    /// emergency mediator panel. `revoked_capabilities` are Capability names
+    /// suspended while the injunction is in force. `expires_at` defaults to
+    /// `issued_at + 90 days`. The authority pass enforces a non-party mediator
+    /// panel. Returns the injunction's CID (referenced by confirmations and
+    /// challenges).
+    #[pyo3(signature = (panel_privs, panel_dids, subject_did, harm, protective_measures, revoked_capabilities, dispute_cid=None, issued_at=None, expires_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn issue_injunction(
+        &mut self,
+        panel_privs: Vec<Vec<u8>>,
+        panel_dids: Vec<String>,
+        subject_did: &str,
+        harm: String,
+        protective_measures: String,
+        revoked_capabilities: Vec<String>,
+        dispute_cid: Option<String>,
+        issued_at: Option<i64>,
+        expires_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        let revoked: Vec<Capability> =
+            revoked_capabilities.iter().map(|c| parse_capability(c)).collect::<PyResult<_>>()?;
+        let issued = parse_as_of(issued_at)?.unwrap_or_else(time::now);
+        let expires = match parse_as_of(expires_at)? {
+            Some(t) => t,
+            None => ts(issued.as_second() + 90 * 24 * 3600)?,
+        };
+        let inj = InterimInjunction {
+            subject_community: parse_did(subject_did)?,
+            dispute_cid: dispute_cid.as_deref().map(parse_cid).transpose()?,
+            harm,
+            protective_measures,
+            revoked_capabilities: revoked,
+            panel: ids,
+            issued_at: issued,
+            expires_at: expires,
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(inj, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::InjunctionIssued(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Confirm an injunction (§9): the full compact ratifying it, co-signed by a
+    /// distinct-community quorum. A confirmation that arrives before the
+    /// injunction's expiry lets it persist past its window. Returns the CID.
+    #[pyo3(signature = (confirmer_privs, confirmer_dids, injunction_cid, confirmed_at=None))]
+    fn confirm_injunction(
+        &mut self,
+        confirmer_privs: Vec<Vec<u8>>,
+        confirmer_dids: Vec<String>,
+        injunction_cid: &str,
+        confirmed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&confirmer_privs, &confirmer_dids)?;
+        let c = InjunctionConfirmation {
+            injunction_cid: parse_cid(injunction_cid)?,
+            confirmers: ids,
+            confirmed_at: parse_as_of(confirmed_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(c, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::InjunctionConfirmed(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Challenge an injunction (§9), heard by a *different* mediator panel than
+    /// the one that issued it (the authority pass enforces disjointness and the
+    /// non-party rule). `overturned=True` ends the injunction. Returns the CID.
+    #[pyo3(signature = (panel_privs, panel_dids, injunction_cid, overturned, reasoning=String::new(), decided_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn challenge_injunction(
+        &mut self,
+        panel_privs: Vec<Vec<u8>>,
+        panel_dids: Vec<String>,
+        injunction_cid: &str,
+        overturned: bool,
+        reasoning: String,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        let ch = InjunctionChallenge {
+            injunction_cid: parse_cid(injunction_cid)?,
+            panel: ids,
+            overturned,
+            reasoning,
+            decided_at: parse_as_of(decided_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(ch, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::InjunctionChallenged(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// §9 capability gate: `True` unless `capability` is currently revoked from
+    /// `did` by an active or confirmed injunction, as of `as_of` (default now).
+    #[pyo3(signature = (did, capability, as_of=None))]
+    fn has_capability(&self, did: &str, capability: &str, as_of: Option<i64>) -> PyResult<bool> {
+        let did_key = parse_did(did)?;
+        // Validate the name so a typo fails loudly rather than silently passing.
+        let _ = parse_capability(capability)?;
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(kc_reputation::has_capability(&self.inner, &did_key, capability, as_of_ts))
+    }
+
+    // ---- §7 Commons governance authoring ---------------------------------
+
+    /// Register a compact-level commons (§7), co-signed by the registering
+    /// communities. `kind` is a CommonsKind name; `appropriators` are the member
+    /// DIDs with draw rights (Ostrom's boundary). A second-class act: the
+    /// authority pass requires a distinct-community quorum, and every registrant
+    /// must itself be an appropriator. Returns the commons' CID (referenced by
+    /// usage and sanction records).
+    #[pyo3(signature = (registrar_privs, registrar_dids, kind, name, description, appropriators, provision_rule=String::new(), registered_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn register_commons(
+        &mut self,
+        registrar_privs: Vec<Vec<u8>>,
+        registrar_dids: Vec<String>,
+        kind: &str,
+        name: String,
+        description: String,
+        appropriators: Vec<String>,
+        provision_rule: String,
+        registered_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&registrar_privs, &registrar_dids)?;
+        let appropriator_dids: Vec<DidKey> =
+            appropriators.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?;
+        let reg = CommonsRegistration {
+            kind: parse_commons_kind(kind)?,
+            name,
+            description,
+            appropriators: appropriator_dids,
+            provision_rule,
+            registered_by: ids,
+            registered_at: parse_as_of(registered_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(reg, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::CommonsRegistered(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Record a community's self-reported usage of a commons (§7), signed by that
+    /// community. First-class; the authority pass requires the reporter be an
+    /// appropriator of the referenced commons. Returns the CID.
+    #[pyo3(signature = (community_priv, community_did, commons_cid, consumed, contributed, period_start=None, period_end=None, recorded_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn record_usage(
+        &mut self,
+        community_priv: Vec<u8>,
+        community_did: &str,
+        commons_cid: &str,
+        consumed: u64,
+        contributed: u64,
+        period_start: Option<i64>,
+        period_end: Option<i64>,
+        recorded_at: Option<i64>,
+    ) -> PyResult<String> {
+        let at = parse_as_of(recorded_at)?.unwrap_or_else(time::now);
+        let u = UsageRecord {
+            commons_cid: parse_cid(commons_cid)?,
+            community: parse_did(community_did)?,
+            consumed,
+            contributed,
+            period_start: parse_as_of(period_start)?.unwrap_or(at),
+            period_end: parse_as_of(period_end)?.unwrap_or(at),
+            recorded_at: at,
+        };
+        let key = priv_from_bytes(&community_priv);
+        let signed = Signed::build(u, &[(community_did, &key)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::UsageAccounted(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Apply a graduated-sanction step against a community on a commons (§7),
+    /// co-signed by the imposing communities. `from_level`/`to_level` are
+    /// SanctionLevel names; the authority pass requires the move to leave the
+    /// pair's current level and either escalate one step or de-escalate, and the
+    /// second-class levels (Restriction, Exclusion) to carry a distinct-community
+    /// quorum. Returns the CID.
+    #[pyo3(signature = (imposer_privs, imposer_dids, commons_cid, subject_did, from_level, to_level, basis=String::new(), references=Vec::new(), decision_class="FirstClass".to_string(), decided_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn apply_sanction(
+        &mut self,
+        imposer_privs: Vec<Vec<u8>>,
+        imposer_dids: Vec<String>,
+        commons_cid: &str,
+        subject_did: &str,
+        from_level: &str,
+        to_level: &str,
+        basis: String,
+        references: Vec<String>,
+        decision_class: String,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&imposer_privs, &imposer_dids)?;
+        let refs: Vec<Cid> = references.iter().map(|s| parse_cid(s)).collect::<PyResult<_>>()?;
+        let s = CommonsSanction {
+            commons_cid: parse_cid(commons_cid)?,
+            subject_community: parse_did(subject_did)?,
+            from_level: parse_sanction_level(from_level)?,
+            to_level: parse_sanction_level(to_level)?,
+            basis,
+            references: refs,
+            imposers: ids,
+            decision_class: parse_decision_class(&decision_class)?,
+            decided_at: parse_as_of(decided_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(s, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::SanctionApplied(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// §7 commons gate: the current SanctionLevel name standing against `did` on
+    /// the commons at `commons_cid`, as of `as_of` (default now). `None` when no
+    /// sanction stands.
+    #[pyo3(signature = (did, commons_cid, as_of=None))]
+    fn commons_level(&self, did: &str, commons_cid: &str, as_of: Option<i64>) -> PyResult<String> {
+        let did_key = parse_did(did)?;
+        let cid = parse_cid(commons_cid)?;
+        let as_of_ts = parse_as_of(as_of)?;
+        let level = kc_reputation::commons_level(&self.inner, &did_key, &cid, as_of_ts);
+        Ok(level.as_str().to_string())
+    }
+
+    /// §7 free-rider lens over a commons's usage records as of `as_of`:
+    /// per-appropriator consumed/contributed tallies plus the net-draw ranking.
+    #[pyo3(signature = (commons_cid, as_of=None))]
+    fn free_rider_signals(&self, commons_cid: &str, as_of: Option<i64>) -> PyResult<PyFreeRiderReport> {
+        let cid = parse_cid(commons_cid)?;
+        let as_of_ts = parse_as_of(as_of)?;
+        let report = kc_reputation::free_rider_signals(&self.inner, &cid, as_of_ts);
+        Ok(PyFreeRiderReport::from(&report))
+    }
+
+    // ---- §8 Observer / jester corps authoring ----------------------------
+
+    /// Publish `community`'s roster of nominated observers (§8), signed by the
+    /// community root. Each observer is `(pubkey, did, declared_perspective)`;
+    /// the compact-wide corps is the union across communities (latest registry
+    /// per community supersedes). Returns the CID.
+    #[pyo3(signature = (community_priv, community_did, observers, valid_from, valid_until=None))]
+    fn register_observers(
+        &mut self,
+        community_priv: &[u8],
+        community_did: &str,
+        observers: Vec<(Vec<u8>, String, String)>,
+        valid_from: i64,
+        valid_until: Option<i64>,
+    ) -> PyResult<String> {
+        let cdid = parse_did(community_did)?;
+        let vf = ts(valid_from)?;
+        let vu = valid_until.map(ts).transpose()?;
+        let mut entries = Vec::with_capacity(observers.len());
+        for (pk, did, perspective) in &observers {
+            entries.push(ObserverEntry {
+                observer_did: parse_did(did)?,
+                observer_pubkey: pub_from_bytes(pk),
+                declared_perspective: perspective.clone(),
+                valid_from: vf,
+                valid_until: vu,
+            });
+        }
+        let reg = ObserverRegistry { nominating_community: cdid, entries, issued_at: vf };
+        let sk = priv_from_bytes(community_priv);
+        let signed = Signed::build(reg, &[(community_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ObserverRegistryUpdated(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Publish an attributed observer report on `subject_did` (§8), signed by the
+    /// observer. The authority pass requires the observer be a registered,
+    /// non-party member of the corps. Returns the report CID.
+    #[pyo3(signature = (observer_priv, observer_did, subject_did, declared_perspective, summary, references=Vec::new(), observed_at=None, reported_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn publish_observer_report(
+        &mut self,
+        observer_priv: &[u8],
+        observer_did: &str,
+        subject_did: &str,
+        declared_perspective: String,
+        summary: String,
+        references: Vec<String>,
+        observed_at: Option<i64>,
+        reported_at: Option<i64>,
+    ) -> PyResult<String> {
+        let at = parse_as_of(reported_at)?.unwrap_or_else(time::now);
+        let refs: Vec<Cid> = references.iter().map(|s| parse_cid(s)).collect::<PyResult<_>>()?;
+        let rep = ObserverReport {
+            subject_community: parse_did(subject_did)?,
+            observer_did: parse_did(observer_did)?,
+            declared_perspective,
+            summary,
+            references: refs,
+            observed_at: parse_as_of(observed_at)?.unwrap_or(at),
+            reported_at: at,
+        };
+        let sk = priv_from_bytes(observer_priv);
+        let signed = Signed::build(rep, &[(observer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ObserverReportPublished(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a subject community's public response to an observer report (§8),
+    /// signed by that community. The response never suppresses the report.
+    #[pyo3(signature = (community_priv, community_did, report_cid, response, responded_at=None))]
+    fn respond_to_report(
+        &mut self,
+        community_priv: &[u8],
+        community_did: &str,
+        report_cid: &str,
+        response: String,
+        responded_at: Option<i64>,
+    ) -> PyResult<String> {
+        let r = ReportResponse {
+            report_cid: parse_cid(report_cid)?,
+            responding_community: parse_did(community_did)?,
+            response,
+            responded_at: parse_as_of(responded_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(community_priv);
+        let signed = Signed::build(r, &[(community_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ReportResponsePublished(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// File a whistleblower report against `accused_did` (§8), co-signed by a
+    /// mediator reception panel. `source_commitment` is a CID committing to the
+    /// source; the identity itself is never passed in or stored. The authority
+    /// pass requires a non-party reception panel. Returns the report CID.
+    #[pyo3(signature = (panel_privs, panel_dids, accused_did, source_commitment, claim, references=Vec::new(), filed_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn file_whistleblower(
+        &mut self,
+        panel_privs: Vec<Vec<u8>>,
+        panel_dids: Vec<String>,
+        accused_did: &str,
+        source_commitment: &str,
+        claim: String,
+        references: Vec<String>,
+        filed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        let refs: Vec<Cid> = references.iter().map(|s| parse_cid(s)).collect::<PyResult<_>>()?;
+        let wb = WhistleblowerReport {
+            accused_community: parse_did(accused_did)?,
+            source_commitment: parse_cid(source_commitment)?,
+            claim,
+            references: refs,
+            reception_panel: ids,
+            filed_at: parse_as_of(filed_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(wb, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::WhistleblowerFiled(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Disclose a whistleblower's source (§8), co-signed by a mediator panel and
+    /// citing a non-empty cause. Returns the CID.
+    #[pyo3(signature = (panel_privs, panel_dids, report_cid, cause, disclosed_source, revealed_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn reveal_source(
+        &mut self,
+        panel_privs: Vec<Vec<u8>>,
+        panel_dids: Vec<String>,
+        report_cid: &str,
+        cause: String,
+        disclosed_source: String,
+        revealed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        let rev = SourceReveal {
+            report_cid: parse_cid(report_cid)?,
+            panel: ids,
+            cause,
+            disclosed_source,
+            revealed_at: parse_as_of(revealed_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(rev, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::SourceRevealed(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// §8 observer dashboard as of `as_of`: the composition-drift board bundling
+    /// the sponsorship graph, the rejection pattern, and per-community observer /
+    /// whistleblower report tallies.
+    #[pyo3(signature = (as_of=None))]
+    fn observer_dashboard(&self, as_of: Option<i64>) -> PyResult<PyObserverDashboard> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let d = kc_reputation::observer_dashboard(&self.inner, as_of_ts);
+        Ok(PyObserverDashboard::from(&d))
+    }
+
+    // ---- §9 Substrate-deference (constitution) authoring -----------------
+
+    /// Ratify the founding constitution (§9): the initial compact-incapable list
+    /// (`incapable` = list of (key, description)) and structured-fast cadence
+    /// (`fast_periods` = list of (label, start, end)), co-signed by the founding
+    /// communities. Second-class (quorum); a singleton per archive. Returns the CID.
+    #[pyo3(signature = (ratifier_privs, ratifier_dids, incapable, fast_periods, genesis_at=None))]
+    fn ratify_constitution(
+        &mut self,
+        ratifier_privs: Vec<Vec<u8>>,
+        ratifier_dids: Vec<String>,
+        incapable: Vec<(String, String)>,
+        fast_periods: Vec<(String, i64, i64)>,
+        genesis_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&ratifier_privs, &ratifier_dids)?;
+        let matters = incapable
+            .into_iter()
+            .map(|(key, description)| IncapableMatter { key, description })
+            .collect();
+        let periods = fast_periods
+            .into_iter()
+            .map(|(label, start, end)| Ok(FastPeriod { label, start: ts(start)?, end: ts(end)? }))
+            .collect::<PyResult<Vec<_>>>()?;
+        let g = ConstitutionGenesis {
+            compact_incapable: matters,
+            fast_periods: periods,
+            ratifiers: ids,
+            genesis_at: parse_as_of(genesis_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(g, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ConstitutionRatified(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Amend the compact-incapable list (§9). `kind` is "Add" or "Remove";
+    /// second-class. Adds use the normal quorum; Removes require the higher
+    /// contraction bar and may not name a genesis-original matter. Returns the CID.
+    #[pyo3(signature = (decider_privs, decider_dids, kind, matter_key, matter_description=String::new(), rationale=String::new(), decision_class="SecondClass".to_string(), decided_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn amend_compact_incapable(
+        &mut self,
+        decider_privs: Vec<Vec<u8>>,
+        decider_dids: Vec<String>,
+        kind: &str,
+        matter_key: String,
+        matter_description: String,
+        rationale: String,
+        decision_class: String,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&decider_privs, &decider_dids)?;
+        let a = CompactIncapableAmendment {
+            kind: parse_amendment_kind(kind)?,
+            matter: IncapableMatter { key: matter_key, description: matter_description },
+            rationale,
+            deciders: ids,
+            decision_class: parse_decision_class(&decision_class)?,
+            decided_at: parse_as_of(decided_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(a, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::CompactIncapableAmended(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Amend the structured-fast cadence (§9). `change` is "Extend" or "Contract"
+    /// (Contract carries the higher bar). `period` is the resulting (label, start,
+    /// end). Second-class. Returns the CID.
+    #[pyo3(signature = (decider_privs, decider_dids, change, label, start, end, rationale=String::new(), decision_class="SecondClass".to_string(), decided_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn amend_fast_cadence(
+        &mut self,
+        decider_privs: Vec<Vec<u8>>,
+        decider_dids: Vec<String>,
+        change: &str,
+        label: String,
+        start: i64,
+        end: i64,
+        rationale: String,
+        decision_class: String,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&decider_privs, &decider_dids)?;
+        let a = FastCadenceAmendment {
+            change: parse_fast_change(change)?,
+            period: FastPeriod { label, start: ts(start)?, end: ts(end)? },
+            rationale,
+            deciders: ids,
+            decision_class: parse_decision_class(&decision_class)?,
+            decided_at: parse_as_of(decided_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(a, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::FastCadenceAmended(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// §9 constitutional state as of `as_of`: whether ratified, the in-force
+    /// compact-incapable matters, and the current structured-fast cadence.
+    #[pyo3(signature = (as_of=None))]
+    fn constitution_state(&self, as_of: Option<i64>) -> PyResult<PyConstitutionState> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(PyConstitutionState::from(&kc_reputation::constitution_state(&self.inner, as_of_ts)))
+    }
+
+    /// §9 categorical-deference gate: is `matter_key` a matter the compact will
+    /// not decide, as of `as_of`?
+    #[pyo3(signature = (matter_key, as_of=None))]
+    fn compact_incapable(&self, matter_key: &str, as_of: Option<i64>) -> PyResult<bool> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(kc_reputation::compact_incapable(&self.inner, matter_key, as_of_ts))
+    }
+
+    /// §9 temporal-deference gate: the label of the structured-fast period
+    /// containing `at`, or None if the compact is not fasting then.
+    fn in_structured_fast(&self, at: i64) -> PyResult<Option<String>> {
+        Ok(kc_reputation::in_structured_fast(&self.inner, ts(at)?))
+    }
+
+    /// §9 substrate-deference / erosion report as of `as_of`: the size and drift
+    /// of the compact-incapable list, the fast cadence and its contraction count,
+    /// and deliberative acts initiated during a fast.
+    #[pyo3(signature = (as_of=None))]
+    fn substrate_deference(&self, as_of: Option<i64>) -> PyResult<PySubstrateDeferenceReport> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(PySubstrateDeferenceReport::from(&kc_reputation::substrate_deference(&self.inner, as_of_ts)))
+    }
+
     fn cids(&self) -> Vec<String> {
         self.inner.iter().map(|(cid, _)| cid.to_string()).collect()
     }
@@ -602,6 +1176,49 @@ impl PyArchive {
         let as_of_ts = parse_as_of(as_of)?;
         let d = kc_reputation::ceremony_cost_decay(&self.inner, &did, as_of_ts);
         Ok(PyCeremonyCostDecay::from(&d))
+    }
+
+    /// Move 1 jester lens — interpretive-plurality report for `community` as of
+    /// `as_of`: its substrate readings, the per-lineage and per-interpreter
+    /// counts, and the interpreter-concentration ranking a monopoly heads. No
+    /// verdict — the monopoly threshold is the caller's.
+    #[pyo3(signature = (community, as_of=None))]
+    fn interpretive_plurality(
+        &self,
+        community: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyInterpretivePluralityReport> {
+        let did = parse_did(community)?;
+        let as_of_ts = parse_as_of(as_of)?;
+        let r = kc_reputation::interpretive_plurality(&self.inner, &did, as_of_ts);
+        Ok(PyInterpretivePluralityReport::from(&r))
+    }
+
+    /// Move 4 jester lens — structured-skepticism report over the whole archive
+    /// as of `as_of`: every event report's provenance, qualifying triggers, and
+    /// distinct-community corroborators (excluding the originator). No verdict —
+    /// the corroboration threshold is the caller's.
+    #[pyo3(signature = (as_of=None))]
+    fn structured_skepticism(&self, as_of: Option<i64>) -> PyResult<PySkepticismReport> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let r = kc_reputation::structured_skepticism(&self.inner, as_of_ts);
+        Ok(PySkepticismReport::from(&r))
+    }
+
+    /// Move 6 jester lens — adversarial-principal report for `principal` as of
+    /// `as_of`: cross-community witness attestations (excluding the principal
+    /// and its home) and output divergences from the cohort majority (with
+    /// whether each benefits the principal's own side). No verdict.
+    #[pyo3(signature = (principal, as_of=None))]
+    fn adversarial_principal(
+        &self,
+        principal: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyPrincipalValidationReport> {
+        let did = parse_did(principal)?;
+        let as_of_ts = parse_as_of(as_of)?;
+        let r = kc_reputation::adversarial_principal(&self.inner, &did, as_of_ts);
+        Ok(PyPrincipalValidationReport::from(&r))
     }
 
     // ---- Authoring (mutating) --------------------------------------------
@@ -765,6 +1382,192 @@ impl PyArchive {
         let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
         self.inner
             .append(ArchiveEntry::SponsorshipVouched(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a signed substrate interpretation (capture move 1): one point on a
+    /// traceable interpretive lineage. The envelope is signed by `signer_priv`/
+    /// `signer_did` (the community root, or a key it delegated); the payload
+    /// attributes the reading to `community_did`. `interpreter_did` is the
+    /// internal author (the plurality unit). `interprets_cid` optionally links
+    /// the rite/recitation it reads. Returns the entry CID.
+    #[pyo3(signature = (signer_priv, signer_did, community_did, lineage_id, interpreter_did, divergence=String::new(), interprets_cid=None, references=Vec::new(), recorded_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn append_interpretation(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        community_did: &str,
+        lineage_id: String,
+        interpreter_did: &str,
+        divergence: String,
+        interprets_cid: Option<String>,
+        references: Vec<String>,
+        recorded_at: Option<i64>,
+    ) -> PyResult<String> {
+        let community = parse_did(community_did)?;
+        let interpreter = parse_did(interpreter_did)?;
+        let interprets = interprets_cid.as_deref().map(parse_cid).transpose()?;
+        let refs: Vec<Cid> = references.iter().map(|c| parse_cid(c)).collect::<PyResult<_>>()?;
+        let rec = SubstrateInterpretation {
+            community_did: community,
+            lineage_id,
+            interpreter_did: interpreter,
+            interprets_cid: interprets,
+            divergence,
+            references: refs,
+            recorded_at: parse_as_of(recorded_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::SubstrateInterpreted(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a signed event report (capture move 4), provenance-tagged at
+    /// intake. Signed by `signer_priv`/`signer_did`; attributed to
+    /// `originator_did`. The booleans are the structured-skepticism qualifying
+    /// triggers; `aligned_faction_did` is the conveniently-aligned faction (or
+    /// None). Returns the entry CID.
+    #[pyo3(signature = (signer_priv, signer_did, originator_did, summary, high_interpretive_charge=false, sudden_onset=false, originator_holds_stake=false, aligned_faction_did=None, declared_incentives=String::new(), information_history=String::new(), disclosed_interests=Vec::new(), onset_at=None, reported_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn append_event(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        originator_did: &str,
+        summary: String,
+        high_interpretive_charge: bool,
+        sudden_onset: bool,
+        originator_holds_stake: bool,
+        aligned_faction_did: Option<String>,
+        declared_incentives: String,
+        information_history: String,
+        disclosed_interests: Vec<String>,
+        onset_at: Option<i64>,
+        reported_at: Option<i64>,
+    ) -> PyResult<String> {
+        let originator = parse_did(originator_did)?;
+        let aligned = aligned_faction_did.as_deref().map(parse_did).transpose()?;
+        let reported = parse_as_of(reported_at)?.unwrap_or_else(time::now);
+        let onset = parse_as_of(onset_at)?.unwrap_or(reported);
+        let rec = EventReport {
+            originator,
+            summary,
+            high_interpretive_charge,
+            sudden_onset,
+            originator_holds_stake,
+            aligned_faction: aligned,
+            declared_incentives,
+            information_history,
+            disclosed_interests,
+            onset_at: onset,
+            reported_at: reported,
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::EventReported(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a signed corroboration of an event report by another community
+    /// (capture move 4). Signed by `signer_priv`/`signer_did`; attributed to
+    /// `community_did`. `event_cid` is the `EventReported` entry CID. Returns the
+    /// corroboration entry CID.
+    #[pyo3(signature = (signer_priv, signer_did, community_did, event_cid, translation=None, corroborated_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn append_corroboration(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        community_did: &str,
+        event_cid: &str,
+        translation: Option<String>,
+        corroborated_at: Option<i64>,
+    ) -> PyResult<String> {
+        let community = parse_did(community_did)?;
+        let rec = EventCorroboration {
+            event_cid: parse_cid(event_cid)?,
+            corroborating_community: community,
+            translation,
+            corroborated_at: parse_as_of(corroborated_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::EventCorroborated(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a signed cross-community principal-witness attestation (capture
+    /// move 6). Signed by `signer_priv`/`signer_did`; attributed to
+    /// `witness_community_did`. `principal_home_did` is the principal's own
+    /// community. Returns the entry CID.
+    #[pyo3(signature = (signer_priv, signer_did, witness_community_did, principal_did, principal_home_did, basis=String::new(), attested_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn append_principal_witness(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        witness_community_did: &str,
+        principal_did: &str,
+        principal_home_did: &str,
+        basis: String,
+        attested_at: Option<i64>,
+    ) -> PyResult<String> {
+        let rec = PrincipalWitnessAttestation {
+            principal_did: parse_did(principal_did)?,
+            principal_home: parse_did(principal_home_did)?,
+            witness_community: parse_did(witness_community_did)?,
+            basis,
+            attested_at: parse_as_of(attested_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::PrincipalWitnessed(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a signed principal output for triangulation (capture move 6).
+    /// Signed by `signer_priv`/`signer_did`; the output is attributed to
+    /// `principal_home_did` (the home community recording its principal's
+    /// output). `cohort`/`matter` scope the comparison; `favors_home` declares
+    /// whether the decision benefits the principal's own side. Returns the CID.
+    #[pyo3(signature = (signer_priv, signer_did, principal_did, principal_home_did, cohort, matter, decision, favors_home=false, produced_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn append_principal_output(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        principal_did: &str,
+        principal_home_did: &str,
+        cohort: String,
+        matter: String,
+        decision: String,
+        favors_home: bool,
+        produced_at: Option<i64>,
+    ) -> PyResult<String> {
+        let rec = PrincipalOutput {
+            principal_did: parse_did(principal_did)?,
+            principal_home: parse_did(principal_home_did)?,
+            cohort,
+            matter,
+            decision,
+            favors_home,
+            produced_at: parse_as_of(produced_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::PrincipalOutputRecorded(signed))
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
@@ -1145,6 +1948,55 @@ fn parse_designation_urgency(s: &str) -> PyResult<DesignationUrgency> {
         "Normal" => DesignationUrgency::Normal,
         "Expedited" => DesignationUrgency::Expedited,
         other => return Err(PyValueError::new_err(format!("unknown designation urgency: {other}"))),
+    })
+}
+
+fn parse_capability(s: &str) -> PyResult<Capability> {
+    Ok(match s {
+        "RescueCoordination" => Capability::RescueCoordination,
+        "Navigation" => Capability::Navigation,
+        "Trade" => Capability::Trade,
+        "CommonsWithdrawal" => Capability::CommonsWithdrawal,
+        "Communication" => Capability::Communication,
+        other => return Err(PyValueError::new_err(format!("unknown capability: {other}"))),
+    })
+}
+
+fn parse_commons_kind(s: &str) -> PyResult<CommonsKind> {
+    Ok(match s {
+        "LifeSupport" => CommonsKind::LifeSupport,
+        "Communication" => CommonsKind::Communication,
+        "Navigation" => CommonsKind::Navigation,
+        "KnowledgeArchive" => CommonsKind::KnowledgeArchive,
+        "Rescue" => CommonsKind::Rescue,
+        other => return Err(PyValueError::new_err(format!("unknown commons kind: {other}"))),
+    })
+}
+
+fn parse_amendment_kind(s: &str) -> PyResult<AmendmentKind> {
+    Ok(match s {
+        "Add" => AmendmentKind::Add,
+        "Remove" => AmendmentKind::Remove,
+        other => return Err(PyValueError::new_err(format!("unknown amendment kind: {other}"))),
+    })
+}
+
+fn parse_fast_change(s: &str) -> PyResult<FastChange> {
+    Ok(match s {
+        "Extend" => FastChange::Extend,
+        "Contract" => FastChange::Contract,
+        other => return Err(PyValueError::new_err(format!("unknown fast change: {other}"))),
+    })
+}
+
+fn parse_sanction_level(s: &str) -> PyResult<SanctionLevel> {
+    Ok(match s {
+        "None" => SanctionLevel::None,
+        "Monitoring" => SanctionLevel::Monitoring,
+        "Warning" => SanctionLevel::Warning,
+        "Restriction" => SanctionLevel::Restriction,
+        "Exclusion" => SanctionLevel::Exclusion,
+        other => return Err(PyValueError::new_err(format!("unknown sanction level: {other}"))),
     })
 }
 
@@ -1929,6 +2781,120 @@ impl From<&rep::SubstantiveReEngagementSummary> for PySubstantiveReEngagementSum
     }
 }
 
+#[pyclass(name = "InjunctionSummary", get_all)]
+#[derive(Clone)]
+struct PyInjunctionSummary {
+    record_cid: String,
+    harm: String,
+    protective_measures: String,
+    revoked_capabilities: Vec<String>,
+    status: String,
+    issued_at: i64,
+    expires_at: i64,
+}
+
+impl From<&rep::InjunctionSummary> for PyInjunctionSummary {
+    fn from(s: &rep::InjunctionSummary) -> Self {
+        Self {
+            record_cid: s.record_cid.to_string(),
+            harm: s.harm.clone(),
+            protective_measures: s.protective_measures.clone(),
+            revoked_capabilities: s.revoked_capabilities.clone(),
+            status: s.status.clone(),
+            issued_at: s.issued_at.as_second(),
+            expires_at: s.expires_at.as_second(),
+        }
+    }
+}
+
+#[pyclass(name = "CommonsSanctionSummary", get_all)]
+#[derive(Clone)]
+struct PyCommonsSanctionSummary {
+    record_cid: String,
+    commons_cid: String,
+    kind: String,
+    current_level: String,
+    basis: String,
+    decided_at: i64,
+}
+
+impl From<&rep::CommonsSanctionSummary> for PyCommonsSanctionSummary {
+    fn from(s: &rep::CommonsSanctionSummary) -> Self {
+        Self {
+            record_cid: s.record_cid.to_string(),
+            commons_cid: s.commons_cid.to_string(),
+            kind: s.kind.clone(),
+            current_level: s.current_level.clone(),
+            basis: s.basis.clone(),
+            decided_at: s.decided_at.as_second(),
+        }
+    }
+}
+
+#[pyclass(name = "ReportResponseSummary", get_all)]
+#[derive(Clone)]
+struct PyReportResponseSummary {
+    record_cid: String,
+    response: String,
+    responded_at: i64,
+}
+
+impl From<&rep::ReportResponseSummary> for PyReportResponseSummary {
+    fn from(s: &rep::ReportResponseSummary) -> Self {
+        Self {
+            record_cid: s.record_cid.to_string(),
+            response: s.response.clone(),
+            responded_at: s.responded_at.as_second(),
+        }
+    }
+}
+
+#[pyclass(name = "ObserverReportSummary", get_all)]
+#[derive(Clone)]
+struct PyObserverReportSummary {
+    record_cid: String,
+    observer_did: String,
+    declared_perspective: String,
+    summary: String,
+    observed_at: i64,
+    reported_at: i64,
+    responses: Vec<PyReportResponseSummary>,
+}
+
+impl From<&rep::ObserverReportSummary> for PyObserverReportSummary {
+    fn from(s: &rep::ObserverReportSummary) -> Self {
+        Self {
+            record_cid: s.record_cid.to_string(),
+            observer_did: s.observer_did.to_string(),
+            declared_perspective: s.declared_perspective.clone(),
+            summary: s.summary.clone(),
+            observed_at: s.observed_at.as_second(),
+            reported_at: s.reported_at.as_second(),
+            responses: s.responses.iter().map(PyReportResponseSummary::from).collect(),
+        }
+    }
+}
+
+#[pyclass(name = "WhistleblowerSummary", get_all)]
+#[derive(Clone)]
+struct PyWhistleblowerSummary {
+    record_cid: String,
+    claim: String,
+    filed_at: i64,
+    source_revealed: bool,
+}
+
+impl From<&rep::WhistleblowerSummary> for PyWhistleblowerSummary {
+    fn from(s: &rep::WhistleblowerSummary) -> Self {
+        Self {
+            record_cid: s.record_cid.to_string(),
+            claim: s.claim.clone(),
+            filed_at: s.filed_at.as_second(),
+            source_revealed: s.source_revealed,
+        }
+    }
+}
+
 #[pyclass(name = "ReputationView", get_all)]
 #[derive(Clone)]
 struct PyReputationView {
@@ -1950,6 +2916,11 @@ struct PyReputationView {
     reentries: Vec<PyReEntrySummary>,
     restitutions: Vec<PyRestitutionSummary>,
     substantive_reengagements: Vec<PySubstantiveReEngagementSummary>,
+    injunctions: Vec<PyInjunctionSummary>,
+    revoked_capabilities: Vec<String>,
+    commons_sanctions: Vec<PyCommonsSanctionSummary>,
+    observer_reports: Vec<PyObserverReportSummary>,
+    whistleblower_reports_against: Vec<PyWhistleblowerSummary>,
 }
 
 impl From<&rep::ReputationView> for PyReputationView {
@@ -2004,6 +2975,23 @@ impl From<&rep::ReputationView> for PyReputationView {
                 .substantive_reengagements
                 .iter()
                 .map(PySubstantiveReEngagementSummary::from)
+                .collect(),
+            injunctions: v.injunctions.iter().map(PyInjunctionSummary::from).collect(),
+            revoked_capabilities: v.revoked_capabilities.clone(),
+            commons_sanctions: v
+                .commons_sanctions
+                .iter()
+                .map(PyCommonsSanctionSummary::from)
+                .collect(),
+            observer_reports: v
+                .observer_reports
+                .iter()
+                .map(PyObserverReportSummary::from)
+                .collect(),
+            whistleblower_reports_against: v
+                .whistleblower_reports_against
+                .iter()
+                .map(PyWhistleblowerSummary::from)
                 .collect(),
         }
     }
@@ -2081,6 +3069,126 @@ impl From<&rep::CompositionGraph> for PyCompositionGraph {
                 })
                 .collect(),
             by_concentration: g.by_concentration(),
+        }
+    }
+}
+
+#[pyclass(name = "FreeRiderReport", get_all)]
+#[derive(Clone)]
+struct PyFreeRiderReport {
+    /// (community_did, consumed, contributed, record_count, [usage_cids]).
+    tallies: Vec<(String, u64, u64, usize, Vec<String>)>,
+    total_consumed: u64,
+    total_contributed: u64,
+    /// (community_did, net_draw) for communities that drew more than they
+    /// returned, descending by net draw.
+    by_net_draw: Vec<(String, i128)>,
+}
+
+impl From<&rep::FreeRiderReport> for PyFreeRiderReport {
+    fn from(r: &rep::FreeRiderReport) -> Self {
+        Self {
+            tallies: r
+                .tallies
+                .iter()
+                .map(|t| {
+                    (
+                        t.community.to_string(),
+                        t.consumed,
+                        t.contributed,
+                        t.record_count,
+                        t.evidence.iter().map(|c| c.to_string()).collect(),
+                    )
+                })
+                .collect(),
+            total_consumed: r.total_consumed(),
+            total_contributed: r.total_contributed(),
+            by_net_draw: r.by_net_draw(),
+        }
+    }
+}
+
+#[pyclass(name = "ObserverDashboard", get_all)]
+#[derive(Clone)]
+struct PyObserverDashboard {
+    composition: PyCompositionGraph,
+    rejections: PyRejectionPattern,
+    /// (subject_did, observer_report_count), descending.
+    observer_reports_by_subject: Vec<(String, usize)>,
+    /// (accused_did, whistleblower_count), descending. Never the source.
+    whistleblowers_by_accused: Vec<(String, usize)>,
+}
+
+impl From<&rep::ObserverDashboard> for PyObserverDashboard {
+    fn from(d: &rep::ObserverDashboard) -> Self {
+        Self {
+            composition: PyCompositionGraph::from(&d.composition),
+            rejections: PyRejectionPattern::from(&d.rejections),
+            observer_reports_by_subject: d.observer_reports_by_subject.clone(),
+            whistleblowers_by_accused: d.whistleblowers_by_accused.clone(),
+        }
+    }
+}
+
+#[pyclass(name = "ConstitutionState", get_all)]
+#[derive(Clone)]
+struct PyConstitutionState {
+    ratified: bool,
+    /// (key, description) of each in-force compact-incapable matter.
+    compact_incapable: Vec<(String, String)>,
+    /// (label, start, end) of each structured-fast period.
+    fast_periods: Vec<(String, i64, i64)>,
+}
+
+impl From<&rep::ConstitutionState> for PyConstitutionState {
+    fn from(s: &rep::ConstitutionState) -> Self {
+        Self {
+            ratified: s.ratified,
+            compact_incapable: s
+                .compact_incapable
+                .iter()
+                .map(|m| (m.key.clone(), m.description.clone()))
+                .collect(),
+            fast_periods: s
+                .fast_periods
+                .iter()
+                .map(|p| (p.label.clone(), p.start.as_second(), p.end.as_second()))
+                .collect(),
+        }
+    }
+}
+
+#[pyclass(name = "SubstrateDeferenceReport", get_all)]
+#[derive(Clone)]
+struct PySubstrateDeferenceReport {
+    ratified: bool,
+    incapable_current: usize,
+    incapable_added: usize,
+    incapable_removed: usize,
+    contraction_detected: bool,
+    fast_period_count: usize,
+    fast_seconds_total: i64,
+    fast_contractions: usize,
+    /// (record_cid, kind, at, fast_label) for each deliberative act during a fast.
+    fast_deviations: Vec<(String, String, i64, String)>,
+}
+
+impl From<&rep::SubstrateDeferenceReport> for PySubstrateDeferenceReport {
+    fn from(r: &rep::SubstrateDeferenceReport) -> Self {
+        Self {
+            ratified: r.ratified,
+            incapable_current: r.incapable_current,
+            incapable_added: r.incapable_added,
+            incapable_removed: r.incapable_removed,
+            contraction_detected: r.contraction_detected,
+            fast_period_count: r.fast_period_count,
+            fast_seconds_total: r.fast_seconds_total,
+            fast_contractions: r.fast_contractions,
+            fast_deviations: r
+                .fast_deviations
+                .iter()
+                .map(|d| (d.record_cid.to_string(), d.kind.clone(), d.at.as_second(), d.fast_label.clone()))
+                .collect(),
         }
     }
 }
@@ -2190,6 +3298,126 @@ impl From<&rep::CeremonyCostDecay> for PyCeremonyCostDecay {
     }
 }
 
+#[pyclass(name = "InterpretivePluralityReport", get_all)]
+#[derive(Clone)]
+struct PyInterpretivePluralityReport {
+    /// (record_cid, lineage_id, interpreter, recorded_at), oldest first.
+    interpretations: Vec<(String, String, String, i64)>,
+    /// (lineage_id, count).
+    lineages: Vec<(String, usize)>,
+    /// (interpreter_did, count) descending — the concentration ranking.
+    interpreter_concentration: Vec<(String, usize)>,
+    distinct_lineages: usize,
+    distinct_interpreters: usize,
+    plurality_demonstrated: bool,
+}
+
+impl From<&rep::InterpretivePluralityReport> for PyInterpretivePluralityReport {
+    fn from(r: &rep::InterpretivePluralityReport) -> Self {
+        Self {
+            interpretations: r
+                .interpretations
+                .iter()
+                .map(|p| {
+                    (
+                        p.record_cid.to_string(),
+                        p.lineage_id.clone(),
+                        p.interpreter.to_string(),
+                        p.recorded_at.as_second(),
+                    )
+                })
+                .collect(),
+            lineages: r.lineages.iter().map(|(k, n)| (k.clone(), *n)).collect(),
+            interpreter_concentration: r.interpreter_concentration(),
+            distinct_lineages: r.distinct_lineages(),
+            distinct_interpreters: r.distinct_interpreters(),
+            plurality_demonstrated: r.plurality_demonstrated(),
+        }
+    }
+}
+
+#[pyclass(name = "SkepticismReport", get_all)]
+#[derive(Clone)]
+struct PySkepticismReport {
+    /// (event_cid, originator, reported_at, qualifies, triggers,
+    /// provenance_complete, corroborators, aligned_faction), oldest first.
+    #[allow(clippy::type_complexity)]
+    events: Vec<(String, String, i64, bool, Vec<String>, bool, Vec<String>, Option<String>)>,
+    qualifying_events: usize,
+}
+
+impl From<&rep::SkepticismReport> for PySkepticismReport {
+    fn from(r: &rep::SkepticismReport) -> Self {
+        Self {
+            events: r
+                .events
+                .iter()
+                .map(|e| {
+                    (
+                        e.event_cid.to_string(),
+                        e.originator.to_string(),
+                        e.reported_at.as_second(),
+                        e.qualifies,
+                        e.triggers.clone(),
+                        e.provenance_complete,
+                        e.corroborators.iter().map(|d| d.to_string()).collect(),
+                        e.aligned_faction.as_ref().map(|d| d.to_string()),
+                    )
+                })
+                .collect(),
+            qualifying_events: r.qualifying_events(),
+        }
+    }
+}
+
+#[pyclass(name = "PrincipalValidationReport", get_all)]
+#[derive(Clone)]
+struct PyPrincipalValidationReport {
+    /// (record_cid, witness_community, attested_at), oldest first.
+    cross_witnesses: Vec<(String, String, i64)>,
+    /// (output_cid, cohort, matter, principal_decision, cohort_majority,
+    /// peers_compared, favors_home).
+    #[allow(clippy::type_complexity)]
+    divergences: Vec<(String, String, String, String, String, usize, bool)>,
+    distinct_cross_witnesses: usize,
+    self_benefiting_divergences: usize,
+}
+
+impl From<&rep::PrincipalValidationReport> for PyPrincipalValidationReport {
+    fn from(r: &rep::PrincipalValidationReport) -> Self {
+        Self {
+            cross_witnesses: r
+                .cross_witnesses
+                .iter()
+                .map(|w| {
+                    (
+                        w.record_cid.to_string(),
+                        w.witness_community.to_string(),
+                        w.attested_at.as_second(),
+                    )
+                })
+                .collect(),
+            divergences: r
+                .divergences
+                .iter()
+                .map(|d| {
+                    (
+                        d.output_cid.to_string(),
+                        d.cohort.clone(),
+                        d.matter.clone(),
+                        d.principal_decision.clone(),
+                        d.cohort_majority.clone(),
+                        d.peers_compared,
+                        d.favors_home,
+                    )
+                })
+                .collect(),
+            distinct_cross_witnesses: r.distinct_cross_witnesses(),
+            self_benefiting_divergences: r.self_benefiting_divergences(),
+        }
+    }
+}
+
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
@@ -2210,12 +3438,24 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyReEntrySummary>()?;
     m.add_class::<PyRestitutionSummary>()?;
     m.add_class::<PySubstantiveReEngagementSummary>()?;
+    m.add_class::<PyInjunctionSummary>()?;
+    m.add_class::<PyCommonsSanctionSummary>()?;
+    m.add_class::<PyFreeRiderReport>()?;
+    m.add_class::<PyObserverReportSummary>()?;
+    m.add_class::<PyReportResponseSummary>()?;
+    m.add_class::<PyWhistleblowerSummary>()?;
+    m.add_class::<PyObserverDashboard>()?;
+    m.add_class::<PyConstitutionState>()?;
+    m.add_class::<PySubstrateDeferenceReport>()?;
     m.add_class::<PySponseeOutcome>()?;
     m.add_class::<PySponsorStakeReport>()?;
     m.add_class::<PyCompositionGraph>()?;
     m.add_class::<PyFeatureConcernProfile>()?;
     m.add_class::<PyRejectionPattern>()?;
     m.add_class::<PyCeremonyCostDecay>()?;
+    m.add_class::<PyInterpretivePluralityReport>()?;
+    m.add_class::<PySkepticismReport>()?;
+    m.add_class::<PyPrincipalValidationReport>()?;
     m.add_class::<PyCaptureScenario>()?;
     m.add_function(wrap_pyfunction!(generate_ed25519_keypair, m)?)?;
     m.add_function(wrap_pyfunction!(cid_of_bytes, m)?)?;
