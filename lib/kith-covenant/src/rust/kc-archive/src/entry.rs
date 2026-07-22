@@ -20,7 +20,7 @@
 
 use kc_ceremony::inter::{InterCommunityWitnessRecord, NonAdmissionRecord, SponsorshipRecord};
 use kc_ceremony::intra::IntraCommunityRiteRecord;
-use kc_ceremony::lineage::SubstrateInterpretation;
+use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
 use kc_commons::{CommonsRegistration, CommonsSanction, UsageRecord};
 use kc_conduct::ConductRecord;
 use kc_constitution::{CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment};
@@ -35,7 +35,9 @@ use kc_escalation::{
 use kc_identity::{CommunityIdentity, SpeakerDelegation, WitnessRegistry};
 use kc_mediation::{DisputeRecord, MediationDecision, MediatorRegistry};
 use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
-use kc_provenance::{EventCorroboration, EventReport};
+use kc_provenance::{
+    EventActionInvoked, EventCorroboration, EventReport, RetroactiveInterestFinding,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +113,11 @@ pub enum ArchiveEntry {
     /// interpreters are the plurality the protocol requires; the
     /// `interpretive_plurality` lens surfaces a monopoly.
     SubstrateInterpreted(Signed<SubstrateInterpretation>),
+    /// A third party's attestation that a community's declared interpreter is an
+    /// independent principal (capture move 1, anti-sockpuppet). The
+    /// `interpretive_plurality` lens counts it toward independence only when the
+    /// attester is neither the community nor the interpreter.
+    InterpreterIndependenceAttested(Signed<InterpreterIndependenceAttestation>),
     /// A claim injected into the compact, provenance-tagged at intake (capture
     /// move 4). The `structured_skepticism` lens surfaces a qualifying event
     /// that is under-corroborated or missing its provenance tags.
@@ -118,6 +125,14 @@ pub enum ArchiveEntry {
     /// An independent corroboration of an event report's observable facts by
     /// another community (capture move 4).
     EventCorroborated(Signed<EventCorroboration>),
+    /// A formal action premised on an event report (capture move 4). The
+    /// structured-skepticism hold refuses this while the cited qualifying event is
+    /// still within its hold window and under-corroborated.
+    EventActionInvoked(Signed<EventActionInvoked>),
+    /// A retroactive finding that an event's originator held an undisclosed
+    /// interest at intake (capture move 4). The `structured_skepticism` lens
+    /// surfaces the event as impugned; the bad-faith consequence is conduct-side.
+    RetroactiveInterestFound(Signed<RetroactiveInterestFinding>),
     /// A cross-community attestation of a principal's validity (capture move 6).
     /// The `adversarial_principal` lens counts it only when the witness is
     /// neither the principal nor its home community.
@@ -163,8 +178,11 @@ impl ArchiveEntry {
             Self::CompactIncapableAmended(_) => "CompactIncapableAmended",
             Self::FastCadenceAmended(_) => "FastCadenceAmended",
             Self::SubstrateInterpreted(_) => "SubstrateInterpreted",
+            Self::InterpreterIndependenceAttested(_) => "InterpreterIndependenceAttested",
             Self::EventReported(_) => "EventReported",
             Self::EventCorroborated(_) => "EventCorroborated",
+            Self::EventActionInvoked(_) => "EventActionInvoked",
+            Self::RetroactiveInterestFound(_) => "RetroactiveInterestFound",
             Self::PrincipalWitnessed(_) => "PrincipalWitnessed",
             Self::PrincipalOutputRecorded(_) => "PrincipalOutputRecorded",
         }

@@ -128,6 +128,44 @@ pub struct EventCorroboration {
     pub corroborated_at: Timestamp,
 }
 
+/// A formal action premised on an event report — an escalation, a designation, a
+/// sanction: any consequence a community records as following *from* the event
+/// (capture move 4). This is where the structured-skepticism protocol acquires
+/// teeth: a *qualifying* manufactured event may not drive a recorded action until
+/// its structured hold elapses or independent corroboration releases it, depriving
+/// the manufacturer of the loudest-interpreter advantage. Wrapped in
+/// `Signed<EventActionInvoked>` by the acting community; the hold itself is
+/// enforced in the archive's authority pass (kc-archive), not here.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventActionInvoked {
+    /// The `EventReported` entry this action is premised on.
+    pub event_cid: Cid,
+    /// The community recording the action on the event's basis.
+    pub acting_community: DidKey,
+    /// What consequence is being invoked (free text; the compact's own vocabulary).
+    pub action: String,
+    pub invoked_at: Timestamp,
+}
+
+/// A retroactive finding that an event's originator held, at intake, an interest
+/// it did not disclose — the bad-faith signal move 4 leaves to be surfaced after
+/// the fact (an event may already have driven action before the omission came to
+/// light). Wrapped in `Signed<RetroactiveInterestFinding>` by the `finder`. Data
+/// only: the record surfaces that an undisclosed interest was found and by whom;
+/// the *consequence* of bad faith is the conduct machinery's, not this crate's.
+/// The `structured_skepticism` lens counts a finding only when the finder is not
+/// the event's own originator (a self-finding is honest late disclosure).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetroactiveInterestFinding {
+    /// The `EventReported` entry whose originator is impugned.
+    pub event_cid: Cid,
+    /// The party that discovered the omission.
+    pub finder: DidKey,
+    /// The interest the originator held at intake but did not disclose.
+    pub undisclosed_interest: String,
+    pub found_at: Timestamp,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

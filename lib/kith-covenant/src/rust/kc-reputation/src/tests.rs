@@ -1796,6 +1796,67 @@ mod observer_projection {
         assert_eq!(dash.observer_reports_by_subject[0], (s1.as_str().to_string(), 2));
         assert_eq!(dash.whistleblowers_by_accused, vec![(s2.as_str().to_string(), 1)]);
     }
+
+    /// Register `n` observers for `community` on a bounded window from `at`,
+    /// signed by `community_priv` (projection reads skip signature checks).
+    fn register_n(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        community_priv: &PrivKey,
+        n: usize,
+        at: Timestamp,
+    ) -> Vec<DidKey> {
+        let mut entries = vec![];
+        let mut dids = vec![];
+        for _ in 0..n {
+            let (_sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+            let od = DidKey::from_pubkey(&pk).unwrap();
+            entries.push(ObserverEntry {
+                observer_did: od.clone(),
+                observer_pubkey: pk,
+                declared_perspective: "labor-rights".into(),
+                valid_from: at,
+                valid_until: Some(t(at.as_second() + 1000)),
+            });
+            dids.push(od);
+        }
+        let reg = ObserverRegistry { nominating_community: community.clone(), entries, issued_at: at };
+        let signed = Signed::build(reg, &[(community.as_str(), community_priv)]).unwrap();
+        a.append(ArchiveEntry::ObserverRegistryUpdated(signed)).unwrap();
+        dids
+    }
+
+    #[test]
+    fn observer_pool_concentration_ranks_and_flags_majority() {
+        use crate::analytics::{observer_pool_concentration, ObserverPoolShare};
+        let (a_priv, _, aa) = fresh_id();
+        let (b_priv, _, bb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        register_n(&mut arc, &aa, &a_priv, 3, t(10));
+        register_n(&mut arc, &bb, &b_priv, 2, t(10));
+
+        let pool = observer_pool_concentration(&arc, Some(t(500)));
+        assert_eq!(pool.total_active, 5);
+        assert_eq!(
+            pool.shares[0],
+            ObserverPoolShare { community: aa.as_str().to_string(), active: 3 }
+        );
+        assert_eq!(pool.top_active(), 3);
+        assert!(pool.majority_held()); // 3 of 5 — the domination front the cap watches
+        assert_eq!(pool.serving.len(), 5);
+    }
+
+    #[test]
+    fn observer_dashboard_includes_pool_and_substrate() {
+        let (a_priv, _, aa) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        register_n(&mut arc, &aa, &a_priv, 2, t(10));
+
+        let dash = observer_dashboard(&arc, Some(t(500)));
+        assert_eq!(dash.pool.total_active, 2);
+        // No constitution ratified: the substrate half is present but not ratified.
+        assert!(!dash.substrate.ratified);
+    }
 }
 
 // --- §9 substrate-deference (constitution) diagnostic -----------------------
@@ -1864,7 +1925,7 @@ mod constitution_diag {
     fn state_reflects_genesis_and_amendments_over_time() {
         let mut a = InMemoryArchive::new();
         assert!(!constitution_state(&a, Some(t(10))).ratified);
-        ratify(&mut a, &["internal-theology"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) }], t(50));
+        ratify(&mut a, &["internal-theology"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) , recurrence: None }], t(50));
         amend(&mut a, AmendmentKind::Add, "aesthetics", t(100));
 
         // Before the add, only the genesis matter is in force.
@@ -1881,15 +1942,36 @@ mod constitution_diag {
     #[test]
     fn structured_fast_gate() {
         let mut a = InMemoryArchive::new();
-        ratify(&mut a, &["x"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) }], t(50));
+        ratify(&mut a, &["x"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) , recurrence: None }], t(50));
         assert_eq!(in_structured_fast(&a, t(1500)), Some("annual".to_string()));
         assert_eq!(in_structured_fast(&a, t(2500)), None);
     }
 
     #[test]
+    fn recurring_fast_gate_repeats() {
+        // A 1000s fast recurring every 10_000s — the gate should fire in each cycle.
+        let mut a = InMemoryArchive::new();
+        ratify(
+            &mut a,
+            &["x"],
+            vec![FastPeriod {
+                label: "condolence".into(),
+                start: t(1000),
+                end: t(2000),
+                recurrence: Some(10_000),
+            }],
+            t(50),
+        );
+        assert_eq!(in_structured_fast(&a, t(1500)), Some("condolence".to_string()));
+        assert_eq!(in_structured_fast(&a, t(2500)), None); // in the gap
+        assert_eq!(in_structured_fast(&a, t(11_500)), Some("condolence".to_string())); // next cycle
+        assert_eq!(in_structured_fast(&a, t(12_500)), None);
+    }
+
+    #[test]
     fn net_contraction_and_fast_deviation_surface() {
         let mut a = InMemoryArchive::new();
-        ratify(&mut a, &["a", "b"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) }], t(50));
+        ratify(&mut a, &["a", "b"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) , recurrence: None }], t(50));
         // One add, two removes → net contraction.
         amend(&mut a, AmendmentKind::Add, "c", t(100));
         amend(&mut a, AmendmentKind::Remove, "a", t(200));
@@ -1899,7 +1981,7 @@ mod constitution_diag {
         file_dispute(&mut a, t(1200));
         // A dispute outside the fast is not.
         file_dispute(&mut a, t(3000));
-        contract_fast(&mut a, FastPeriod { label: "annual".into(), start: t(1000), end: t(1500) }, t(400));
+        contract_fast(&mut a, FastPeriod { label: "annual".into(), start: t(1000), end: t(1500) , recurrence: None }, t(400));
 
         let r = substrate_deference(&a, Some(t(5000)));
         assert!(r.ratified);
@@ -1918,7 +2000,7 @@ mod constitution_diag {
 mod interpretive_plurality_lens {
     use super::*;
     use crate::analytics::interpretive_plurality;
-    use kc_ceremony::lineage::SubstrateInterpretation;
+    use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
 
     #[allow(clippy::too_many_arguments)]
     fn publish_interpretation(
@@ -2035,6 +2117,99 @@ mod interpretive_plurality_lens {
         let r = interpretive_plurality(&a, &community, Some(t(1000)));
         assert_eq!(r.interpretations.len(), 1);
     }
+
+    // --- move 1 anti-sockpuppet: interpreter-independence attestation --------
+
+    fn attest_independence(
+        a: &mut InMemoryArchive,
+        attester: &DidKey,
+        attester_priv: &PrivKey,
+        community: &DidKey,
+        interpreter: &DidKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = InterpreterIndependenceAttestation {
+            community_did: community.clone(),
+            interpreter_did: interpreter.clone(),
+            attesting_party: attester.clone(),
+            basis: "distinct standing in the compact".into(),
+            attested_at: at,
+        };
+        let signed =
+            Signed::build(rec, &[(attester.as_str(), attester_priv)]).expect("sign attestation");
+        a.append(ArchiveEntry::InterpreterIndependenceAttested(signed))
+            .expect("append")
+    }
+
+    #[test]
+    fn declared_plurality_without_attestation_is_not_independent() {
+        // Two distinct declared interpreters — but nobody has vouched for their
+        // independence, so a sockpuppet ring is indistinguishable from the real
+        // thing. Declared plurality holds; independent plurality does not.
+        let (c_priv, _, community) = fresh_id();
+        let (_, _, i1) = fresh_id();
+        let (_, _, i2) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &i1, t(100));
+        publish_interpretation(&mut a, &community, &c_priv, "reformist", &i2, t(200));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert!(r.plurality_demonstrated());
+        assert_eq!(r.distinct_independent_interpreters(), 0);
+        assert!(!r.independent_plurality_demonstrated());
+    }
+
+    #[test]
+    fn two_third_party_attested_interpreters_are_independent() {
+        let (c_priv, _, community) = fresh_id();
+        let (_, _, i1) = fresh_id();
+        let (_, _, i2) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &i1, t(100));
+        publish_interpretation(&mut a, &community, &c_priv, "reformist", &i2, t(200));
+        // A distinct third party vouches for both interpreters' independence.
+        attest_independence(&mut a, &witness, &w_priv, &community, &i1, t(300));
+        attest_independence(&mut a, &witness, &w_priv, &community, &i2, t(400));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(r.distinct_independent_interpreters(), 2);
+        assert!(r.independent_plurality_demonstrated());
+    }
+
+    #[test]
+    fn self_and_interpreter_attestations_do_not_count() {
+        let (c_priv, _, community) = fresh_id();
+        let (i1_priv, _, i1) = fresh_id();
+        let (_, _, i2) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &i1, t(100));
+        publish_interpretation(&mut a, &community, &c_priv, "reformist", &i2, t(200));
+        // The community vouching for its own interpreter is not independence...
+        attest_independence(&mut a, &community, &c_priv, &community, &i1, t(300));
+        // ...nor is an interpreter vouching for itself.
+        attest_independence(&mut a, &i1, &i1_priv, &community, &i1, t(350));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(r.distinct_independent_interpreters(), 0);
+        assert!(!r.independent_plurality_demonstrated());
+    }
+
+    #[test]
+    fn attestation_for_a_non_interpreter_is_ignored() {
+        // Vouching for someone who never authored a reading cannot manufacture an
+        // independent interpreter out of nothing.
+        let (c_priv, _, community) = fresh_id();
+        let (_, _, i1) = fresh_id();
+        let (_, _, ghost) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        publish_interpretation(&mut a, &community, &c_priv, "canonical", &i1, t(100));
+        attest_independence(&mut a, &witness, &w_priv, &community, &ghost, t(300));
+
+        let r = interpretive_plurality(&a, &community, Some(t(1000)));
+        assert_eq!(r.distinct_independent_interpreters(), 0);
+    }
 }
 
 // --- move 4 structured-skepticism lens -------------------------------------
@@ -2042,7 +2217,7 @@ mod interpretive_plurality_lens {
 mod structured_skepticism_lens {
     use super::*;
     use crate::analytics::structured_skepticism;
-    use kc_provenance::{EventCorroboration, EventReport};
+    use kc_provenance::{EventCorroboration, EventReport, RetroactiveInterestFinding};
 
     #[allow(clippy::too_many_arguments)]
     fn publish_event(
@@ -2082,10 +2257,33 @@ mod structured_skepticism_lens {
         priv_: &PrivKey,
         at: Timestamp,
     ) -> Cid {
+        corroborate_with(a, event_cid, community, priv_, at, Some("cross-substrate reading"))
+    }
+
+    /// Corroborate an event's facts *without* a cross-substrate translation — the
+    /// interpretation stays in the originating framing.
+    fn corroborate_native(
+        a: &mut InMemoryArchive,
+        event_cid: Cid,
+        community: &DidKey,
+        priv_: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        corroborate_with(a, event_cid, community, priv_, at, None)
+    }
+
+    fn corroborate_with(
+        a: &mut InMemoryArchive,
+        event_cid: Cid,
+        community: &DidKey,
+        priv_: &PrivKey,
+        at: Timestamp,
+        translation: Option<&str>,
+    ) -> Cid {
         let rec = EventCorroboration {
             event_cid,
             corroborating_community: community.clone(),
-            translation: Some("cross-substrate reading".into()),
+            translation: translation.map(|s| s.to_string()),
             corroborated_at: at,
         };
         let signed = Signed::build(rec, &[(community.as_str(), priv_)]).expect("sign corr");
@@ -2204,6 +2402,117 @@ mod structured_skepticism_lens {
         assert!(late.under_corroborated(2).is_empty());
         let before_event = structured_skepticism(&a, Some(t(50)));
         assert!(before_event.events.is_empty());
+    }
+
+    // --- move 4 cross-substrate translation signal --------------------------
+
+    #[test]
+    fn native_framing_corroboration_is_under_translated() {
+        // Two distinct communities corroborate the facts, but only in the
+        // originating framing (no translation): well-corroborated, yet the
+        // interpretation survives only in the manufacturer's substrate.
+        let (o_priv, _, originator) = fresh_id();
+        let (b_priv, _, b) = fresh_id();
+        let (c_priv, _, c) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        corroborate_native(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate_native(&mut a, ev, &c, &c_priv, t(300));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.events[0].corroborators.len(), 2);
+        assert_eq!(r.events[0].translated_corroborators.len(), 0);
+        assert!(r.under_corroborated(2).is_empty());
+        // Still flagged by the translation signal.
+        assert_eq!(r.under_translated(2).len(), 1);
+    }
+
+    #[test]
+    fn cross_substrate_translation_clears_the_translation_signal() {
+        let (o_priv, _, originator) = fresh_id();
+        let (b_priv, _, b) = fresh_id();
+        let (c_priv, _, c) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        corroborate(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate(&mut a, ev, &c, &c_priv, t(300));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.events[0].translated_corroborators.len(), 2);
+        assert!(r.under_translated(2).is_empty());
+    }
+
+    #[test]
+    fn originator_self_translation_does_not_count() {
+        let (o_priv, _, originator) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        // The originator "translating" its own event is not cross-substrate.
+        corroborate(&mut a, ev, &originator, &o_priv, t(200));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.events[0].translated_corroborators.len(), 0);
+        assert_eq!(r.under_translated(1).len(), 1);
+    }
+
+    // --- move 4 retroactive bad-faith finding -------------------------------
+
+    fn find_interest(
+        a: &mut InMemoryArchive,
+        event_cid: Cid,
+        finder: &DidKey,
+        priv_: &PrivKey,
+        interest: &str,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = RetroactiveInterestFinding {
+            event_cid,
+            finder: finder.clone(),
+            undisclosed_interest: interest.into(),
+            found_at: at,
+        };
+        let signed = Signed::build(rec, &[(finder.as_str(), priv_)]).expect("sign finding");
+        a.append(ArchiveEntry::RetroactiveInterestFound(signed))
+            .expect("append")
+    }
+
+    #[test]
+    fn third_party_finding_impugns_the_event() {
+        let (o_priv, _, originator) = fresh_id();
+        let (b_priv, _, b) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        find_interest(&mut a, ev.clone(), &b, &b_priv, "owns the disputed claim", t(500));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.events[0].undisclosed_interests_found.len(), 1);
+        assert_eq!(r.retroactively_impugned(), vec![ev]);
+    }
+
+    #[test]
+    fn originator_self_finding_is_not_bad_faith() {
+        let (o_priv, _, originator) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        // The originator disclosing its own omission late is honest, not bad faith.
+        find_interest(&mut a, ev, &originator, &o_priv, "a late self-disclosure", t(500));
+
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert!(r.events[0].undisclosed_interests_found.is_empty());
+        assert!(r.retroactively_impugned().is_empty());
+    }
+
+    #[test]
+    fn finding_respects_as_of_cutoff() {
+        let (o_priv, _, originator) = fresh_id();
+        let (b_priv, _, b) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        find_interest(&mut a, ev, &b, &b_priv, "later revealed", t(5000));
+
+        // Before the finding lands, the event is not yet impugned.
+        assert!(structured_skepticism(&a, Some(t(1000))).retroactively_impugned().is_empty());
+        assert_eq!(structured_skepticism(&a, Some(t(6000))).retroactively_impugned().len(), 1);
     }
 }
 
@@ -2376,5 +2685,79 @@ mod adversarial_principal_lens {
         assert!(early.divergences.is_empty());
         let late = adversarial_principal(&a, &p0, Some(t(6000)));
         assert_eq!(late.self_benefiting_divergences(), 1);
+    }
+
+    // --- move 6 statistical triangulation of continuous behavior ------------
+
+    /// Seat a three-peer cohort answering `ans` on `matter`, plus the principal's
+    /// own decision on it. `favors_home` marks self-dealing when it diverges.
+    #[allow(clippy::too_many_arguments)]
+    fn matter_round(
+        a: &mut InMemoryArchive,
+        home: &DidKey,
+        h_priv: &PrivKey,
+        p0: &DidKey,
+        matter: &str,
+        peer_ans: &str,
+        own: &str,
+        favors_home: bool,
+        base_t: i64,
+    ) {
+        for i in 0..3 {
+            let (peer_priv, _, peer_home) = fresh_id();
+            let (_, _, peer_p) = fresh_id();
+            publish_output(a, &peer_home, &peer_priv, &peer_p, "cohort", matter, peer_ans,
+                false, t(base_t + i));
+        }
+        publish_output(a, home, h_priv, p0, "cohort", matter, own, favors_home, t(base_t + 10));
+    }
+
+    #[test]
+    fn self_dealing_rate_aggregates_continuous_behavior() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // Four triangulated matters; the principal self-deals on three of them.
+        matter_round(&mut a, &home, &h_priv, &p0, "M1", "admit", "reject", true, 100);
+        matter_round(&mut a, &home, &h_priv, &p0, "M2", "admit", "reject", true, 200);
+        matter_round(&mut a, &home, &h_priv, &p0, "M3", "admit", "reject", true, 300);
+        matter_round(&mut a, &home, &h_priv, &p0, "M4", "admit", "admit", false, 400);
+
+        let r = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert_eq!(r.outputs_triangulated, 4);
+        assert_eq!(r.self_benefiting_divergences(), 3);
+        assert!((r.self_dealing_rate() - 0.75).abs() < 1e-9);
+        // Systematic at a 0.5 threshold with >= 4 samples; not at 0.8.
+        assert!(r.systematic_self_dealing(4, 0.5));
+        assert!(!r.systematic_self_dealing(4, 0.8));
+    }
+
+    #[test]
+    fn one_divergence_over_many_is_not_systematic() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        matter_round(&mut a, &home, &h_priv, &p0, "M1", "admit", "reject", true, 100);
+        for (i, m) in ["M2", "M3", "M4", "M5"].iter().enumerate() {
+            matter_round(&mut a, &home, &h_priv, &p0, m, "admit", "admit", false, 200 + i as i64 * 100);
+        }
+        let r = adversarial_principal(&a, &p0, Some(t(2000)));
+        assert_eq!(r.outputs_triangulated, 5);
+        assert!((r.self_dealing_rate() - 0.2).abs() < 1e-9);
+        // A lone divergence in five aligned outputs is not a systematic pattern.
+        assert!(!r.systematic_self_dealing(3, 0.5));
+    }
+
+    #[test]
+    fn small_sample_is_not_systematic_even_at_full_rate() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // A single self-dealing output: rate 1.0, but too few samples to call.
+        matter_round(&mut a, &home, &h_priv, &p0, "M1", "admit", "reject", true, 100);
+        let r = adversarial_principal(&a, &p0, Some(t(1000)));
+        assert_eq!(r.outputs_triangulated, 1);
+        assert!((r.self_dealing_rate() - 1.0).abs() < 1e-9);
+        assert!(!r.systematic_self_dealing(3, 0.5));
     }
 }

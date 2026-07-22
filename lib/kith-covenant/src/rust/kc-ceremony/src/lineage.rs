@@ -61,6 +61,30 @@ pub struct SubstrateInterpretation {
     pub recorded_at: Timestamp,
 }
 
+/// A third party's attestation that a named interpreter of `community_did`'s
+/// substrate is an *independent* principal — the anti-sockpuppet proof for move 1.
+/// A declared `interpreter_did` is otherwise just a name the community minted, so
+/// a single faction could fake plurality by spinning up interpreter identities it
+/// wholly controls. This record lets outside parties vouch for an interpreter's
+/// independence; the `interpretive_plurality` lens counts the vouching only when
+/// the attester is neither the community nor the interpreter itself. Wrapped in
+/// `Signed<InterpreterIndependenceAttestation>` by `attesting_party`. Data only —
+/// the record attests independence was claimed, and by whom; whether the claim is
+/// well-founded is the audit commons' and jester's concern, not the protocol's.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InterpreterIndependenceAttestation {
+    /// The community whose interpreter is being vouched for.
+    pub community_did: DidKey,
+    /// The interpreter whose independence is attested.
+    pub interpreter_did: DidKey,
+    /// The third party vouching. Counts toward independence only when it is
+    /// neither `community_did` nor `interpreter_did` (the lens enforces this).
+    pub attesting_party: DidKey,
+    /// The basis for the independence claim (free text; audit-commons legible).
+    pub basis: String,
+    pub attested_at: Timestamp,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

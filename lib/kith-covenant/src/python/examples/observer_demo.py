@@ -21,10 +21,14 @@ but-legal internal practice (the "hard middle case" the escalation ladder cannot
 reach); the subject answers with an appended response that never suppresses the
 report. Separately, a mediator reception panel files an insider whistleblower
 report whose source is only a commitment — never stored — and later, for cause,
-a panel discloses it. The observer dashboard tallies the compact-wide signals.
-Finally three moves the protocol refuses are shown with the violation each
-reports: an observer reporting on its own community, a non-subject trying to
-respond, and a whistleblower reception panel drawn from the accused community.
+a panel discloses it. The observer dashboard tallies the compact-wide signals and
+carries the observer-corps composition (pool-share / rotation) and the
+substrate-deference erosion report. Finally six moves the protocol refuses are
+shown with the violation each reports: an observer reporting on its own
+community, a non-subject trying to respond, a whistleblower reception panel drawn
+from the accused community, one community packing a majority of the observer
+corps, re-nominating an observer inside the rotation period, and chaining
+overlapping windows to extend service past the term limit.
 
 Everything below is authored through the public Python API, crypto-verified, and
 passes the §8 authority check.
@@ -39,6 +43,8 @@ from kith_covenant import (
     file_whistleblower, reveal_source, reputation_of, observer_dashboard,
     cid_of, now_seconds,
 )
+
+_DAY = 86400
 
 
 def _first_reason(violations):
@@ -65,7 +71,9 @@ def main() -> int:
 
     # --- Nominate a traveling observer, file an attributed report ---------
     obs = new_observer()
-    register_observers(arch, reporter_home, [(obs, "labor-rights")], valid_from=t0 - 10)
+    # A bounded term (100 days): §8 refuses open-ended observer standing.
+    register_observers(arch, reporter_home, [(obs, "labor-rights")],
+                       valid_from=t0 - 10, valid_until=t0 + 100 * _DAY)
     report = publish_observer_report(
         arch, obs, subject.did, "labor-rights",
         summary="internal maintenance rota is far more coercive than compact peers",
@@ -117,14 +125,20 @@ def main() -> int:
     dash = observer_dashboard(arch, as_of=t0 + 500)
     print(f"Dashboard: observer reports by subject {list(dash.observer_reports_by_subject)}; "
           f"whistleblowers by accused {list(dash.whistleblowers_by_accused)}.")
+    print(f"  Pool: {dash.pool.total_active} active observer(s), "
+          f"shares {list(dash.pool.shares)}, majority_held={dash.pool.majority_held}.")
+    print(f"  Substrate-deference: ratified={dash.substrate.ratified}, "
+          f"contraction_detected={dash.substrate.contraction_detected}.")
     assert dash.observer_reports_by_subject == ((subject.did, 1),)
     assert dash.whistleblowers_by_accused == ((subject.did, 1),)
+    assert dash.pool.total_active == 1
 
-    # --- Three moves the protocol refuses ---------------------------------
+    # --- Five moves the protocol refuses ----------------------------------
     # (a) An observer reporting on its own community.
     bad1 = Archive.load_json(arch.dump_json())
     own_obs = new_observer()
-    register_observers(bad1, subject, [(own_obs, "internal")], valid_from=t0 - 10)
+    register_observers(bad1, subject, [(own_obs, "internal")],
+                       valid_from=t0 - 10, valid_until=t0 + 100 * _DAY)
     publish_observer_report(bad1, own_obs, subject.did, "internal",
                             summary="self-report", reported_at=t0 + 600)
     print(f"\nRefused (observer reporting on its own community): "
@@ -144,6 +158,45 @@ def main() -> int:
                        reception_panel=[panel[0], panel[1], own_med], filed_at=t0 + 600)
     print(f"Refused (reception panel from the accused community): "
           f"{_first_reason(bad3.authority_violations())}")
+
+    # (d) A single community packing a majority of the observer corps. The base
+    # archive already carries one observer (Way-Station); Other adds one more, so
+    # Packer's three make a corps of five in which Packer holds a majority.
+    bad4 = Archive.load_json(arch.dump_json())
+    packer = new_identity(bad4, "Packer", t0)
+    other = new_identity(bad4, "Other", t0)
+    until = t0 + 100 * _DAY
+    register_observers(bad4, other, [(new_observer(), "a")],
+                       valid_from=t0, valid_until=until)
+    register_observers(bad4, packer, [(new_observer(), "p"), (new_observer(), "q"),
+                                       (new_observer(), "r")],
+                       valid_from=t0, valid_until=until)
+    print(f"Refused (one community holding a majority of the corps): "
+          f"{_first_reason(bad4.authority_violations())}")
+
+    # (e) Re-nominating an observer before the rotation period elapses.
+    bad5 = Archive.load_json(arch.dump_json())
+    home2 = new_identity(bad5, "Home-2", t0)
+    rotator = new_observer()
+    register_observers(bad5, home2, [(rotator, "labor-rights")],
+                       valid_from=t0, valid_until=t0 + 100 * _DAY)
+    register_observers(bad5, home2, [(rotator, "labor-rights")],
+                       valid_from=t0 + 130 * _DAY, valid_until=t0 + 200 * _DAY)
+    print(f"Refused (re-nomination inside the rotation period): "
+          f"{_first_reason(bad5.authority_violations())}")
+
+    # (f) Chaining overlapping windows to extend service past the term limit. Each
+    # window is under the cap alone and the second overlaps the first, so the
+    # rotation-gap rule never fires — but the continuous-service union exceeds it.
+    bad6 = Archive.load_json(arch.dump_json())
+    home3 = new_identity(bad6, "Home-3", t0)
+    lifer = new_observer()
+    register_observers(bad6, home3, [(lifer, "labor-rights")],
+                       valid_from=t0, valid_until=t0 + 350 * _DAY)
+    register_observers(bad6, home3, [(lifer, "labor-rights")],
+                       valid_from=t0 + 300 * _DAY, valid_until=t0 + 640 * _DAY)
+    print(f"Refused (overlap-chained service past the term limit): "
+          f"{_first_reason(bad6.authority_violations())}")
 
     print("\n✓ observer_demo (Python): SUCCESS")
     return 0

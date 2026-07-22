@@ -22,8 +22,10 @@ from kith_covenant import (
     Archive, new_identity, new_mediator, new_observer, register_mediators,
     register_observers, publish_observer_report, respond_to_report,
     file_whistleblower, reveal_source, reputation_of, observer_dashboard,
-    cid_of, now_seconds,
+    observer_pool_concentration, cid_of, now_seconds,
 )
+
+_DAY = 86400
 
 
 def _mediator_pool(arch, names, t0):
@@ -42,7 +44,9 @@ def _fixture():
     subject = new_identity(arch, "Subject", t0)
     home = new_identity(arch, "Home", t0)
     obs = new_observer()
-    register_observers(arch, home, [(obs, "labor-rights")], valid_from=t0 - 10)
+    # A bounded term (100 days) — the §8 term limit refuses open-ended standing.
+    register_observers(arch, home, [(obs, "labor-rights")],
+                       valid_from=t0 - 10, valid_until=t0 + 100 * 86400)
     return arch, t0, subject, obs
 
 
@@ -64,7 +68,8 @@ def test_observer_reporting_on_own_community_is_unauthorized():
     t0 = now_seconds()
     home = new_identity(arch, "Home", t0)
     obs = new_observer()
-    register_observers(arch, home, [(obs, "internal")], valid_from=t0 - 10)
+    register_observers(arch, home, [(obs, "internal")],
+                       valid_from=t0 - 10, valid_until=t0 + 100 * 86400)
     publish_observer_report(arch, obs, home.did, "internal",
                             summary="self", reported_at=t0 + 100)
     assert any("non-overlap" in r or "own community" in r
@@ -133,3 +138,109 @@ def test_observer_dashboard_tallies():
     arch.check_authority()
     dash = observer_dashboard(arch, as_of=t0 + 500)
     assert dash.observer_reports_by_subject[0] == (subject.did, 2)
+
+
+# --- §8 observer-corps caps (pool-share + term + rotation) -------------------
+
+def test_open_ended_observer_term_is_unauthorized():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    register_observers(arch, home, [(new_observer(), "labor-rights")], valid_from=t0)
+    assert any("open-ended" in r or "term" in r
+               for _cid, r in arch.authority_violations())
+
+
+def test_overlong_observer_term_is_unauthorized():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    register_observers(arch, home, [(new_observer(), "labor-rights")],
+                       valid_from=t0, valid_until=t0 + 400 * _DAY)
+    assert any("term" in r for _cid, r in arch.authority_violations())
+
+
+def test_renomination_within_rotation_period_is_unauthorized():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    obs = new_observer()
+    register_observers(arch, home, [(obs, "labor-rights")],
+                       valid_from=t0, valid_until=t0 + 100 * _DAY)
+    # Re-nominated only 30 days after the term ended — inside the 90-day period.
+    register_observers(arch, home, [(obs, "labor-rights")],
+                       valid_from=t0 + 130 * _DAY, valid_until=t0 + 200 * _DAY)
+    assert any("rotation" in r for _cid, r in arch.authority_violations())
+
+
+def test_overlapping_renomination_exceeding_term_in_union_is_unauthorized():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    obs = new_observer()
+    # First window: 350 days — under the per-window cap on its own.
+    register_observers(arch, home, [(obs, "labor-rights")],
+                       valid_from=t0, valid_until=t0 + 350 * _DAY)
+    # A second window opened before the first ends (overlap): neither the per-window
+    # nor the rotation-gap rule sees it, but the continuous-service union exceeds the
+    # term limit.
+    register_observers(arch, home, [(obs, "labor-rights")],
+                       valid_from=t0 + 300 * _DAY, valid_until=t0 + 640 * _DAY)
+    assert any("continuous service" in r or "term" in r
+               for _cid, r in arch.authority_violations())
+
+
+def test_overlapping_renomination_within_term_in_union_is_authorized():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    obs = new_observer()
+    # Two overlapping windows whose union (day 0 -> day 200) stays under the cap:
+    # contiguous extension is allowed, only over-the-limit chaining is refused.
+    register_observers(arch, home, [(obs, "labor-rights")],
+                       valid_from=t0, valid_until=t0 + 100 * _DAY)
+    register_observers(arch, home, [(obs, "labor-rights")],
+                       valid_from=t0 + 50 * _DAY, valid_until=t0 + 200 * _DAY)
+    assert not any("term" in r or "continuous service" in r
+                   for _cid, r in arch.authority_violations())
+
+
+def test_single_community_majority_of_corps_is_unauthorized():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "A", t0)
+    b = new_identity(arch, "B", t0)
+    until = t0 + 100 * _DAY
+    register_observers(arch, b, [(new_observer(), "x"), (new_observer(), "y")],
+                       valid_from=t0, valid_until=until)
+    # A seats 3 → corps of 5 in which A holds a majority.
+    register_observers(arch, a, [(new_observer(), "p"), (new_observer(), "q"),
+                                  (new_observer(), "r")],
+                       valid_from=t0, valid_until=until)
+    assert any("pool-share" in r or "majority" in r
+               for _cid, r in arch.authority_violations())
+
+
+def test_pool_concentration_and_enriched_dashboard():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "A", t0)
+    b = new_identity(arch, "B", t0)
+    until = t0 + 100 * _DAY
+    register_observers(arch, a, [(new_observer(), "p"), (new_observer(), "q"),
+                                  (new_observer(), "r")],
+                       valid_from=t0, valid_until=until)
+    register_observers(arch, b, [(new_observer(), "x"), (new_observer(), "y")],
+                       valid_from=t0, valid_until=until)
+
+    pool = observer_pool_concentration(arch, as_of=t0 + 10)
+    assert pool.total_active == 5
+    assert pool.shares[0] == (a.did, 3)
+    assert pool.top_active == 3
+    assert pool.majority_held is True
+    assert len(pool.serving) == 5
+
+    # The dashboard bundles the pool and the substrate-deference half.
+    dash = observer_dashboard(arch, as_of=t0 + 10)
+    assert dash.pool.total_active == 5
+    assert dash.substrate.ratified is False

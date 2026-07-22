@@ -646,6 +646,11 @@ class InterpretivePluralityReport:
     distinct_lineages: int
     distinct_interpreters: int
     plurality_demonstrated: bool
+    # (interpreter_did, (attester_did, ...)) — distinct third parties who attested
+    # each interpreter's independence (move 1 anti-sockpuppet)
+    independent_attesters: tuple[tuple[str, tuple[str, ...]], ...]
+    distinct_independent_interpreters: int
+    independent_plurality_demonstrated: bool
 
 
 def interpretive_plurality(
@@ -664,6 +669,11 @@ def interpretive_plurality(
         distinct_lineages=r.distinct_lineages,
         distinct_interpreters=r.distinct_interpreters,
         plurality_demonstrated=r.plurality_demonstrated,
+        independent_attesters=tuple(
+            (k, tuple(atts)) for k, atts in r.independent_attesters
+        ),
+        distinct_independent_interpreters=r.distinct_independent_interpreters,
+        independent_plurality_demonstrated=r.independent_plurality_demonstrated,
     )
 
 
@@ -677,6 +687,12 @@ class EventProvenance:
     provenance_complete: bool
     # distinct corroborating communities, excluding the originator
     corroborators: tuple[str, ...]
+    # the subset of corroborators that supplied a cross-substrate translation; an
+    # interpretation surviving only in the originating framing is suspect (move 4)
+    translated_corroborators: tuple[str, ...]
+    # retroactive (finder_did, undisclosed_interest) findings against the
+    # originator, from finders other than the originator (move 4 bad-faith signal)
+    undisclosed_interests_found: tuple[tuple[str, str], ...]
     aligned_faction: Optional[str]
 
 
@@ -693,6 +709,29 @@ class SkepticismReport:
             e.event_cid
             for e in self.events
             if e.qualifies and len(e.corroborators) < minimum
+        )
+
+    def under_translated(self, minimum: int) -> tuple[str, ...]:
+        """CIDs of qualifying events with fewer than `minimum` distinct
+        corroborators supplying a cross-substrate translation — interpretations
+        still surviving only in the originating framing. Distinct from
+        `under_corroborated`: an event can be well-corroborated in its native
+        terms yet never translated, which is its own capture signal."""
+        return tuple(
+            e.event_cid
+            for e in self.events
+            if e.qualifies and len(e.translated_corroborators) < minimum
+        )
+
+    def retroactively_impugned(self) -> tuple[str, ...]:
+        """CIDs of qualifying events for which a third party has retroactively
+        found an undisclosed originator interest — events now shown to be authored
+        in bad faith. Independent of corroboration; the consequence is conduct's,
+        this only surfaces the finding."""
+        return tuple(
+            e.event_cid
+            for e in self.events
+            if e.qualifies and e.undisclosed_interests_found
         )
 
 
@@ -713,7 +752,9 @@ def structured_skepticism(archive, as_of: Optional[int] = None) -> SkepticismRep
                 triggers=tuple(e[4]),
                 provenance_complete=e[5],
                 corroborators=tuple(e[6]),
-                aligned_faction=e[7],
+                translated_corroborators=tuple(e[7]),
+                undisclosed_interests_found=tuple(tuple(x) for x in e[8]),
+                aligned_faction=e[9],
             )
             for e in r.events
         ),
@@ -746,6 +787,19 @@ class PrincipalValidationReport:
     divergences: tuple[OutputDivergence, ...]
     distinct_cross_witnesses: int
     self_benefiting_divergences: int
+    # continuous-behavior triangulation: outputs that had a peer cohort, and the
+    # fraction of them that self-dealt (move 6 statistical signal)
+    outputs_triangulated: int
+    self_dealing_rate: float
+
+    def systematic_self_dealing(self, min_outputs: int, rate_threshold: float) -> bool:
+        """Whether the principal shows *systematic* self-dealing: enough
+        triangulated outputs to be meaningful and a self-dealing rate at or above
+        `rate_threshold`. Both bounds are caller policy; the lens gives no verdict."""
+        return (
+            self.outputs_triangulated >= min_outputs
+            and self.self_dealing_rate >= rate_threshold
+        )
 
 
 def adversarial_principal(
@@ -754,8 +808,10 @@ def adversarial_principal(
     """Move 6 lens: a principal's cross-community witness attestations (validity
     that does not rest on its own or its home community's word) and the matters
     where its machine's output diverged from its cohort's majority — flagged
-    `favors_home` when the divergence benefits the principal's own side. No
-    verdict; the caller decides what count/divergence is actionable."""
+    `favors_home` when the divergence benefits the principal's own side. Also
+    aggregates that into a continuous-behavior `self_dealing_rate` over the
+    triangulated outputs. No verdict; the caller decides what count/rate is
+    actionable."""
     r = archive.adversarial_principal(principal_did, as_of)
     return PrincipalValidationReport(
         cross_witnesses=tuple(
@@ -767,6 +823,8 @@ def adversarial_principal(
         ),
         distinct_cross_witnesses=r.distinct_cross_witnesses,
         self_benefiting_divergences=r.self_benefiting_divergences,
+        outputs_triangulated=r.outputs_triangulated,
+        self_dealing_rate=r.self_dealing_rate,
     )
 
 
@@ -781,6 +839,9 @@ class FastPeriod:
     label: str
     start: int
     end: int
+    # cycle in seconds for a repeating fast (a calendar rhythm), or None for a
+    # single window
+    recurrence: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -820,7 +881,10 @@ def constitution_state(archive, as_of: Optional[int] = None) -> ConstitutionStat
     return ConstitutionState(
         ratified=s.ratified,
         compact_incapable=tuple(IncapableMatter(k, d) for (k, d) in s.compact_incapable),
-        fast_periods=tuple(FastPeriod(lbl, start, end) for (lbl, start, end) in s.fast_periods),
+        fast_periods=tuple(
+            FastPeriod(lbl, start, end, recurrence)
+            for (lbl, start, end, recurrence) in s.fast_periods
+        ),
     )
 
 
@@ -842,7 +906,10 @@ def substrate_deference(archive, as_of: Optional[int] = None) -> SubstrateDefere
     compact-incapable list, the fast cadence and its contraction count, and
     deliberative acts initiated during a fast. Makes the compact's non-ultimacy
     legible; renders no verdict."""
-    r = archive.substrate_deference(as_of)
+    return _substrate_from(archive.substrate_deference(as_of))
+
+
+def _substrate_from(r) -> SubstrateDeferenceReport:
     return SubstrateDeferenceReport(
         ratified=r.ratified,
         incapable_current=r.incapable_current,
@@ -859,6 +926,48 @@ def substrate_deference(archive, as_of: Optional[int] = None) -> SubstrateDefere
 
 
 @dataclass(frozen=True)
+class ServingObserver:
+    observer_did: str
+    nominating_community: str
+    # term end (unix seconds); None only for legacy open-ended entries
+    term_end: Optional[int]
+
+
+@dataclass(frozen=True)
+class ObserverPoolConcentration:
+    # (community_did, active_observers) descending — the domination front
+    shares: tuple[tuple[str, int], ...]
+    total_active: int
+    # observers currently serving, soonest term-end first (the rotation view)
+    serving: tuple[ServingObserver, ...]
+    # largest single-community active count
+    top_active: int
+    # True when one community already holds a majority of the corps
+    majority_held: bool
+
+
+def _pool_from(p) -> ObserverPoolConcentration:
+    return ObserverPoolConcentration(
+        shares=tuple(tuple(s) for s in p.shares),
+        total_active=p.total_active,
+        serving=tuple(ServingObserver(s[0], s[1], s[2]) for s in p.serving),
+        top_active=p.top_active,
+        majority_held=p.majority_held,
+    )
+
+
+def observer_pool_concentration(
+    archive, as_of: Optional[int] = None
+) -> ObserverPoolConcentration:
+    """§8 observer pool-share / rotation lens: the active corps' composition by
+    nominating community and the observers currently serving. No verdict — the
+    no-majority pool-share cap and term/rotation limits are enforced by
+    ``check_authority``; this board makes the finer drift toward domination
+    visible before the hard cap bites."""
+    return _pool_from(archive.observer_pool_concentration(as_of))
+
+
+@dataclass(frozen=True)
 class ObserverDashboard:
     composition: CompositionGraph
     rejections: RejectionPattern
@@ -866,13 +975,18 @@ class ObserverDashboard:
     observer_reports_by_subject: tuple[tuple[str, int], ...]
     # (accused_did, whistleblower_count), descending; never the source
     whistleblowers_by_accused: tuple[tuple[str, int], ...]
+    # the observer-corps composition (pool-share / rotation view)
+    pool: ObserverPoolConcentration
+    # the substrate-deference / erosion report (§9 half of the board)
+    substrate: SubstrateDeferenceReport
 
 
 def observer_dashboard(archive, as_of: Optional[int] = None) -> ObserverDashboard:
     """§8 observer dashboard (the composition-drift board): the sponsorship graph
     and rejection pattern bundled with per-community observer- and
-    whistleblower-report tallies. Flags with provenance, no verdict; the
-    substrate-deference half awaits §9."""
+    whistleblower-report tallies, the observer-corps composition (pool-share /
+    rotation), and the substrate-deference erosion report (§9 half). Flags with
+    provenance, no verdict."""
     d = archive.observer_dashboard(as_of)
     return ObserverDashboard(
         composition=CompositionGraph(
@@ -890,4 +1004,6 @@ def observer_dashboard(archive, as_of: Optional[int] = None) -> ObserverDashboar
         ),
         observer_reports_by_subject=tuple(tuple(x) for x in d.observer_reports_by_subject),
         whistleblowers_by_accused=tuple(tuple(x) for x in d.whistleblowers_by_accused),
+        pool=_pool_from(d.pool),
+        substrate=_substrate_from(d.substrate),
     )

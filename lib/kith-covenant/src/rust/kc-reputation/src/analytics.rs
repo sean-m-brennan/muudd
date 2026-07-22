@@ -36,6 +36,7 @@ use kc_conduct::ConductBearing;
 use kc_constitution::{AmendmentKind, FastPeriod, IncapableMatter};
 use kc_core::{time, Cid, DidKey, Timestamp};
 use kc_escalation::dispute_ladder_rank;
+use kc_observer::ObserverRegistry;
 
 /// One sponsor→entrant edge as of the query time, carrying the record CID so
 /// any flag drawn from the graph is traceable.
@@ -128,6 +129,12 @@ pub struct InterpretivePluralityReport {
     pub lineages: BTreeMap<String, usize>,
     /// interpreter DID → number of interpretations it authored.
     pub by_interpreter: BTreeMap<String, usize>,
+    /// interpreter DID → the distinct third parties (≠ the community, ≠ that
+    /// interpreter) who attested its independence (capture move 1, anti-sockpuppet).
+    /// Only interpreters that actually authored a reading appear. An interpreter
+    /// with a non-empty set here is *independent*; a declared-only interpreter with
+    /// no outside attester is a possible sockpuppet.
+    pub independent_attesters: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl InterpretivePluralityReport {
@@ -146,9 +153,24 @@ impl InterpretivePluralityReport {
     }
     /// The positive signal move 1 asks a community to demonstrate: more than one
     /// lineage AND more than one interpreter. Its absence is not proof of
-    /// capture (the caller owns the monopoly threshold), only its absence.
+    /// capture (the caller owns the monopoly threshold), only its absence. Counts
+    /// *declared* interpreters — see `independent_plurality_demonstrated` for the
+    /// anti-sockpuppet form.
     pub fn plurality_demonstrated(&self) -> bool {
         self.distinct_lineages() >= 2 && self.distinct_interpreters() >= 2
+    }
+    /// Number of interpreters whose independence a distinct third party has
+    /// attested — the anti-sockpuppet count. A faction minting interpreter
+    /// identities it controls inflates `distinct_interpreters` but not this.
+    pub fn distinct_independent_interpreters(&self) -> usize {
+        self.independent_attesters.values().filter(|a| !a.is_empty()).count()
+    }
+    /// The anti-sockpuppet upgrade of `plurality_demonstrated`: at least two
+    /// lineages AND at least two interpreters whose independence a distinct third
+    /// party has attested. Declared-only plurality no longer suffices, so a single
+    /// faction cannot demonstrate plurality with identities it wholly controls.
+    pub fn independent_plurality_demonstrated(&self) -> bool {
+        self.distinct_lineages() >= 2 && self.distinct_independent_interpreters() >= 2
     }
 }
 
@@ -183,6 +205,31 @@ pub fn interpretive_plurality(
                 .or_insert(0) += 1;
         }
     }
+    // Second pass: independence attestations. An attester counts only when it is
+    // neither the community nor the interpreter (no self-vouching), and only for
+    // an interpreter that actually authored a reading — an attestation for a
+    // never-seen interpreter cannot manufacture independence.
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::InterpreterIndependenceAttested(signed) = entry {
+            let a = &signed.payload;
+            if &a.community_did != community || a.attested_at > as_of {
+                continue;
+            }
+            let interpreter = a.interpreter_did.as_str().to_string();
+            let attester = a.attesting_party.as_str();
+            if attester == community.as_str()
+                || attester == a.interpreter_did.as_str()
+                || !report.by_interpreter.contains_key(&interpreter)
+            {
+                continue;
+            }
+            report
+                .independent_attesters
+                .entry(interpreter)
+                .or_default()
+                .insert(attester.to_string());
+        }
+    }
     report
         .interpretations
         .sort_by(|a, b| a.recorded_at.cmp(&b.recorded_at));
@@ -210,6 +257,18 @@ pub struct EventProvenance {
     /// Distinct communities that corroborated the report, excluding the
     /// originator (self-corroboration does not count).
     pub corroborators: Vec<DidKey>,
+    /// The subset of `corroborators` that supplied a **cross-substrate
+    /// translation** of the interpretation. An interpretation that survives only
+    /// in the originating framing (corroborated, but never translated into another
+    /// community's substrate) is structurally suspect — the manufacturer may have
+    /// engineered a reading that only coheres in its own terms.
+    pub translated_corroborators: Vec<DidKey>,
+    /// Retroactive findings that the originator held an interest it did not
+    /// disclose at intake — `(finder, undisclosed_interest)`, from finders other
+    /// than the originator (a self-finding is honest late disclosure, not bad
+    /// faith). A non-empty list means the event was authored in bad faith and may
+    /// already have driven action before the omission surfaced (move 4).
+    pub undisclosed_interests_found: Vec<(DidKey, String)>,
     /// The faction the event is conveniently aligned with, if any.
     pub aligned_faction: Option<DidKey>,
 }
@@ -240,6 +299,31 @@ impl SkepticismReport {
             .map(|e| e.event_cid.clone())
             .collect()
     }
+    /// The CIDs of qualifying events with fewer than `min` distinct corroborators
+    /// supplying a cross-substrate translation — interpretations still surviving
+    /// only in the originating framing. Distinct from `under_corroborated`: an
+    /// event can be well-corroborated in its native terms yet never translated,
+    /// which is its own capture signal (move 4; a manufactured reading that only
+    /// coheres in the manufacturer's substrate).
+    pub fn under_translated(&self, min: usize) -> Vec<Cid> {
+        self.events
+            .iter()
+            .filter(|e| e.qualifies && e.translated_corroborators.len() < min)
+            .map(|e| e.event_cid.clone())
+            .collect()
+    }
+    /// The CIDs of qualifying events for which a third party has retroactively
+    /// found an undisclosed originator interest — events now shown to be authored
+    /// in bad faith. Independent of corroboration: a well-corroborated event whose
+    /// originator concealed an interest is still impugned, and may already have
+    /// driven action (the re-opening trigger move 4 leaves to conduct/escalation).
+    pub fn retroactively_impugned(&self) -> Vec<Cid> {
+        self.events
+            .iter()
+            .filter(|e| e.qualifies && !e.undisclosed_interests_found.is_empty())
+            .map(|e| e.event_cid.clone())
+            .collect()
+    }
 }
 
 /// Build the structured-skepticism report over the whole archive as of `as_of`
@@ -253,6 +337,10 @@ pub fn structured_skepticism(
     let as_of = as_of.unwrap_or_else(time::now);
     // event_cid string → (community DID string → community DidKey), distinct.
     let mut corroborations: BTreeMap<String, BTreeMap<String, DidKey>> = BTreeMap::new();
+    // Same, but only for corroborations that supplied a cross-substrate translation.
+    let mut translations: BTreeMap<String, BTreeMap<String, DidKey>> = BTreeMap::new();
+    // event_cid string → retroactive undisclosed-interest findings (finder, interest).
+    let mut findings: BTreeMap<String, Vec<(DidKey, String)>> = BTreeMap::new();
     let mut events: Vec<(Cid, &kc_provenance::EventReport)> = Vec::new();
     for (cid, entry) in archive.iter() {
         match entry {
@@ -275,19 +363,58 @@ pub fn structured_skepticism(
                         c.corroborating_community.as_str().to_string(),
                         c.corroborating_community.clone(),
                     );
+                if c.translation.is_some() {
+                    translations
+                        .entry(c.event_cid.to_string())
+                        .or_default()
+                        .insert(
+                            c.corroborating_community.as_str().to_string(),
+                            c.corroborating_community.clone(),
+                        );
+                }
+            }
+            ArchiveEntry::RetroactiveInterestFound(signed) => {
+                let f = &signed.payload;
+                if f.found_at > as_of {
+                    continue;
+                }
+                findings
+                    .entry(f.event_cid.to_string())
+                    .or_default()
+                    .push((f.finder.clone(), f.undisclosed_interest.clone()));
             }
             _ => {}
         }
     }
 
-    let mut report = SkepticismReport::default();
-    for (cid, e) in events {
-        let corroborators: Vec<DidKey> = corroborations
-            .get(&cid.to_string())
+    // Distinct communities in `map` for `event`, excluding the originator.
+    let distinct_others = |map: &BTreeMap<String, BTreeMap<String, DidKey>>,
+                           event: &str,
+                           originator: &str|
+     -> Vec<DidKey> {
+        map.get(event)
             .map(|m| {
                 m.iter()
-                    .filter(|(k, _)| k.as_str() != e.originator.as_str())
+                    .filter(|(k, _)| k.as_str() != originator)
                     .map(|(_, d)| d.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+
+    let mut report = SkepticismReport::default();
+    for (cid, e) in events {
+        let key = cid.to_string();
+        let corroborators = distinct_others(&corroborations, &key, e.originator.as_str());
+        let translated_corroborators = distinct_others(&translations, &key, e.originator.as_str());
+        // A finding counts only when the finder is not the event's own originator
+        // (self-finding is honest late disclosure, not bad faith).
+        let undisclosed_interests_found: Vec<(DidKey, String)> = findings
+            .get(&key)
+            .map(|v| {
+                v.iter()
+                    .filter(|(finder, _)| finder.as_str() != e.originator.as_str())
+                    .cloned()
                     .collect()
             })
             .unwrap_or_default();
@@ -303,6 +430,8 @@ pub fn structured_skepticism(
                 .collect(),
             provenance_complete: e.provenance_complete(),
             corroborators,
+            translated_corroborators,
+            undisclosed_interests_found,
             aligned_faction: e.aligned_faction.clone(),
         });
     }
@@ -350,6 +479,10 @@ pub struct OutputDivergence {
 pub struct PrincipalValidationReport {
     pub cross_witnesses: Vec<CrossWitness>,
     pub divergences: Vec<OutputDivergence>,
+    /// The principal's own outputs that had a peer cohort to triangulate against —
+    /// the denominator for the continuous-behavior rate below. A single divergence
+    /// among many aligned outputs is noise; a divergence among few is not.
+    pub outputs_triangulated: usize,
 }
 
 impl PrincipalValidationReport {
@@ -363,9 +496,27 @@ impl PrincipalValidationReport {
             .len()
     }
     /// Divergences in a direction that benefits the principal's own side — the
-    /// capture signature.
+    /// per-matter capture signature.
     pub fn self_benefiting_divergences(&self) -> usize {
         self.divergences.iter().filter(|d| d.favors_home).count()
+    }
+    /// Statistical triangulation of *continuous behavior*: the fraction of the
+    /// principal's triangulated outputs that diverged from its cohort toward its
+    /// own benefit. One divergence may be honest disagreement; a high sustained
+    /// rate is the capture signature a single flag cannot show. `0.0` when nothing
+    /// has been triangulated.
+    pub fn self_dealing_rate(&self) -> f64 {
+        if self.outputs_triangulated == 0 {
+            return 0.0;
+        }
+        self.self_benefiting_divergences() as f64 / self.outputs_triangulated as f64
+    }
+    /// Whether the principal shows *systematic* self-dealing: enough triangulated
+    /// outputs to be meaningful (`min_outputs`) and a self-dealing rate at or above
+    /// `rate_threshold`. Both bounds are the caller's policy; the lens renders no
+    /// verdict.
+    pub fn systematic_self_dealing(&self, min_outputs: usize, rate_threshold: f64) -> bool {
+        self.outputs_triangulated >= min_outputs && self.self_dealing_rate() >= rate_threshold
     }
 }
 
@@ -441,6 +592,9 @@ pub fn adversarial_principal(
         if peer_map.is_empty() {
             continue;
         }
+        // This output had a cohort to triangulate against (whether or not it
+        // diverged) — the denominator for the continuous-behavior rate.
+        report.outputs_triangulated += 1;
         let mut counts: BTreeMap<String, usize> = BTreeMap::new();
         for (_, (d, _)) in peer_map.iter() {
             *counts.entry(d.clone()).or_insert(0) += 1;
@@ -920,6 +1074,110 @@ pub fn free_rider_signals(
 }
 
 // ---------------------------------------------------------------------------
+// §8 observer pool-share / rotation lens (read-only — the domination front).
+// ---------------------------------------------------------------------------
+
+/// One nominating community's current stake in the observer corps.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObserverPoolShare {
+    pub community: String,
+    /// Active observers this community currently nominates.
+    pub active: usize,
+}
+
+/// One observer currently serving, with the term end that governs its rotation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServingObserver {
+    pub observer_did: String,
+    pub nominating_community: String,
+    /// The term end; `None` only for legacy open-ended entries the term-limit rule
+    /// now refuses at admission.
+    pub term_end: Option<Timestamp>,
+}
+
+/// §8 observer pool-share / rotation lens (capture resistance): the active corps'
+/// composition by nominating community and the observers currently serving. Like
+/// every jester lens it surfaces flags with provenance and renders **no verdict**
+/// — the no-majority pool-share cap and the term/rotation limits are *enforced* by
+/// the authority pass (`check_authority`). This board makes the finer drift toward
+/// domination (proportional concentration short of a majority) and the rotation
+/// horizon visible before the hard cap bites.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ObserverPoolConcentration {
+    /// Active observers per nominating community, descending by count then DID.
+    pub shares: Vec<ObserverPoolShare>,
+    /// Total active observers across the corps.
+    pub total_active: usize,
+    /// Observers currently serving, soonest term-end first (the rotation view).
+    pub serving: Vec<ServingObserver>,
+}
+
+impl ObserverPoolConcentration {
+    /// The largest single-community active count (0 if the corps is empty) — the
+    /// domination front the pool-share cap watches.
+    pub fn top_active(&self) -> usize {
+        self.shares.first().map_or(0, |s| s.active)
+    }
+
+    /// True when one community already holds a majority of the active corps (the
+    /// condition the pool-share authority rule refuses once past its floor).
+    pub fn majority_held(&self) -> bool {
+        self.total_active > 0 && 2 * self.top_active() > self.total_active
+    }
+}
+
+/// The active observer corps as of `as_of`, respecting registry superseding (only
+/// the latest `ObserverRegistryUpdated` per nominating community with
+/// `issued_at <= as_of` contributes its active entries).
+pub fn observer_pool_concentration(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> ObserverPoolConcentration {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut latest: BTreeMap<String, &ObserverRegistry> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::ObserverRegistryUpdated(s) = e {
+            if s.payload.issued_at <= as_of {
+                let key = s.payload.nominating_community.as_str().to_string();
+                let supersede = latest
+                    .get(&key)
+                    .map_or(true, |cur| s.payload.issued_at >= cur.issued_at);
+                if supersede {
+                    latest.insert(key, &s.payload);
+                }
+            }
+        }
+    }
+    let mut per_community: BTreeMap<String, usize> = BTreeMap::new();
+    let mut serving = vec![];
+    let mut total_active = 0usize;
+    for reg in latest.values() {
+        for en in &reg.entries {
+            if en.active_at(as_of) {
+                total_active += 1;
+                *per_community
+                    .entry(reg.nominating_community.as_str().to_string())
+                    .or_insert(0) += 1;
+                serving.push(ServingObserver {
+                    observer_did: en.observer_did.as_str().to_string(),
+                    nominating_community: reg.nominating_community.as_str().to_string(),
+                    term_end: en.valid_until,
+                });
+            }
+        }
+    }
+    let mut shares: Vec<ObserverPoolShare> = per_community
+        .into_iter()
+        .map(|(community, active)| ObserverPoolShare { community, active })
+        .collect();
+    shares.sort_by(|a, b| b.active.cmp(&a.active).then_with(|| a.community.cmp(&b.community)));
+    serving.sort_by(|a, b| {
+        a.term_end.cmp(&b.term_end).then_with(|| a.observer_did.cmp(&b.observer_did))
+    });
+    ObserverPoolConcentration { shares, total_active, serving }
+}
+
+// ---------------------------------------------------------------------------
 // §8 observer dashboard (read-only aggregation — the composition-drift board).
 // ---------------------------------------------------------------------------
 
@@ -930,8 +1188,11 @@ pub fn free_rider_signals(
 /// tallies: attributed observer reports per subject community and whistleblower
 /// reports per accused community. Like every jester lens it surfaces flags with
 /// provenance (the embedded structs carry their CIDs) and renders **no verdict**.
-/// The *substrate-deference* half of the §8 dashboard (compact-incapable-list
-/// state, structured-fast cadence) is deferred with §9.
+/// It also carries the observer-corps composition ([`ObserverPoolConcentration`],
+/// the pool-share/rotation view) and the *substrate-deference* half of the board
+/// ([`SubstrateDeferenceReport`], §9) — the compact-incapable-list state and
+/// structured-fast cadence — so a single board shows both membership drift and
+/// non-ultimacy erosion.
 #[derive(Debug, Clone, Default)]
 pub struct ObserverDashboard {
     pub composition: CompositionGraph,
@@ -941,6 +1202,12 @@ pub struct ObserverDashboard {
     /// Accused community DID → whistleblower reports against it, descending. The
     /// source is never counted or exposed.
     pub whistleblowers_by_accused: Vec<(String, usize)>,
+    /// The observer corps's active composition by nominating community and the
+    /// current rotation horizon (the pool-share lens).
+    pub pool: ObserverPoolConcentration,
+    /// The substrate-deference / erosion report: compact-incapable-list drift and
+    /// structured-fast cadence (the §9 half of the §8 dashboard).
+    pub substrate: SubstrateDeferenceReport,
 }
 
 fn descending(map: BTreeMap<String, usize>) -> Vec<(String, usize)> {
@@ -970,6 +1237,8 @@ pub fn observer_dashboard(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
         rejections: rejection_pattern(archive, Some(as_of)),
         observer_reports_by_subject: descending(reports),
         whistleblowers_by_accused: descending(whistles),
+        pool: observer_pool_concentration(archive, Some(as_of)),
+        substrate: substrate_deference(archive, Some(as_of)),
     }
 }
 

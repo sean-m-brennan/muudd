@@ -213,6 +213,30 @@ def attest_interpretation(
     )
 
 
+def attest_interpreter_independence(
+    archive,
+    attester: Signer,
+    community_did: str,
+    interpreter_did: str,
+    *,
+    basis: str = "",
+    attested_at: Optional[int] = None,
+) -> str:
+    """Vouch that `interpreter_did`, a declared interpreter of `community_did`'s
+    substrate, is an independent principal (capture move 1, anti-sockpuppet).
+    Attributed to `attester.principal`, signed by `attester.did`/`.priv`. The
+    `interpretive_plurality` lens counts the vouching toward that interpreter's
+    independence only when the attester is neither the community nor the
+    interpreter — a community cannot self-certify identities it minted. Returns
+    the CID."""
+    if attested_at is None:
+        attested_at = now_seconds()
+    return archive.attest_interpreter_independence(
+        attester.priv, attester.did, attester.principal, community_did,
+        interpreter_did, basis, attested_at,
+    )
+
+
 def report_event(
     archive,
     originator: Signer,
@@ -261,6 +285,49 @@ def corroborate_event(
     return archive.append_corroboration(
         community.priv, community.did, community.principal, event_cid,
         translation, corroborated_at,
+    )
+
+
+def invoke_event_action(
+    archive,
+    acting: Signer,
+    event_cid: str,
+    action: str,
+    *,
+    invoked_at: Optional[int] = None,
+) -> str:
+    """Record a formal action premised on an event report (capture move 4).
+    Attributed to `acting.principal`, signed by `acting.did`/`.priv`. This is
+    where structured skepticism has teeth: the archive refuses the action while
+    the cited *qualifying* event is still within its structured-skepticism hold
+    and under-corroborated — call it only after the hold elapses or enough
+    distinct communities have run `corroborate_event`. Returns the CID."""
+    if invoked_at is None:
+        invoked_at = now_seconds()
+    return archive.invoke_event_action(
+        acting.priv, acting.did, acting.principal, event_cid, action, invoked_at,
+    )
+
+
+def find_undisclosed_interest(
+    archive,
+    finder: Signer,
+    event_cid: str,
+    undisclosed_interest: str,
+    *,
+    found_at: Optional[int] = None,
+) -> str:
+    """Retroactively find that `event_cid`'s originator held an interest it did
+    not disclose at intake (capture move 4). Attributed to `finder.principal`,
+    signed by `finder.did`/`.priv`. The `structured_skepticism` lens then marks
+    the event impugned — unless the finder is the event's own originator, which is
+    honest late disclosure, not bad faith. The consequence of bad faith is the
+    conduct machinery's; this only surfaces the finding. Returns the CID."""
+    if found_at is None:
+        found_at = now_seconds()
+    return archive.find_undisclosed_interest(
+        finder.priv, finder.did, finder.principal, event_cid,
+        undisclosed_interest, found_at,
     )
 
 
@@ -1047,21 +1114,28 @@ def ratify_constitution(
     archive,
     ratifiers: Sequence[Signer],
     incapable: Sequence[tuple[str, str]],
-    fast_periods: Sequence[tuple[str, int, int]],
+    fast_periods: Sequence[tuple],
     *,
     genesis_at: Optional[int] = None,
 ) -> str:
     """Ratify the founding constitution (§9), co-signed by `ratifiers`. `incapable`
     is a list of `(key, description)` compact-incapable matters (genesis-immutable);
-    `fast_periods` is a list of `(label, start, end)` structured-fast windows.
-    Second-class (needs a distinct-community quorum) and a singleton per archive.
-    Returns the CID."""
+    `fast_periods` is a list of `(label, start, end)` structured-fast windows, or
+    `(label, start, end, recurrence)` where `recurrence` is a cycle in seconds for a
+    repeating fast (a calendar rhythm). Second-class (needs a distinct-community
+    quorum) and a singleton per archive. Returns the CID."""
     if not ratifiers:
         raise ValueError("ratification needs at least one ratifier")
+
+    def _period(p):
+        lbl, start, end = p[0], int(p[1]), int(p[2])
+        recurrence = int(p[3]) if len(p) > 3 and p[3] is not None else None
+        return (lbl, start, end, recurrence)
+
     return archive.ratify_constitution(
         [s.priv for s in ratifiers], [s.did for s in ratifiers],
         [(k, d) for (k, d) in incapable],
-        [(lbl, int(start), int(end)) for (lbl, start, end) in fast_periods],
+        [_period(p) for p in fast_periods],
         genesis_at,
     )
 
@@ -1101,10 +1175,12 @@ def amend_fast_cadence(
     rationale: str = "",
     decision_class: str = "SecondClass",
     decided_at: Optional[int] = None,
+    recurrence: Optional[int] = None,
 ) -> str:
     """Amend the structured-fast cadence (§9). `change` is one of `FAST_CHANGES`;
     `Contract` carries the higher bar. `(label, start, end)` is the resulting fast
-    period. Returns the CID."""
+    period; pass `recurrence` (a cycle in seconds) to make it a repeating fast.
+    Returns the CID."""
     if change not in FAST_CHANGES:
         raise ValueError(f"change must be one of {FAST_CHANGES}, got {change!r}")
     if not deciders:
@@ -1112,12 +1188,15 @@ def amend_fast_cadence(
     return archive.amend_fast_cadence(
         [s.priv for s in deciders], [s.did for s in deciders],
         change, label, int(start), int(end), rationale, decision_class, decided_at,
+        recurrence,
     )
 
 
 __all__ = [
     "Signer", "new_identity", "delegate_speaker", "revoke_delegation", "vouch",
-    "attest_interpretation", "report_event", "corroborate_event",
+    "attest_interpretation", "attest_interpreter_independence",
+    "report_event", "corroborate_event",
+    "invoke_event_action", "find_undisclosed_interest",
     "attest_principal", "record_principal_output",
     "record_conduct", "record_concern", "designate_anathema", "lift_designation",
     "record_non_admission", "run_intra_rite", "new_mediator",

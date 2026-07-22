@@ -282,12 +282,24 @@ impl Archive for InMemoryArchive {
                 let at = s.payload.recorded_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
+            ArchiveEntry::InterpreterIndependenceAttested(s) => {
+                let at = s.payload.attested_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
             ArchiveEntry::EventReported(s) => {
                 let at = s.payload.reported_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
             ArchiveEntry::EventCorroborated(s) => {
                 let at = s.payload.corroborated_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::EventActionInvoked(s) => {
+                let at = s.payload.invoked_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::RetroactiveInterestFound(s) => {
+                let at = s.payload.found_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
             ArchiveEntry::PrincipalWitnessed(s) => {

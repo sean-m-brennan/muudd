@@ -45,21 +45,57 @@ fn amendment_kind_names_and_contraction() {
 
 #[test]
 fn fast_period_contains_and_seconds() {
-    let p = FastPeriod { label: "lent".into(), start: t(100), end: t(200) };
+    let p = FastPeriod { label: "lent".into(), start: t(100), end: t(200) , recurrence: None };
     assert!(!p.contains(t(50)));
     assert!(p.contains(t(100)));
     assert!(p.contains(t(199)));
     assert!(!p.contains(t(200)));
     assert_eq!(p.seconds(), 100);
-    let inverted = FastPeriod { label: "x".into(), start: t(200), end: t(100) };
+    let inverted = FastPeriod { label: "x".into(), start: t(200), end: t(100) , recurrence: None };
     assert_eq!(inverted.seconds(), 0);
+    assert!(!p.is_recurring());
+}
+
+#[test]
+fn recurring_fast_repeats_on_its_cycle() {
+    // A 100s fast every 1000s from t=100: active in [100,200), [1100,1200), ...
+    let p = FastPeriod {
+        label: "annual".into(),
+        start: t(100),
+        end: t(200),
+        recurrence: Some(1000),
+    };
+    assert!(p.is_recurring());
+    assert!(!p.contains(t(50)));      // before the first occurrence
+    assert!(p.contains(t(150)));      // first occurrence
+    assert!(!p.contains(t(500)));     // in the gap
+    assert!(p.contains(t(1100)));     // second occurrence, at its start
+    assert!(p.contains(t(1199)));     // second occurrence, at its end
+    assert!(!p.contains(t(1200)));    // second occurrence just ended
+    assert!(p.contains(t(10_100)));   // a far-future occurrence
+    // seconds() is the per-occurrence duration.
+    assert_eq!(p.seconds(), 100);
+}
+
+#[test]
+fn degenerate_recurrence_falls_back_to_single_window() {
+    // A cycle shorter than the occurrence (would overlap) is treated as one-shot.
+    let overlap = FastPeriod {
+        label: "bad".into(),
+        start: t(100),
+        end: t(300),
+        recurrence: Some(50),
+    };
+    assert!(!overlap.is_recurring());
+    assert!(overlap.contains(t(250)));   // inside the single window
+    assert!(!overlap.contains(t(350)));  // no recurrence — window ended
 }
 
 #[test]
 fn genesis_roundtrips_json() {
     let g = ConstitutionGenesis {
         compact_incapable: vec![matter("internal-theology"), matter("internal-governance")],
-        fast_periods: vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) }],
+        fast_periods: vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000) , recurrence: None }],
         ratifiers: vec![did(), did()],
         genesis_at: t(10),
     };
@@ -83,7 +119,7 @@ fn amendments_roundtrip_json() {
 
     let fast = FastCadenceAmendment {
         change: FastChange::Contract,
-        period: FastPeriod { label: "annual".into(), start: t(1000), end: t(1500) },
+        period: FastPeriod { label: "annual".into(), start: t(1000), end: t(1500) , recurrence: None },
         rationale: "shortening under pragmatic pressure".into(),
         deciders: vec![did(), did(), did()],
         decision_class: DecisionClass::SecondClass,

@@ -32,7 +32,11 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyType};
 
 use jiff::ToSpan;
-use kc_archive::{verify_all, Archive, ArchiveEntry, InMemoryArchive};
+use kc_archive::{
+    verify_all, Archive, ArchiveEntry, InMemoryArchive, ObserverCaps,
+    DEFAULT_OBSERVER_MAX_TERM_SECONDS, DEFAULT_OBSERVER_POOL_FLOOR,
+    DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+};
 use kc_ceremony::inter::{
     AntiSpiralFeature, InterCredentialingOutcome, InterCredentialingRunner, NonAdmissionRecord,
     ParticipantContext, RejectionDetail, SponsorshipRecord, REQUIRED_FEATURES,
@@ -41,10 +45,12 @@ use kc_conduct::{
     ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity,
 };
 use kc_ceremony::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
-use kc_ceremony::lineage::SubstrateInterpretation;
+use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
 use kc_ceremony::recitation::{Recitation, RecitationVersion};
 use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
-use kc_provenance::{EventCorroboration, EventReport};
+use kc_provenance::{
+    EventActionInvoked, EventCorroboration, EventReport, RetroactiveInterestFinding,
+};
 use kc_core::{keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, Signed, Timestamp};
 use kc_identity::{
     CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessEntry, WitnessRegistry,
@@ -132,21 +138,55 @@ impl PyArchive {
     /// Enforce §5 authority: each principal a record speaks for must carry a
     /// signature from its own root or an active, scope-appropriate delegate, and
     /// second-class decisions need >= `quorum_threshold` distinct communities.
-    /// A separate pass from `verify_all` (crypto); raises on the first
-    /// violation. Assumes signatures already verify.
-    #[pyo3(signature = (quorum_threshold=2, panel_min=3))]
-    fn check_authority(&self, quorum_threshold: usize, panel_min: usize) -> PyResult<()> {
-        kc_archive::check_authority(&self.inner, quorum_threshold, panel_min).map_err(kc_err_to_py)
+    /// The §8 observer-corps caps (pool-share, term, rotation) gate observer
+    /// registries. A separate pass from `verify_all` (crypto); raises on the
+    /// first violation. Assumes signatures already verify.
+    #[pyo3(signature = (
+        quorum_threshold=2,
+        panel_min=3,
+        observer_pool_floor=DEFAULT_OBSERVER_POOL_FLOOR,
+        observer_max_term_seconds=DEFAULT_OBSERVER_MAX_TERM_SECONDS,
+        observer_rotation_period_seconds=DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+    ))]
+    fn check_authority(
+        &self,
+        quorum_threshold: usize,
+        panel_min: usize,
+        observer_pool_floor: usize,
+        observer_max_term_seconds: i64,
+        observer_rotation_period_seconds: i64,
+    ) -> PyResult<()> {
+        let caps = ObserverCaps {
+            pool_floor: observer_pool_floor,
+            max_term_seconds: observer_max_term_seconds,
+            rotation_period_seconds: observer_rotation_period_seconds,
+        };
+        kc_archive::check_authority(&self.inner, quorum_threshold, panel_min, caps)
+            .map_err(kc_err_to_py)
     }
 
     /// Every authority violation as `(cid, reason)`, instead of raising.
-    #[pyo3(signature = (quorum_threshold=2, panel_min=3))]
+    #[pyo3(signature = (
+        quorum_threshold=2,
+        panel_min=3,
+        observer_pool_floor=DEFAULT_OBSERVER_POOL_FLOOR,
+        observer_max_term_seconds=DEFAULT_OBSERVER_MAX_TERM_SECONDS,
+        observer_rotation_period_seconds=DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+    ))]
     fn authority_violations(
         &self,
         quorum_threshold: usize,
         panel_min: usize,
+        observer_pool_floor: usize,
+        observer_max_term_seconds: i64,
+        observer_rotation_period_seconds: i64,
     ) -> Vec<(String, String)> {
-        kc_archive::authority_violations(&self.inner, quorum_threshold, panel_min)
+        let caps = ObserverCaps {
+            pool_floor: observer_pool_floor,
+            max_term_seconds: observer_max_term_seconds,
+            rotation_period_seconds: observer_rotation_period_seconds,
+        };
+        kc_archive::authority_violations(&self.inner, quorum_threshold, panel_min, caps)
     }
 
     // ---- §4 Mediation authoring ------------------------------------------
@@ -947,19 +987,33 @@ impl PyArchive {
         Ok(PyObserverDashboard::from(&d))
     }
 
+    /// §8 observer pool-share / rotation lens as of `as_of`: the active corps'
+    /// composition by nominating community and the observers currently serving
+    /// (no verdict — the caps are enforced by `check_authority`).
+    #[pyo3(signature = (as_of=None))]
+    fn observer_pool_concentration(
+        &self,
+        as_of: Option<i64>,
+    ) -> PyResult<PyObserverPoolConcentration> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let p = kc_reputation::observer_pool_concentration(&self.inner, as_of_ts);
+        Ok(PyObserverPoolConcentration::from(&p))
+    }
+
     // ---- §9 Substrate-deference (constitution) authoring -----------------
 
     /// Ratify the founding constitution (§9): the initial compact-incapable list
     /// (`incapable` = list of (key, description)) and structured-fast cadence
-    /// (`fast_periods` = list of (label, start, end)), co-signed by the founding
-    /// communities. Second-class (quorum); a singleton per archive. Returns the CID.
+    /// (`fast_periods` = list of (label, start, end, recurrence); `recurrence` is
+    /// an optional cycle in seconds for a repeating fast, else None), co-signed by
+    /// the founding communities. Second-class (quorum); a singleton. Returns the CID.
     #[pyo3(signature = (ratifier_privs, ratifier_dids, incapable, fast_periods, genesis_at=None))]
     fn ratify_constitution(
         &mut self,
         ratifier_privs: Vec<Vec<u8>>,
         ratifier_dids: Vec<String>,
         incapable: Vec<(String, String)>,
-        fast_periods: Vec<(String, i64, i64)>,
+        fast_periods: Vec<(String, i64, i64, Option<i64>)>,
         genesis_at: Option<i64>,
     ) -> PyResult<String> {
         let (ids, pairs_owned) = cosigners(&ratifier_privs, &ratifier_dids)?;
@@ -969,7 +1023,9 @@ impl PyArchive {
             .collect();
         let periods = fast_periods
             .into_iter()
-            .map(|(label, start, end)| Ok(FastPeriod { label, start: ts(start)?, end: ts(end)? }))
+            .map(|(label, start, end, recurrence)| {
+                Ok(FastPeriod { label, start: ts(start)?, end: ts(end)?, recurrence })
+            })
             .collect::<PyResult<Vec<_>>>()?;
         let g = ConstitutionGenesis {
             compact_incapable: matters,
@@ -1020,8 +1076,9 @@ impl PyArchive {
 
     /// Amend the structured-fast cadence (§9). `change` is "Extend" or "Contract"
     /// (Contract carries the higher bar). `period` is the resulting (label, start,
-    /// end). Second-class. Returns the CID.
-    #[pyo3(signature = (decider_privs, decider_dids, change, label, start, end, rationale=String::new(), decision_class="SecondClass".to_string(), decided_at=None))]
+    /// end); `recurrence` is an optional cycle in seconds for a repeating fast.
+    /// Second-class. Returns the CID.
+    #[pyo3(signature = (decider_privs, decider_dids, change, label, start, end, rationale=String::new(), decision_class="SecondClass".to_string(), decided_at=None, recurrence=None))]
     #[allow(clippy::too_many_arguments)]
     fn amend_fast_cadence(
         &mut self,
@@ -1034,11 +1091,12 @@ impl PyArchive {
         rationale: String,
         decision_class: String,
         decided_at: Option<i64>,
+        recurrence: Option<i64>,
     ) -> PyResult<String> {
         let (ids, pairs_owned) = cosigners(&decider_privs, &decider_dids)?;
         let a = FastCadenceAmendment {
             change: parse_fast_change(change)?,
-            period: FastPeriod { label, start: ts(start)?, end: ts(end)? },
+            period: FastPeriod { label, start: ts(start)?, end: ts(end)?, recurrence },
             rationale,
             deciders: ids,
             decision_class: parse_decision_class(&decision_class)?,
@@ -1427,6 +1485,39 @@ impl PyArchive {
             .map_err(kc_err_to_py)
     }
 
+    /// Append a signed interpreter-independence attestation (capture move 1,
+    /// anti-sockpuppet). The envelope is signed by `signer_priv`/`signer_did`; the
+    /// payload attributes the vouching to `attesting_party_did`. The
+    /// `interpretive_plurality` lens counts it toward `interpreter_did`'s
+    /// independence only when the attester is neither `community_did` nor the
+    /// interpreter. Returns the entry CID.
+    #[pyo3(signature = (signer_priv, signer_did, attesting_party_did, community_did, interpreter_did, basis=String::new(), attested_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn attest_interpreter_independence(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        attesting_party_did: &str,
+        community_did: &str,
+        interpreter_did: &str,
+        basis: String,
+        attested_at: Option<i64>,
+    ) -> PyResult<String> {
+        let rec = InterpreterIndependenceAttestation {
+            community_did: parse_did(community_did)?,
+            interpreter_did: parse_did(interpreter_did)?,
+            attesting_party: parse_did(attesting_party_did)?,
+            basis,
+            attested_at: parse_as_of(attested_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::InterpreterIndependenceAttested(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
     /// Append a signed event report (capture move 4), provenance-tagged at
     /// intake. Signed by `signer_priv`/`signer_did`; attributed to
     /// `originator_did`. The booleans are the structured-skepticism qualifying
@@ -1501,6 +1592,66 @@ impl PyArchive {
         let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
         self.inner
             .append(ArchiveEntry::EventCorroborated(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a signed formal action premised on an event report (capture move 4).
+    /// Signed by `signer_priv`/`signer_did`; attributed to `acting_community_did`.
+    /// `event_cid` is the `EventReported` entry CID. The archive's authority pass
+    /// refuses this while the cited *qualifying* event is still within its
+    /// structured-skepticism hold and under-corroborated. Returns the entry CID.
+    #[pyo3(signature = (signer_priv, signer_did, acting_community_did, event_cid, action=String::new(), invoked_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn invoke_event_action(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        acting_community_did: &str,
+        event_cid: &str,
+        action: String,
+        invoked_at: Option<i64>,
+    ) -> PyResult<String> {
+        let rec = EventActionInvoked {
+            event_cid: parse_cid(event_cid)?,
+            acting_community: parse_did(acting_community_did)?,
+            action,
+            invoked_at: parse_as_of(invoked_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::EventActionInvoked(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append a signed retroactive interest finding (capture move 4): a third
+    /// party discloses an interest the originator of `event_cid` held at intake but
+    /// did not declare. Signed by `signer_priv`/`signer_did`; attributed to
+    /// `finder_did`. The `structured_skepticism` lens marks the event impugned
+    /// (unless the finder is the event's own originator). Returns the entry CID.
+    #[pyo3(signature = (signer_priv, signer_did, finder_did, event_cid, undisclosed_interest=String::new(), found_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn find_undisclosed_interest(
+        &mut self,
+        signer_priv: &[u8],
+        signer_did: &str,
+        finder_did: &str,
+        event_cid: &str,
+        undisclosed_interest: String,
+        found_at: Option<i64>,
+    ) -> PyResult<String> {
+        let rec = RetroactiveInterestFinding {
+            event_cid: parse_cid(event_cid)?,
+            finder: parse_did(finder_did)?,
+            undisclosed_interest,
+            found_at: parse_as_of(found_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(signer_priv);
+        let signed = Signed::build(rec, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::RetroactiveInterestFound(signed))
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
@@ -3108,6 +3259,43 @@ impl From<&rep::FreeRiderReport> for PyFreeRiderReport {
     }
 }
 
+#[pyclass(name = "ObserverPoolConcentration", get_all)]
+#[derive(Clone)]
+struct PyObserverPoolConcentration {
+    /// (community_did, active_observers) descending — the domination front.
+    shares: Vec<(String, usize)>,
+    total_active: usize,
+    /// (observer_did, nominating_community, term_end) soonest term-end first.
+    serving: Vec<(String, String, Option<i64>)>,
+    /// Largest single-community active count.
+    top_active: usize,
+    /// True when one community already holds a majority of the corps (the
+    /// condition the pool-share authority rule refuses once past its floor).
+    majority_held: bool,
+}
+
+impl From<&rep::ObserverPoolConcentration> for PyObserverPoolConcentration {
+    fn from(p: &rep::ObserverPoolConcentration) -> Self {
+        Self {
+            shares: p.shares.iter().map(|s| (s.community.clone(), s.active)).collect(),
+            total_active: p.total_active,
+            serving: p
+                .serving
+                .iter()
+                .map(|s| {
+                    (
+                        s.observer_did.clone(),
+                        s.nominating_community.clone(),
+                        s.term_end.map(|t| t.as_second()),
+                    )
+                })
+                .collect(),
+            top_active: p.top_active(),
+            majority_held: p.majority_held(),
+        }
+    }
+}
+
 #[pyclass(name = "ObserverDashboard", get_all)]
 #[derive(Clone)]
 struct PyObserverDashboard {
@@ -3117,6 +3305,10 @@ struct PyObserverDashboard {
     observer_reports_by_subject: Vec<(String, usize)>,
     /// (accused_did, whistleblower_count), descending. Never the source.
     whistleblowers_by_accused: Vec<(String, usize)>,
+    /// The observer-corps composition (pool-share / rotation view).
+    pool: PyObserverPoolConcentration,
+    /// The substrate-deference / erosion report (§9 half of the board).
+    substrate: PySubstrateDeferenceReport,
 }
 
 impl From<&rep::ObserverDashboard> for PyObserverDashboard {
@@ -3126,6 +3318,8 @@ impl From<&rep::ObserverDashboard> for PyObserverDashboard {
             rejections: PyRejectionPattern::from(&d.rejections),
             observer_reports_by_subject: d.observer_reports_by_subject.clone(),
             whistleblowers_by_accused: d.whistleblowers_by_accused.clone(),
+            pool: PyObserverPoolConcentration::from(&d.pool),
+            substrate: PySubstrateDeferenceReport::from(&d.substrate),
         }
     }
 }
@@ -3136,8 +3330,9 @@ struct PyConstitutionState {
     ratified: bool,
     /// (key, description) of each in-force compact-incapable matter.
     compact_incapable: Vec<(String, String)>,
-    /// (label, start, end) of each structured-fast period.
-    fast_periods: Vec<(String, i64, i64)>,
+    /// (label, start, end, recurrence) of each structured-fast period; `recurrence`
+    /// is the cycle in seconds for a repeating fast, else None.
+    fast_periods: Vec<(String, i64, i64, Option<i64>)>,
 }
 
 impl From<&rep::ConstitutionState> for PyConstitutionState {
@@ -3152,7 +3347,7 @@ impl From<&rep::ConstitutionState> for PyConstitutionState {
             fast_periods: s
                 .fast_periods
                 .iter()
-                .map(|p| (p.label.clone(), p.start.as_second(), p.end.as_second()))
+                .map(|p| (p.label.clone(), p.start.as_second(), p.end.as_second(), p.recurrence))
                 .collect(),
         }
     }
@@ -3310,6 +3505,11 @@ struct PyInterpretivePluralityReport {
     distinct_lineages: usize,
     distinct_interpreters: usize,
     plurality_demonstrated: bool,
+    /// (interpreter_did, [attester_did, ...]) — distinct third parties who
+    /// attested each interpreter's independence (move 1 anti-sockpuppet).
+    independent_attesters: Vec<(String, Vec<String>)>,
+    distinct_independent_interpreters: usize,
+    independent_plurality_demonstrated: bool,
 }
 
 impl From<&rep::InterpretivePluralityReport> for PyInterpretivePluralityReport {
@@ -3332,6 +3532,13 @@ impl From<&rep::InterpretivePluralityReport> for PyInterpretivePluralityReport {
             distinct_lineages: r.distinct_lineages(),
             distinct_interpreters: r.distinct_interpreters(),
             plurality_demonstrated: r.plurality_demonstrated(),
+            independent_attesters: r
+                .independent_attesters
+                .iter()
+                .map(|(k, atts)| (k.clone(), atts.iter().cloned().collect()))
+                .collect(),
+            distinct_independent_interpreters: r.distinct_independent_interpreters(),
+            independent_plurality_demonstrated: r.independent_plurality_demonstrated(),
         }
     }
 }
@@ -3340,9 +3547,22 @@ impl From<&rep::InterpretivePluralityReport> for PyInterpretivePluralityReport {
 #[derive(Clone)]
 struct PySkepticismReport {
     /// (event_cid, originator, reported_at, qualifies, triggers,
-    /// provenance_complete, corroborators, aligned_faction), oldest first.
+    /// provenance_complete, corroborators, translated_corroborators,
+    /// undisclosed_interests_found, aligned_faction), oldest first.
+    /// `undisclosed_interests_found` is a list of (finder_did, interest).
     #[allow(clippy::type_complexity)]
-    events: Vec<(String, String, i64, bool, Vec<String>, bool, Vec<String>, Option<String>)>,
+    events: Vec<(
+        String,
+        String,
+        i64,
+        bool,
+        Vec<String>,
+        bool,
+        Vec<String>,
+        Vec<String>,
+        Vec<(String, String)>,
+        Option<String>,
+    )>,
     qualifying_events: usize,
 }
 
@@ -3361,6 +3581,11 @@ impl From<&rep::SkepticismReport> for PySkepticismReport {
                         e.triggers.clone(),
                         e.provenance_complete,
                         e.corroborators.iter().map(|d| d.to_string()).collect(),
+                        e.translated_corroborators.iter().map(|d| d.to_string()).collect(),
+                        e.undisclosed_interests_found
+                            .iter()
+                            .map(|(f, i)| (f.to_string(), i.clone()))
+                            .collect(),
                         e.aligned_faction.as_ref().map(|d| d.to_string()),
                     )
                 })
@@ -3381,6 +3606,13 @@ struct PyPrincipalValidationReport {
     divergences: Vec<(String, String, String, String, String, usize, bool)>,
     distinct_cross_witnesses: usize,
     self_benefiting_divergences: usize,
+    /// The principal's outputs that had a peer cohort to triangulate against — the
+    /// denominator for `self_dealing_rate`.
+    outputs_triangulated: usize,
+    /// Fraction of triangulated outputs that self-dealt (continuous-behavior
+    /// signal); `0.0` when nothing was triangulated. Use with a minimum sample and
+    /// a rate threshold to judge systematic self-dealing (both caller policy).
+    self_dealing_rate: f64,
 }
 
 impl From<&rep::PrincipalValidationReport> for PyPrincipalValidationReport {
@@ -3414,6 +3646,8 @@ impl From<&rep::PrincipalValidationReport> for PyPrincipalValidationReport {
                 .collect(),
             distinct_cross_witnesses: r.distinct_cross_witnesses(),
             self_benefiting_divergences: r.self_benefiting_divergences(),
+            outputs_triangulated: r.outputs_triangulated,
+            self_dealing_rate: r.self_dealing_rate(),
         }
     }
 }
@@ -3444,6 +3678,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyObserverReportSummary>()?;
     m.add_class::<PyReportResponseSummary>()?;
     m.add_class::<PyWhistleblowerSummary>()?;
+    m.add_class::<PyObserverPoolConcentration>()?;
     m.add_class::<PyObserverDashboard>()?;
     m.add_class::<PyConstitutionState>()?;
     m.add_class::<PySubstrateDeferenceReport>()?;

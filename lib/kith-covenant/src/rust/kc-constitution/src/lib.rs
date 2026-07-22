@@ -45,9 +45,11 @@
 //! surfaces contractions of the list and deliberative acts initiated during a
 //! fast, rather than the authority pass rejecting them.
 //!
-//! Deferred to later slices: recurring/calendar fast schedules (v1 uses explicit
-//! windows), automatic escalation on detected erosion, and any hard-refusal of
-//! deliberative acts during a fast.
+//! Recurring/calendar fast schedules are supported: a `FastPeriod` may carry a
+//! `recurrence` cycle so a fast repeats on a cadence (an annual fast, the Iroquois
+//! Condolence period) rather than occurring once. Deferred to later slices:
+//! automatic escalation on detected erosion, and any hard-refusal of deliberative
+//! acts during a fast.
 
 mod record;
 

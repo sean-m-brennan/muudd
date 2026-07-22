@@ -20,8 +20,10 @@ import pytest
 from kith_covenant import (
     Archive, ReputationView, generate_keypair, reputation_of,
     run_two_community_ceremony, rejection_pattern, ceremony_cost_decay,
-    interpretive_plurality, new_identity, attest_interpretation, now_seconds,
-    structured_skepticism, report_event, corroborate_event,
+    interpretive_plurality, new_identity, attest_interpretation,
+    attest_interpreter_independence, now_seconds,
+    structured_skepticism, report_event, corroborate_event, invoke_event_action,
+    find_undisclosed_interest,
     adversarial_principal, attest_principal, record_principal_output,
 )
 
@@ -180,6 +182,43 @@ def test_interpretive_plurality_clears_a_plural_community():
     assert r.distinct_lineages == 2
     assert r.distinct_interpreters == 2
     assert r.plurality_demonstrated is True
+    # Declared plurality alone does not prove independence (anti-sockpuppet).
+    assert r.distinct_independent_interpreters == 0
+    assert r.independent_plurality_demonstrated is False
+
+
+def test_third_party_attestation_establishes_independent_plurality():
+    arch = Archive()
+    t0 = now_seconds()
+    member = new_identity(arch, "Member", t0)
+    i1 = new_identity(arch, "Interp-1", t0)
+    i2 = new_identity(arch, "Interp-2", t0)
+    witness = new_identity(arch, "Witness", t0)
+    attest_interpretation(arch, member, "canonical", i1.did, recorded_at=t0 + 1)
+    attest_interpretation(arch, member, "reformist", i2.did, recorded_at=t0 + 2)
+    attest_interpreter_independence(arch, witness, member.did, i1.did, attested_at=t0 + 3)
+    attest_interpreter_independence(arch, witness, member.did, i2.did, attested_at=t0 + 4)
+    r = interpretive_plurality(arch, member.did, as_of=t0 + 10)
+    assert r.distinct_independent_interpreters == 2
+    assert r.independent_plurality_demonstrated is True
+    keyed = dict(r.independent_attesters)
+    assert keyed[i1.did] == (witness.did,)
+
+
+def test_community_self_attestation_does_not_prove_independence():
+    arch = Archive()
+    t0 = now_seconds()
+    member = new_identity(arch, "Member", t0)
+    i1 = new_identity(arch, "Interp-1", t0)
+    i2 = new_identity(arch, "Interp-2", t0)
+    attest_interpretation(arch, member, "canonical", i1.did, recorded_at=t0 + 1)
+    attest_interpretation(arch, member, "reformist", i2.did, recorded_at=t0 + 2)
+    # The community vouching for its own minted identities is not independence.
+    attest_interpreter_independence(arch, member, member.did, i1.did, attested_at=t0 + 3)
+    attest_interpreter_independence(arch, member, member.did, i2.did, attested_at=t0 + 4)
+    r = interpretive_plurality(arch, member.did, as_of=t0 + 10)
+    assert r.distinct_independent_interpreters == 0
+    assert r.independent_plurality_demonstrated is False
 
 
 def test_interpretive_plurality_empty_for_stranger():
@@ -250,6 +289,115 @@ def test_structured_skepticism_inert_on_empty_archive():
     assert r.under_corroborated(2) == ()
 
 
+def test_native_framing_corroboration_is_under_translated():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    b = new_identity(arch, "Community-B", t0)
+    c = new_identity(arch, "Community-C", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    # Corroborated by two distinct communities, but only in the native framing.
+    corroborate_event(arch, b, ev, corroborated_at=t0 + 200)
+    corroborate_event(arch, c, ev, corroborated_at=t0 + 300)
+    r = structured_skepticism(arch, as_of=t0 + 1000)
+    assert len(r.events[0].corroborators) == 2
+    assert r.events[0].translated_corroborators == ()
+    assert r.under_corroborated(2) == ()
+    # The translation signal still flags it.
+    assert len(r.under_translated(2)) == 1
+
+
+def test_cross_substrate_translation_clears_the_translation_signal():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    b = new_identity(arch, "Community-B", t0)
+    c = new_identity(arch, "Community-C", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    corroborate_event(arch, b, ev, translation="reads as a boundary rite", corroborated_at=t0 + 200)
+    corroborate_event(arch, c, ev, translation="reads as a debt ledger", corroborated_at=t0 + 300)
+    r = structured_skepticism(arch, as_of=t0 + 1000)
+    assert len(r.events[0].translated_corroborators) == 2
+    assert r.under_translated(2) == ()
+
+
+def test_retroactive_finding_impugns_the_event():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    b = new_identity(arch, "Community-B", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    find_undisclosed_interest(arch, b, ev, "owns the disputed claim", found_at=t0 + 500)
+    r = structured_skepticism(arch, as_of=t0 + 1000)
+    found = r.events[0].undisclosed_interests_found
+    assert found == ((b.did, "owns the disputed claim"),)
+    assert r.retroactively_impugned() == (ev,)
+
+
+def test_originator_self_finding_is_not_bad_faith():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    # The originator disclosing its own omission late is honest, not bad faith.
+    find_undisclosed_interest(arch, a, ev, "a late self-disclosure", found_at=t0 + 500)
+    r = structured_skepticism(arch, as_of=t0 + 1000)
+    assert r.events[0].undisclosed_interests_found == ()
+    assert r.retroactively_impugned() == ()
+
+
+# --- move 4 structured-skepticism hold enforcement (invoke_event_action) ----
+
+_HOLD = 7 * 24 * 3600  # DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS
+
+
+def test_action_on_qualifying_event_within_hold_is_unauthorized():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    # Acted on immediately, no corroboration — the hold refuses it.
+    invoke_event_action(arch, a, ev, "escalate to the pool", invoked_at=t0 + 200)
+    assert any("structured-skepticism hold" in r
+               for _cid, r in arch.authority_violations())
+
+
+def test_action_after_hold_elapses_is_authorized():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    invoke_event_action(arch, a, ev, "escalate", invoked_at=t0 + 100 + _HOLD + 1)
+    assert not any("structured-skepticism" in r
+                   for _cid, r in arch.authority_violations())
+
+
+def test_corroboration_releases_the_hold_early():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    b = new_identity(arch, "Community-B", t0)
+    c = new_identity(arch, "Community-C", t0)
+    ev = _manufactured(arch, a, t0 + 100)
+    corroborate_event(arch, b, ev, corroborated_at=t0 + 200)
+    corroborate_event(arch, c, ev, corroborated_at=t0 + 300)
+    # Still inside the hold, but two distinct communities corroborated.
+    invoke_event_action(arch, a, ev, "escalate", invoked_at=t0 + 400)
+    assert not any("structured-skepticism" in r
+                   for _cid, r in arch.authority_violations())
+
+
+def test_action_on_non_qualifying_event_is_unconstrained():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "Faction-A", t0)
+    # No qualifying triggers → structured skepticism does not apply.
+    ev = report_event(arch, a, "a routine notice", reported_at=t0 + 100)
+    invoke_event_action(arch, a, ev, "note", invoked_at=t0 + 200)
+    assert not any("structured-skepticism" in r
+                   for _cid, r in arch.authority_violations())
+
+
 # --- move 6 adversarial-principal lens (binding surface) --------------------
 
 
@@ -302,3 +450,50 @@ def test_adversarial_principal_inert_for_stranger():
     assert r.cross_witnesses == ()
     assert r.divergences == ()
     assert r.self_benefiting_divergences == 0
+    assert r.outputs_triangulated == 0
+    assert r.self_dealing_rate == 0.0
+
+
+def _matter_round(arch, home, captured, matter, own, favors_home, base_t):
+    """Three peers answer 'admit' on `matter`; the principal answers `own`."""
+    for i in range(3):
+        ph = new_identity(arch, f"PH-{matter}-{i}", base_t)
+        pp = new_identity(arch, f"PP-{matter}-{i}", base_t)
+        record_principal_output(
+            arch, ph, pp.did, "cohort", matter, "admit",
+            favors_home=False, produced_at=base_t + i,
+        )
+    record_principal_output(
+        arch, home, captured.did, "cohort", matter, own,
+        favors_home=favors_home, produced_at=base_t + 10,
+    )
+
+
+def test_self_dealing_rate_aggregates_continuous_behavior():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    captured = new_identity(arch, "Captured", t0)
+    # Self-deals on 3 of 4 triangulated matters.
+    _matter_round(arch, home, captured, "M1", "reject", True, t0 + 100)
+    _matter_round(arch, home, captured, "M2", "reject", True, t0 + 200)
+    _matter_round(arch, home, captured, "M3", "reject", True, t0 + 300)
+    _matter_round(arch, home, captured, "M4", "admit", False, t0 + 400)
+    r = adversarial_principal(arch, captured.did, as_of=t0 + 1000)
+    assert r.outputs_triangulated == 4
+    assert r.self_benefiting_divergences == 3
+    assert abs(r.self_dealing_rate - 0.75) < 1e-9
+    assert r.systematic_self_dealing(4, 0.5) is True
+    assert r.systematic_self_dealing(4, 0.8) is False
+
+
+def test_small_sample_is_not_systematic():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    captured = new_identity(arch, "Captured", t0)
+    _matter_round(arch, home, captured, "M1", "reject", True, t0 + 100)
+    r = adversarial_principal(arch, captured.did, as_of=t0 + 1000)
+    assert abs(r.self_dealing_rate - 1.0) < 1e-9
+    # Rate is 1.0 but a single output is too little to call systematic.
+    assert r.systematic_self_dealing(3, 0.5) is False

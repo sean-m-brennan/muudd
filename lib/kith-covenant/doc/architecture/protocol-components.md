@@ -158,13 +158,46 @@ carried here directly: see §10 and "Open design questions" below.
 > (`register_observers`, `publish_observer_report`, `respond_to_report`,
 > `file_whistleblower`, `reveal_source`, `observer_dashboard`);
 > `src/python/examples/observer_demo.py` walks a report with response, a
-> whistleblower with a for-cause reveal, the dashboard, and the three moves the
+> whistleblower with a for-cause reveal, the dashboard, and the moves the
 > protocol refuses. **Deferred to later slices (MVP crypto is Ed25519-only):**
 > ring-signature source *anonymity* (prove insider membership without revealing
-> which member), threshold-*encrypted* source records, the **substrate-deference**
-> half of the §8 dashboard (needs §9's compact-incapable list and structured-fast
-> state), observer pool-share and rotation caps, and secure out-of-band
+> which member), threshold-*encrypted* source records, and secure out-of-band
 > whistleblower transport. See `src/rust/kc-observer/`.
+>
+> **§8 observer-corps caps + dashboard completion (v2, 2026-07-21).** The
+> capture-resistance limits the v1 slice deferred are now **enforced** by the
+> authority pass, and the dashboard's deferred half is wired in. A new
+> `ObserverCaps` (pool-share floor, max term, rotation period; a `Default` carries
+> the `DEFAULT_OBSERVER_*` constants) threads through `check_authority` /
+> `authority_violations` (`authorize` is retained as a default-caps wrapper), and a
+> structural rule on `ObserverRegistryUpdated` refuses three moves: an **open-ended
+> or over-long term** (every observer window must set `valid_until`, ≤ 365 days — no
+> permanent observer standing, jester_and_dissent.md "Rotation and diversity"); a
+> **re-nomination inside the rotation period** (a re-listed observer must sit out ≥
+> 90 days after its prior term ended — the rotation-period exclusion); and
+> **pool-share domination** (once the active corps reaches the floor of 5, no single
+> nominating community may hold a majority of it — liminal_institutions.md "No
+> single community can dominate the pool"; a small compact below the floor may staff
+> freely). The counts respect registry superseding (latest `issued_at` per
+> community). `kc-reputation` adds the read-only `observer_pool_concentration` lens
+> (active corps by nominating community, the rotation horizon of currently-serving
+> observers, `top_active` / `majority_held` — flags with provenance, no verdict),
+> and `observer_dashboard` now bundles **both** that pool view **and** the §9
+> `substrate_deference` erosion report — closing the substrate-deference half the v1
+> dashboard deferred. Authorable/queryable from Python (the `ObserverCaps` fields are
+> keyword args on `check_authority` / `authority_violations` with the same defaults;
+> `observer_pool_concentration`); `observer_demo.py` now walks the enriched dashboard
+> and five refused moves (adding the majority-packing and no-gap-re-nomination
+> cases). **Continuous-service-union accounting is now enforced (v3, 2026-07-22):**
+> the term limit no longer trusts the per-window check alone — each window is merged
+> with every prior window from which it is not separated by a full rotation sit-out
+> (overlap or a sub-`rotation_period` gap counts as one continuous term), and the
+> merged span containing the window is bounded by `max_term_seconds`, closing the
+> overlap-extension evasion the rotation-gap rule (ended-terms only) could not see.
+> No new caps field — it reuses `max_term_seconds` and `rotation_period_seconds`.
+> The remaining deferred items are the crypto and transport ones above. See
+> `src/rust/kc-observer/`, `kc-archive/src/authority.rs`,
+> `kc-reputation/src/analytics.rs`.
 >
 > **§9 Substrate-deference test (v1, 2026-07-21).** The `kc-constitution` crate
 > operationalizes non-ultimacy as a versioned, signed constitutional layer (the
@@ -193,9 +226,21 @@ carried here directly: see §10 and "Open design questions" below.
 > `substrate_deference`); `src/python/examples/constitution_demo.py` walks
 > ratification, the gates, an expansion, an erosion report, and the moves the
 > protocol refuses (second genesis, removing a genesis matter, contracting below
-> the higher bar). **Deferred to later slices:** recurring/calendar fast schedules
-> (v1 uses explicit windows), automatic escalation on detected erosion, and any
-> hard-refusal of deliberative acts during a fast. See `src/rust/kc-constitution/`.
+> the higher bar). **Deferred to later slices:** automatic escalation on detected
+> erosion, and any hard-refusal of deliberative acts during a fast. See
+> `src/rust/kc-constitution/`.
+>
+> **§9 recurring fast schedules now built (v2, 2026-07-22).** The v1 cadence used
+> single explicit windows; a `FastPeriod` now carries an optional `recurrence`
+> cycle (seconds), so a fast repeats on a calendar rhythm — an annual fast, the
+> Iroquois Condolence period — rather than being re-authored each occurrence.
+> `FastPeriod::contains` matches any occurrence (phase within the cycle), with a
+> degenerate cycle shorter than the occurrence falling back to a single window
+> (occurrences may not overlap); `in_structured_fast` and the fast-deviation
+> detector inherit this for free. Recurrence is set at genesis
+> (`ratify_constitution` fast-period tuples gain a 4th element) or via
+> `amend_fast_cadence(..., recurrence=)`; both are back-compatible (absent →
+> one-shot). See `FastPeriod` in `src/rust/kc-constitution/src/record.rs`.
 >
 > **§10 Capture-resistance test harness (v1, 2026-07-21).** §10 is a *harness*,
 > not a protocol component with records, so it is realized as a Python module
@@ -242,12 +287,84 @@ carried here directly: see §10 and "Open design questions" below.
 > cross-community witnesses (excluding the principal and its home) and flags an
 > output diverging from the cohort majority toward the principal's own benefit.
 > All three follow the established jester-lens contract — flags with provenance,
-> no verdict; thresholds live with the caller. **Deferred to later slices:**
-> anti-sockpuppet proof of interpreter independence (move 1); enforced structured
-> delay, cross-substrate translation semantics, and the retroactive bad-faith
-> finding (move 4); the cryptographically separable witness chain, statistical
-> triangulation of continuous behavior, and collusive whole-cohort capture
-> (move 6). Records are Ed25519-signed, first-class, principal-bound.
+> no verdict; thresholds live with the caller. **Deferred to later slices
+> (move 6 only):** the cryptographically separable witness chain and collusive
+> whole-cohort capture. **Moves 1 and 4 are fully built, and move 6's statistical
+> triangulation is built** (see the v3 notes below). Records are Ed25519-signed,
+> first-class, principal-bound.
+>
+> **Move 1 anti-sockpuppet independence proof now built (v3, 2026-07-22).** A
+> declared `interpreter_did` was just a name the community minted, so one faction
+> could fake plurality with identities it wholly controls. A new
+> `InterpreterIndependenceAttestation` record (`kc-ceremony::lineage`) lets a third
+> party vouch for an interpreter's independence, and the `interpretive_plurality`
+> lens now carries `independent_attesters` (interpreter → distinct attesters, each
+> ≠ the community and ≠ the interpreter, and only for interpreters that actually
+> authored a reading), with `distinct_independent_interpreters()` and
+> `independent_plurality_demonstrated()` (≥2 lineages AND ≥2 *attested-independent*
+> interpreters). The existing declared-only `plurality_demonstrated()` is retained,
+> so the §10 monopoly scenario is unchanged. Still detector-only — the
+> attester filter is a lens concern, not an authority refusal, keeping move 1's
+> no-verdict stance. Authorable from Python (`attest_interpreter_independence`).
+> A sockpuppet ring must now recruit genuine outsiders to vouch — which is exactly
+> the collusion the move-6 whole-cohort item (still deferred) targets. Move 1's
+> remaining deferred surface is closed by this slice.
+>
+> **Move 4 structured delay now enforced (v3, 2026-07-22).** The structured-
+> skepticism protocol acquired teeth: the detector made a qualifying manufactured
+> event *legible*, but nothing stopped a community from acting on it before the
+> compact could develop its own reading. A new `EventActionInvoked` record
+> (`kc-provenance`) is the formal act premised on an event, and the archive's
+> authority pass refuses it while the cited **qualifying** event is still within
+> its structured hold (`DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS`, 7 days) **and**
+> under-corroborated (fewer than `DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS`
+> = 2 distinct non-originator communities as of the action). A non-qualifying
+> event, an elapsed hold, or sufficient independent corroboration each clear the
+> action — corroboration is the early-release valve, depriving the manufacturer of
+> the loudest-interpreter advantage. Authorable from Python
+> (`invoke_event_action`). See `authorize_event_action` in
+> `kc-archive/src/authority.rs`. This closes the "enforced structured delay" item
+> above; move 4's remaining deferred item is the retroactive bad-faith finding.
+>
+> **Move 4 cross-substrate translation semantics now built (v3, 2026-07-22).**
+> `EventCorroboration` always carried an optional `translation`, but the lens
+> ignored it — an interpretation corroborated only in the originating framing read
+> as fully cleared. The `structured_skepticism` lens now tracks, per event,
+> `translated_corroborators` (the subset of distinct non-originator corroborators
+> that supplied a cross-substrate translation) and exposes `under_translated(min)`
+> alongside `under_corroborated(min)`. The two signals are independent: an event
+> can be well-corroborated in its native terms yet never translated — a
+> manufactured reading that coheres only in the manufacturer's substrate — and the
+> translation signal flags exactly that. Detector-only, no new record (reuses the
+> existing field); queryable from Python. This closes move 4's cross-substrate
+> translation item.
+>
+> **Move 4 retroactive bad-faith finding now built (v3, 2026-07-22) — move 4 is
+> complete.** `EventReport` records the originator's `disclosed_interests` at
+> intake, but an interest concealed then and discovered *later* — after the event
+> may already have driven action — had no home. A new `RetroactiveInterestFinding`
+> record (`kc-provenance`) lets a third party disclose an interest the originator
+> held but omitted; the `structured_skepticism` lens carries per-event
+> `undisclosed_interests_found` (`(finder, interest)`, finders other than the
+> originator only — a self-finding is honest late disclosure) and exposes
+> `retroactively_impugned()`. Detector-only: the record surfaces bad faith and by
+> whom; the *consequence* is the existing conduct machinery's (not duplicated
+> here), and the finding is the re-opening trigger. Authorable from Python
+> (`find_undisclosed_interest`). With this, **all four of move 4's deferred items
+> are closed** — only move 6's crypto/triangulation/collusion items remain.
+>
+> **Move 6 statistical triangulation of continuous behavior now built (v3,
+> 2026-07-22).** The v1 lens flagged each divergent output discretely; one
+> divergence can be honest disagreement. `PrincipalValidationReport` now also
+> tracks `outputs_triangulated` (own outputs that had a peer cohort) and exposes
+> `self_dealing_rate()` (self-benefiting divergences over that denominator) and
+> `systematic_self_dealing(min_outputs, rate_threshold)` — a *sustained* pattern
+> over a sufficient sample, which a single flag cannot show. Detector-only, no new
+> record (aggregates existing `PrincipalOutput` triangulation); queryable from
+> Python (`self_dealing_rate`, `systematic_self_dealing`). Move 6's remaining
+> deferred items are the cryptographically separable witness chain and collusive
+> whole-cohort capture (both need genuinely external anchors — crypto or
+> cross-cohort — beyond the current per-cohort majority).
 >
 > **All ten components now have an MVP v1 slice** (uncommitted on
 > `feature/research`), and all seven capture-resistance scenarios have a built,

@@ -34,7 +34,10 @@ use kc_identity::{
     WitnessRole,
 };
 
-use crate::authority::{authorize, check_authority, DEFAULT_PANEL_MIN, DEFAULT_QUORUM_THRESHOLD};
+use crate::authority::{
+    authorize, check_authority, ObserverCaps, DEFAULT_PANEL_MIN, DEFAULT_QUORUM_THRESHOLD,
+    DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS,
+};
 use crate::entry::ArchiveEntry;
 use crate::store::{Archive, InMemoryArchive};
 use crate::verify::verify_all;
@@ -344,8 +347,13 @@ fn full_two_community_ceremony_verifies_and_roundtrips() {
     verify_all(&archive).expect("complete archive must verify end-to-end");
     // The real ceremony (envoys co-signing inter records, roots sealing their
     // own rites/delegations) must also pass authority enforcement.
-    check_authority(&archive, DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
-        .expect("complete ceremony archive must be authorized");
+    check_authority(
+        &archive,
+        DEFAULT_QUORUM_THRESHOLD,
+        DEFAULT_PANEL_MIN,
+        ObserverCaps::default(),
+    )
+    .expect("complete ceremony archive must be authorized");
 
     // Roundtrip through JSON and re-verify.
     let json = archive.dump_json_to_string().unwrap();
@@ -2106,6 +2114,7 @@ mod commons {
 
 mod observer {
     use super::*;
+    use kc_core::PubKey;
     use kc_observer::{
         ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
         WhistleblowerReport,
@@ -2113,6 +2122,7 @@ mod observer {
 
     const Q: usize = DEFAULT_QUORUM_THRESHOLD;
     const P: usize = DEFAULT_PANEL_MIN;
+    const DAY: i64 = 24 * 3600;
 
     fn ok(a: &InMemoryArchive, cid: &Cid) {
         authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
@@ -2121,13 +2131,28 @@ mod observer {
         assert!(authorize(a, a.get(cid).unwrap(), Q, P).is_err(), "expected rejection");
     }
 
-    /// Register `n` observers nominated by `community`, returned as (did, priv).
+    /// Register `n` observers nominated by `community`, each on a bounded
+    /// `[at, at + 100 days)` term (well within the default term limit), returned as
+    /// (did, priv).
     fn add_observers(
         a: &mut InMemoryArchive,
         community: &DidKey,
         root_priv: &PrivKey,
         n: usize,
         at: Timestamp,
+    ) -> Vec<(DidKey, PrivKey)> {
+        add_observers_term(a, community, root_priv, n, at, ts(at.as_second() + 100 * DAY))
+    }
+
+    /// Like [`add_observers`] but with an explicit `valid_until`, for exercising
+    /// the §8 term-limit and rotation rules.
+    fn add_observers_term(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        root_priv: &PrivKey,
+        n: usize,
+        at: Timestamp,
+        until: Timestamp,
     ) -> Vec<(DidKey, PrivKey)> {
         let mut entries = vec![];
         let mut out = vec![];
@@ -2139,7 +2164,7 @@ mod observer {
                 observer_pubkey: opub,
                 declared_perspective: "labor-rights".into(),
                 valid_from: at,
-                valid_until: None,
+                valid_until: Some(until),
             });
             out.push((odid, opriv));
         }
@@ -2150,6 +2175,35 @@ mod observer {
         .unwrap();
         a.append(ArchiveEntry::ObserverRegistryUpdated(reg)).unwrap();
         out
+    }
+
+    /// Append a roster for `community` with explicit per-observer windows (reusing
+    /// the given observer keys), for rotation-gap tests. Returns the registry CID.
+    fn append_roster(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        root_priv: &PrivKey,
+        observers: &[(DidKey, PubKey)],
+        valid_from: Timestamp,
+        valid_until: Option<Timestamp>,
+        issued_at: Timestamp,
+    ) -> Cid {
+        let entries = observers
+            .iter()
+            .map(|(od, opk)| ObserverEntry {
+                observer_did: od.clone(),
+                observer_pubkey: opk.clone(),
+                declared_perspective: "labor-rights".into(),
+                valid_from,
+                valid_until,
+            })
+            .collect();
+        let reg = Signed::build(
+            ObserverRegistry { nominating_community: community.clone(), entries, issued_at },
+            &[(community.as_str(), root_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ObserverRegistryUpdated(reg)).unwrap()
     }
 
     fn report(
@@ -2344,6 +2398,139 @@ mod observer {
         let good = reveal(&mut a, wb, &panel, "source recanted; claim contested", ts(300));
         ok(&a, &good);
     }
+
+    // --- §8 observer-corps caps (pool-share + term + rotation) -------------
+
+    /// Generate `n` fresh observer keypairs as (did, pubkey).
+    fn observer_keys(n: usize) -> Vec<(DidKey, PubKey)> {
+        (0..n)
+            .map(|_| {
+                let (_sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+                (DidKey::from_pubkey(&pk).unwrap(), pk)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn open_ended_observer_term_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = observer_keys(1);
+        // No valid_until: the §8 term limit refuses open-ended observer standing.
+        let reg = append_roster(&mut a, &r, &r_priv, &obs, ts(10), None, ts(10));
+        bad(&a, &reg);
+    }
+
+    #[test]
+    fn overlong_observer_term_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = observer_keys(1);
+        // A 400-day term exceeds the 365-day default maximum.
+        let reg = append_roster(&mut a, &r, &r_priv, &obs, ts(10), Some(ts(10 + 400 * DAY)), ts(10));
+        bad(&a, &reg);
+    }
+
+    #[test]
+    fn bounded_observer_term_is_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = observer_keys(1);
+        let reg =
+            append_roster(&mut a, &r, &r_priv, &obs, ts(10), Some(ts(10 + 100 * DAY)), ts(10));
+        ok(&a, &reg);
+    }
+
+    #[test]
+    fn renomination_within_rotation_period_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = observer_keys(1);
+        // First term ends at day 100.
+        append_roster(&mut a, &r, &r_priv, &obs, ts(10), Some(ts(100 * DAY)), ts(10));
+        // Re-nominated only 30 days later — inside the 90-day rotation period.
+        let reg2 =
+            append_roster(&mut a, &r, &r_priv, &obs, ts(130 * DAY), Some(ts(200 * DAY)), ts(130 * DAY));
+        bad(&a, &reg2);
+    }
+
+    #[test]
+    fn renomination_after_rotation_period_is_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = observer_keys(1);
+        append_roster(&mut a, &r, &r_priv, &obs, ts(10), Some(ts(100 * DAY)), ts(10));
+        // Re-nominated 100 days after the prior term ended — clears the 90-day gap.
+        let reg2 =
+            append_roster(&mut a, &r, &r_priv, &obs, ts(200 * DAY), Some(ts(260 * DAY)), ts(200 * DAY));
+        ok(&a, &reg2);
+    }
+
+    #[test]
+    fn overlapping_renomination_exceeding_term_in_union_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = observer_keys(1);
+        // First window: 350 days — under the 365-day per-window cap on its own.
+        append_roster(&mut a, &r, &r_priv, &obs, ts(10), Some(ts(350 * DAY)), ts(10));
+        // A second window opened before the first ends (overlap) — the rotation-gap
+        // rule never sees it, and each window alone is under the cap, but their
+        // continuous-service union (day 0 → day 640) exceeds 365 days.
+        let reg2 = append_roster(
+            &mut a,
+            &r,
+            &r_priv,
+            &obs,
+            ts(300 * DAY),
+            Some(ts(640 * DAY)),
+            ts(300 * DAY),
+        );
+        bad(&a, &reg2);
+    }
+
+    #[test]
+    fn overlapping_renomination_within_term_in_union_is_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (r, r_priv) = community(&mut a, "R", ts(10));
+        let obs = observer_keys(1);
+        // Two overlapping windows whose union (day 0 → day 200) stays under the cap:
+        // contiguous extension is permitted, only over-the-limit chaining is refused.
+        append_roster(&mut a, &r, &r_priv, &obs, ts(10), Some(ts(100 * DAY)), ts(10));
+        let reg2 = append_roster(
+            &mut a,
+            &r,
+            &r_priv,
+            &obs,
+            ts(50 * DAY),
+            Some(ts(200 * DAY)),
+            ts(50 * DAY),
+        );
+        ok(&a, &reg2);
+    }
+
+    #[test]
+    fn single_community_majority_of_corps_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (aa, aa_priv) = community(&mut a, "A", ts(10));
+        let (bb, bb_priv) = community(&mut a, "B", ts(10));
+        // B seats 2; then A seats 3 → a corps of 5 in which A holds 3 (a majority).
+        add_observers_term(&mut a, &bb, &bb_priv, 2, ts(10), ts(100 * DAY));
+        let a_obs = observer_keys(3);
+        let reg = append_roster(&mut a, &aa, &aa_priv, &a_obs, ts(10), Some(ts(100 * DAY)), ts(20));
+        bad(&a, &reg);
+    }
+
+    #[test]
+    fn small_corps_below_floor_tolerates_majority() {
+        let mut a = InMemoryArchive::new();
+        let (aa, aa_priv) = community(&mut a, "A", ts(10));
+        let (bb, bb_priv) = community(&mut a, "B", ts(10));
+        // Corps of 4 (< floor 5): A's 3/4 majority is tolerated (small compact).
+        add_observers_term(&mut a, &bb, &bb_priv, 1, ts(10), ts(100 * DAY));
+        let a_obs = observer_keys(3);
+        let reg = append_roster(&mut a, &aa, &aa_priv, &a_obs, ts(10), Some(ts(100 * DAY)), ts(20));
+        ok(&a, &reg);
+    }
 }
 
 // --- §9 substrate-deference (constitution) authority ------------------------
@@ -2380,7 +2567,7 @@ mod constitution {
         let g = Signed::build(
             ConstitutionGenesis {
                 compact_incapable: matters.iter().map(|k| matter(k)).collect(),
-                fast_periods: vec![FastPeriod { label: "annual".into(), start: ts(1000), end: ts(2000) }],
+                fast_periods: vec![FastPeriod { label: "annual".into(), start: ts(1000), end: ts(2000) , recurrence: None }],
                 ratifiers: dids,
                 genesis_at: at,
             },
@@ -2425,7 +2612,7 @@ mod constitution {
         let am = Signed::build(
             FastCadenceAmendment {
                 change,
-                period: FastPeriod { label: "annual".into(), start: ts(1000), end: ts(1500) },
+                period: FastPeriod { label: "annual".into(), start: ts(1000), end: ts(1500) , recurrence: None },
                 rationale: "r".into(),
                 deciders: dids,
                 decision_class: DecisionClass::SecondClass,
@@ -2540,5 +2727,158 @@ mod constitution {
         let con3 = amend_fast(&mut a, FastChange::Contract,
             &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(300));
         ok(&a, &con3);
+    }
+}
+
+// --- Move 4 structured-skepticism hold (EventActionInvoked) -----------------
+
+mod event_action {
+    use super::*;
+    use kc_provenance::{EventActionInvoked, EventCorroboration, EventReport};
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const HOLD: i64 = DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn bad(a: &InMemoryArchive, cid: &Cid) {
+        assert!(authorize(a, a.get(cid).unwrap(), Q, P).is_err(), "expected rejection");
+    }
+
+    /// Append a signed event report by `originator`. `qualifying` toggles the
+    /// high-interpretive-charge trigger; a non-qualifying report fires none.
+    fn report_event(
+        a: &mut InMemoryArchive,
+        originator: &DidKey,
+        root_priv: &PrivKey,
+        qualifying: bool,
+        reported_at: Timestamp,
+    ) -> Cid {
+        let rec = EventReport {
+            originator: originator.clone(),
+            summary: "an ambiguous transcendent event".into(),
+            high_interpretive_charge: qualifying,
+            sudden_onset: false,
+            originator_holds_stake: false,
+            aligned_faction: None,
+            declared_incentives: "surface stability".into(),
+            information_history: "first-hand".into(),
+            disclosed_interests: vec![],
+            onset_at: reported_at,
+            reported_at,
+        };
+        let signed = Signed::build(rec, &[(originator.as_str(), root_priv)]).unwrap();
+        a.append(ArchiveEntry::EventReported(signed)).unwrap()
+    }
+
+    fn corroborate(
+        a: &mut InMemoryArchive,
+        event_cid: &Cid,
+        community: &DidKey,
+        root_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = EventCorroboration {
+            event_cid: event_cid.clone(),
+            corroborating_community: community.clone(),
+            translation: None,
+            corroborated_at: at,
+        };
+        let signed = Signed::build(rec, &[(community.as_str(), root_priv)]).unwrap();
+        a.append(ArchiveEntry::EventCorroborated(signed)).unwrap()
+    }
+
+    fn invoke_action(
+        a: &mut InMemoryArchive,
+        event_cid: &Cid,
+        acting: &DidKey,
+        root_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = EventActionInvoked {
+            event_cid: event_cid.clone(),
+            acting_community: acting.clone(),
+            action: "escalate to the mediator pool".into(),
+            invoked_at: at,
+        };
+        let signed = Signed::build(rec, &[(acting.as_str(), root_priv)]).unwrap();
+        a.append(ArchiveEntry::EventActionInvoked(signed)).unwrap()
+    }
+
+    #[test]
+    fn action_on_qualifying_event_within_hold_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp) = community(&mut a, "R", ts(10));
+        let ev = report_event(&mut a, &r, &rp, true, ts(1000));
+        // Acted on one hour later — inside the hold, no independent corroboration.
+        let act = invoke_action(&mut a, &ev, &r, &rp, ts(1000 + 3600));
+        bad(&a, &act);
+    }
+
+    #[test]
+    fn action_after_hold_elapses_is_authorized() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp) = community(&mut a, "R", ts(10));
+        let ev = report_event(&mut a, &r, &rp, true, ts(1000));
+        let act = invoke_action(&mut a, &ev, &r, &rp, ts(1000 + HOLD + 1));
+        ok(&a, &act);
+    }
+
+    #[test]
+    fn sufficient_corroboration_releases_the_hold_early() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp) = community(&mut a, "R", ts(10));
+        let (b, bp) = community(&mut a, "B", ts(10));
+        let (c, cp) = community(&mut a, "C", ts(10));
+        let ev = report_event(&mut a, &r, &rp, true, ts(1000));
+        corroborate(&mut a, &ev, &b, &bp, ts(1100));
+        corroborate(&mut a, &ev, &c, &cp, ts(1200));
+        // Still inside the hold, but two distinct communities corroborated.
+        let act = invoke_action(&mut a, &ev, &r, &rp, ts(1300));
+        ok(&a, &act);
+    }
+
+    #[test]
+    fn one_corroborator_is_insufficient_within_hold() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp) = community(&mut a, "R", ts(10));
+        let (b, bp) = community(&mut a, "B", ts(10));
+        let ev = report_event(&mut a, &r, &rp, true, ts(1000));
+        corroborate(&mut a, &ev, &b, &bp, ts(1100));
+        let act = invoke_action(&mut a, &ev, &r, &rp, ts(1300));
+        bad(&a, &act);
+    }
+
+    #[test]
+    fn originator_self_corroboration_does_not_release_the_hold() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp) = community(&mut a, "R", ts(10));
+        let ev = report_event(&mut a, &r, &rp, true, ts(1000));
+        // The originator "corroborating" itself is not independent support.
+        corroborate(&mut a, &ev, &r, &rp, ts(1100));
+        corroborate(&mut a, &ev, &r, &rp, ts(1200));
+        let act = invoke_action(&mut a, &ev, &r, &rp, ts(1300));
+        bad(&a, &act);
+    }
+
+    #[test]
+    fn action_on_non_qualifying_event_is_unconstrained() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp) = community(&mut a, "R", ts(10));
+        // No triggers → structured skepticism does not apply; act immediately.
+        let ev = report_event(&mut a, &r, &rp, false, ts(1000));
+        let act = invoke_action(&mut a, &ev, &r, &rp, ts(1000 + 3600));
+        ok(&a, &act);
+    }
+
+    #[test]
+    fn action_on_unknown_event_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp) = community(&mut a, "R", ts(10));
+        let bogus = Cid::of_bytes(b"not an event");
+        let act = invoke_action(&mut a, &bogus, &r, &rp, ts(2000));
+        bad(&a, &act);
     }
 }

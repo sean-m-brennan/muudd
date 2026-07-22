@@ -58,6 +58,38 @@ def test_ratify_and_gates():
     assert in_structured_fast(arch, t0 + 5000) is None
 
 
+def test_recurring_fast_gate_and_state():
+    arch = Archive()
+    t0 = now_seconds()
+    a = new_identity(arch, "A", t0)
+    b = new_identity(arch, "B", t0)
+    # A 1000s fast recurring every 10_000s (a calendar rhythm).
+    ratify_constitution(
+        arch, [a, b],
+        incapable=[("x", "x")],
+        fast_periods=[("condolence", t0 + 1000, t0 + 2000, 10_000)],
+        genesis_at=t0,
+    )
+    arch.check_authority()
+    # The gate fires in each cycle, not just the first window.
+    assert in_structured_fast(arch, t0 + 1500) == "condolence"
+    assert in_structured_fast(arch, t0 + 2500) is None
+    assert in_structured_fast(arch, t0 + 11_500) == "condolence"
+    st = constitution_state(arch, as_of=t0 + 10)
+    assert st.fast_periods[0].recurrence == 10_000
+
+
+def test_amend_fast_to_recurring():
+    arch, t0, a, b, c = _founded()
+    # Convert the one-shot "annual" fast into a recurring one via an Extend amendment.
+    amend_fast_cadence(
+        arch, "Extend", "annual", t0 + 1000, t0 + 2000, [a, b, c],
+        recurrence=10_000, decided_at=t0 + 100,
+    )
+    arch.check_authority()
+    assert in_structured_fast(arch, t0 + 11_500) == "annual"
+
+
 def test_single_ratifier_fails_quorum():
     arch = Archive()
     t0 = now_seconds()

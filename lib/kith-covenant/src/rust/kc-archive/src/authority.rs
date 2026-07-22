@@ -35,7 +35,7 @@
 //! Revocation and expiry are honored via `SpeakerDelegation::active_at` with the
 //! same latest-issued-wins supersession the archive uses for key resolution.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use kc_commons::{is_second_class_level, sanction_rank, CommonsSanction, SanctionLevel, UsageRecord};
 use kc_conduct::DecisionClass;
@@ -47,7 +47,10 @@ use kc_escalation::{
 };
 use kc_identity::DelegationScope;
 use kc_mediation::MediationDecision;
-use kc_observer::{ObserverReport, ReportResponse, SourceReveal, WhistleblowerReport};
+use kc_observer::{
+    ObserverRegistry, ObserverReport, ReportResponse, SourceReveal, WhistleblowerReport,
+};
+use kc_provenance::EventActionInvoked;
 
 use crate::entry::ArchiveEntry;
 use crate::store::{Archive, InMemoryArchive};
@@ -70,6 +73,61 @@ pub const DEFAULT_WAITING_PERIOD_SECONDS: i64 = 7 * 24 * 3600;
 /// sincerity bar is more demanding than first admission's single internal witness
 /// (exit_and_succession.md §"Re-entry after expulsion").
 pub const DEFAULT_REENTRY_WITNESS_MIN: usize = 2;
+
+/// Below this active-corps size the §8 pool-share (no-majority) rule does not
+/// bite: small compacts must be free to staff the observer corps even when one
+/// community necessarily supplies a majority (liminal_institutions.md "The
+/// mediator pool": for small compacts every community must contribute).
+pub const DEFAULT_OBSERVER_POOL_FLOOR: usize = 5;
+
+/// Maximum length in seconds of a single observer nomination window (§8). No
+/// open-ended observer standing — a permanent observer corps is the capture the
+/// rotation rule exists to prevent (jester_and_dissent.md "Rotation and
+/// diversity"). One year.
+pub const DEFAULT_OBSERVER_MAX_TERM_SECONDS: i64 = 365 * 24 * 3600;
+
+/// Minimum gap in seconds an observer must sit out between a term that has ended
+/// and a re-nomination to active service (§8 rotation-period exclusion,
+/// jester_and_dissent.md "the observer's removal and rotation-period exclusion").
+/// Ninety days.
+pub const DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS: i64 = 90 * 24 * 3600;
+
+/// Structured-skepticism hold (capture move 4): a *qualifying* manufactured event
+/// may not drive a recorded action until this window elapses from its report,
+/// buying the ambient community time to develop its own interpretation before
+/// consequences attach — depriving the manufacturer of the loudest-interpreter
+/// advantage (capture_resistance.md move 4; liminal_institutions.md
+/// "Manufactured-event resistance"). Seven days.
+pub const DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS: i64 = 7 * 24 * 3600;
+
+/// Distinct non-originator corroborations that release a qualifying event from the
+/// structured-skepticism hold before its window elapses: once the observable facts
+/// are independently confirmed, the delay has served its purpose.
+pub const DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS: usize = 2;
+
+/// §8 observer-corps caps: the capture-resistance limits on the observer pool
+/// (pool-share domination, term length, rotation gap). A [`Default`] carries the
+/// `DEFAULT_OBSERVER_*` policy constants; callers may tighten or relax them
+/// (e.g. a small ad-hoc compact lowering the floor).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObserverCaps {
+    /// Active-corps size at or above which the no-majority pool-share rule bites.
+    pub pool_floor: usize,
+    /// Maximum length (seconds) of a single observer nomination window.
+    pub max_term_seconds: i64,
+    /// Minimum sit-out (seconds) between a prior term's end and a re-nomination.
+    pub rotation_period_seconds: i64,
+}
+
+impl Default for ObserverCaps {
+    fn default() -> Self {
+        Self {
+            pool_floor: DEFAULT_OBSERVER_POOL_FLOOR,
+            max_term_seconds: DEFAULT_OBSERVER_MAX_TERM_SECONDS,
+            rotation_period_seconds: DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+        }
+    }
+}
 
 /// The number of failed-then-re-violated restoration cycles that a *normal*
 /// anathema designation must cite (bounded_conflict.md condition 1).
@@ -95,11 +153,16 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         ArchiveEntry::ConstitutionRatified(_)
         | ArchiveEntry::CompactIncapableAmended(_)
         | ArchiveEntry::FastCadenceAmended(_) => &[Envoy],
-        // Move 1: a community's reading of its own substrate; an envoy may sign.
-        ArchiveEntry::SubstrateInterpreted(_) => &[Envoy],
-        // Move 4: an event report / corroboration a community authors; an envoy
-        // may sign on its behalf.
-        ArchiveEntry::EventReported(_) | ArchiveEntry::EventCorroborated(_) => &[Envoy],
+        // Move 1: a community's reading of its own substrate, and a third party's
+        // attestation of an interpreter's independence; an envoy may sign either.
+        ArchiveEntry::SubstrateInterpreted(_)
+        | ArchiveEntry::InterpreterIndependenceAttested(_) => &[Envoy],
+        // Move 4: an event report / corroboration / action a community authors; an
+        // envoy may sign on its behalf.
+        ArchiveEntry::EventReported(_)
+        | ArchiveEntry::EventCorroborated(_)
+        | ArchiveEntry::EventActionInvoked(_)
+        | ArchiveEntry::RetroactiveInterestFound(_) => &[Envoy],
         // Move 6: a principal witness attestation / output a community authors;
         // an envoy may sign on its behalf.
         ArchiveEntry::PrincipalWitnessed(_) | ArchiveEntry::PrincipalOutputRecorded(_) => &[Envoy],
@@ -258,6 +321,12 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         ArchiveEntry::SubstrateInterpreted(s) => {
             Some(ra(vec![s.payload.community_did.clone()], s.payload.recorded_at, false))
         }
+        // An independence attestation is the attesting party speaking for itself;
+        // whether it counts toward plurality (attester != community, != interpreter)
+        // is a detector filter in the lens, not an authority refusal.
+        ArchiveEntry::InterpreterIndependenceAttested(s) => {
+            Some(ra(vec![s.payload.attesting_party.clone()], s.payload.attested_at, false))
+        }
         // Move 4. An event report is the originating community speaking; a
         // corroboration is the corroborating community speaking. Both are
         // first-class principal-bound acts; corroboration sufficiency is a
@@ -270,6 +339,17 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
             s.payload.corroborated_at,
             false,
         )),
+        // An event action is the acting community speaking for itself; whether the
+        // structured-skepticism hold permits it is a structural rule below.
+        ArchiveEntry::EventActionInvoked(s) => {
+            Some(ra(vec![s.payload.acting_community.clone()], s.payload.invoked_at, false))
+        }
+        // A retroactive interest finding is the finder speaking for itself; whether
+        // it impugns the event (finder != originator) is a detector filter, not an
+        // authority refusal.
+        ArchiveEntry::RetroactiveInterestFound(s) => {
+            Some(ra(vec![s.payload.finder.clone()], s.payload.found_at, false))
+        }
         // Move 6. A principal witness attestation is the attesting community
         // speaking for itself (cross-community independence is a detector
         // filter, not an authority refusal); a principal output is the home
@@ -323,8 +403,11 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::CompactIncapableAmended(s) => dids(s),
         ArchiveEntry::FastCadenceAmended(s) => dids(s),
         ArchiveEntry::SubstrateInterpreted(s) => dids(s),
+        ArchiveEntry::InterpreterIndependenceAttested(s) => dids(s),
         ArchiveEntry::EventReported(s) => dids(s),
         ArchiveEntry::EventCorroborated(s) => dids(s),
+        ArchiveEntry::EventActionInvoked(s) => dids(s),
+        ArchiveEntry::RetroactiveInterestFound(s) => dids(s),
         ArchiveEntry::PrincipalWitnessed(s) => dids(s),
         ArchiveEntry::PrincipalOutputRecorded(s) => dids(s),
     }
@@ -951,6 +1034,216 @@ fn authorize_observer_report(
     }
 }
 
+/// The active observer corps as of `at`, respecting registry superseding (only
+/// the latest `ObserverRegistryUpdated` per nominating community with
+/// `issued_at <= at` contributes its entries): returns `(total_active,
+/// active_nominated_by_community)`.
+fn active_observer_counts(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    at: Timestamp,
+) -> (usize, usize) {
+    let mut latest: BTreeMap<String, &ObserverRegistry> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::ObserverRegistryUpdated(s) = e {
+            if s.payload.issued_at.as_second() <= at.as_second() {
+                let key = s.payload.nominating_community.as_str().to_string();
+                let supersede = latest.get(&key).map_or(true, |cur| {
+                    s.payload.issued_at.as_second() >= cur.issued_at.as_second()
+                });
+                if supersede {
+                    latest.insert(key, &s.payload);
+                }
+            }
+        }
+    }
+    let (mut total, mut this) = (0usize, 0usize);
+    for reg in latest.values() {
+        let n = reg.entries.iter().filter(|en| en.active_at(at)).count();
+        total += n;
+        if &reg.nominating_community == community {
+            this += n;
+        }
+    }
+    (total, this)
+}
+
+/// §8 observer-registry caps (capture resistance), enforced when a roster is
+/// admitted:
+///
+/// - **Term limit.** Every entry must set `valid_until`, and the window may not
+///   exceed `caps.max_term_seconds`. No open-ended observer standing — a
+///   permanent observer corps is exactly the capture the rotation rule prevents
+///   (jester_and_dissent.md "Rotation and diversity").
+/// - **Rotation gap.** For each observer, a re-nomination must begin at least
+///   `caps.rotation_period_seconds` after the most recent *prior* term (in any
+///   other registry record) that had already ended at or before this window's
+///   start: the observer sits out (jester_and_dissent.md "rotation-period
+///   exclusion").
+/// - **Continuous-service union.** The per-window term limit is not enough on its
+///   own: overlapping re-nominations (a new window opened before the prior one
+///   ends) never trip the rotation-gap rule, so a community could chain them to
+///   keep an observer seated indefinitely. Each window is therefore merged with
+///   every prior window from which it is not separated by a full rotation sit-out
+///   (overlap or a sub-`rotation_period` gap counts as one continuous term); the
+///   merged span containing this window may not exceed `caps.max_term_seconds`.
+/// - **Pool-share.** Once the compact-wide active corps reaches `caps.pool_floor`,
+///   no single nominating community may hold a majority of it
+///   (liminal_institutions.md "No single community can dominate the pool"). Below
+///   the floor a small compact may staff the corps freely.
+fn authorize_observer_registry(
+    archive: &InMemoryArchive,
+    reg: &ObserverRegistry,
+    self_cid: &Cid,
+    caps: ObserverCaps,
+) -> KcResult<()> {
+    for entry in &reg.entries {
+        let valid_until = entry.valid_until.ok_or_else(|| {
+            KcError::Authority(format!(
+                "observer {} has an open-ended term; a bounded valid_until is required (§8 rotation)",
+                entry.observer_did.as_str()
+            ))
+        })?;
+        let term = valid_until.as_second() - entry.valid_from.as_second();
+        if term > caps.max_term_seconds {
+            return Err(KcError::Authority(format!(
+                "observer {} term {}s exceeds the maximum {}s (§8 term limit)",
+                entry.observer_did.as_str(),
+                term,
+                caps.max_term_seconds
+            )));
+        }
+        // This observer's prior bounded windows, from every other registry record
+        // (superseding is irrelevant here — a term served is a term served).
+        let mut prior_windows: Vec<(i64, i64)> = Vec::new();
+        for (cid, e) in archive.iter() {
+            if cid == self_cid {
+                continue;
+            }
+            if let ArchiveEntry::ObserverRegistryUpdated(s) = e {
+                for prior in &s.payload.entries {
+                    if prior.observer_did != entry.observer_did {
+                        continue;
+                    }
+                    if let Some(pu) = prior.valid_until {
+                        prior_windows.push((prior.valid_from.as_second(), pu.as_second()));
+                    }
+                }
+            }
+        }
+        let from = entry.valid_from.as_second();
+        let until = valid_until.as_second();
+
+        // Rotation gap: the latest prior term that ended at or before this window's
+        // start. A re-nomination must sit out a full rotation period after it.
+        let prior_end = prior_windows
+            .iter()
+            .filter(|&&(_, pu)| pu <= from)
+            .map(|&(_, pu)| pu)
+            .max();
+        if let Some(pe) = prior_end {
+            let gap = from - pe;
+            if gap < caps.rotation_period_seconds {
+                return Err(KcError::Authority(format!(
+                    "observer {} re-nominated after a {}s gap, below the rotation period {}s (§8 rotation)",
+                    entry.observer_did.as_str(),
+                    gap,
+                    caps.rotation_period_seconds
+                )));
+            }
+        }
+
+        // Continuous-service union: merge this window with every prior window not
+        // separated from the chain by a full rotation sit-out (overlap or a
+        // sub-`rotation_period` gap connects), then bound the merged span that
+        // contains this window by the term limit. This catches overlap-extension,
+        // which the rotation-gap rule (ended-terms only) cannot see.
+        let mut windows = prior_windows;
+        windows.push((from, until));
+        windows.sort_unstable();
+        let (mut cs, mut ce) = windows[0];
+        for &(s, e) in windows.iter().skip(1) {
+            if s - ce < caps.rotation_period_seconds {
+                ce = ce.max(e); // connected: extend the continuous-service component
+            } else if cs <= from && until <= ce {
+                break; // this window's component closed before reaching it
+            } else {
+                cs = s; // genuine sit-out: start a new component
+                ce = e;
+            }
+        }
+        if cs <= from && until <= ce {
+            let span = ce - cs;
+            if span > caps.max_term_seconds {
+                return Err(KcError::Authority(format!(
+                    "observer {} continuous service {}s (overlapping windows unioned) exceeds the maximum {}s (§8 term limit)",
+                    entry.observer_did.as_str(),
+                    span,
+                    caps.max_term_seconds
+                )));
+            }
+        }
+    }
+
+    let (total, this_share) =
+        active_observer_counts(archive, &reg.nominating_community, reg.issued_at);
+    if total >= caps.pool_floor && 2 * this_share > total {
+        return Err(KcError::Authority(format!(
+            "community {} would hold {}/{} of the active observer corps, a majority (§8 pool-share)",
+            reg.nominating_community.as_str(),
+            this_share,
+            total
+        )));
+    }
+    Ok(())
+}
+
+/// Move-4 structured-skepticism hold: a formal action premised on a *qualifying*
+/// manufactured event is refused while the event is still within its hold window
+/// **and** under-corroborated. Any one of — the event does not qualify, its hold
+/// has elapsed, or enough distinct communities have corroborated it — clears the
+/// action. Corroborators are counted as distinct communities other than the
+/// originator (no self-corroboration), as of the action's `invoked_at`.
+fn authorize_event_action(archive: &InMemoryArchive, action: &EventActionInvoked) -> KcResult<()> {
+    let event = match archive.get(&action.event_cid) {
+        Some(ArchiveEntry::EventReported(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "event action references {} which is not a reported event",
+                action.event_cid
+            )))
+        }
+    };
+    // The structured-skepticism protocol only applies to qualifying events.
+    if !event.qualifies() {
+        return Ok(());
+    }
+    let mut corroborators: BTreeSet<String> = BTreeSet::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::EventCorroborated(s) = e {
+            let c = &s.payload;
+            if c.event_cid == action.event_cid
+                && c.corroborated_at <= action.invoked_at
+                && c.corroborating_community.as_str() != event.originator.as_str()
+            {
+                corroborators.insert(c.corroborating_community.as_str().to_string());
+            }
+        }
+    }
+    let hold_until = event.reported_at.as_second() + DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS;
+    let within_hold = action.invoked_at.as_second() < hold_until;
+    if within_hold && corroborators.len() < DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS {
+        return Err(KcError::Authority(format!(
+            "action on qualifying event {} invoked within the structured-skepticism hold (until {}s) with {} of {} required corroborations (move 4)",
+            action.event_cid,
+            hold_until,
+            corroborators.len(),
+            DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS
+        )));
+    }
+    Ok(())
+}
+
 /// §8 report-response rule: only the report's subject community may respond, and
 /// the referenced record must be an observer report. Principal binding (that the
 /// responder actually signed) is enforced generically before this runs.
@@ -1429,13 +1722,27 @@ fn signer_authorized_for(
     }
 }
 
-/// Check one record's authority. `Ok(())` if authorized; `KcError::Authority`
-/// naming the first violation otherwise.
+/// Check one record's authority with the default §8 observer caps. `Ok(())` if
+/// authorized; `KcError::Authority` naming the first violation otherwise. See
+/// [`authorize_with_caps`] to supply custom observer-corps limits.
 pub fn authorize(
     archive: &InMemoryArchive,
     entry: &ArchiveEntry,
     quorum_threshold: usize,
     panel_min: usize,
+) -> KcResult<()> {
+    authorize_with_caps(archive, entry, quorum_threshold, panel_min, ObserverCaps::default())
+}
+
+/// Check one record's authority, gating §8 observer-registry records with
+/// `observer_caps`. `Ok(())` if authorized; `KcError::Authority` naming the first
+/// violation otherwise.
+pub fn authorize_with_caps(
+    archive: &InMemoryArchive,
+    entry: &ArchiveEntry,
+    quorum_threshold: usize,
+    panel_min: usize,
+    observer_caps: ObserverCaps,
 ) -> KcResult<()> {
     // Mediation decisions are authorized by the panel rule, not principal binding.
     if let ArchiveEntry::MediationDecided(s) = entry {
@@ -1524,8 +1831,15 @@ pub fn authorize(
             let self_cid = entry.cid()?;
             authorize_commons_sanction(archive, &s.payload, &self_cid, quorum_threshold)?;
         }
+        ArchiveEntry::ObserverRegistryUpdated(s) => {
+            let self_cid = entry.cid()?;
+            authorize_observer_registry(archive, &s.payload, &self_cid, observer_caps)?;
+        }
         ArchiveEntry::ReportResponsePublished(s) => {
             authorize_report_response(archive, &s.payload)?;
+        }
+        ArchiveEntry::EventActionInvoked(s) => {
+            authorize_event_action(archive, &s.payload)?;
         }
         ArchiveEntry::ConstitutionRatified(_) => {
             let self_cid = entry.cid()?;
@@ -1547,14 +1861,16 @@ pub fn authorize(
 /// Check authority for every record in the archive, fail-fast. Pair with
 /// `verify_all` (crypto integrity); this pass assumes signatures already verify.
 /// `quorum_threshold` gates second-class decisions; `panel_min` gates mediation
-/// panels (§4).
+/// panels (§4); `observer_caps` gates the §8 observer-corps limits (pool-share,
+/// term, rotation).
 pub fn check_authority(
     archive: &InMemoryArchive,
     quorum_threshold: usize,
     panel_min: usize,
+    observer_caps: ObserverCaps,
 ) -> KcResult<()> {
     for (_, entry) in archive.iter() {
-        authorize(archive, entry, quorum_threshold, panel_min)?;
+        authorize_with_caps(archive, entry, quorum_threshold, panel_min, observer_caps)?;
     }
     Ok(())
 }
@@ -1565,10 +1881,12 @@ pub fn authority_violations(
     archive: &InMemoryArchive,
     quorum_threshold: usize,
     panel_min: usize,
+    observer_caps: ObserverCaps,
 ) -> Vec<(String, String)> {
     let mut out = vec![];
     for (cid, entry) in archive.iter() {
-        if let Err(e) = authorize(archive, entry, quorum_threshold, panel_min) {
+        if let Err(e) = authorize_with_caps(archive, entry, quorum_threshold, panel_min, observer_caps)
+        {
             out.push((cid.to_string(), e.to_string()));
         }
     }

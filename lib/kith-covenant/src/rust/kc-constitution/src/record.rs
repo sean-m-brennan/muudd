@@ -29,23 +29,50 @@ pub struct IncapableMatter {
 }
 
 /// A structured-fast window: a period during which the compact's deliberative and
-/// adjudicative functions pause (life-critical commons continue). Half-open
-/// `[start, end)`.
+/// adjudicative functions pause (life-critical commons continue). The first
+/// occurrence is the half-open window `[start, end)`; with `recurrence` set it
+/// repeats on that cadence (a calendar rhythm — an annual fast, the Iroquois
+/// Condolence period — rather than a one-off).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FastPeriod {
     pub label: String,
     pub start: Timestamp,
     pub end: Timestamp,
+    /// Recurrence cycle in seconds. `Some(cycle)` with `cycle >= end - start`
+    /// repeats the fast every `cycle` seconds from `start`, each occurrence lasting
+    /// `end - start`. `None` — or a cycle shorter than the occurrence (occurrences
+    /// may not overlap) — is a single window. Absent in older archives → `None`.
+    #[serde(default)]
+    pub recurrence: Option<i64>,
 }
 
 impl FastPeriod {
-    /// Is instant `t` inside this fast window?
+    /// Is instant `t` inside this fast — the first window, or any later occurrence
+    /// when the fast recurs?
     pub fn contains(&self, t: Timestamp) -> bool {
-        self.start <= t && t < self.end
+        let (start, end, now) = (self.start.as_second(), self.end.as_second(), t.as_second());
+        if now < start {
+            return false;
+        }
+        let duration = end - start;
+        match self.recurrence {
+            // A valid recurrence repeats the occurrence every `cycle` seconds; the
+            // fast is active when the phase within the current cycle is inside it.
+            Some(cycle) if cycle > 0 && cycle >= duration && duration > 0 => {
+                (now - start) % cycle < duration
+            }
+            // No recurrence (or a degenerate one): the single window `[start, end)`.
+            _ => now < end,
+        }
     }
-    /// Duration in seconds (clamped at zero).
+    /// Duration of one occurrence in seconds (clamped at zero).
     pub fn seconds(&self) -> i64 {
         (self.end.as_second() - self.start.as_second()).max(0)
+    }
+    /// Does this fast repeat on a calendar cadence (a valid recurrence), rather
+    /// than occurring once?
+    pub fn is_recurring(&self) -> bool {
+        matches!(self.recurrence, Some(cycle) if cycle > 0 && cycle >= self.seconds() && self.seconds() > 0)
     }
 }
 
