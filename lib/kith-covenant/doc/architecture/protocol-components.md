@@ -226,9 +226,9 @@ carried here directly: see §10 and "Open design questions" below.
 > `substrate_deference`); `src/python/examples/constitution_demo.py` walks
 > ratification, the gates, an expansion, an erosion report, and the moves the
 > protocol refuses (second genesis, removing a genesis matter, contracting below
-> the higher bar). **Deferred to later slices:** automatic escalation on detected
-> erosion, and any hard-refusal of deliberative acts during a fast. See
-> `src/rust/kc-constitution/`.
+> the higher bar). **Deferred to later slices (both now resolved — see v3
+> below):** automatic escalation on detected erosion, and any hard-refusal of
+> deliberative acts during a fast. See `src/rust/kc-constitution/`.
 >
 > **§9 recurring fast schedules now built (v2, 2026-07-22).** The v1 cadence used
 > single explicit windows; a `FastPeriod` now carries an optional `recurrence`
@@ -241,6 +241,28 @@ carried here directly: see §10 and "Open design questions" below.
 > (`ratify_constitution` fast-period tuples gain a 4th element) or via
 > `amend_fast_cadence(..., recurrence=)`; both are back-compatible (absent →
 > one-shot). See `FastPeriod` in `src/rust/kc-constitution/src/record.rs`.
+>
+> **§9 erosion alerting built; hard-refusal resolved as a non-goal (v3,
+> 2026-07-23).** The two deferred §9 items are now closed. *Erosion-detection
+> alerting* is realized as `kc_reputation::erosion_alert` (also bundled onto the §8
+> `observer_dashboard` as `erosion`): a graded, derived `ErosionAlert`
+> (`severity` None/Notice/Alert + human-readable `reasons`) that **escalates** as
+> the erosion signals compound — a compact-incapable-list contraction, a
+> structured-fast contraction, or deliberative acts initiated during a fast. Zero
+> eroded dimensions → `None`; one isolated instance → `Notice`; two-or-more
+> dimensions or any dimension eroded more than once → `Alert`. It is purely
+> diagnostic (no archive record, nothing signed, no act refused); a human observer
+> who sees an `Alert` may then publish an attributed `ObserverReport`, and that
+> human step is intentionally not automated. Authorable/queryable from Python
+> (`erosion_alert`). *Hard-refusal of deliberative acts during a fast* is
+> **deliberately not built** — recorded as a non-goal: capture_resistance.md §2
+> frames non-ultimacy as "a **disposition** rather than a **compliance** ...
+> [that] cannot be fully encoded in rules," so an authority-layer refusal would
+> convert the disposition-forming practice into the compliance rule the doc says
+> it must not become, and would cut across the life-critical-commons continuity the
+> fast preserves. Deviations are surfaced, not rejected. See
+> `src/rust/kc-reputation/src/analytics.rs` (`erosion_alert`) and the crate doc in
+> `src/rust/kc-constitution/src/lib.rs`.
 >
 > **§10 Capture-resistance test harness (v1, 2026-07-21).** §10 is a *harness*,
 > not a protocol component with records, so it is realized as a Python module
@@ -287,11 +309,11 @@ carried here directly: see §10 and "Open design questions" below.
 > cross-community witnesses (excluding the principal and its home) and flags an
 > output diverging from the cohort majority toward the principal's own benefit.
 > All three follow the established jester-lens contract — flags with provenance,
-> no verdict; thresholds live with the caller. **Deferred to later slices
-> (move 6 only):** the cryptographically separable witness chain and collusive
-> whole-cohort capture. **Moves 1 and 4 are fully built, and move 6's statistical
-> triangulation is built** (see the v3 notes below). Records are Ed25519-signed,
-> first-class, principal-bound.
+> no verdict; thresholds live with the caller. **Moves 1, 4, and 6 are all fully
+> built** (see the v3 notes below): move 6's statistical triangulation, collusive
+> whole-cohort detection, and the cryptographically separable witness chain are
+> all in place — nothing on these three moves remains deferred. Records are
+> Ed25519-signed, first-class, principal-bound.
 >
 > **Move 1 anti-sockpuppet independence proof now built (v3, 2026-07-22).** A
 > declared `interpreter_did` was just a name the community minted, so one faction
@@ -307,8 +329,8 @@ carried here directly: see §10 and "Open design questions" below.
 > attester filter is a lens concern, not an authority refusal, keeping move 1's
 > no-verdict stance. Authorable from Python (`attest_interpreter_independence`).
 > A sockpuppet ring must now recruit genuine outsiders to vouch — which is exactly
-> the collusion the move-6 whole-cohort item (still deferred) targets. Move 1's
-> remaining deferred surface is closed by this slice.
+> the collusion the move-6 whole-cohort item targets (now built; see the move-6 v3
+> notes below). Move 1's remaining deferred surface is closed by this slice.
 >
 > **Move 4 structured delay now enforced (v3, 2026-07-22).** The structured-
 > skepticism protocol acquired teeth: the detector made a qualifying manufactured
@@ -351,7 +373,8 @@ carried here directly: see §10 and "Open design questions" below.
 > whom; the *consequence* is the existing conduct machinery's (not duplicated
 > here), and the finding is the re-opening trigger. Authorable from Python
 > (`find_undisclosed_interest`). With this, **all four of move 4's deferred items
-> are closed** — only move 6's crypto/triangulation/collusion items remain.
+> are closed** — only move 6's crypto/triangulation/collusion items remained (now
+> all built; see the move-6 v3 notes below).
 >
 > **Move 6 statistical triangulation of continuous behavior now built (v3,
 > 2026-07-22).** The v1 lens flagged each divergent output discretely; one
@@ -361,10 +384,42 @@ carried here directly: see §10 and "Open design questions" below.
 > `systematic_self_dealing(min_outputs, rate_threshold)` — a *sustained* pattern
 > over a sufficient sample, which a single flag cannot show. Detector-only, no new
 > record (aggregates existing `PrincipalOutput` triangulation); queryable from
-> Python (`self_dealing_rate`, `systematic_self_dealing`). Move 6's remaining
-> deferred items are the cryptographically separable witness chain and collusive
-> whole-cohort capture (both need genuinely external anchors — crypto or
-> cross-cohort — beyond the current per-cohort majority).
+> Python (`self_dealing_rate`, `systematic_self_dealing`).
+>
+> **Move 6 collusive whole-cohort capture now built (v3, 2026-07-22).**
+> Per-principal triangulation compares a principal against its *own* cohort's
+> majority, so a cohort colluding wholesale shows no internal divergence and slips
+> through. The new `collusive_cohorts` lens lifts the comparison a level: for each
+> matter decided by two or more cohorts it computes each cohort's majority and the
+> cross-cohort consensus (the majority among cohort-majorities), and surfaces
+> cohorts whose majority diverges — marking `self_benefiting` when a strict
+> majority of that cohort's members favored their own home (the whole-cohort
+> capture signature). `CohortCollusionReport::self_benefiting_cohort_divergences`
+> is the headline count. Detector-only, no new record (a cross-cohort read over
+> existing `PrincipalOutput` records); queryable from Python (`collusive_cohorts`).
+>
+> **Move 6 cryptographically separable witness chain now built (v3, 2026-07-22)
+> — move 6 is complete.** `PrincipalWitnessAttestation` gains a `prev:
+> Option<Cid>` link, turning continuous cross-community attestation into a
+> hash-linked, tamper-evident chain: each entry's CID commits its full content
+> (including `prev`), so altering or reordering any link dangles every pointer
+> after it. The new `principal_witness_chain` lens reports the principal's links
+> oldest-first with chain **integrity** (`broken_links` for dangling `prev`,
+> `is_linear`/`is_intact` for fork detection) and **separability**
+> (`separable_links` — the cross-community links, which `Signed::verify_all`
+> proves were signed by the witness's own key, one the principal's home community
+> does not hold and so cannot forge). This is the "separate attestation chain …
+> cryptographically separable from the within-community attestation" of
+> capture_resistance.md move 6, realized: the separability is the cross-community
+> signature, not a heuristic. Honest boundary — it does **not** defeat shared-key
+> sockpuppets (a witness colluding with the home, or a home secretly holding a
+> second key still signs a "cross-community" link); that is move-1
+> third-party-verification territory. The chain proves only that distinct keys
+> attested and the sequence is unbroken. Detector-only (a record-field change plus
+> a lens); authorable from Python (`attest_principal(..., prev=...)`), queryable
+> from Python (`principal_witness_chain`). With this, **all of move 6's deferred
+> items are closed — move 6 is complete, and the crypto witness-chain was its last
+> item.**
 >
 > **All ten components now have an MVP v1 slice** (uncommitted on
 > `feature/research`), and all seven capture-resistance scenarios have a built,

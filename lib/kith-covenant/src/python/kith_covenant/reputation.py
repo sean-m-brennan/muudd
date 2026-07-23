@@ -829,6 +829,93 @@ def adversarial_principal(
 
 
 @dataclass(frozen=True)
+class CohortDivergence:
+    cohort: str
+    matter: str
+    cohort_majority: str
+    cross_cohort_consensus: str
+    cohorts_compared: int
+    # the cohort's majority position benefits a strict majority of its own members
+    self_benefiting: bool
+
+
+@dataclass(frozen=True)
+class CohortCollusionReport:
+    divergences: tuple[CohortDivergence, ...]
+    self_benefiting_cohort_divergences: int
+
+
+def collusive_cohorts(archive, as_of: Optional[int] = None) -> CohortCollusionReport:
+    """Move 6 lens (cross-cohort): per-principal triangulation compares a principal
+    against its own cohort's majority, so a wholesale-colluding cohort shows no
+    internal divergence. This lifts the comparison a level — for each matter decided
+    by two or more cohorts, each cohort's majority vs. the cross-cohort consensus —
+    and surfaces cohorts that diverge, flagging `self_benefiting` when the bloc
+    position benefits the cohort's own members. No verdict; the threshold is the
+    caller's."""
+    r = archive.collusive_cohorts(as_of)
+    return CohortCollusionReport(
+        divergences=tuple(
+            CohortDivergence(d[0], d[1], d[2], d[3], d[4], d[5]) for d in r.divergences
+        ),
+        self_benefiting_cohort_divergences=r.self_benefiting_cohort_divergences,
+    )
+
+
+@dataclass(frozen=True)
+class WitnessLink:
+    cid: str
+    witness_community: str
+    # the prior attestation's CID in this principal's chain, or None for the root
+    prev: Optional[str]
+    attested_at: int
+    # the declared `prev` names another link present in this principal's chain
+    prev_resolved: bool
+    # signed by a community other than the principal and its home — separable
+    cross_community: bool
+
+
+@dataclass(frozen=True)
+class WitnessChainReport:
+    # the principal's attestation links, oldest first
+    links: tuple[WitnessLink, ...]
+    # cross-community (separable) links the home community cannot forge
+    separable_links: int
+    # links whose declared `prev` dangles (no matching predecessor)
+    broken_links: int
+    # at most one root and no forks
+    is_linear: bool
+    # no dangling `prev` and linear
+    is_intact: bool
+
+
+def principal_witness_chain(
+    archive, principal_did: str, as_of: Optional[int] = None
+) -> WitnessChainReport:
+    """Move 6 lens: the witness-attestation chain for a principal — its
+    attestation links oldest-first, made tamper-evident by `prev` hash-links (each
+    entry CID commits its content incl. `prev`, so altering or reordering a link
+    dangles every pointer after it). Reports chain integrity (`broken_links`,
+    `is_linear`, `is_intact`) and separability (`separable_links`, the
+    cross-community attestations the home community cannot forge). No verdict.
+
+    Honest boundary: this does not defeat shared-key sockpuppets (a witness
+    colluding with the home, or a home controlling a second key) — that is move-1
+    third-party-verification territory; the chain proves only that distinct keys
+    attested and the sequence is unbroken."""
+    r = archive.principal_witness_chain(principal_did, as_of)
+    return WitnessChainReport(
+        links=tuple(
+            WitnessLink(l[0], l[1], l[2], l[3], l[4], l[5]) for l in r.links
+        ),
+        separable_links=r.separable_links,
+        broken_links=r.broken_links,
+        is_linear=r.is_linear,
+        is_intact=r.is_intact,
+    )
+
+
+@dataclass(frozen=True)
 class IncapableMatter:
     key: str
     description: str
@@ -926,6 +1013,39 @@ def _substrate_from(r) -> SubstrateDeferenceReport:
 
 
 @dataclass(frozen=True)
+class ErosionAlert:
+    # "None" | "Notice" | "Alert" — escalates as erosion signals compound.
+    severity: str
+    # one human-readable reason per active erosion signal
+    reasons: tuple[str, ...]
+    list_contraction: bool
+    fast_contraction: bool
+    active_fast_deviations: int
+
+
+def erosion_alert(archive, as_of: Optional[int] = None) -> ErosionAlert:
+    """§9 erosion-detection alerting: a graded, derived reading of the
+    substrate-deference report that escalates (None→Notice→Alert) as the erosion
+    signals compound — a list contraction, a fast contraction, or deliberative
+    acts during a fast. Diagnostic only: surfaced to the observer corps, never a
+    verdict and never a refusal (non-ultimacy is a disposition demonstrated, not a
+    rule enforced). A human observer who sees an ``Alert`` may then choose to
+    publish an attributed ``ObserverReport``; that step is intentionally not
+    automated."""
+    return _erosion_from(archive.erosion_alert(as_of))
+
+
+def _erosion_from(a) -> ErosionAlert:
+    return ErosionAlert(
+        severity=a.severity,
+        reasons=tuple(a.reasons),
+        list_contraction=a.list_contraction,
+        fast_contraction=a.fast_contraction,
+        active_fast_deviations=a.active_fast_deviations,
+    )
+
+
+@dataclass(frozen=True)
 class ServingObserver:
     observer_did: str
     nominating_community: str
@@ -979,6 +1099,8 @@ class ObserverDashboard:
     pool: ObserverPoolConcentration
     # the substrate-deference / erosion report (§9 half of the board)
     substrate: SubstrateDeferenceReport
+    # the graded erosion alert derived from `substrate` (the crossed-threshold signal)
+    erosion: ErosionAlert
 
 
 def observer_dashboard(archive, as_of: Optional[int] = None) -> ObserverDashboard:
@@ -1006,4 +1128,5 @@ def observer_dashboard(archive, as_of: Optional[int] = None) -> ObserverDashboar
         whistleblowers_by_accused=tuple(tuple(x) for x in d.whistleblowers_by_accused),
         pool=_pool_from(d.pool),
         substrate=_substrate_from(d.substrate),
+        erosion=_erosion_from(d.erosion),
     )

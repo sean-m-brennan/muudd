@@ -21,6 +21,7 @@ from kith_covenant import (
     Archive, new_identity, ratify_constitution, amend_compact_incapable,
     amend_fast_cadence, file_dispute, constitution_state, compact_incapable,
     in_structured_fast, substrate_deference, now_seconds,
+    erosion_alert, observer_dashboard,
     AMENDMENT_KINDS, FAST_CHANGES,
 )
 
@@ -146,6 +147,46 @@ def test_erosion_report_surfaces_contraction_and_fast_deviation():
     assert r.fast_deviations[0].kind == "DisputeFiled"
     assert r.fast_deviations[0].fast_label == "annual"
     assert r.contraction_detected is False
+
+
+def test_erosion_alert_none_when_healthy():
+    arch, t0, a, b, c = _founded()
+    # Expansion is not erosion.
+    amend_compact_incapable(arch, "Add", "aesthetics", [a, b], decided_at=t0 + 100)
+    arch.verify_all()
+    arch.check_authority()
+    al = erosion_alert(arch, as_of=t0 + 5000)
+    assert al.severity == "None"
+    assert al.reasons == ()
+    assert not al.list_contraction and not al.fast_contraction
+    # The dashboard bundles the same alert.
+    assert observer_dashboard(arch, as_of=t0 + 5000).erosion.severity == "None"
+
+
+def test_erosion_alert_notice_on_single_fast_deviation():
+    arch, t0, a, b, c = _founded()
+    file_dispute(arch, a, b.did, "MediatedArbitration", filed_at=t0 + 1500)
+    arch.verify_all()
+    arch.check_authority()
+    al = erosion_alert(arch, as_of=t0 + 5000)
+    assert al.severity == "Notice"
+    assert al.active_fast_deviations == 1
+    assert len(al.reasons) == 1
+
+
+def test_erosion_alert_escalates_to_alert_on_multiple_dimensions():
+    arch, t0, a, b, c = _founded()
+    # List contraction (add then remove at the higher bar) + a fast deviation.
+    amend_compact_incapable(arch, "Add", "aesthetics", [a, b], decided_at=t0 + 100)
+    amend_compact_incapable(arch, "Remove", "aesthetics", [a, b, c], decided_at=t0 + 300)
+    file_dispute(arch, a, b.did, "MediatedArbitration", filed_at=t0 + 1500)
+    arch.verify_all()
+    arch.check_authority()
+    al = erosion_alert(arch, as_of=t0 + 5000)
+    assert al.severity == "Alert"
+    assert al.list_contraction
+    assert al.active_fast_deviations == 1
+    assert len(al.reasons) == 2
 
 
 def test_unknown_kind_rejected_at_facade():

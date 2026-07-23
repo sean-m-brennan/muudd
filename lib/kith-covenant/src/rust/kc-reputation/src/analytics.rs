@@ -623,6 +623,256 @@ pub fn adversarial_principal(
     report
 }
 
+/// A cohort whose majority position on a shared matter diverges from the
+/// cross-cohort consensus, carrying whether that bloc position benefits the
+/// cohort's own members.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CohortDivergence {
+    pub cohort: String,
+    pub matter: String,
+    pub cohort_majority: String,
+    pub cross_cohort_consensus: String,
+    /// Distinct cohorts that decided this matter (>= 2 for a comparison to exist).
+    pub cohorts_compared: usize,
+    /// The cohort's majority position is one a strict majority of its members
+    /// marked as favoring their own home — a self-serving bloc.
+    pub self_benefiting: bool,
+}
+
+/// Cross-cohort triangulation for **collusive whole-cohort capture**
+/// (capture_resistance.md move 6). Per-principal triangulation
+/// (`adversarial_principal`) compares a principal against its *own* cohort's
+/// majority, so a cohort that colludes wholesale shows no internal divergence and
+/// slips through. This lens lifts the comparison a level: for each matter decided
+/// by two or more cohorts it computes each cohort's majority and the cross-cohort
+/// consensus (the majority among the cohort-majorities), and surfaces cohorts that
+/// diverge — self-serving divergence being the capture signature. No verdict; the
+/// caller owns the threshold.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CohortCollusionReport {
+    pub divergences: Vec<CohortDivergence>,
+}
+
+impl CohortCollusionReport {
+    /// Cohort divergences whose bloc position benefits the cohort's own members —
+    /// the whole-cohort capture signature per-principal triangulation is blind to.
+    pub fn self_benefiting_cohort_divergences(&self) -> usize {
+        self.divergences.iter().filter(|d| d.self_benefiting).count()
+    }
+}
+
+/// Highest-count key in `counts`; ties broken by the lexically smallest key (the
+/// same rule the per-principal triangulation uses).
+fn plurality(counts: &BTreeMap<String, usize>) -> Option<String> {
+    counts
+        .iter()
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
+        .map(|(k, _)| k.clone())
+}
+
+/// Build the collusive-cohort report over the whole archive as of `as_of`
+/// (default now). Outputs are deduped to the latest per distinct principal within
+/// each `(cohort, matter)`, so one prolific machine cannot swing its cohort's
+/// majority.
+pub fn collusive_cohorts(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> CohortCollusionReport {
+    let as_of = as_of.unwrap_or_else(time::now);
+    // matter → cohort → principal DID → (decision, favors_home, produced_at).
+    #[allow(clippy::type_complexity)]
+    let mut data: BTreeMap<String, BTreeMap<String, BTreeMap<String, (String, bool, Timestamp)>>> =
+        BTreeMap::new();
+
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::PrincipalOutputRecorded(signed) = entry {
+            let o = &signed.payload;
+            if o.produced_at > as_of {
+                continue;
+            }
+            let slot = data
+                .entry(o.matter.clone())
+                .or_default()
+                .entry(o.cohort.clone())
+                .or_default()
+                .entry(o.principal_did.as_str().to_string())
+                .or_insert((o.decision.clone(), o.favors_home, o.produced_at));
+            if o.produced_at >= slot.2 {
+                *slot = (o.decision.clone(), o.favors_home, o.produced_at);
+            }
+        }
+    }
+
+    let mut report = CohortCollusionReport::default();
+    for (matter, cohorts) in &data {
+        if cohorts.len() < 2 {
+            continue; // nothing to triangulate across
+        }
+        // Each cohort's majority decision + whether that bloc is self-serving.
+        let mut cohort_major: BTreeMap<String, (String, bool)> = BTreeMap::new();
+        for (cohort, principals) in cohorts {
+            let total = principals.len();
+            let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+            let mut fav_counts: BTreeMap<String, usize> = BTreeMap::new();
+            for (_, (decision, favors_home, _)) in principals {
+                *counts.entry(decision.clone()).or_insert(0) += 1;
+                if *favors_home {
+                    *fav_counts.entry(decision.clone()).or_insert(0) += 1;
+                }
+            }
+            let Some(majority) = plurality(&counts) else { continue };
+            let self_benefiting = fav_counts.get(&majority).copied().unwrap_or(0) * 2 > total;
+            cohort_major.insert(cohort.clone(), (majority, self_benefiting));
+        }
+        // Cross-cohort consensus: the majority among the cohort majorities.
+        let mut consensus_counts: BTreeMap<String, usize> = BTreeMap::new();
+        for (_, (maj, _)) in &cohort_major {
+            *consensus_counts.entry(maj.clone()).or_insert(0) += 1;
+        }
+        let Some(consensus) = plurality(&consensus_counts) else { continue };
+        let cohorts_compared = cohort_major.len();
+        for (cohort, (maj, self_benefiting)) in &cohort_major {
+            if maj != &consensus {
+                report.divergences.push(CohortDivergence {
+                    cohort: cohort.clone(),
+                    matter: matter.clone(),
+                    cohort_majority: maj.clone(),
+                    cross_cohort_consensus: consensus.clone(),
+                    cohorts_compared,
+                    self_benefiting: *self_benefiting,
+                });
+            }
+        }
+    }
+    report
+        .divergences
+        .sort_by(|a, b| a.matter.cmp(&b.matter).then_with(|| a.cohort.cmp(&b.cohort)));
+    report
+}
+
+/// One link in a principal's witness-attestation chain, as of the query. Carries
+/// its own entry `cid`, the `prev` link it declares, whether that `prev` resolves
+/// to another attestation of the *same* principal present in the chain
+/// (`prev_resolved`), and whether the link is **cross-community** — signed by a
+/// witness that is neither the principal nor its home community, the signature
+/// the home cannot produce and so the source of the chain's separability.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WitnessLink {
+    pub cid: Cid,
+    pub witness_community: DidKey,
+    pub prev: Option<Cid>,
+    pub attested_at: Timestamp,
+    /// The declared `prev` names another link in this principal's chain.
+    pub prev_resolved: bool,
+    /// Signed by a community other than the principal and its home — separable.
+    pub cross_community: bool,
+}
+
+/// The witness-attestation chain for a principal (capture_resistance.md move 6,
+/// "a separate attestation chain ... cryptographically separable from the
+/// within-community attestation"). The links are the principal's attestations in
+/// chain order; the `prev` pointers make the sequence tamper-evident — each entry
+/// CID commits its full content (including `prev`), so altering or reordering a
+/// link dangles every pointer after it. The report exposes chain **integrity**
+/// (no dangling `prev`, no forks) and **separability** (the count of
+/// cross-community links, which `Signed::verify_all` proves were signed by keys
+/// the home community does not hold). No verdict; the caller owns the threshold.
+///
+/// Honest boundary: this does **not** defeat shared-key sockpuppets. A witness
+/// colluding with the home, or a home secretly controlling a second key, still
+/// produces a link that looks "cross-community." That is move-1
+/// third-party-verification territory; the chain proves only that *distinct keys*
+/// attested and that the sequence is unbroken — not that the keys are
+/// independent principals.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct WitnessChainReport {
+    /// The principal's attestation links, oldest first.
+    pub links: Vec<WitnessLink>,
+}
+
+impl WitnessChainReport {
+    /// Links signed by a community other than the principal / its home — the
+    /// cryptographically separable attestations the home cannot forge.
+    pub fn separable_links(&self) -> usize {
+        self.links.iter().filter(|l| l.cross_community).count()
+    }
+    /// Links whose declared `prev` does not resolve to another link in the chain
+    /// — a dangling pointer, evidence of a removed or tampered predecessor.
+    pub fn broken_links(&self) -> usize {
+        self.links.iter().filter(|l| l.prev.is_some() && !l.prev_resolved).count()
+    }
+    /// A chain is **linear** when at most one link is a root (declares no `prev`)
+    /// and no two links claim the same predecessor (no fork).
+    pub fn is_linear(&self) -> bool {
+        let roots = self.links.iter().filter(|l| l.prev.is_none()).count();
+        if roots > 1 {
+            return false;
+        }
+        let mut seen: BTreeSet<[u8; 32]> = BTreeSet::new();
+        for l in &self.links {
+            if let Some(p) = &l.prev {
+                if !seen.insert(*p.as_bytes()) {
+                    return false; // two links claim the same predecessor
+                }
+            }
+        }
+        true
+    }
+    /// The chain is intact when no `prev` dangles and the chain is linear.
+    pub fn is_intact(&self) -> bool {
+        self.broken_links() == 0 && self.is_linear()
+    }
+}
+
+/// Build the witness-attestation chain for `principal` as of `as_of` (default
+/// now). Links are the principal's `PrincipalWitnessAttestation` entries in
+/// attestation order (ties broken by entry CID for stability). A link's `prev` is
+/// *resolved* when it names another of this principal's links, and *separable*
+/// (cross-community) when the witness is neither the principal nor its home.
+pub fn principal_witness_chain(
+    archive: &InMemoryArchive,
+    principal: &DidKey,
+    as_of: Option<Timestamp>,
+) -> WitnessChainReport {
+    let as_of = as_of.unwrap_or_else(time::now);
+
+    // Collect this principal's attestation links (CID + payload).
+    let mut raw: Vec<(Cid, kc_principal::PrincipalWitnessAttestation)> = Vec::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::PrincipalWitnessed(signed) = entry {
+            let a = &signed.payload;
+            if a.attested_at <= as_of && &a.principal_did == principal {
+                raw.push((cid.clone(), a.clone()));
+            }
+        }
+    }
+    // The set of CIDs present in the chain, so a `prev` can be resolved.
+    let present: BTreeSet<[u8; 32]> = raw.iter().map(|(c, _)| *c.as_bytes()).collect();
+
+    let mut report = WitnessChainReport::default();
+    for (cid, a) in raw {
+        let prev_resolved = a
+            .prev
+            .as_ref()
+            .map(|p| present.contains(p.as_bytes()))
+            .unwrap_or(false);
+        let cross_community = a.witness_community.as_str() != principal.as_str()
+            && a.witness_community.as_str() != a.principal_home.as_str();
+        report.links.push(WitnessLink {
+            cid,
+            witness_community: a.witness_community,
+            prev: a.prev,
+            attested_at: a.attested_at,
+            prev_resolved,
+            cross_community,
+        });
+    }
+    report
+        .links
+        .sort_by(|a, b| a.attested_at.cmp(&b.attested_at).then_with(|| a.cid.to_hex().cmp(&b.cid.to_hex())));
+    report
+}
+
 /// One entrant a sponsor vouched for, with the count of adverse conduct
 /// attributed to that entrant *inside its probationary window*.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1208,6 +1458,9 @@ pub struct ObserverDashboard {
     /// The substrate-deference / erosion report: compact-incapable-list drift and
     /// structured-fast cadence (the §9 half of the §8 dashboard).
     pub substrate: SubstrateDeferenceReport,
+    /// The graded erosion alert derived from `substrate` — the crossed-threshold
+    /// signal the observer corps reads before eyeballing raw counts.
+    pub erosion: ErosionAlert,
 }
 
 fn descending(map: BTreeMap<String, usize>) -> Vec<(String, usize)> {
@@ -1239,6 +1492,7 @@ pub fn observer_dashboard(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
         whistleblowers_by_accused: descending(whistles),
         pool: observer_pool_concentration(archive, Some(as_of)),
         substrate: substrate_deference(archive, Some(as_of)),
+        erosion: erosion_alert(archive, Some(as_of)),
     }
 }
 
@@ -1449,5 +1703,119 @@ pub fn substrate_deference(
         fast_seconds_total: state.fast_periods.iter().map(|p| p.seconds()).sum(),
         fast_contractions,
         fast_deviations: deviations,
+    }
+}
+
+/// The severity of substrate-deference erosion, escalating with the number of
+/// distinct erosion signals present. Diagnostic only: it is surfaced to the
+/// observer corps and the member communities (protocol-components §9
+/// "erosion-detection alerting"), never a verdict and never a refusal — non-
+/// ultimacy is a disposition the compact demonstrates, not a rule the archive
+/// enforces (capture_resistance.md §2).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ErosionSeverity {
+    /// No deference commitment has been rolled back and no deliberative act has
+    /// been initiated during a fast.
+    #[default]
+    None,
+    /// A single deference dimension shows a single, isolated erosion — worth an
+    /// eye, not yet a trend.
+    Notice,
+    /// Erosion is compounding: two or more distinct dimensions have eroded, or a
+    /// single dimension has eroded more than once. The observer corps and member
+    /// communities should look now.
+    Alert,
+}
+
+impl ErosionSeverity {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ErosionSeverity::None => "None",
+            ErosionSeverity::Notice => "Notice",
+            ErosionSeverity::Alert => "Alert",
+        }
+    }
+}
+
+/// The erosion alert (protocol-components §9 "erosion-detection alerting"): a
+/// graded, derived reading of [`SubstrateDeferenceReport`] that **escalates** as
+/// the erosion signals compound, so the observer corps sees a crossed threshold
+/// rather than having to eyeball raw counts. Purely diagnostic — no archive
+/// record is emitted, nothing is signed, and no deliberative act is refused; a
+/// human observer who sees an `Alert` may then choose to publish an attributed
+/// `ObserverReport`. That human step is intentionally not automated.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ErosionAlert {
+    pub severity: ErosionSeverity,
+    /// One human-readable reason per active erosion signal (categorical first,
+    /// then temporal, then in-practice), for direct display to the corps.
+    pub reasons: Vec<String>,
+    /// A compact-incapable matter has been removed (categorical-list contraction).
+    pub list_contraction: bool,
+    /// A structured-fast period has been shortened (temporal-cadence contraction).
+    pub fast_contraction: bool,
+    /// Deliberative acts initiated during a fast window (temporal deference eroding
+    /// in practice — "exceptions multiply").
+    pub active_fast_deviations: usize,
+}
+
+/// Compute the erosion alert as of `as_of` (defaults to now). Escalation rule:
+/// count the distinct eroded dimensions (list contraction, fast contraction,
+/// deliberative acts during a fast); zero → `None`, exactly one isolated instance
+/// → `Notice`, and two-or-more dimensions **or** any dimension eroded more than
+/// once → `Alert`.
+pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> ErosionAlert {
+    let r = substrate_deference(archive, as_of);
+
+    let list_contraction = r.incapable_removed > 0;
+    let fast_contraction = r.fast_contractions > 0;
+    let deviations = r.fast_deviations.len();
+
+    let mut reasons = Vec::new();
+    let mut dimensions = 0usize;
+    let mut compounding = false;
+
+    if list_contraction {
+        dimensions += 1;
+        reasons.push(format!(
+            "compact-incapable list contracted: {} matter(s) removed",
+            r.incapable_removed
+        ));
+        if r.incapable_removed > 1 {
+            compounding = true;
+        }
+    }
+    if fast_contraction {
+        dimensions += 1;
+        reasons.push(format!(
+            "structured-fast cadence contracted: {} shortening amendment(s)",
+            r.fast_contractions
+        ));
+        if r.fast_contractions > 1 {
+            compounding = true;
+        }
+    }
+    if deviations > 0 {
+        dimensions += 1;
+        reasons.push(format!(
+            "{deviations} deliberative act(s) initiated during a fast"
+        ));
+        if deviations > 1 {
+            compounding = true;
+        }
+    }
+
+    let severity = match dimensions {
+        0 => ErosionSeverity::None,
+        1 if !compounding => ErosionSeverity::Notice,
+        _ => ErosionSeverity::Alert,
+    };
+
+    ErosionAlert {
+        severity,
+        reasons,
+        list_contraction,
+        fast_contraction,
+        active_fast_deviations: deviations,
     }
 }

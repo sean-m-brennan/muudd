@@ -51,6 +51,8 @@ try:
         EventProvenance, SkepticismReport, structured_skepticism,
         CrossWitness, OutputDivergence, PrincipalValidationReport,
         adversarial_principal,
+        CohortDivergence, CohortCollusionReport, collusive_cohorts,
+        WitnessLink, WitnessChainReport, principal_witness_chain,
         UsageTally, FreeRiderReport, free_rider_signals,
         ObserverReportSummary, ReportResponseSummary, WhistleblowerSummary,
         ObserverDashboard, observer_dashboard,
@@ -58,6 +60,7 @@ try:
         IncapableMatter, FastPeriod, ConstitutionState, FastDeviation,
         SubstrateDeferenceReport, constitution_state, compact_incapable,
         in_structured_fast, substrate_deference,
+        ErosionAlert, erosion_alert,
     )
     from kith_covenant.harness import (
         ScenarioResult, HarnessReport, run_harness,
@@ -100,6 +103,8 @@ try:
         'EventProvenance', 'SkepticismReport', 'structured_skepticism',
         'CrossWitness', 'OutputDivergence', 'PrincipalValidationReport',
         'adversarial_principal',
+        'CohortDivergence', 'CohortCollusionReport', 'collusive_cohorts',
+        'WitnessLink', 'WitnessChainReport', 'principal_witness_chain',
         'UsageTally', 'FreeRiderReport', 'free_rider_signals',
         'ObserverReportSummary', 'ReportResponseSummary', 'WhistleblowerSummary',
         'ObserverDashboard', 'observer_dashboard',
@@ -107,6 +112,7 @@ try:
         'IncapableMatter', 'FastPeriod', 'ConstitutionState', 'FastDeviation',
         'SubstrateDeferenceReport', 'constitution_state', 'compact_incapable',
         'in_structured_fast', 'substrate_deference',
+        'ErosionAlert', 'erosion_alert',
         'ScenarioResult', 'HarnessReport', 'run_harness',
         'Signer', 'new_identity', 'delegate_speaker', 'revoke_delegation',
         'vouch', 'attest_interpretation', 'attest_interpreter_independence',

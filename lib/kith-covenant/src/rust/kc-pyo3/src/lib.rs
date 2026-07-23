@@ -1141,6 +1141,15 @@ impl PyArchive {
         Ok(PySubstrateDeferenceReport::from(&kc_reputation::substrate_deference(&self.inner, as_of_ts)))
     }
 
+    /// §9 erosion alert: a graded, derived reading of the substrate-deference
+    /// report (severity None/Notice/Alert with reasons), escalating as erosion
+    /// signals compound. Diagnostic only — surfaced to the observer corps.
+    #[pyo3(signature = (as_of=None))]
+    fn erosion_alert(&self, as_of: Option<i64>) -> PyResult<PyErosionAlert> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(PyErosionAlert::from(&kc_reputation::erosion_alert(&self.inner, as_of_ts)))
+    }
+
     fn cids(&self) -> Vec<String> {
         self.inner.iter().map(|(cid, _)| cid.to_string()).collect()
     }
@@ -1277,6 +1286,34 @@ impl PyArchive {
         let as_of_ts = parse_as_of(as_of)?;
         let r = kc_reputation::adversarial_principal(&self.inner, &did, as_of_ts);
         Ok(PyPrincipalValidationReport::from(&r))
+    }
+
+    /// Move 6 jester lens — collusive whole-cohort report as of `as_of`:
+    /// cross-cohort triangulation surfacing cohorts whose majority on a shared
+    /// matter diverges from the cross-cohort consensus (self-serving divergence
+    /// being the whole-cohort capture signature per-principal triangulation
+    /// misses). No verdict.
+    #[pyo3(signature = (as_of=None))]
+    fn collusive_cohorts(&self, as_of: Option<i64>) -> PyResult<PyCohortCollusionReport> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let r = kc_reputation::collusive_cohorts(&self.inner, as_of_ts);
+        Ok(PyCohortCollusionReport::from(&r))
+    }
+
+    /// Move 6 jester lens — the witness-attestation chain for `principal` as of
+    /// `as_of`: the principal's attestation links oldest-first, with chain
+    /// integrity (dangling `prev`, forks) and separability (the count of
+    /// cross-community links the home community cannot forge). No verdict.
+    #[pyo3(signature = (principal, as_of=None))]
+    fn principal_witness_chain(
+        &self,
+        principal: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyWitnessChainReport> {
+        let did = parse_did(principal)?;
+        let as_of_ts = parse_as_of(as_of)?;
+        let r = kc_reputation::principal_witness_chain(&self.inner, &did, as_of_ts);
+        Ok(PyWitnessChainReport::from(&r))
     }
 
     // ---- Authoring (mutating) --------------------------------------------
@@ -1660,7 +1697,10 @@ impl PyArchive {
     /// move 6). Signed by `signer_priv`/`signer_did`; attributed to
     /// `witness_community_did`. `principal_home_did` is the principal's own
     /// community. Returns the entry CID.
-    #[pyo3(signature = (signer_priv, signer_did, witness_community_did, principal_did, principal_home_did, basis=String::new(), attested_at=None))]
+    /// `prev` optionally names the previous attestation in this principal's
+    /// chain (its entry CID), making continuous attestation a tamper-evident
+    /// hash-linked chain; omit it for the chain root.
+    #[pyo3(signature = (signer_priv, signer_did, witness_community_did, principal_did, principal_home_did, basis=String::new(), prev=None, attested_at=None))]
     #[allow(clippy::too_many_arguments)]
     fn append_principal_witness(
         &mut self,
@@ -1670,6 +1710,7 @@ impl PyArchive {
         principal_did: &str,
         principal_home_did: &str,
         basis: String,
+        prev: Option<&str>,
         attested_at: Option<i64>,
     ) -> PyResult<String> {
         let rec = PrincipalWitnessAttestation {
@@ -1677,6 +1718,7 @@ impl PyArchive {
             principal_home: parse_did(principal_home_did)?,
             witness_community: parse_did(witness_community_did)?,
             basis,
+            prev: prev.map(parse_cid).transpose()?,
             attested_at: parse_as_of(attested_at)?.unwrap_or_else(time::now),
         };
         let sk = priv_from_bytes(signer_priv);
@@ -3309,6 +3351,8 @@ struct PyObserverDashboard {
     pool: PyObserverPoolConcentration,
     /// The substrate-deference / erosion report (§9 half of the board).
     substrate: PySubstrateDeferenceReport,
+    /// The graded erosion alert derived from `substrate` (the crossed-threshold signal).
+    erosion: PyErosionAlert,
 }
 
 impl From<&rep::ObserverDashboard> for PyObserverDashboard {
@@ -3320,6 +3364,7 @@ impl From<&rep::ObserverDashboard> for PyObserverDashboard {
             whistleblowers_by_accused: d.whistleblowers_by_accused.clone(),
             pool: PyObserverPoolConcentration::from(&d.pool),
             substrate: PySubstrateDeferenceReport::from(&d.substrate),
+            erosion: PyErosionAlert::from(&d.erosion),
         }
     }
 }
@@ -3384,6 +3429,30 @@ impl From<&rep::SubstrateDeferenceReport> for PySubstrateDeferenceReport {
                 .iter()
                 .map(|d| (d.record_cid.to_string(), d.kind.clone(), d.at.as_second(), d.fast_label.clone()))
                 .collect(),
+        }
+    }
+}
+
+#[pyclass(name = "ErosionAlert", get_all)]
+#[derive(Clone)]
+struct PyErosionAlert {
+    /// "None" | "Notice" | "Alert" — escalating with the number of erosion signals.
+    severity: String,
+    /// One human-readable reason per active erosion signal.
+    reasons: Vec<String>,
+    list_contraction: bool,
+    fast_contraction: bool,
+    active_fast_deviations: usize,
+}
+
+impl From<&rep::ErosionAlert> for PyErosionAlert {
+    fn from(a: &rep::ErosionAlert) -> Self {
+        Self {
+            severity: a.severity.as_str().to_string(),
+            reasons: a.reasons.clone(),
+            list_contraction: a.list_contraction,
+            fast_contraction: a.fast_contraction,
+            active_fast_deviations: a.active_fast_deviations,
         }
     }
 }
@@ -3652,6 +3721,80 @@ impl From<&rep::PrincipalValidationReport> for PyPrincipalValidationReport {
     }
 }
 
+#[pyclass(name = "CohortCollusionReport", get_all)]
+#[derive(Clone)]
+struct PyCohortCollusionReport {
+    /// (cohort, matter, cohort_majority, cross_cohort_consensus, cohorts_compared,
+    /// self_benefiting), sorted by (matter, cohort).
+    #[allow(clippy::type_complexity)]
+    divergences: Vec<(String, String, String, String, usize, bool)>,
+    self_benefiting_cohort_divergences: usize,
+}
+
+impl From<&rep::CohortCollusionReport> for PyCohortCollusionReport {
+    fn from(r: &rep::CohortCollusionReport) -> Self {
+        Self {
+            divergences: r
+                .divergences
+                .iter()
+                .map(|d| {
+                    (
+                        d.cohort.clone(),
+                        d.matter.clone(),
+                        d.cohort_majority.clone(),
+                        d.cross_cohort_consensus.clone(),
+                        d.cohorts_compared,
+                        d.self_benefiting,
+                    )
+                })
+                .collect(),
+            self_benefiting_cohort_divergences: r.self_benefiting_cohort_divergences(),
+        }
+    }
+}
+
+#[pyclass(name = "WitnessChainReport", get_all)]
+#[derive(Clone)]
+struct PyWitnessChainReport {
+    /// (cid, witness_community, prev|None, attested_at, prev_resolved,
+    /// cross_community), oldest first.
+    #[allow(clippy::type_complexity)]
+    links: Vec<(String, String, Option<String>, i64, bool, bool)>,
+    /// Count of cross-community (separable) links the home cannot forge.
+    separable_links: usize,
+    /// Count of links whose declared `prev` dangles (no matching link).
+    broken_links: usize,
+    /// At most one root and no forks.
+    is_linear: bool,
+    /// No dangling `prev` and linear.
+    is_intact: bool,
+}
+
+impl From<&rep::WitnessChainReport> for PyWitnessChainReport {
+    fn from(r: &rep::WitnessChainReport) -> Self {
+        Self {
+            links: r
+                .links
+                .iter()
+                .map(|l| {
+                    (
+                        l.cid.to_string(),
+                        l.witness_community.to_string(),
+                        l.prev.as_ref().map(|c| c.to_string()),
+                        l.attested_at.as_second(),
+                        l.prev_resolved,
+                        l.cross_community,
+                    )
+                })
+                .collect(),
+            separable_links: r.separable_links(),
+            broken_links: r.broken_links(),
+            is_linear: r.is_linear(),
+            is_intact: r.is_intact(),
+        }
+    }
+}
+
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
@@ -3682,6 +3825,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyObserverDashboard>()?;
     m.add_class::<PyConstitutionState>()?;
     m.add_class::<PySubstrateDeferenceReport>()?;
+    m.add_class::<PyErosionAlert>()?;
     m.add_class::<PySponseeOutcome>()?;
     m.add_class::<PySponsorStakeReport>()?;
     m.add_class::<PyCompositionGraph>()?;
@@ -3691,6 +3835,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyInterpretivePluralityReport>()?;
     m.add_class::<PySkepticismReport>()?;
     m.add_class::<PyPrincipalValidationReport>()?;
+    m.add_class::<PyCohortCollusionReport>()?;
+    m.add_class::<PyWitnessChainReport>()?;
     m.add_class::<PyCaptureScenario>()?;
     m.add_function(wrap_pyfunction!(generate_ed25519_keypair, m)?)?;
     m.add_function(wrap_pyfunction!(cid_of_bytes, m)?)?;

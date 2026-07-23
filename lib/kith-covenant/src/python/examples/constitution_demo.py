@@ -38,7 +38,7 @@ from kith_covenant import (
     ratify_constitution, amend_compact_incapable, amend_fast_cadence,
     file_dispute, register_mediators, new_mediator,
     constitution_state, compact_incapable, in_structured_fast, substrate_deference,
-    now_seconds,
+    erosion_alert, now_seconds,
 )
 
 
@@ -100,6 +100,25 @@ def main() -> int:
     assert report.incapable_added == 1
     assert report.contraction_detected is False
     assert len(report.fast_deviations) == 1
+
+    # --- Erosion alert: the graded, escalating signal the corps reads ------
+    # A single isolated signal (the one fast deviation) reads as Notice.
+    alert = erosion_alert(arch, as_of=t0 + 5000)
+    print(f"Erosion alert: {alert.severity} — {'; '.join(alert.reasons)}.")
+    assert alert.severity == "Notice"
+
+    # Now a genuine list contraction (added matter removed at the higher bar)
+    # *plus* that deviation: two eroded dimensions escalate the alert.
+    eroded = Archive.load_json(arch.dump_json())
+    amend_compact_incapable(eroded, "Remove", "internal-family-structure", [a, b, c],
+                            rationale="pragmatic pressure over time", decided_at=t0 + 400)
+    eroded.verify_all()
+    eroded.check_authority()
+    alert2 = erosion_alert(eroded, as_of=t0 + 5000)
+    print(f"After a list contraction as well: {alert2.severity} "
+          f"({len(alert2.reasons)} signals) — surfaced to the observer corps, not refused.")
+    assert alert2.severity == "Alert"
+    assert alert2.list_contraction and alert2.active_fast_deviations == 1
 
     # --- Three moves the protocol refuses ---------------------------------
     # (a) A second genesis (singleton).

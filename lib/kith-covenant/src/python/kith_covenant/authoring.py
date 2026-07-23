@@ -338,18 +338,23 @@ def attest_principal(
     principal_home: str,
     *,
     basis: str = "",
+    prev: Optional[str] = None,
     attested_at: Optional[int] = None,
 ) -> str:
     """Record `witness` cross-attesting a principal's validity (capture move 6).
     Attributed to `witness.principal`, signed by `witness.did`/`.priv`. The
     attestation counts toward independent validation only when the witness is
     neither the principal nor its `principal_home` community — that filter lives
-    in the `adversarial_principal` lens, not here. Returns the CID."""
+    in the `adversarial_principal` lens, not here.
+
+    `prev` optionally names the previous attestation's CID in this principal's
+    chain, making continuous attestation a tamper-evident hash-linked chain (the
+    `principal_witness_chain` lens); omit it for the chain root. Returns the CID."""
     if attested_at is None:
         attested_at = now_seconds()
     return archive.append_principal_witness(
         witness.priv, witness.did, witness.principal, principal_did,
-        principal_home, basis, attested_at,
+        principal_home, basis, prev, attested_at,
     )
 
 

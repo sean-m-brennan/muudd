@@ -1864,7 +1864,8 @@ mod observer_projection {
 mod constitution_diag {
     use super::*;
     use crate::analytics::{
-        compact_incapable, constitution_state, in_structured_fast, substrate_deference,
+        compact_incapable, constitution_state, erosion_alert, in_structured_fast,
+        substrate_deference, ErosionSeverity,
     };
     use kc_constitution::{
         AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
@@ -1992,6 +1993,57 @@ mod constitution_diag {
         assert_eq!(r.fast_deviations.len(), 1);
         assert_eq!(r.fast_deviations[0].kind, "DisputeFiled");
         assert_eq!(r.fast_deviations[0].fast_label, "annual");
+    }
+
+    #[test]
+    fn erosion_alert_none_when_no_rollback() {
+        // Expansion (an Add) and honored fasts are not erosion.
+        let mut a = InMemoryArchive::new();
+        ratify(&mut a, &["a"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000), recurrence: None }], t(50));
+        amend(&mut a, AmendmentKind::Add, "b", t(100));
+        let al = erosion_alert(&a, Some(t(5000)));
+        assert_eq!(al.severity, ErosionSeverity::None);
+        assert!(al.reasons.is_empty());
+        assert!(!al.list_contraction && !al.fast_contraction);
+        assert_eq!(al.active_fast_deviations, 0);
+    }
+
+    #[test]
+    fn erosion_alert_notice_on_single_isolated_signal() {
+        // A single matter removed, nothing else eroded → Notice.
+        let mut a = InMemoryArchive::new();
+        ratify(&mut a, &["a", "b"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000), recurrence: None }], t(50));
+        amend(&mut a, AmendmentKind::Remove, "a", t(200));
+        let al = erosion_alert(&a, Some(t(5000)));
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+        assert_eq!(al.reasons.len(), 1);
+        assert!(al.list_contraction && !al.fast_contraction);
+    }
+
+    #[test]
+    fn erosion_alert_escalates_on_multiple_dimensions() {
+        // Two distinct dimensions (list + fast contraction) → Alert.
+        let mut a = InMemoryArchive::new();
+        ratify(&mut a, &["a", "b"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000), recurrence: None }], t(50));
+        amend(&mut a, AmendmentKind::Remove, "a", t(200));
+        contract_fast(&mut a, FastPeriod { label: "annual".into(), start: t(1000), end: t(1500), recurrence: None }, t(400));
+        let al = erosion_alert(&a, Some(t(5000)));
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert_eq!(al.reasons.len(), 2);
+        assert!(al.list_contraction && al.fast_contraction);
+    }
+
+    #[test]
+    fn erosion_alert_escalates_on_repeated_single_dimension() {
+        // One dimension eroded more than once (two removes) → Alert, one reason.
+        let mut a = InMemoryArchive::new();
+        ratify(&mut a, &["a", "b"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000), recurrence: None }], t(50));
+        amend(&mut a, AmendmentKind::Remove, "a", t(200));
+        amend(&mut a, AmendmentKind::Remove, "b", t(300));
+        let al = erosion_alert(&a, Some(t(5000)));
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert_eq!(al.reasons.len(), 1);
+        assert!(al.list_contraction);
     }
 }
 
@@ -2557,11 +2609,25 @@ mod adversarial_principal_lens {
         principal_home: &DidKey,
         at: Timestamp,
     ) -> Cid {
+        attest_linked(a, witness, witness_priv, principal, principal_home, at, None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn attest_linked(
+        a: &mut InMemoryArchive,
+        witness: &DidKey,
+        witness_priv: &PrivKey,
+        principal: &DidKey,
+        principal_home: &DidKey,
+        at: Timestamp,
+        prev: Option<Cid>,
+    ) -> Cid {
         let rec = PrincipalWitnessAttestation {
             principal_did: principal.clone(),
             principal_home: principal_home.clone(),
             witness_community: witness.clone(),
             basis: "observed continuity".into(),
+            prev,
             attested_at: at,
         };
         let signed = Signed::build(rec, &[(witness.as_str(), witness_priv)]).expect("sign attest");
@@ -2759,5 +2825,218 @@ mod adversarial_principal_lens {
         assert_eq!(r.outputs_triangulated, 1);
         assert!((r.self_dealing_rate() - 1.0).abs() < 1e-9);
         assert!(!r.systematic_self_dealing(3, 0.5));
+    }
+}
+
+// --- move 6 collusive whole-cohort capture ---------------------------------
+
+mod collusive_cohort_lens {
+    use super::*;
+    use crate::analytics::collusive_cohorts;
+    use kc_principal::PrincipalOutput;
+
+    /// Seat a cohort of `n` principals (each its own home) all deciding `decision`
+    /// on `matter`, each marking `favors_home`.
+    #[allow(clippy::too_many_arguments)]
+    fn seat_cohort(
+        a: &mut InMemoryArchive,
+        cohort: &str,
+        matter: &str,
+        decision: &str,
+        favors_home: bool,
+        n: usize,
+        base_t: i64,
+    ) {
+        for i in 0..n {
+            let (home_priv, _, home) = fresh_id();
+            let (_, _, principal) = fresh_id();
+            let rec = PrincipalOutput {
+                principal_did: principal.clone(),
+                principal_home: home.clone(),
+                cohort: cohort.into(),
+                matter: matter.into(),
+                decision: decision.into(),
+                favors_home,
+                produced_at: t(base_t + i as i64),
+            };
+            let signed = Signed::build(rec, &[(home.as_str(), &home_priv)]).expect("sign");
+            a.append(ArchiveEntry::PrincipalOutputRecorded(signed)).expect("append");
+        }
+    }
+
+    #[test]
+    fn self_serving_cohort_diverging_from_consensus_is_flagged() {
+        let mut a = InMemoryArchive::new();
+        // Two honest cohorts say "admit"; cohort A colludes on "reject" to its benefit.
+        seat_cohort(&mut a, "A", "M1", "reject", true, 3, 100);
+        seat_cohort(&mut a, "B", "M1", "admit", false, 3, 200);
+        seat_cohort(&mut a, "C", "M1", "admit", false, 3, 300);
+
+        let r = collusive_cohorts(&a, Some(t(1000)));
+        assert_eq!(r.divergences.len(), 1);
+        let d = &r.divergences[0];
+        assert_eq!(d.cohort, "A");
+        assert_eq!(d.cohort_majority, "reject");
+        assert_eq!(d.cross_cohort_consensus, "admit");
+        assert_eq!(d.cohorts_compared, 3);
+        assert!(d.self_benefiting);
+        assert_eq!(r.self_benefiting_cohort_divergences(), 1);
+    }
+
+    #[test]
+    fn honest_minority_cohort_diverges_but_not_self_benefiting() {
+        let mut a = InMemoryArchive::new();
+        // Cohort A diverges, but its members do not mark the position self-serving.
+        seat_cohort(&mut a, "A", "M1", "reject", false, 3, 100);
+        seat_cohort(&mut a, "B", "M1", "admit", false, 3, 200);
+        seat_cohort(&mut a, "C", "M1", "admit", false, 3, 300);
+
+        let r = collusive_cohorts(&a, Some(t(1000)));
+        assert_eq!(r.divergences.len(), 1);
+        assert!(!r.divergences[0].self_benefiting);
+        assert_eq!(r.self_benefiting_cohort_divergences(), 0);
+    }
+
+    #[test]
+    fn cohorts_at_consensus_are_not_flagged() {
+        let mut a = InMemoryArchive::new();
+        // Everyone agrees — even a self-serving-looking bloc is not a divergence.
+        seat_cohort(&mut a, "A", "M1", "admit", true, 3, 100);
+        seat_cohort(&mut a, "B", "M1", "admit", false, 3, 200);
+
+        let r = collusive_cohorts(&a, Some(t(1000)));
+        assert!(r.divergences.is_empty());
+    }
+
+    #[test]
+    fn single_cohort_is_inert() {
+        let mut a = InMemoryArchive::new();
+        // Only one cohort on the matter: nothing to triangulate across.
+        seat_cohort(&mut a, "A", "M1", "reject", true, 3, 100);
+        let r = collusive_cohorts(&a, Some(t(1000)));
+        assert!(r.divergences.is_empty());
+    }
+
+    #[test]
+    fn respects_as_of_cutoff() {
+        let mut a = InMemoryArchive::new();
+        seat_cohort(&mut a, "A", "M1", "reject", true, 3, 100);
+        seat_cohort(&mut a, "B", "M1", "admit", false, 3, 5000);
+        // Before cohort B lands, only one cohort exists → inert.
+        assert!(collusive_cohorts(&a, Some(t(1000))).divergences.is_empty());
+        assert_eq!(collusive_cohorts(&a, Some(t(6000))).divergences.len(), 1);
+    }
+}
+
+mod witness_chain_lens {
+    use super::*;
+    use crate::analytics::principal_witness_chain;
+    use kc_principal::PrincipalWitnessAttestation;
+
+    /// Append one attestation link and return its entry CID.
+    #[allow(clippy::too_many_arguments)]
+    fn link(
+        a: &mut InMemoryArchive,
+        witness: &DidKey,
+        witness_priv: &PrivKey,
+        principal: &DidKey,
+        principal_home: &DidKey,
+        at: Timestamp,
+        prev: Option<Cid>,
+    ) -> Cid {
+        let rec = PrincipalWitnessAttestation {
+            principal_did: principal.clone(),
+            principal_home: principal_home.clone(),
+            witness_community: witness.clone(),
+            basis: "observed continuity".into(),
+            prev,
+            attested_at: at,
+        };
+        let signed = Signed::build(rec, &[(witness.as_str(), witness_priv)]).expect("sign");
+        a.append(ArchiveEntry::PrincipalWitnessed(signed)).expect("append")
+    }
+
+    #[test]
+    fn linked_cross_community_chain_is_intact_and_separable() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let _ = h_priv;
+        let mut a = InMemoryArchive::new();
+        let c1 = link(&mut a, &witness, &w_priv, &p0, &home, t(100), None);
+        let _c2 = link(&mut a, &witness, &w_priv, &p0, &home, t(200), Some(c1));
+        let r = principal_witness_chain(&a, &p0, Some(t(1000)));
+        assert_eq!(r.links.len(), 2);
+        assert_eq!(r.separable_links(), 2);
+        assert_eq!(r.broken_links(), 0);
+        assert!(r.is_linear());
+        assert!(r.is_intact());
+    }
+
+    #[test]
+    fn self_and_home_links_are_not_separable() {
+        let (h_priv, _, home) = fresh_id();
+        let (p0_priv, _, p0) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // Home self-attesting and the principal self-attesting are present but
+        // not separable — the home holds both keys.
+        let c1 = link(&mut a, &home, &h_priv, &p0, &home, t(100), None);
+        let _c2 = link(&mut a, &p0, &p0_priv, &p0, &home, t(200), Some(c1));
+        let r = principal_witness_chain(&a, &p0, Some(t(1000)));
+        assert_eq!(r.links.len(), 2);
+        assert_eq!(r.separable_links(), 0);
+        assert!(r.is_intact());
+    }
+
+    #[test]
+    fn dangling_prev_breaks_the_chain() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let _ = h_priv;
+        let mut a = InMemoryArchive::new();
+        // A link points at a predecessor that is not in the chain (removed/tampered).
+        let bogus = Cid::of_bytes(b"not a real link");
+        link(&mut a, &witness, &w_priv, &p0, &home, t(200), Some(bogus));
+        let r = principal_witness_chain(&a, &p0, Some(t(1000)));
+        assert_eq!(r.broken_links(), 1);
+        assert!(!r.is_intact());
+        assert!(r.is_linear()); // one root-less link, but no fork
+    }
+
+    #[test]
+    fn two_links_sharing_a_predecessor_is_a_fork() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let _ = h_priv;
+        let mut a = InMemoryArchive::new();
+        let root = link(&mut a, &witness, &w_priv, &p0, &home, t(100), None);
+        link(&mut a, &witness, &w_priv, &p0, &home, t(200), Some(root));
+        link(&mut a, &witness, &w_priv, &p0, &home, t(300), Some(root));
+        let r = principal_witness_chain(&a, &p0, Some(t(1000)));
+        assert_eq!(r.broken_links(), 0); // both prevs resolve
+        assert!(!r.is_linear()); // ...but they fork off the same root
+        assert!(!r.is_intact());
+    }
+
+    #[test]
+    fn respects_as_of_and_stranger_is_empty() {
+        let (h_priv, _, home) = fresh_id();
+        let (_, _, p0) = fresh_id();
+        let (w_priv, _, witness) = fresh_id();
+        let (_, _, stranger) = fresh_id();
+        let _ = h_priv;
+        let mut a = InMemoryArchive::new();
+        let c1 = link(&mut a, &witness, &w_priv, &p0, &home, t(100), None);
+        link(&mut a, &witness, &w_priv, &p0, &home, t(5000), Some(c1));
+        // Before the second link lands, only the root is visible.
+        assert_eq!(principal_witness_chain(&a, &p0, Some(t(1000))).links.len(), 1);
+        assert_eq!(principal_witness_chain(&a, &p0, Some(t(6000))).links.len(), 2);
+        // A principal with no attestations has an empty (intact, inert) chain.
+        let empty = principal_witness_chain(&a, &stranger, Some(t(6000)));
+        assert!(empty.links.is_empty());
+        assert_eq!(empty.separable_links(), 0);
+        assert!(empty.is_intact());
     }
 }

@@ -41,13 +41,23 @@
 //! outputs diverge toward self-benefit is a **detector** signal (kc-reputation
 //! `adversarial_principal`) — flags with provenance, no verdict.
 
-use kc_core::{DidKey, Timestamp};
+use kc_core::{Cid, DidKey, Timestamp};
 use serde::{Deserialize, Serialize};
 
-/// A cross-community attestation of a principal's validity. Wrapped in
+/// A cross-community attestation of a principal's validity, and one link in that
+/// principal's **attestation chain**. Wrapped in
 /// `Signed<PrincipalWitnessAttestation>` by the attesting (`witness_community`)
 /// community. The detector counts it toward independent validation only when the
 /// witness is neither the principal nor its home community.
+///
+/// The `prev` link makes continuous attestation a hash-linked, tamper-evident
+/// chain: each entry's CID commits its full content (including `prev`), so
+/// altering or re-ordering a link breaks every `prev` pointer after it, and a
+/// cross-community link — signed by the witness's own key, which the principal's
+/// home community does not hold — is *cryptographically separable* from the
+/// within-community attestation and so cannot be forged by the within-community
+/// party (capture_resistance.md move 6, "the attestation is cryptographically
+/// separable from the within-community attestation").
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrincipalWitnessAttestation {
     pub principal_did: DidKey,
@@ -56,6 +66,10 @@ pub struct PrincipalWitnessAttestation {
     /// The community making the attestation (self-signed by it).
     pub witness_community: DidKey,
     pub basis: String,
+    /// The prior attestation in this principal's chain (its entry CID), or `None`
+    /// for the chain root. Absent in older archives → `None`.
+    #[serde(default)]
+    pub prev: Option<Cid>,
     pub attested_at: Timestamp,
 }
 
@@ -96,6 +110,7 @@ mod tests {
             principal_home: did(),
             witness_community: did(),
             basis: "observed continuity of instruction".into(),
+            prev: None,
             attested_at: time::now(),
         };
         let bytes = canonical::to_canonical_cbor(&a).unwrap();

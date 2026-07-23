@@ -47,9 +47,23 @@
 //!
 //! Recurring/calendar fast schedules are supported: a `FastPeriod` may carry a
 //! `recurrence` cycle so a fast repeats on a cadence (an annual fast, the Iroquois
-//! Condolence period) rather than occurring once. Deferred to later slices:
-//! automatic escalation on detected erosion, and any hard-refusal of deliberative
-//! acts during a fast.
+//! Condolence period) rather than occurring once.
+//!
+//! **Erosion-detection alerting** (capture_resistance.md §2, protocol-components
+//! §9) is realized as `kc_reputation::erosion_alert`: a graded, derived reading of
+//! the erosion report that **escalates** (`None`→`Notice`→`Alert`) as the erosion
+//! signals compound, so the observer corps sees a crossed threshold rather than raw
+//! counts. It stays diagnostic — no record is emitted and nothing is signed.
+//!
+//! **Non-goal — hard-refusal of deliberative acts during a fast.** The fast is
+//! honored *by practice* and made *legible* here, never enforced by the authority
+//! pass. The source is explicit that non-ultimacy is "a **disposition** rather than
+//! a **compliance** ... [that] cannot be fully encoded in rules"
+//! (capture_resistance.md §2): converting the fast into an authority-layer refusal
+//! would make it the compliance rule the doc says it must not become, and would
+//! also cut across the life-critical-commons continuity the fast explicitly
+//! preserves. Deviations are therefore surfaced (`substrate_deference`,
+//! `erosion_alert`), not rejected.
 
 mod record;
 

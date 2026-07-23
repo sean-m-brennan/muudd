@@ -25,6 +25,7 @@ from kith_covenant import (
     structured_skepticism, report_event, corroborate_event, invoke_event_action,
     find_undisclosed_interest,
     adversarial_principal, attest_principal, record_principal_output,
+    collusive_cohorts, principal_witness_chain,
 )
 
 
@@ -497,3 +498,111 @@ def test_small_sample_is_not_systematic():
     assert abs(r.self_dealing_rate - 1.0) < 1e-9
     # Rate is 1.0 but a single output is too little to call systematic.
     assert r.systematic_self_dealing(3, 0.5) is False
+
+
+def _seat_cohort(arch, cohort, matter, decision, favors_home, base_t):
+    """Three principals (each its own home) all decide `decision` on `matter`."""
+    for i in range(3):
+        h = new_identity(arch, f"H-{cohort}-{matter}-{i}", base_t)
+        p = new_identity(arch, f"P-{cohort}-{matter}-{i}", base_t)
+        record_principal_output(
+            arch, h, p.did, cohort, matter, decision,
+            favors_home=favors_home, produced_at=base_t + i,
+        )
+
+
+def test_collusive_cohort_diverging_from_consensus_is_flagged():
+    arch = Archive()
+    t0 = now_seconds()
+    # Two honest cohorts say "admit"; cohort A colludes on "reject" to its benefit.
+    _seat_cohort(arch, "A", "M1", "reject", True, t0 + 100)
+    _seat_cohort(arch, "B", "M1", "admit", False, t0 + 200)
+    _seat_cohort(arch, "C", "M1", "admit", False, t0 + 300)
+    r = collusive_cohorts(arch, as_of=t0 + 1000)
+    assert len(r.divergences) == 1
+    d = r.divergences[0]
+    assert d.cohort == "A"
+    assert d.cohort_majority == "reject"
+    assert d.cross_cohort_consensus == "admit"
+    assert d.cohorts_compared == 3
+    assert d.self_benefiting is True
+    assert r.self_benefiting_cohort_divergences == 1
+
+
+def test_honest_minority_cohort_is_not_self_benefiting():
+    arch = Archive()
+    t0 = now_seconds()
+    _seat_cohort(arch, "A", "M1", "reject", False, t0 + 100)
+    _seat_cohort(arch, "B", "M1", "admit", False, t0 + 200)
+    _seat_cohort(arch, "C", "M1", "admit", False, t0 + 300)
+    r = collusive_cohorts(arch, as_of=t0 + 1000)
+    assert len(r.divergences) == 1
+    assert r.divergences[0].self_benefiting is False
+    assert r.self_benefiting_cohort_divergences == 0
+
+
+def test_single_cohort_collusion_is_inert():
+    arch = Archive()
+    t0 = now_seconds()
+    _seat_cohort(arch, "A", "M1", "reject", True, t0 + 100)
+    assert collusive_cohorts(arch, as_of=t0 + 1000).divergences == ()
+
+
+def test_witness_chain_linked_cross_community_is_intact_and_separable():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    captured = new_identity(arch, "Captured", t0)
+    witness = new_identity(arch, "Witness", t0)
+    c1 = attest_principal(arch, witness, captured.did, home.did, attested_at=t0 + 100)
+    attest_principal(arch, witness, captured.did, home.did, prev=c1, attested_at=t0 + 200)
+    r = principal_witness_chain(arch, captured.did, as_of=t0 + 1000)
+    assert len(r.links) == 2
+    assert r.separable_links == 2
+    assert r.broken_links == 0
+    assert r.is_linear is True
+    assert r.is_intact is True
+    assert r.links[1].prev == c1
+    assert r.links[1].prev_resolved is True
+
+
+def test_witness_chain_self_and_home_links_are_not_separable():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    captured = new_identity(arch, "Captured", t0)
+    # Home self-attesting and the principal self-attesting are present but not
+    # separable — the home community holds both keys.
+    c1 = attest_principal(arch, home, captured.did, home.did, attested_at=t0 + 100)
+    attest_principal(arch, captured, captured.did, home.did, prev=c1, attested_at=t0 + 200)
+    r = principal_witness_chain(arch, captured.did, as_of=t0 + 1000)
+    assert len(r.links) == 2
+    assert r.separable_links == 0
+    assert r.is_intact is True
+
+
+def test_witness_chain_dangling_prev_breaks_it():
+    arch = Archive()
+    t0 = now_seconds()
+    home = new_identity(arch, "Home", t0)
+    captured = new_identity(arch, "Captured", t0)
+    witness = new_identity(arch, "Witness", t0)
+    real = attest_principal(arch, witness, captured.did, home.did, attested_at=t0 + 100)
+    # Point at a predecessor that is not this principal's link.
+    other = new_identity(arch, "Other", t0)
+    bogus = attest_principal(arch, witness, other.did, home.did, attested_at=t0 + 50)
+    assert bogus != real
+    attest_principal(arch, witness, captured.did, home.did, prev=bogus, attested_at=t0 + 200)
+    r = principal_witness_chain(arch, captured.did, as_of=t0 + 1000)
+    assert r.broken_links == 1
+    assert r.is_intact is False
+
+
+def test_witness_chain_stranger_is_empty_and_intact():
+    arch = Archive()
+    _, _, stranger = generate_keypair()
+    r = principal_witness_chain(arch, stranger)
+    assert r.links == ()
+    assert r.separable_links == 0
+    assert r.broken_links == 0
+    assert r.is_intact is True
