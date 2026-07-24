@@ -20,13 +20,17 @@
 //! so the identity is fully self-certifying: verification needs only the
 //! embedded `root_pubkey` and the envelope's signature.
 //!
+//! This is a neutral primitive: it lives in `kc-core` so that both the
+//! kith-covenant tier and the ethne polity tier can share it without either
+//! depending on the other. Nothing here references covenant-specific concepts.
+//!
 //! MVP note: successor chain is defined but not exercised in the demo.
 //! did:key tightly couples DID to key material, so rotating the root key
 //! produces a new DID linked to the previous via a `SuccessorLink` signed
 //! by the prior root. Community-stable-DID across rotations would require
 //! a different DID method (did:web, did:ion) — post-MVP.
 
-use kc_core::{DidKey, KcError, KcResult, PrivKey, PubKey, Signed, Timestamp};
+use crate::{DidKey, KcError, KcResult, PrivKey, PubKey, Signed, Timestamp};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,7 +96,7 @@ impl CommunityIdentity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kc_core::{keys, time, Alg, Cid};
+    use crate::{keys, time, Alg, Cid};
 
     fn make_community(name: &str) -> (Signed<CommunityIdentity>, PrivKey, PubKey) {
         let (sk, pk) = keys::generate(Alg::Ed25519).unwrap();

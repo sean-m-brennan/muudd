@@ -1,0 +1,10 @@
+[package]
+name = "en-archive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+en-core = { workspace = true }
+serde = { workspace = true }

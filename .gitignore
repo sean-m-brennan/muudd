@@ -7,6 +7,10 @@
 /lib/kith-covenant/doc/research/kith_covenant.bib
 /lib/kith-covenant/Cargo.lock
 /lib/kith-covenant/.idea/
+/lib/ethne/target/
+/lib/ethne/src/python/ethne/_core*.so
+/lib/ethne/.pytest_cache/
+/lib/ethne/Cargo.lock
 /doc/MUUDD.pdf
 /**/__pycache__/
 /lib/kith-covenant/doc/**/*.pdf

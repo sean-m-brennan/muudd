@@ -16,6 +16,7 @@
 
 pub mod canonical;
 pub mod cid;
+pub mod community;
 pub mod did;
 pub mod error;
 pub mod keys;
@@ -23,6 +24,7 @@ pub mod signature;
 pub mod time;
 
 pub use cid::Cid;
+pub use community::{CommunityIdentity, SuccessorLink};
 pub use did::DidKey;
 pub use error::{KcError, KcResult};
 pub use keys::{Alg, PrivKey, PubKey, Signature};

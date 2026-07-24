@@ -1,0 +1,16 @@
+[package]
+name = "en-uplift"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+en-core = { workspace = true }
+en-charter = { workspace = true }
+en-substrate = { workspace = true }
+en-cohesion = { workspace = true }
+kc-core = { workspace = true }
+# The ONE crate in the ethne workspace permitted a KC-record dependency. Confining
+# it here keeps every other en-* crate kc-core-only (KC ⟂ ethne below this line).
+kc-conduct = { workspace = true }

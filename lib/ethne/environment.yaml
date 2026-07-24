@@ -1,0 +1,10 @@
+name: ethne
+channels:
+  - conda-forge
+dependencies:
+  - python==3.13.*
+  - rust
+  - rust-src
+  - maturin
+  - pytest
+  - pip

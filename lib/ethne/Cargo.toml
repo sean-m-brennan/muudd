@@ -1,0 +1,60 @@
+[workspace]
+resolver = "2"
+members = [
+    "src/rust/en-core",
+    "src/rust/en-archive",
+    "src/rust/en-charter",
+    "src/rust/en-substrate",
+    "src/rust/en-at",
+    "src/rust/en-cohesion",
+    "src/rust/en-uplift",
+    "src/rust/en-pyo3",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Serialization / hashing / time — versions match kith-covenant's workspace so a
+# path-dependency on kc-core unifies cleanly.
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
+serde_json = "1.0"
+ciborium = "0.2"
+blake3 = "1.5"
+jiff = { version = "0.1", features = ["serde"] }
+thiserror = "1.0"
+proptest = "1.5"
+
+# PyO3 (decision D2 — the Python surface). Pin matches kith-covenant's workspace so
+# both extension modules build against the same abi3 floor.
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
+
+# kith-covenant neutral base. Decision D1: ethne's core + monitor crates depend on
+# kc-core ONLY — not on KC's governance crates — so the tiers stay decoupled and
+# ethne can run stand-alone.
+kc-core = { path = "../kith-covenant/src/rust/kc-core" }
+
+# KC conduct records. Decision (step 5, Concern-posture): the kc-conduct coupling
+# is confined to the single upward-facing crate `en-uplift` (the crate whose job
+# is speaking KC's language). No other ethne crate may depend on it, so KC ⟂ ethne
+# holds for everything below the uplift boundary.
+kc-conduct = { path = "../kith-covenant/src/rust/kc-conduct" }
+
+# Internal ethne crates (prefix `en-`).
+en-core = { path = "src/rust/en-core" }
+en-archive = { path = "src/rust/en-archive" }
+en-charter = { path = "src/rust/en-charter" }
+en-substrate = { path = "src/rust/en-substrate" }
+en-at = { path = "src/rust/en-at" }
+en-cohesion = { path = "src/rust/en-cohesion" }
+en-uplift = { path = "src/rust/en-uplift" }
+en-pyo3 = { path = "src/rust/en-pyo3" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

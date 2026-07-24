@@ -1,0 +1,20 @@
+[package]
+name = "en-at"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+en-core = { workspace = true }
+en-charter = { workspace = true }
+en-substrate = { workspace = true }
+serde = { workspace = true }
+
+[features]
+# The real autonomous_trust C linkage (embed a node / attach to a running
+# daemon, decision D6) lives behind this feature so the default build — and all
+# in-sandbox tests — use the mock AtEventSource only. A live daemon cannot be
+# linked in the sandbox; enabling `at-ffi` is a deployment/integration build.
+default = []
+at-ffi = []
