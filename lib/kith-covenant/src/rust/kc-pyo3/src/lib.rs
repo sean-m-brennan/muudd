@@ -1142,12 +1142,54 @@ impl PyArchive {
     }
 
     /// §9 erosion alert: a graded, derived reading of the substrate-deference
-    /// report (severity None/Notice/Alert with reasons), escalating as erosion
-    /// signals compound. Diagnostic only — surfaced to the observer corps.
-    #[pyo3(signature = (as_of=None))]
-    fn erosion_alert(&self, as_of: Option<i64>) -> PyResult<PyErosionAlert> {
+    /// report plus the two absolute ceremony signals (severity None/Notice/Alert
+    /// with reasons), escalating as erosion signals compound. Diagnostic only —
+    /// surfaced to the observer corps.
+    ///
+    /// `rite_cadence_seconds` overrides the generational re-affirmation cadence an
+    /// overdue rite is judged against (default 30 years); the calibration is an
+    /// open question, so it is a parameter rather than a constant.
+    #[pyo3(signature = (as_of=None, rite_cadence_seconds=None))]
+    fn erosion_alert(
+        &self,
+        as_of: Option<i64>,
+        rite_cadence_seconds: Option<i64>,
+    ) -> PyResult<PyErosionAlert> {
         let as_of_ts = parse_as_of(as_of)?;
-        Ok(PyErosionAlert::from(&kc_reputation::erosion_alert(&self.inner, as_of_ts)))
+        let mut thresholds = kc_reputation::ErosionThresholds::default();
+        if let Some(c) = rite_cadence_seconds {
+            thresholds.rite_cadence_seconds = c;
+        }
+        Ok(PyErosionAlert::from(&kc_reputation::erosion_alert_with(
+            &self.inner,
+            as_of_ts,
+            &thresholds,
+        )))
+    }
+
+    /// §5 designation follow-through: designations whose mandated
+    /// `reexamine_after` has passed and which are still standing, longest-overdue
+    /// first, as (designation_cid, subject, tier, reexamine_after,
+    /// seconds_overdue). Read-only and no verdict — an exclusion the compact
+    /// undertook to revisit and has not.
+    #[pyo3(signature = (as_of=None))]
+    fn overdue_reexaminations(
+        &self,
+        as_of: Option<i64>,
+    ) -> PyResult<Vec<(String, String, String, i64, i64)>> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(kc_reputation::overdue_reexaminations(&self.inner, as_of_ts)
+            .iter()
+            .map(|o| {
+                (
+                    o.designation_cid.to_string(),
+                    o.subject.clone(),
+                    o.tier.clone(),
+                    o.reexamine_after.as_second(),
+                    o.seconds_overdue,
+                )
+            })
+            .collect())
     }
 
     fn cids(&self) -> Vec<String> {
@@ -3443,6 +3485,16 @@ struct PyErosionAlert {
     list_contraction: bool,
     fast_contraction: bool,
     active_fast_deviations: usize,
+    /// (community_did, last_rite_cid, seconds_since_last, cadence_seconds) for each
+    /// community whose re-affirmation is overdue, longest-overdue first. The one
+    /// signal here that fires on omission rather than on an act.
+    overdue_reaffirmations: Vec<(String, String, i64, i64)>,
+    /// Communities whose latest rite drew fewer witnesses than their first.
+    hollowing_communities: Vec<String>,
+    /// (designation_cid, subject, tier, reexamine_after, seconds_overdue) for each
+    /// designation past its mandated re-examination and still standing,
+    /// longest-overdue first.
+    overdue_reexaminations: Vec<(String, String, String, i64, i64)>,
 }
 
 impl From<&rep::ErosionAlert> for PyErosionAlert {
@@ -3453,6 +3505,32 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
             list_contraction: a.list_contraction,
             fast_contraction: a.fast_contraction,
             active_fast_deviations: a.active_fast_deviations,
+            overdue_reaffirmations: a
+                .overdue_reaffirmations
+                .iter()
+                .map(|o| {
+                    (
+                        o.community_did.clone(),
+                        o.last_rite_cid.to_string(),
+                        o.seconds_since_last,
+                        o.cadence_seconds,
+                    )
+                })
+                .collect(),
+            hollowing_communities: a.hollowing_communities.clone(),
+            overdue_reexaminations: a
+                .overdue_reexaminations
+                .iter()
+                .map(|o| {
+                    (
+                        o.designation_cid.to_string(),
+                        o.subject.clone(),
+                        o.tier.clone(),
+                        o.reexamine_after.as_second(),
+                        o.seconds_overdue,
+                    )
+                })
+                .collect(),
         }
     }
 }
@@ -3538,7 +3616,11 @@ struct PyCeremonyCostDecay {
     min_witness_count: Option<usize>,
     max_witness_count: Option<usize>,
     witness_count_declined: bool,
+    /// Rolling: the latest gap against the median of the priors.
     latest_gap_widening: Option<bool>,
+    /// Pinned: the latest gap against the FIRST one. Stays true after a settled
+    /// drift, where the rolling reading goes quiet.
+    gap_widening_since_founding: Option<bool>,
 }
 
 impl From<&rep::CeremonyCostDecay> for PyCeremonyCostDecay {
@@ -3558,6 +3640,7 @@ impl From<&rep::CeremonyCostDecay> for PyCeremonyCostDecay {
             max_witness_count: d.max_witness_count(),
             witness_count_declined: d.witness_count_declined(),
             latest_gap_widening: d.latest_gap_widening(),
+            gap_widening_since_founding: d.gap_widening_since_founding(),
         }
     }
 }

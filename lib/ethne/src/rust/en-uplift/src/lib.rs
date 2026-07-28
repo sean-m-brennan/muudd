@@ -19,7 +19,7 @@
 //!
 //! A chartered polity is a self-contained thing; kith-covenant needs nothing from
 //! ethne to run (KC ⟂ ethne). But when a polity *wants* to be recognized as a KC
-//! party, three things must cross the boundary, all in KC's existing vocabulary:
+//! party, four things must cross the boundary, all in KC's existing vocabulary:
 //!
 //! 1. **Handoff** — the polity presents itself as a [`CommunityIdentity`]
 //!    (the neutral primitive shared through `kc-core`), self-signed by its root
@@ -30,13 +30,18 @@
 //! 3. **Fission** — a hard split appears, in KC's eyes, as two new communities
 //!    plus the predecessor going quiet: two successor identities, two signed
 //!    successor links, and an ethne-side charter dissolution. See [`fission`].
+//! 4. **Envoy** — whoever the polity has authorized to speak for it becomes a KC
+//!    `SpeakerDelegation` scoped `Envoy`. This is the one border artifact an
+//!    *office* produces (design **D14**): the authorization is granted inside the
+//!    polity by its `EnvoyAuthorizer` or its roll, and only an authorization still
+//!    in force can cross. See [`envoy_delegation`].
 //!
 //! # Why this crate exists (the confined coupling)
 //!
-//! This is the **one** ethne crate permitted to depend on a kith-covenant
-//! *record* crate (`kc-conduct`). Everything below the uplift boundary — the
-//! core, charter, substrate, at-adapter, and cohesion crates — stays
-//! `kc-core`-only. The Concern deliberately uses `ConductBearing::Other(
+//! This is the **one** ethne crate permitted to depend on kith-covenant *record*
+//! crates (`kc-conduct`, and `kc-identity` for the envoy delegation). Everything
+//! below the uplift boundary — the core, charter, substrate, at-adapter, and
+//! cohesion crates — stays `kc-core`-only. The Concern deliberately uses `ConductBearing::Other(
 //! "coherence-erosion")` rather than the covenant-specific `AntiSpiral` bearing,
 //! so the neutral vocabulary is preserved and no covenant semantics leak down.
 //!
@@ -47,11 +52,12 @@
 //! a KC-side consumer wraps each into an `ArchiveEntry` and appends it. Nothing
 //! here touches an archive.
 
-use en_charter::{CharterDissolution, PolityCharter};
+use en_charter::{CharterDissolution, EnvoyState, PolityCharter};
 use en_cohesion::{CohesionReport, ErosionLevel};
 use en_core::{DidKey, KcError, KcResult, PrivKey, PubKey, Signed, Timestamp};
 use kc_conduct::{ConductBearing, ConductKind, ConductRecord, DecisionClass, Severity};
 use kc_core::{CommunityIdentity, SuccessorLink};
+use kc_identity::{DelegationScope, SpeakerDelegation};
 
 /// The handoff: turn a ratified [`PolityCharter`] into a self-signed
 /// [`CommunityIdentity`] KC can recognize. The polity's root keypair is supplied
@@ -79,6 +85,58 @@ pub fn community_identity(
     CommunityIdentity::new_self_signed(name, root_priv, root_pub, created_at)
 }
 
+/// The envoy: turn an envoy standing the polity granted internally into KC's
+/// `SpeakerDelegation`, scoped [`DelegationScope::Envoy`] and signed by the
+/// polity's root key — the artifact that lets someone speak for the community in
+/// KC's ceremonies.
+///
+/// This is where an office's authority reaches the border (design **D14**). The
+/// authorization itself is an ethne-side act, granted by the `EnvoyAuthorizer` on
+/// their own signature or by a majority of the roll; `envoys` is the derived
+/// [`EnvoyState`] — the **read-model, not the archive**, keeping this crate free of
+/// `en-archive` walks — from `en_charter::envoy_state`. An envoy whose standing has
+/// lapsed (off the roll, resigned, revoked, or expired) is absent from that state,
+/// so no delegation can be minted for them.
+///
+/// Errors if the charter's polity DID does not match the supplied root key (the
+/// same guard as [`community_identity`]), or if `envoy` holds no standing in
+/// `envoys`.
+pub fn envoy_delegation(
+    charter: &PolityCharter,
+    envoys: &EnvoyState,
+    envoy: &DidKey,
+    root_priv: &PrivKey,
+    root_pub: PubKey,
+    issued_at: Timestamp,
+) -> KcResult<Signed<SpeakerDelegation>> {
+    let derived = DidKey::from_pubkey(&root_pub)?;
+    if charter.polity != derived {
+        return Err(KcError::InvalidDid(format!(
+            "charter polity {} does not match the supplied root key (DID {derived})",
+            charter.polity
+        )));
+    }
+    let standing = envoys.standing(envoy).ok_or_else(|| {
+        KcError::Authority(format!(
+            "{envoy} holds no envoy standing for {}",
+            charter.polity
+        ))
+    })?;
+    let payload = SpeakerDelegation {
+        community_did: charter.polity.clone(),
+        speaker_did: standing.envoy.clone(),
+        speaker_pubkey: standing.envoy_pubkey.clone(),
+        scope: DelegationScope::Envoy,
+        issued_at,
+        // The polity's own expiry travels with the delegation, so KC's
+        // `active_at` and ethne's `envoy_state` cannot disagree about when the
+        // standing ends.
+        expires_at: standing.expires_at,
+        revoked_at: None,
+    };
+    Signed::build(payload, &[(charter.polity.as_str(), root_priv)])
+}
+
 /// The Concern: if — and only if — the cohesion `report` has reached
 /// [`ErosionLevel::Concern`], emit a signed KC `Concern` conduct record about the
 /// polity. Below that level the polity's strain is ethne's own business and
@@ -99,15 +157,65 @@ pub fn coherence_concern(
     if report.erosion != ErosionLevel::Concern {
         return Ok(None);
     }
+    // Reputation, which since D18 is reported over the members the substrate could
+    // actually RATE. With nothing rated there is no mean to state — printing "mean
+    // reputation 0.00" would tell KC the polity is failing when the truth is that
+    // nobody rated it — so the clause says that instead, and names the unrated
+    // count whenever there is one.
+    let unrated = report.observed.saturating_sub(report.rated_members);
+    let reputation_clause = if report.rated_members == 0 {
+        if report.observed == 0 {
+            String::new()
+        } else {
+            format!(
+                ", no reputation reading for any of the {} observed member(s)",
+                report.observed
+            )
+        }
+    } else {
+        format!(
+            ", mean reputation {:.2} over {} rated member(s), {} reputation-floor \
+             breach(es){}",
+            report.mean_reputation,
+            report.rated_members,
+            report.reputation_floor_breaches,
+            if unrated == 0 {
+                String::new()
+            } else {
+                format!(" ({unrated} unrated)")
+            },
+        )
+    };
+    // Every field of the report is rendered here — this narrative is all KC ever
+    // sees of it, so a measure omitted here is a measure KC cannot weigh.
     let narrative = format!(
         "ethne cohesion monitor: coherence erosion at Concern — attrition {:.0}% \
-         ({} of {} chartered members still observed), mean reputation {:.2}, \
-         {} reputation-floor breach(es){}",
+         ({} of {} chartered members still observed){}{}{}{}",
         report.attrition * 100.0,
         report.observed,
         report.chartered,
-        report.mean_reputation,
-        report.reputation_floor_breaches,
+        reputation_clause,
+        // Attendance never carries a Concern on its own (it is capped at Notice),
+        // but it colours one: whether the humans answerable for these machines
+        // were present is part of what the strain means.
+        if report.guardian_members == 0 {
+            String::new()
+        } else {
+            format!(
+                ", {} of {} guardian(s) not present",
+                report.unattended, report.guardian_members
+            )
+        },
+        // Transmission decay, which CAN be the reason this Concern exists at all —
+        // so unlike attendance it is reported whenever there was a reading to take.
+        if report.affirming_members == 0 {
+            String::new()
+        } else {
+            format!(
+                ", {} of {} member(s) lapsed on re-affirming the substrate",
+                report.stale_affirmations, report.affirming_members
+            )
+        },
         if report.opaque_boundary {
             "; boundary partly opaque"
         } else {
@@ -296,8 +404,11 @@ pub fn fusion(
 
 #[cfg(test)]
 mod tests {
+    use en_charter::BoundarySource;
     use super::*;
     use en_charter::{FoundingProposal, Substrate};
+    use en_charter::{AffirmationState, EnvoyHolding, EnvoyState};
+    use en_cohesion::CohesionInputs;
     use en_cohesion::{cohesion_report, Thresholds};
     use en_core::{keys, time, Alg, PrivKey, PubKey};
     use en_substrate::{FoundingCandidate, MemberCandidate};
@@ -323,13 +434,14 @@ mod tests {
             })
             .collect();
         let roll: Vec<DidKey> = members.iter().map(|(_, d)| d.clone()).collect();
-        let prop = FoundingProposal {
-            polity: polity.clone(),
-            substrate: substrate(),
-            founding_commitments: vec![],
-            proposed_members: roll.clone(),
-            proposed_at: time::now(),
-        };
+        let prop = FoundingProposal::convener_asserted(
+            polity.clone(),
+            substrate(),
+            vec![],
+            roll.clone(),
+            vec![],
+            time::now(),
+        );
         let ratifiers = vec![roll[0].clone(), roll[1].clone()];
         let charter = prop.ratify(ratifiers, time::now()).unwrap();
         (charter, root_sk, root_pk)
@@ -339,9 +451,16 @@ mod tests {
         FoundingCandidate {
             members: members
                 .iter()
-                .map(|(d, r)| MemberCandidate { did: d.clone(), reputation: *r, guardian: None })
+                .map(|(d, r)| MemberCandidate {
+                    did: d.clone(),
+                    reputation: Some(*r),
+                    derived: false,
+                    guardian: None,
+                    attested_at: None,
+                })
                 .collect(),
             substrate: Some(substrate()),
+            source: BoundarySource::Substrate,
         }
     }
 
@@ -372,6 +491,153 @@ mod tests {
     }
 
     #[test]
+    fn the_narrative_carries_transmission_decay() {
+        // The narrative is ALL that crosses to KC, so a component missing from it
+        // is a component KC cannot weigh. Here transmission decay is the sole
+        // cause of the Concern — a fully-present, well-reputed roll that has
+        // simply stopped re-affirming the substrate.
+        let (charter, _, _) = chartered_polity();
+        let (obs_sk, obs_pk) = keypair();
+        let observer = DidKey::from_pubkey(&obs_pk).unwrap();
+
+        let roll: Vec<DidKey> = (0..4)
+            .map(|_| DidKey::from_pubkey(&keypair().1).unwrap())
+            .collect();
+        let present: Vec<(DidKey, f64)> = roll.iter().map(|d| (d.clone(), 0.95)).collect();
+        let long_ago = Timestamp::from_second(1_000_000).unwrap();
+        let now = Timestamp::from_second(1_000_000 + 400 * 24 * 60 * 60).unwrap();
+        let affirmations = AffirmationState {
+            entries: roll
+                .iter()
+                .map(|m| en_charter::MemberAffirmation {
+                    member: m.clone(),
+                    inducted: true,
+                    last_affirmed_at: Some(long_ago),
+                })
+                .collect(),
+        };
+
+        let report = cohesion_report(
+            &roll,
+            &candidate(&present),
+            false, &CohesionInputs { affirmations: Some(&affirmations), ..Default::default() },
+            now,
+            &Thresholds::default(),
+        );
+        assert_eq!(report.erosion, ErosionLevel::Concern);
+        assert_eq!(report.attrition, 0.0); // nothing else is wrong
+        assert_eq!(report.stale_affirmations, 4);
+
+        let rec = coherence_concern(&report, charter.polity.clone(), observer, &obs_sk, now)
+            .unwrap()
+            .expect("Concern-level erosion emits a record");
+        assert!(rec
+            .payload
+            .narrative
+            .contains("4 of 4 member(s) lapsed on re-affirming the substrate"));
+    }
+
+    #[test]
+    fn the_narrative_never_tells_kc_a_polity_is_failing_when_nobody_rated_it() {
+        // D18. The narrative is ALL KC ever sees of the report, so rendering "mean
+        // reputation 0.00" over zero rated members would hand KC a failing polity
+        // when the truth is that the substrate could not rate one. A Concern that
+        // arises for some OTHER reason (attrition here) must still describe the
+        // reputation state honestly.
+        let (charter, _, _) = chartered_polity();
+        let (obs_sk, obs_pk) = keypair();
+        let observer = DidKey::from_pubkey(&obs_pk).unwrap();
+
+        let roll: Vec<DidKey> = (0..5)
+            .map(|_| DidKey::from_pubkey(&keypair().1).unwrap())
+            .collect();
+        // Two of five still observed (Concern from attrition), and neither is rated.
+        let unrated = FoundingCandidate {
+            members: roll
+                .iter()
+                .take(2)
+                .map(|d| MemberCandidate {
+                    did: d.clone(),
+                    reputation: None,
+                    derived: false,
+                    guardian: None,
+                    attested_at: None,
+                })
+                .collect(),
+            substrate: Some(substrate()),
+            source: BoundarySource::Substrate,
+        };
+        let report = cohesion_report(
+            &roll,
+            &unrated,
+            false,
+            &CohesionInputs::default(),
+            time::now(),
+            &Thresholds::default(),
+        );
+        assert_eq!(report.erosion, ErosionLevel::Concern, "attrition carries it");
+        assert_eq!(report.rated_members, 0);
+
+        let rec = coherence_concern(&report, charter.polity.clone(), observer, &obs_sk, time::now())
+            .unwrap()
+            .expect("Concern-level erosion emits a record");
+        let narrative = &rec.payload.narrative;
+        assert!(
+            narrative.contains("no reputation reading for any of the 2 observed member(s)"),
+            "got: {narrative}"
+        );
+        assert!(
+            !narrative.contains("mean reputation"),
+            "must not state a mean it does not have: {narrative}"
+        );
+    }
+
+    #[test]
+    fn the_narrative_names_the_unrated_share_alongside_a_real_mean() {
+        // The partly-rated case: a mean over the rated members, and the unrated
+        // count stated so KC can see what the mean does and does not cover.
+        let (charter, _, _) = chartered_polity();
+        let (obs_sk, obs_pk) = keypair();
+        let observer = DidKey::from_pubkey(&obs_pk).unwrap();
+
+        let roll: Vec<DidKey> = (0..5)
+            .map(|_| DidKey::from_pubkey(&keypair().1).unwrap())
+            .collect();
+        let mixed = FoundingCandidate {
+            members: roll
+                .iter()
+                .take(2)
+                .enumerate()
+                .map(|(i, d)| MemberCandidate {
+                    did: d.clone(),
+                    reputation: if i == 0 { Some(0.9) } else { None },
+                    derived: false,
+                    guardian: None,
+                    attested_at: None,
+                })
+                .collect(),
+            substrate: Some(substrate()),
+            source: BoundarySource::Substrate,
+        };
+        let report = cohesion_report(
+            &roll,
+            &mixed,
+            false,
+            &CohesionInputs::default(),
+            time::now(),
+            &Thresholds::default(),
+        );
+        assert_eq!(report.rated_members, 1);
+
+        let rec = coherence_concern(&report, charter.polity.clone(), observer, &obs_sk, time::now())
+            .unwrap()
+            .expect("Concern-level erosion emits a record");
+        let narrative = &rec.payload.narrative;
+        assert!(narrative.contains("mean reputation 0.90 over 1 rated member(s)"), "got: {narrative}");
+        assert!(narrative.contains("(1 unrated)"), "got: {narrative}");
+    }
+
+    #[test]
     fn concern_emitted_only_at_concern_level() {
         let (charter, _, _) = chartered_polity();
         let (obs_sk, obs_pk) = keypair();
@@ -383,7 +649,7 @@ mod tests {
             .collect();
         let present: Vec<(DidKey, f64)> =
             roll.iter().take(2).map(|d| (d.clone(), 0.9)).collect();
-        let report = cohesion_report(&roll, &candidate(&present), false, &Thresholds::default());
+        let report = cohesion_report(&roll, &candidate(&present), false, &CohesionInputs::default(), time::now(), &Thresholds::default());
         assert_eq!(report.erosion, ErosionLevel::Concern);
 
         let rec = coherence_concern(&report, charter.polity.clone(), observer.clone(), &obs_sk, time::now())
@@ -415,7 +681,7 @@ mod tests {
             .map(|_| DidKey::from_pubkey(&keypair().1).unwrap())
             .collect();
         let present: Vec<(DidKey, f64)> = roll.iter().map(|d| (d.clone(), 0.95)).collect();
-        let report = cohesion_report(&roll, &candidate(&present), false, &Thresholds::default());
+        let report = cohesion_report(&roll, &candidate(&present), false, &CohesionInputs::default(), time::now(), &Thresholds::default());
         assert_eq!(report.erosion, ErosionLevel::None);
 
         let out =
@@ -580,5 +846,79 @@ mod tests {
             FusionPredecessor { charter: &charter_b, root_priv: &root_b, deciders: charter_b.members.clone() },
         ];
         assert!(fusion(&preds, fused, "r".into(), time::now()).is_err());
+    }
+
+    // --- the envoy artifact (D14) ---------------------------------------------
+    //
+    // These build an `EnvoyState` directly rather than walking an archive, which is
+    // the point of taking the read-model: the border crate never touches a log.
+
+    fn standing(expires_at: Option<Timestamp>) -> (EnvoyState, DidKey, PubKey) {
+        let (_, envoy_pk) = keypair();
+        let envoy = DidKey::from_pubkey(&envoy_pk).unwrap();
+        let st = EnvoyState {
+            standings: vec![EnvoyHolding {
+                envoy: envoy.clone(),
+                envoy_pubkey: envoy_pk.clone(),
+                expires_at,
+                authorized_at: time::now(),
+            }],
+        };
+        (st, envoy, envoy_pk)
+    }
+
+    #[test]
+    fn an_authorized_envoy_becomes_a_kc_envoy_delegation() {
+        let (charter, root_sk, root_pk) = chartered_polity();
+        let expiry = time::now();
+        let (envoys, envoy, envoy_pk) = standing(Some(expiry));
+
+        let signed =
+            envoy_delegation(&charter, &envoys, &envoy, &root_sk, root_pk, time::now()).unwrap();
+
+        assert_eq!(signed.payload.community_did, charter.polity);
+        assert_eq!(signed.payload.speaker_did, envoy);
+        assert_eq!(signed.payload.speaker_pubkey, envoy_pk);
+        assert_eq!(signed.payload.scope, DelegationScope::Envoy);
+        // The polity's own expiry travels with it, so the two tiers cannot disagree
+        // about when the standing ends.
+        assert_eq!(signed.payload.expires_at, Some(expiry));
+        assert_eq!(signed.payload.revoked_at, None);
+        // Signed by the polity root, which is what makes it resolvable by community.
+        assert_eq!(signed.signatures.len(), 1);
+        assert_eq!(signed.signatures[0].signer_did, charter.polity.as_str());
+        signed.verify(en_charter::didkey_resolver).expect("root signature valid");
+    }
+
+    #[test]
+    fn an_envoy_without_a_standing_gets_no_delegation() {
+        // The use-time rule reaching the border: a standing that has lapsed, been
+        // resigned, revoked or expired is simply absent from the state, and no
+        // delegation can be minted from it.
+        let (charter, root_sk, root_pk) = chartered_polity();
+        let (_, envoy, _) = standing(None);
+
+        let err = envoy_delegation(
+            &charter,
+            &EnvoyState::default(),
+            &envoy,
+            &root_sk,
+            root_pk,
+            time::now(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, KcError::Authority(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn a_delegation_cannot_be_minted_with_another_polity_root_key() {
+        let (charter, _, _) = chartered_polity();
+        let (other_sk, other_pk) = keypair();
+        let (envoys, envoy, _) = standing(None);
+
+        let err =
+            envoy_delegation(&charter, &envoys, &envoy, &other_sk, other_pk, time::now())
+                .unwrap_err();
+        assert!(matches!(err, KcError::InvalidDid(_)), "got {err:?}");
     }
 }

@@ -8,7 +8,10 @@ members = [
     "src/rust/en-at",
     "src/rust/en-cohesion",
     "src/rust/en-uplift",
+    "src/rust/en-store",
+    "src/rust/en-host",
     "src/rust/en-pyo3",
+    "src/rust/examples/polity_host",
 ]
 
 [workspace.package]
@@ -30,6 +33,12 @@ jiff = { version = "0.1", features = ["serde"] }
 thiserror = "1.0"
 proptest = "1.5"
 
+# SQLite, for `en-store`'s optional backend ONLY, and optional there too (D20).
+# `bundled` compiles SQLite from source rather than linking the system library, so
+# enabling the feature needs no development headers installed. This is ethne's only
+# C dependency and it is off by default: the default build graph stays kc-core-only.
+rusqlite = { version = "0.32", features = ["bundled"] }
+
 # PyO3 (decision D2 — the Python surface). Pin matches kith-covenant's workspace so
 # both extension modules build against the same abi3 floor.
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
@@ -45,6 +54,12 @@ kc-core = { path = "../kith-covenant/src/rust/kc-core" }
 # holds for everything below the uplift boundary.
 kc-conduct = { path = "../kith-covenant/src/rust/kc-conduct" }
 
+# KC identity records. Decision D14 (offices in use): naming who may speak for the
+# polity produces KC's envoy `SpeakerDelegation`, so `en-uplift` — and only
+# `en-uplift` — also speaks this crate's language. The confinement rule is
+# unchanged: two KC-record deps, both stopping at the uplift boundary.
+kc-identity = { path = "../kith-covenant/src/rust/kc-identity" }
+
 # Internal ethne crates (prefix `en-`).
 en-core = { path = "src/rust/en-core" }
 en-archive = { path = "src/rust/en-archive" }
@@ -53,6 +68,8 @@ en-substrate = { path = "src/rust/en-substrate" }
 en-at = { path = "src/rust/en-at" }
 en-cohesion = { path = "src/rust/en-cohesion" }
 en-uplift = { path = "src/rust/en-uplift" }
+en-store = { path = "src/rust/en-store" }
+en-host = { path = "src/rust/en-host" }
 en-pyo3 = { path = "src/rust/en-pyo3" }
 
 [profile.release]

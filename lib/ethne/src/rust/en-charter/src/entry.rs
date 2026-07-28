@@ -19,8 +19,11 @@
 //!
 //! `CharterEntry` covers the founding, its commitment amendments, the membership
 //! roll's lifecycle (admission / departure / expulsion), the internal offices
-//! (conferral / resignation / revocation), members' induction / re-affirmation of
-//! the substrate, and dissolution; a later slice folds it (and cohesion records)
+//! (conferral / resignation / revocation), which members are derived (machine)
+//! parties and the human each answers to, who the polity authorizes to speak for
+//! it beyond itself, what its monitors observed, the pruning of that observation
+//! record, members' induction / re-affirmation of the substrate, and
+//! dissolution; a later slice folds it (and cohesion records)
 //! into a single ethne-wide entry enum. Signature verification is self-contained:
 //! every
 //! signer is a `did:key`, so its public key is recovered from the DID itself —
@@ -34,12 +37,16 @@ use en_core::{DidKey, KcResult, PubKey, Signed};
 use serde::{Deserialize, Serialize};
 
 use crate::record::{
-    Affirmation, CharterDissolution, CommitmentAmendment, MembershipChange, OfficeChange,
-    PolityCharter,
+    Affirmation, CharterDissolution, CommitmentAmendment, EnvoyAuthorization, GuardianChange,
+    MembershipChange, Observation, ObservationPruning, OfficeChange, PolityCharter,
 };
 
 /// An entry in a polity's charter log.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `PartialEq` but not `Eq`: an [`Observation`] carries reputation readings, which
+/// are floats, and claiming a total equality over them would be a lie. Content
+/// addressing does not depend on it — a `Cid` is taken over the serialized bytes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CharterEntry {
     /// The founding of a polity (genesis singleton).
     PolityChartered(Signed<PolityCharter>),
@@ -49,8 +56,18 @@ pub enum CharterEntry {
     MembershipChanged(Signed<MembershipChange>),
     /// A conferral, resignation, or revocation of an internal office.
     OfficeChanged(Signed<OfficeChange>),
+    /// A designation, rotation, or release of a member's guardian edge.
+    GuardianChanged(Signed<GuardianChange>),
+    /// An authorization, resignation, or revocation of an envoy's standing to
+    /// speak for the polity beyond itself.
+    EnvoyAuthorized(Signed<EnvoyAuthorization>),
     /// A member's induction into or re-affirmation of the substrate.
     MemberAffirmed(Signed<Affirmation>),
+    /// What one monitor saw at one instant — perspectival evidence, not a decision.
+    Observed(Signed<Observation>),
+    /// A ratified dropping of observations older than a horizon, with a receipt for
+    /// what went. The log may forget, but only by saying so.
+    ObservationsPruned(Signed<ObservationPruning>),
     /// The deliberate winding-up of the polity (terminal; may name successors).
     CharterDissolved(Signed<CharterDissolution>),
 }
@@ -63,7 +80,11 @@ impl CharterEntry {
             CharterEntry::CommitmentAmended(s) => &s.signatures,
             CharterEntry::MembershipChanged(s) => &s.signatures,
             CharterEntry::OfficeChanged(s) => &s.signatures,
+            CharterEntry::GuardianChanged(s) => &s.signatures,
+            CharterEntry::EnvoyAuthorized(s) => &s.signatures,
             CharterEntry::MemberAffirmed(s) => &s.signatures,
+            CharterEntry::Observed(s) => &s.signatures,
+            CharterEntry::ObservationsPruned(s) => &s.signatures,
             CharterEntry::CharterDissolved(s) => &s.signatures,
         };
         sigs.iter().map(|e| e.signer_did.clone()).collect()
@@ -76,7 +97,11 @@ impl CharterEntry {
             CharterEntry::CommitmentAmended(s) => &s.payload.polity,
             CharterEntry::MembershipChanged(s) => &s.payload.polity,
             CharterEntry::OfficeChanged(s) => &s.payload.polity,
+            CharterEntry::GuardianChanged(s) => &s.payload.polity,
+            CharterEntry::EnvoyAuthorized(s) => &s.payload.polity,
             CharterEntry::MemberAffirmed(s) => &s.payload.polity,
+            CharterEntry::Observed(s) => &s.payload.polity,
+            CharterEntry::ObservationsPruned(s) => &s.payload.polity,
             CharterEntry::CharterDissolved(s) => &s.payload.polity,
         }
     }
@@ -89,7 +114,11 @@ impl Entry for CharterEntry {
             CharterEntry::CommitmentAmended(_) => "CommitmentAmended",
             CharterEntry::MembershipChanged(_) => "MembershipChanged",
             CharterEntry::OfficeChanged(_) => "OfficeChanged",
+            CharterEntry::GuardianChanged(_) => "GuardianChanged",
+            CharterEntry::EnvoyAuthorized(_) => "EnvoyAuthorized",
             CharterEntry::MemberAffirmed(_) => "MemberAffirmed",
+            CharterEntry::Observed(_) => "Observed",
+            CharterEntry::ObservationsPruned(_) => "ObservationsPruned",
             CharterEntry::CharterDissolved(_) => "CharterDissolved",
         }
     }
@@ -108,7 +137,11 @@ pub fn verify_entry(entry: &CharterEntry) -> KcResult<()> {
         CharterEntry::CommitmentAmended(s) => s.verify(didkey_resolver),
         CharterEntry::MembershipChanged(s) => s.verify(didkey_resolver),
         CharterEntry::OfficeChanged(s) => s.verify(didkey_resolver),
+        CharterEntry::GuardianChanged(s) => s.verify(didkey_resolver),
+        CharterEntry::EnvoyAuthorized(s) => s.verify(didkey_resolver),
         CharterEntry::MemberAffirmed(s) => s.verify(didkey_resolver),
+        CharterEntry::Observed(s) => s.verify(didkey_resolver),
+        CharterEntry::ObservationsPruned(s) => s.verify(didkey_resolver),
         CharterEntry::CharterDissolved(s) => s.verify(didkey_resolver),
     }
 }

@@ -2047,6 +2047,405 @@ mod constitution_diag {
     }
 }
 
+// --- uniform drift: the omission signals on the erosion alert ---------------
+//
+// See `doc/architecture/erosion-legibility.md`. Every pre-existing signal on the
+// alert is act-triggered, so a polity that merely *stops* scored None. These
+// cover the two signals whose reference is not the polity's own recent
+// behaviour: an absolute cadence, and a baseline pinned to the founding rite.
+
+mod uniform_drift {
+    use super::*;
+    use crate::analytics::{
+        ceremony_cost_decay, ceremony_cost_decay_all, erosion_alert, erosion_alert_with,
+        overdue_reexaminations, ErosionSeverity, ErosionThresholds,
+    };
+
+    /// The default generational cadence in seconds (30 years).
+    const CADENCE: i64 = 30 * 365 * 86_400;
+
+    /// A fresh community with the given `(witness_count, sealed_at)` rites.
+    fn community_with_rites(archive: &mut InMemoryArchive, rites: &[(usize, Timestamp)]) -> DidKey {
+        let (root_priv, _, comm) = fresh_id();
+        let (sp_priv, _, speaker) = fresh_id();
+        for (witnesses, at) in rites {
+            publish_intra_rite(archive, &comm, &root_priv, &speaker, &sp_priv, *witnesses, *at);
+        }
+        comm
+    }
+
+    #[test]
+    fn a_polity_that_merely_stopped_is_no_longer_silent() {
+        // The regression this slice exists for. Nothing has been rolled back — no
+        // amendment, no shortened fast, no act during a fast — so all three
+        // act-triggered signals are inert. The polity simply stopped re-affirming.
+        let mut a = InMemoryArchive::new();
+        community_with_rites(&mut a, &[(5, t(100))]);
+        let al = erosion_alert(&a, Some(t(100 + CADENCE + 1)));
+        assert!(!al.list_contraction && !al.fast_contraction);
+        assert_eq!(al.active_fast_deviations, 0);
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+        assert_eq!(al.overdue_reaffirmations.len(), 1);
+    }
+
+    #[test]
+    fn within_the_cadence_the_alert_stays_quiet() {
+        // Negative control: the same archive read on the last second before the
+        // cadence elapses must be None, or the signal is only a clock.
+        let mut a = InMemoryArchive::new();
+        community_with_rites(&mut a, &[(5, t(100))]);
+        let al = erosion_alert(&a, Some(t(100 + CADENCE)));
+        assert_eq!(al.severity, ErosionSeverity::None);
+        assert!(al.overdue_reaffirmations.is_empty());
+        assert!(al.reasons.is_empty());
+    }
+
+    #[test]
+    fn overdue_reaffirmation_carries_its_provenance() {
+        // Equal witness counts, so the hollowing dimension stays out of the way.
+        let mut a = InMemoryArchive::new();
+        let comm = community_with_rites(&mut a, &[(5, t(100)), (5, t(500))]);
+        let as_of = t(500 + CADENCE + 7);
+        let al = erosion_alert(&a, Some(as_of));
+
+        let o = &al.overdue_reaffirmations[0];
+        assert_eq!(o.community_did, comm.as_str());
+        assert_eq!(o.seconds_since_last, CADENCE + 7);
+        assert_eq!(o.cadence_seconds, CADENCE);
+        // The CID resolves to the LAST rite, not the founding one.
+        let decay = ceremony_cost_decay(&a, &comm, Some(as_of));
+        assert_eq!(o.last_rite_cid, decay.rites.last().unwrap().record_cid);
+    }
+
+    #[test]
+    fn two_overdue_communities_compound_to_alert() {
+        let mut a = InMemoryArchive::new();
+        community_with_rites(&mut a, &[(5, t(100))]);
+        community_with_rites(&mut a, &[(5, t(200))]);
+        let al = erosion_alert(&a, Some(t(200 + CADENCE + 1)));
+        assert_eq!(al.overdue_reaffirmations.len(), 2);
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert_eq!(al.reasons.len(), 1, "one dimension, but compounding");
+    }
+
+    #[test]
+    fn one_community_overdue_by_two_full_cadences_compounds_alone() {
+        let mut a = InMemoryArchive::new();
+        community_with_rites(&mut a, &[(5, t(100))]);
+        let al = erosion_alert(&a, Some(t(100 + 2 * CADENCE + 1)));
+        assert_eq!(al.overdue_reaffirmations.len(), 1);
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+    }
+
+    #[test]
+    fn overdue_communities_are_reported_worst_first() {
+        let mut a = InMemoryArchive::new();
+        community_with_rites(&mut a, &[(5, t(1_000_000))]); // more recent
+        community_with_rites(&mut a, &[(5, t(100))]); // longest overdue
+        let al = erosion_alert(&a, Some(t(1_000_000 + CADENCE + 1)));
+        assert_eq!(al.overdue_reaffirmations.len(), 2);
+        assert!(
+            al.overdue_reaffirmations[0].seconds_since_last
+                > al.overdue_reaffirmations[1].seconds_since_last
+        );
+    }
+
+    #[test]
+    fn hollowing_is_measured_against_the_founding_rite() {
+        // Witnesses 5 -> 4 -> 4. The latest is below the FIRST, which a rolling
+        // baseline would have absorbed by now. Read inside the cadence so the
+        // hollowing dimension is the only one firing.
+        let mut a = InMemoryArchive::new();
+        let comm = community_with_rites(&mut a, &[(5, t(100)), (4, t(200)), (4, t(300))]);
+        let al = erosion_alert(&a, Some(t(1000)));
+        assert_eq!(al.hollowing_communities, vec![comm.as_str().to_string()]);
+        assert!(al.overdue_reaffirmations.is_empty());
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+    }
+
+    #[test]
+    fn a_community_that_never_sealed_a_rite_is_not_overdue() {
+        // Negative control against inventing a cadence: with no rite there is no
+        // re-affirmation history, so nothing is late. A founding is not a lapse.
+        let a = InMemoryArchive::new();
+        let al = erosion_alert(&a, Some(t(10 * CADENCE)));
+        assert_eq!(al.severity, ErosionSeverity::None);
+        assert!(al.overdue_reaffirmations.is_empty());
+        assert!(al.hollowing_communities.is_empty());
+    }
+
+    #[test]
+    fn the_cadence_is_a_parameter_not_a_constant() {
+        // protocol-components.md records that the 25-30y default lacks empirical
+        // support and that the eventual shape is a compact-formation parameter. A
+        // tighter cadence must therefore change the reading of the same archive.
+        let mut a = InMemoryArchive::new();
+        community_with_rites(&mut a, &[(5, t(100))]);
+        let as_of = Some(t(100 + 5000));
+        assert_eq!(erosion_alert(&a, as_of).severity, ErosionSeverity::None);
+
+        let tight = ErosionThresholds { rite_cadence_seconds: 3600 };
+        let al = erosion_alert_with(&a, as_of, &tight);
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+        assert_eq!(al.overdue_reaffirmations[0].cadence_seconds, 3600);
+    }
+
+    #[test]
+    fn the_rolling_gap_reading_goes_quiet_once_the_drift_becomes_the_baseline() {
+        // Gaps 100, 400, 400, 400: the community widened its cadence fourfold and
+        // stayed there. By the last gap 400 IS the median of the priors, so the
+        // rolling reading falls silent exactly when the decay has finished setting.
+        // Pinned to the founding cadence, the slip is still plainly there.
+        let mut a = InMemoryArchive::new();
+        let comm =
+            community_with_rites(&mut a, &[(5, t(0)), (5, t(100)), (5, t(500)), (5, t(900)), (5, t(1300))]);
+        let decay = ceremony_cost_decay(&a, &comm, Some(t(1400)));
+
+        assert_eq!(decay.gaps_seconds, vec![100, 400, 400, 400]);
+        assert_eq!(
+            decay.latest_gap_widening(),
+            Some(false),
+            "the degraded cadence has become its own reference"
+        );
+        assert_eq!(decay.gap_widening_since_founding(), Some(true));
+    }
+
+    #[test]
+    fn the_pinned_gap_reading_invents_no_signal() {
+        // Negative controls: a held cadence is not flagged, and one gap says
+        // nothing rather than reporting health.
+        let mut a = InMemoryArchive::new();
+        let steady = community_with_rites(&mut a, &[(5, t(0)), (5, t(100)), (5, t(200))]);
+        assert_eq!(
+            ceremony_cost_decay(&a, &steady, Some(t(300))).gap_widening_since_founding(),
+            Some(false)
+        );
+
+        let mut b = InMemoryArchive::new();
+        let young = community_with_rites(&mut b, &[(5, t(0)), (5, t(100))]);
+        assert_eq!(
+            ceremony_cost_decay(&b, &young, Some(t(200))).gap_widening_since_founding(),
+            None,
+            "one gap is not a cadence"
+        );
+    }
+
+    // --- overdue re-examination (the designation follow-through signal) ------
+
+    /// A designation on `subject` carrying a mandated re-examination date.
+    fn designate_due(
+        archive: &mut InMemoryArchive,
+        subject: &DidKey,
+        signer: &PrivKey,
+        due: Timestamp,
+        at: Timestamp,
+    ) -> Cid {
+        let dz = kc_escalation::Designation {
+            subject_community: subject.clone(),
+            tier: kc_escalation::DesignationTier::Anathema,
+            urgency: kc_escalation::DesignationUrgency::Expedited,
+            deliberators: vec![subject.clone()],
+            criteria: "c".into(),
+            cited_acts: vec![],
+            failed_restoration_cycles: vec![],
+            deliberation_cycles: vec![],
+            reversal_conditions: Some("rev".into()),
+            reexamine_after: Some(due),
+            decision_class: DecisionClass::SecondClass,
+            designated_at: at,
+        };
+        let signed = Signed::build(dz, &[(subject.as_str(), signer)]).expect("sign designation");
+        archive
+            .append(ArchiveEntry::DesignationDecided(signed))
+            .expect("append")
+    }
+
+    /// A re-entry answering `designation_cid` — one of the two reversal paths.
+    fn append_reentry_for(
+        archive: &mut InMemoryArchive,
+        designation_cid: Cid,
+        subject: &DidKey,
+        signer: &PrivKey,
+        probation_until: Timestamp,
+        completed_at: Timestamp,
+    ) -> Cid {
+        let recitation = Recitation {
+            community_did: subject.clone(),
+            speaker_did: subject.clone(),
+            version: RecitationVersion::current(),
+            movement_substrate: "a".into(),
+            movement_fallenness: "b".into(),
+            movement_recognition: "c".into(),
+            movement_common_virtue: "d".into(),
+            movement_non_ultimacy: "e".into(),
+            language_tag: "en".into(),
+            translation_en: None,
+            recited_at: completed_at,
+        };
+        let signed_rec = Signed::build(recitation, &[(subject.as_str(), signer)]).expect("sign rec");
+        let att = kc_escalation::ReEntryWitnessAttestation {
+            witness_did: subject.clone(),
+            recitation_cid: signed_rec.payload_cid,
+            sincerity_affirmed: true,
+            attested_at: completed_at,
+        };
+        let signed_att = Signed::build(att, &[(subject.as_str(), signer)]).expect("sign att");
+        let re = kc_escalation::ReEntry {
+            designation_cid,
+            petitioner: subject.clone(),
+            recitation: signed_rec,
+            conduct_accounting: "acct".into(),
+            public_acknowledgement: "wrong".into(),
+            witnesses: vec![signed_att],
+            probation_until,
+            deliberators: vec![subject.clone()],
+            decision_class: DecisionClass::SecondClass,
+            completed_at,
+        };
+        let signed = Signed::build(re, &[(subject.as_str(), signer)]).expect("sign reentry");
+        archive
+            .append(ArchiveEntry::ReEntryCompleted(signed))
+            .expect("append")
+    }
+
+    #[test]
+    fn a_designation_left_past_its_re_examination_is_flagged() {
+        // The most severe act the compact can take, with the least follow-through:
+        // before this lens the date could pass and no reading would raise it.
+        let mut a = InMemoryArchive::new();
+        let (subj_priv, _, subj) = fresh_id();
+        designate_due(&mut a, &subj, &subj_priv, t(1000), t(100));
+
+        let al = erosion_alert(&a, Some(t(1500)));
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+        let (o,) = (&al.overdue_reexaminations[0],);
+        assert_eq!(o.subject, subj.as_str());
+        assert_eq!(o.tier, "Anathema");
+        assert_eq!(o.seconds_overdue, 500);
+    }
+
+    #[test]
+    fn a_designation_inside_its_re_examination_window_is_quiet() {
+        // Negative control: one second before the date, nothing is owed yet.
+        let mut a = InMemoryArchive::new();
+        let (subj_priv, _, subj) = fresh_id();
+        designate_due(&mut a, &subj, &subj_priv, t(1000), t(100));
+
+        let al = erosion_alert(&a, Some(t(999)));
+        assert_eq!(al.severity, ErosionSeverity::None);
+        assert!(al.overdue_reexaminations.is_empty());
+    }
+
+    #[test]
+    fn a_re_entry_clears_the_overdue_re_examination() {
+        // Reversal path one: the designated community came back.
+        let mut a = InMemoryArchive::new();
+        let (subj_priv, _, subj) = fresh_id();
+        let cid = designate_due(&mut a, &subj, &subj_priv, t(1000), t(100));
+        append_reentry_for(&mut a, cid, &subj, &subj_priv, t(2000), t(1200));
+
+        let al = erosion_alert(&a, Some(t(1500)));
+        assert!(al.overdue_reexaminations.is_empty());
+        assert_eq!(al.severity, ErosionSeverity::None);
+    }
+
+    #[test]
+    fn a_designation_lifted_conduct_record_clears_it_too() {
+        // Reversal path two: the same set `lookup` uses, so there is one
+        // definition of a reversed designation.
+        let mut a = InMemoryArchive::new();
+        let (subj_priv, subj_pub, subj) = fresh_id();
+        publish_identity(&mut a, "Subject", &subj, &subj_pub, &subj_priv, t(10));
+        let cid = designate_due(&mut a, &subj, &subj_priv, t(1000), t(100));
+        publish_conduct_with_refs(
+            &mut a,
+            &subj,
+            &subj,
+            &subj_priv,
+            ConductKind::DesignationLifted,
+            vec![cid],
+            t(1100),
+        );
+
+        let al = erosion_alert(&a, Some(t(1500)));
+        assert!(al.overdue_reexaminations.is_empty());
+    }
+
+    #[test]
+    fn a_reversal_recorded_after_the_reading_does_not_clear_it() {
+        // The lens is `as_of`-honest: a lift dated later than the read is not yet
+        // visible, so the designation still reads as standing.
+        let mut a = InMemoryArchive::new();
+        let (subj_priv, _, subj) = fresh_id();
+        let cid = designate_due(&mut a, &subj, &subj_priv, t(1000), t(100));
+        append_reentry_for(&mut a, cid, &subj, &subj_priv, t(9000), t(8000));
+
+        assert_eq!(overdue_reexaminations(&a, Some(t(1500))).len(), 1);
+        assert!(overdue_reexaminations(&a, Some(t(8500))).is_empty());
+    }
+
+    #[test]
+    fn two_standing_designations_compound_to_alert() {
+        let mut a = InMemoryArchive::new();
+        let (p1, _, s1) = fresh_id();
+        let (p2, _, s2) = fresh_id();
+        designate_due(&mut a, &s1, &p1, t(1000), t(100));
+        designate_due(&mut a, &s2, &p2, t(1200), t(100));
+
+        let al = erosion_alert(&a, Some(t(2000)));
+        assert_eq!(al.overdue_reexaminations.len(), 2);
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        // Worst first.
+        assert!(
+            al.overdue_reexaminations[0].seconds_overdue
+                > al.overdue_reexaminations[1].seconds_overdue
+        );
+    }
+
+    #[test]
+    fn a_designation_without_a_mandated_date_is_never_overdue() {
+        // Negative control: `reexamine_after: None` is the Normal path's default.
+        // Absence of a promise is not a broken promise.
+        let mut a = InMemoryArchive::new();
+        let (subj_priv, _, subj) = fresh_id();
+        let dz = kc_escalation::Designation {
+            subject_community: subj.clone(),
+            tier: kc_escalation::DesignationTier::Anathema,
+            urgency: kc_escalation::DesignationUrgency::Normal,
+            deliberators: vec![subj.clone()],
+            criteria: "c".into(),
+            cited_acts: vec![],
+            failed_restoration_cycles: vec![],
+            deliberation_cycles: vec![],
+            reversal_conditions: Some("rev".into()),
+            reexamine_after: None,
+            decision_class: DecisionClass::SecondClass,
+            designated_at: t(100),
+        };
+        let signed = Signed::build(dz, &[(subj.as_str(), &subj_priv)]).expect("sign");
+        a.append(ArchiveEntry::DesignationDecided(signed)).expect("append");
+
+        assert!(overdue_reexaminations(&a, Some(t(10_000))).is_empty());
+    }
+
+    #[test]
+    fn the_all_communities_pass_agrees_with_the_per_community_lens() {
+        let mut a = InMemoryArchive::new();
+        let c1 = community_with_rites(&mut a, &[(5, t(100)), (3, t(200))]);
+        let c2 = community_with_rites(&mut a, &[(2, t(150))]);
+        let as_of = Some(t(1000));
+
+        let all = ceremony_cost_decay_all(&a, as_of);
+        assert_eq!(all.len(), 2);
+        for c in [&c1, &c2] {
+            assert_eq!(
+                all.get(c.as_str()).expect("community present"),
+                &ceremony_cost_decay(&a, c, as_of)
+            );
+        }
+    }
+}
+
 // --- move 1 interpretive-plurality lens ------------------------------------
 
 mod interpretive_plurality_lens {

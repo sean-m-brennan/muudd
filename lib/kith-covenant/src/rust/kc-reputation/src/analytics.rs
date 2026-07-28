@@ -32,7 +32,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use kc_archive::{ArchiveEntry, InMemoryArchive};
 use kc_ceremony::inter::AntiSpiralFeature;
 use kc_commons::sanction_rank;
-use kc_conduct::ConductBearing;
+use kc_conduct::{ConductBearing, ConductKind};
 use kc_constitution::{AmendmentKind, FastPeriod, IncapableMatter};
 use kc_core::{time, Cid, DidKey, Timestamp};
 use kc_escalation::dispute_ladder_rank;
@@ -1169,9 +1169,31 @@ impl CeremonyCostDecay {
             _ => false,
         }
     }
+    /// `Some(true)` when the latest re-affirmation gap exceeds the **first** gap —
+    /// the *pinned* counterpart to [`Self::latest_gap_widening`]. Needs at least two
+    /// gaps; `None` otherwise.
+    ///
+    /// The rolling reading catches a widening and then **goes quiet once the widened
+    /// cadence has recurred often enough to dominate the median of the priors** —
+    /// gaps of `[100, 400, 400, 400]` read `false`, because 400 is no longer unusual
+    /// *for this community*. The degraded cadence has become the reference it is
+    /// judged against, so the signal falls silent exactly when the decay has
+    /// finished setting. A baseline pinned to the founding cadence cannot be dragged
+    /// along behind the drift — the same reason
+    /// [`Self::witness_count_declined`] compares against the first rite.
+    pub fn gap_widening_since_founding(&self) -> Option<bool> {
+        if self.gaps_seconds.len() < 2 {
+            return None;
+        }
+        Some(*self.gaps_seconds.last().unwrap() > self.gaps_seconds[0])
+    }
+
     /// `Some(true)` when the latest re-affirmation gap exceeds the median of the
-    /// prior gaps. Needs at least two gaps (three rites); `None` otherwise,
+    /// prior gaps — a *rolling* reading, judged against how this community has
+    /// lately behaved. Needs at least two gaps (three rites); `None` otherwise,
     /// since there is not enough cadence to compare.
+    ///
+    /// See [`Self::gap_widening_since_founding`] for the pinned counterpart.
     pub fn latest_gap_widening(&self) -> Option<bool> {
         if self.gaps_seconds.len() < 2 {
             return None;
@@ -1187,6 +1209,23 @@ impl CeremonyCostDecay {
         };
         Some((last as f64) > median)
     }
+}
+
+/// Finish a decay series: sort the rites, derive the successive gaps, and measure
+/// the staleness of the last one. Shared by the single- and all-community entry
+/// points so there is one definition of a gap.
+fn seal_decay(mut decay: CeremonyCostDecay, as_of: Timestamp) -> CeremonyCostDecay {
+    decay.rites.sort_by_key(|r| r.sealed_at);
+    for w in decay.rites.windows(2) {
+        decay
+            .gaps_seconds
+            .push(w[1].sealed_at.as_second() - w[0].sealed_at.as_second());
+    }
+    decay.seconds_since_last = decay
+        .rites
+        .last()
+        .map(|r| as_of.as_second() - r.sealed_at.as_second());
+    decay
 }
 
 /// Compute the ceremony-cost-decay series for `community` as of `as_of`.
@@ -1211,17 +1250,46 @@ pub fn ceremony_cost_decay(
             }
         }
     }
-    decay.rites.sort_by_key(|r| r.sealed_at);
-    for w in decay.rites.windows(2) {
-        decay
-            .gaps_seconds
-            .push(w[1].sealed_at.as_second() - w[0].sealed_at.as_second());
+    seal_decay(decay, as_of)
+}
+
+/// Every community's ceremony-cost-decay series, keyed by community DID, in one
+/// archive pass.
+///
+/// The compact-wide counterpart to [`ceremony_cost_decay`], and the input the
+/// erosion alert needs: a *per-community* lens cannot answer "is anybody's
+/// re-affirmation overdue" without knowing who the communities are. Only
+/// communities that have sealed at least one rite appear — a community with no
+/// rite at all has no cadence to be late against, and inventing one would report
+/// a founding as a lapse.
+pub fn ceremony_cost_decay_all(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> BTreeMap<String, CeremonyCostDecay> {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut by_community: BTreeMap<String, CeremonyCostDecay> = BTreeMap::new();
+
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::IntraCommunityRite(signed) = entry {
+            let rec = &signed.payload;
+            let recitation = &rec.recitation.payload;
+            if rec.sealed_at <= as_of {
+                by_community
+                    .entry(recitation.community_did.as_str().to_string())
+                    .or_default()
+                    .rites
+                    .push(RitePoint {
+                        record_cid: cid.clone(),
+                        sealed_at: rec.sealed_at,
+                        witness_count: rec.internal_witnesses.len(),
+                    });
+            }
+        }
     }
-    decay.seconds_since_last = decay
-        .rites
-        .last()
-        .map(|r| as_of.as_second() - r.sealed_at.as_second());
-    decay
+    by_community
+        .into_iter()
+        .map(|(did, decay)| (did, seal_decay(decay, as_of)))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -1757,19 +1825,218 @@ pub struct ErosionAlert {
     /// Deliberative acts initiated during a fast window (temporal deference eroding
     /// in practice — "exceptions multiply").
     pub active_fast_deviations: usize,
+    /// Communities whose last sealed re-affirmation is older than the cadence,
+    /// oldest-overdue first.
+    ///
+    /// The first signal on this alert that fires on **omission**. The three above
+    /// all require a record: somebody amends the list, shortens a fast, or acts
+    /// during one. A polity that simply stops emits none of them, and a detector
+    /// that waits to be told cannot be told by silence. This one measures against
+    /// a fixed cadence instead of against the polity's own recent behaviour, so a
+    /// re-affirmation that never comes is visible as the thing it is.
+    pub overdue_reaffirmations: Vec<OverdueReaffirmation>,
+    /// Communities whose latest rite drew fewer witnesses than their **first**,
+    /// sorted by DID.
+    ///
+    /// Pinned to the founding rite rather than to a rolling mean, so a ceremony
+    /// hollowed out one witness per cycle cannot drag the reference along behind
+    /// it (`CeremonyCostDecay::witness_count_declined`).
+    pub hollowing_communities: Vec<String>,
+    /// Designations past their mandated re-examination date and still standing,
+    /// longest-overdue first ([`overdue_reexaminations`]).
+    ///
+    /// Also an omission signal, and the one with a named party on the other end of
+    /// it: an exclusion the compact undertook to revisit and did not.
+    pub overdue_reexaminations: Vec<OverdueReexamination>,
+}
+
+/// A designation whose mandated re-examination date has passed with the
+/// designation still standing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverdueReexamination {
+    pub designation_cid: Cid,
+    /// The designated community — the party whose exclusion is being left in
+    /// place unexamined.
+    pub subject: String,
+    /// `Anathema`; `HostisHumaniGeneris` is excluded by construction, since that
+    /// tier is forbidden a `reexamine_after` (it has no reversal path).
+    pub tier: String,
+    pub reexamine_after: Timestamp,
+    pub seconds_overdue: i64,
+}
+
+/// Designations whose `reexamine_after` has passed as of `as_of` and which are
+/// still standing, longest-overdue first.
+///
+/// The severest act the compact can take is the one with the least
+/// follow-through: `Designation::reexamine_after` is stored, surfaced through
+/// `ReputationView`, and *required* for the Expedited path, and before this lens
+/// nothing computed whether it had arrived. A community could be designated on the
+/// expedited path with a mandated re-examination date that no reading would ever
+/// raise.
+///
+/// "Still standing" reuses the reversal set `lookup` already defines — a
+/// `DesignationLifted` conduct record naming the designation, or a `ReEntry`
+/// answering it — so there is one definition of a reversed designation.
+///
+/// **Known limit.** A re-examination that *confirms* a designation leaves no
+/// record in the current model, so this lens cannot distinguish "nobody looked"
+/// from "the panel looked and let it stand". It therefore reports the weaker
+/// claim: the date passed and the designation is still in force. Closing that gap
+/// needs a signed re-examination record — an attested null, the same shape as
+/// `en-archive`'s pruning receipts (see
+/// `doc/architecture/erosion-legibility.md`, remediation item 5).
+pub fn overdue_reexaminations(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> Vec<OverdueReexamination> {
+    let as_of = as_of.unwrap_or_else(time::now);
+
+    // The reversal set, by the same two paths `lookup` uses.
+    let mut reversed: BTreeSet<String> = BTreeSet::new();
+    for (_, entry) in archive.iter() {
+        match entry {
+            ArchiveEntry::ConductAttested(s)
+                if s.payload.kind == ConductKind::DesignationLifted
+                    && s.payload.recorded_at <= as_of =>
+            {
+                reversed.extend(s.payload.references.iter().map(|r| r.to_string()));
+            }
+            ArchiveEntry::ReEntryCompleted(s) if s.payload.completed_at <= as_of => {
+                reversed.insert(s.payload.designation_cid.to_string());
+            }
+            _ => {}
+        }
+    }
+
+    let mut overdue: Vec<OverdueReexamination> = Vec::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::DesignationDecided(s) = entry {
+            let d = &s.payload;
+            let Some(due) = d.reexamine_after else { continue };
+            if d.designated_at > as_of || due > as_of || reversed.contains(&cid.to_string()) {
+                continue;
+            }
+            overdue.push(OverdueReexamination {
+                designation_cid: cid.clone(),
+                subject: d.subject_community.as_str().to_string(),
+                tier: format!("{:?}", d.tier),
+                reexamine_after: due,
+                seconds_overdue: as_of.as_second() - due.as_second(),
+            });
+        }
+    }
+    overdue.sort_by(|a, b| {
+        b.seconds_overdue
+            .cmp(&a.seconds_overdue)
+            .then_with(|| a.subject.cmp(&b.subject))
+    });
+    overdue
+}
+
+/// One community's re-affirmation overdue against the cadence, with the numbers
+/// the reading was made from so the corps can check it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverdueReaffirmation {
+    pub community_did: String,
+    /// The last sealed rite, so the finding is traceable to a signed record.
+    pub last_rite_cid: Cid,
+    pub seconds_since_last: i64,
+    /// The cadence it was judged against — reported rather than assumed, because
+    /// the calibration is an open question (see [`ErosionThresholds`]).
+    pub cadence_seconds: i64,
+}
+
+/// The cut-points the erosion alert judges *absolute* measures against — the ones
+/// whose reference is a fixed cadence rather than the polity's own recent
+/// behaviour.
+///
+/// This exists because uniform drift is invisible to every relative measure. A
+/// decline that moves a whole population equally leaves every ratio unchanged, so
+/// only a reference the population does not supply can see it (see
+/// `doc/architecture/erosion-legibility.md`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErosionThresholds {
+    /// How long after its last sealed rite a community's re-affirmation counts as
+    /// overdue.
+    ///
+    /// The corpus default is generational, 25–30 years, and
+    /// `protocol-components.md` records both that the calibration lacks empirical
+    /// support and that the eventual shape is a compact-formation parameter with
+    /// per-community override rather than a constant. This field is the
+    /// compact-wide default until that parameter exists; the *upper* end of the
+    /// band is used so an unsettled calibration cannot manufacture false Notices.
+    pub rite_cadence_seconds: i64,
+}
+
+impl Default for ErosionThresholds {
+    fn default() -> Self {
+        ErosionThresholds {
+            rite_cadence_seconds: 30 * 365 * 86_400,
+        }
+    }
+}
+
+/// Compute the erosion alert as of `as_of` (defaults to now), with the default
+/// [`ErosionThresholds`]. See [`erosion_alert_with`] for the parameterized form.
+pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> ErosionAlert {
+    erosion_alert_with(archive, as_of, &ErosionThresholds::default())
 }
 
 /// Compute the erosion alert as of `as_of` (defaults to now). Escalation rule:
 /// count the distinct eroded dimensions (list contraction, fast contraction,
-/// deliberative acts during a fast); zero → `None`, exactly one isolated instance
-/// → `Notice`, and two-or-more dimensions **or** any dimension eroded more than
-/// once → `Alert`.
-pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> ErosionAlert {
-    let r = substrate_deference(archive, as_of);
+/// deliberative acts during a fast, overdue re-affirmation, hollowing ceremony);
+/// zero → `None`, exactly one isolated instance → `Notice`, and two-or-more
+/// dimensions **or** any dimension eroded more than once → `Alert`.
+///
+/// The first three dimensions fire on an act; the last two fire on omission and a
+/// pinned baseline respectively. That asymmetry is the point — an alert built only
+/// from act-triggered signals reads a polity that has stopped functioning as a
+/// polity in perfect health.
+///
+/// Diagnostic only, unchanged: nothing is signed, no record is emitted, and an
+/// overdue re-affirmation is *reported*, never *enforced*. Whether the cadence
+/// acquires teeth of its own (expiry, escalation) is an open question in
+/// `protocol-components.md` and is deliberately not settled here.
+pub fn erosion_alert_with(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    thresholds: &ErosionThresholds,
+) -> ErosionAlert {
+    // Resolved once and shared by every sub-lens: with `as_of: None` each would
+    // otherwise call `time::now` separately and grade against a different instant.
+    let as_of_ts = as_of.unwrap_or_else(time::now);
+    let r = substrate_deference(archive, Some(as_of_ts));
 
     let list_contraction = r.incapable_removed > 0;
     let fast_contraction = r.fast_contractions > 0;
     let deviations = r.fast_deviations.len();
+
+    // The two absolute signals, read off every community's rite series in one pass.
+    let mut overdue_reaffirmations: Vec<OverdueReaffirmation> = Vec::new();
+    let mut hollowing_communities: Vec<String> = Vec::new();
+    for (did, decay) in ceremony_cost_decay_all(archive, Some(as_of_ts)) {
+        if let (Some(since), Some(last)) = (decay.seconds_since_last, decay.rites.last()) {
+            if since > thresholds.rite_cadence_seconds {
+                overdue_reaffirmations.push(OverdueReaffirmation {
+                    community_did: did.clone(),
+                    last_rite_cid: last.record_cid.clone(),
+                    seconds_since_last: since,
+                    cadence_seconds: thresholds.rite_cadence_seconds,
+                });
+            }
+        }
+        if decay.witness_count_declined() {
+            hollowing_communities.push(did);
+        }
+    }
+    // Worst first: the longest-overdue community is the one the corps should read
+    // about at the top of the alert.
+    overdue_reaffirmations.sort_by(|a, b| {
+        b.seconds_since_last
+            .cmp(&a.seconds_since_last)
+            .then_with(|| a.community_did.cmp(&b.community_did))
+    });
 
     let mut reasons = Vec::new();
     let mut dimensions = 0usize;
@@ -1804,6 +2071,44 @@ pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> Ero
             compounding = true;
         }
     }
+    if !overdue_reaffirmations.is_empty() {
+        dimensions += 1;
+        reasons.push(format!(
+            "{} community/communities overdue for re-affirmation past the {}-day cadence",
+            overdue_reaffirmations.len(),
+            thresholds.rite_cadence_seconds / 86_400
+        ));
+        // More than one community late, or one late by more than a second full
+        // cadence, is no longer an isolated lapse.
+        if overdue_reaffirmations.len() > 1
+            || overdue_reaffirmations
+                .iter()
+                .any(|o| o.seconds_since_last > 2 * thresholds.rite_cadence_seconds)
+        {
+            compounding = true;
+        }
+    }
+    if !hollowing_communities.is_empty() {
+        dimensions += 1;
+        reasons.push(format!(
+            "{} community/communities drawing fewer witnesses than at founding",
+            hollowing_communities.len()
+        ));
+        if hollowing_communities.len() > 1 {
+            compounding = true;
+        }
+    }
+    let overdue_reexaminations = overdue_reexaminations(archive, Some(as_of_ts));
+    if !overdue_reexaminations.is_empty() {
+        dimensions += 1;
+        reasons.push(format!(
+            "{} designation(s) past a mandated re-examination and still standing",
+            overdue_reexaminations.len()
+        ));
+        if overdue_reexaminations.len() > 1 {
+            compounding = true;
+        }
+    }
 
     let severity = match dimensions {
         0 => ErosionSeverity::None,
@@ -1817,5 +2122,8 @@ pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> Ero
         list_contraction,
         fast_contraction,
         active_fast_deviations: deviations,
+        overdue_reaffirmations,
+        hollowing_communities,
+        overdue_reexaminations,
     }
 }

@@ -27,6 +27,8 @@
 //! *it* onto a shared generic core like this one is the extraction deferred in
 //! D1. `en-archive` gets there directly because it is new code.
 
+mod dump;
 mod store;
 
-pub use store::{Archive, Entry};
+pub use dump::DUMP_VERSION;
+pub use store::{Archive, Cursor, Entry};

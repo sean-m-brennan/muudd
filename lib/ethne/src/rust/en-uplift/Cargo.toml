@@ -14,3 +14,5 @@ kc-core = { workspace = true }
 # The ONE crate in the ethne workspace permitted a KC-record dependency. Confining
 # it here keeps every other en-* crate kc-core-only (KC ⟂ ethne below this line).
 kc-conduct = { workspace = true }
+# Likewise for KC's envoy delegation (D14). Both KC-record deps stop here.
+kc-identity = { workspace = true }

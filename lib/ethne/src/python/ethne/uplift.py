@@ -59,6 +59,24 @@ def community_identity(
     )
 
 
+def envoy_delegation(
+    archive,
+    polity_did: str,
+    envoy_did: str,
+    root_priv: bytes,
+    root_pub: bytes,
+    issued_at: Optional[int] = None,
+    as_of: Optional[int] = None,
+) -> str:
+    """KC's envoy `SpeakerDelegation` (JSON) for an envoy the polity has authorized
+    — the one border artifact an *office* produces. The standing is read from the
+    log as of `as_of`, so an envoy who resigned, was revoked, left the roll, or
+    whose authorization expired is an error, not a delegation."""
+    return archive.envoy_delegation(
+        polity_did, envoy_did, root_priv, root_pub, issued_at, as_of
+    )
+
+
 def coherence_concern(
     report,
     subject_did: str,
@@ -120,6 +138,11 @@ def identity_dict(identity_json: str) -> dict:
     return json.loads(identity_json)
 
 
+def delegation_dict(delegation_json: str) -> dict:
+    """`envoy_delegation`'s output parsed for inspection."""
+    return json.loads(delegation_json)
+
+
 def concern_dict(concern_json: Optional[str]) -> Optional[dict]:
     """`coherence_concern`'s output parsed, passing `None` through."""
     return None if concern_json is None else json.loads(concern_json)
@@ -131,6 +154,8 @@ __all__ = [
     "coherence_concern",
     "community_identity",
     "concern_dict",
+    "delegation_dict",
+    "envoy_delegation",
     "fission",
     "fusion",
     "identity_dict",

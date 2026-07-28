@@ -25,18 +25,20 @@ pub mod lookup;
 pub mod view;
 
 pub use analytics::{
-    adversarial_principal, ceremony_cost_decay, collusive_cohorts, compact_incapable,
-    composition_graph, constitution_state, erosion_alert, feature_concern_profile,
-    free_rider_signals, in_structured_fast, interpretive_plurality, observer_dashboard,
-    observer_pool_concentration, principal_witness_chain, rejection_pattern, sponsor_stake,
-    structured_skepticism, substrate_deference, CeremonyCostDecay, CohortCollusionReport,
-    CohortDivergence, CompositionGraph, ConstitutionState, CrossWitness, ErosionAlert,
-    ErosionSeverity, EventProvenance, FastDeviation,
+    adversarial_principal, ceremony_cost_decay, ceremony_cost_decay_all, collusive_cohorts,
+    compact_incapable, composition_graph, constitution_state, erosion_alert, erosion_alert_with,
+    feature_concern_profile, free_rider_signals, in_structured_fast, interpretive_plurality,
+    observer_dashboard, observer_pool_concentration, overdue_reexaminations,
+    principal_witness_chain, rejection_pattern,
+    sponsor_stake, structured_skepticism, substrate_deference, CeremonyCostDecay,
+    CohortCollusionReport, CohortDivergence, CompositionGraph, ConstitutionState, CrossWitness,
+    ErosionAlert, ErosionSeverity, ErosionThresholds, EventProvenance, FastDeviation,
     FeatureConcernProfile, FreeRiderReport, InterpretivePluralityReport, LineagePoint,
     ObserverDashboard, ObserverPoolConcentration, ObserverPoolShare, OutputDivergence,
-    PrincipalValidationReport, RejectionEvent, RejectionPattern, RitePoint, ServingObserver,
-    SkepticismReport, SponseeOutcome, SponsorEdge, SponsorStakeReport, SubstrateDeferenceReport,
-    UsageTally, WitnessChainReport, WitnessLink,
+    OverdueReaffirmation, OverdueReexamination, PrincipalValidationReport, RejectionEvent,
+    RejectionPattern, RitePoint,
+    ServingObserver, SkepticismReport, SponseeOutcome, SponsorEdge, SponsorStakeReport,
+    SubstrateDeferenceReport, UsageTally, WitnessChainReport, WitnessLink,
 };
 pub use lookup::{commons_level, has_capability, lookup};
 pub use view::{

@@ -19,7 +19,7 @@
 //! Rust values, so the adapter's fold logic is pure and testable without a live
 //! daemon.
 
-use en_core::{Alg, DidKey, KcResult, PubKey};
+use en_core::{Alg, DidKey, KcResult, PubKey, Timestamp};
 
 /// A decoded AT peer as observed within the gateway-reputation subtree (the
 /// boundary decision **D7** draws for the polity). Identity is the peer's
@@ -29,9 +29,23 @@ use en_core::{Alg, DidKey, KcResult, PubKey};
 pub struct AtPeer {
     /// 32-byte ed25519 signing public key (AT `public_identity_t.signature`).
     pub signing_pubkey: Vec<u8>,
-    /// Earned reputation, normalized to `[0.0, 1.0]` by the source (AT's
-    /// Paxos-committed per-peer reputation, rescaled).
-    pub reputation: f64,
+    /// Earned reputation on AT's own absolute `[0.0, 1.0]` scale, or `None` when AT
+    /// has nothing to rate this peer on (design **D18**).
+    ///
+    /// AT's scale needs no rescaling: it is anchored by fixed constants
+    /// (`PREREP_NEUTRAL` 0.2, `COMM_CUTOFF` 0.1, tier floors at .50/.65/.80/.90) and
+    /// is not normalized within the peer population, so the number crosses the seam
+    /// as-is.
+    ///
+    /// **`None` is not yet reachable from a live node, and that is an AT-side gap
+    /// rather than a decoder one.** AT returns `PREREP_NEUTRAL` both for a peer it
+    /// has no history for and as a score a peer can genuinely earn, so it collapses
+    /// "unrated" into a number at its own API boundary; "exactly 0.2" is not a safe
+    /// inference. Exposing the distinction (a "has bilateral history" signal
+    /// alongside the score) is a named AT-side prerequisite, sequenced the way Q9
+    /// sequenced the operator signal: build the AT half first. Until then the
+    /// at-ffi decoder reports `Some(score)` for every peer.
+    pub reputation: Option<f64>,
     /// AT topology rank (one-hop reachability via gateways); informational for
     /// v1, carried so a later cohesion slice can read it.
     pub rank: i32,
@@ -44,6 +58,19 @@ pub struct AtPeer {
     /// Becomes the member's guardian `did:key` — the human-above-machine anchor
     /// the substrate's guardian ground requires.
     pub guardian_pubkey: Option<Vec<u8>>,
+    /// When a human guardian was last verified *present* at this node's console —
+    /// AT's live **attended-now** signal, the counterpart to the durable
+    /// `operator_bound` (AT `public_identity_t.operator_attested_at`). `None` for
+    /// "not attended", which is what AT reports both when nobody is there and
+    /// when it could not confirm; the decoder maps AT's `0.0` stamp to `None`.
+    ///
+    /// The two signals answer different questions and must not be read for one
+    /// another: a node can be `operator_bound` with nobody at the keyboard for a
+    /// week, and that is a normal state, not an error. This stamp is only
+    /// meaningful against a clock — it says nothing on its own about whether a
+    /// human is there *now*, which is why freshness is graded at query time by
+    /// the cohesion monitor rather than reduced to a bool here.
+    pub operator_attested_at: Option<Timestamp>,
 }
 
 /// The `did:key` for an ed25519 signing public key — the one mapping between an
@@ -75,6 +102,18 @@ impl AtPeer {
             // A guardian key without the verified bound is ignored — the signal
             // is only trustworthy when AT set operator_bound.
             _ => Ok(None),
+        }
+    }
+
+    /// When this node's guardian was last verified present, or `None` for not
+    /// attended. Gated on `operator_bound` for the same reason
+    /// [`guardian_did`](Self::guardian_did) is: an attendance stamp on a node
+    /// whose operator credential never verified attests to nothing.
+    pub fn attended_at(&self) -> Option<Timestamp> {
+        if self.operator_bound {
+            self.operator_attested_at
+        } else {
+            None
         }
     }
 }

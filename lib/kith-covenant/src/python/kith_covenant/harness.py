@@ -31,6 +31,13 @@ structured-skepticism, adversarial-principal). The ``_UNSUPPORTED`` list is kept
 (empty) so the structure still distinguishes supported from unsupported should a
 future scenario outrun its detector.
 
+Scenario 8 is **not** a capture move. Every one of the seven has an adversary who
+wants something and acts, which is why each leaves a trace to detect. Scenario 8
+has no adversary at all: the polity is sincere throughout and simply stops. It is
+here because the seven cannot express it, and because an alert assembled only from
+act-triggered signals reads a polity that has ceased to function as one in perfect
+health (see ``doc/architecture/erosion-legibility.md``).
+
 Detection latency and damage bounds are the primary metrics, per §10.
 """
 from __future__ import annotations
@@ -48,6 +55,7 @@ from kith_covenant.authoring import (
 from kith_covenant.reputation import (
     substrate_deference, ceremony_cost_decay, composition_graph,
     interpretive_plurality, structured_skepticism, adversarial_principal,
+    erosion_alert,
 )
 
 # --- Falsification criteria, stated in advance (§10) ------------------------
@@ -81,6 +89,12 @@ MAX_DAMAGE_MANUFACTURED_EVENT = 0
 # Principal capture (move 6): a self-benefiting divergence from the cohort must
 # be flagged the step it lands, so at most one divergent output before detection.
 MAX_DAMAGE_PRINCIPAL = 1
+# The quiet polity (scenario 8): a compact that stops re-affirming must be graded
+# at least this severe, within one cadence of the cadence elapsing. Stated in
+# advance and deliberately weak — Notice, not Alert — because ceasing to act is
+# not by itself proof of corruption, only of something no longer being carried.
+MIN_SEVERITY_QUIET = "Notice"
+MAX_DAMAGE_QUIET = 1
 
 _YEAR = 365 * 24 * 3600
 
@@ -424,6 +438,69 @@ def _scenario_principal_capture() -> ScenarioResult:
     )
 
 
+def _scenario_quiet_polity() -> ScenarioResult:
+    """Scenario 8 (not a capture move): the polity stops.
+
+    No adversary, no coordination, nobody lying. A community is founded, seals one
+    re-affirmation rite, and then simply never holds another — the substrate stops
+    being carried, and every party is sincere about it. None of the act-triggered
+    signals can fire, because no act occurs: no amendment, no shortened fast, no
+    deliberation during one. The absolute cadence must catch it.
+
+    Stepped in cadence-length intervals. Falsification criterion, stated in
+    advance: the alert must reach ``MIN_SEVERITY_QUIET`` within
+    ``MAX_DAMAGE_QUIET`` cadences of the cadence elapsing.
+    """
+    arch = Archive()
+    t0 = now_seconds()
+    (com,) = _founding(arch, ("Quietist",), t0)
+    run_intra_rite(arch, com, witness_count=5, sealed_at=t0 + 1)
+
+    # A short cadence keeps the scenario legible; the criterion is about the
+    # detector's behaviour relative to the cadence, not about 30 years of wall time.
+    cadence = 4 * _YEAR
+    ranks = {"None": 0, "Notice": 1, "Alert": 2}
+    detected = False
+    latency = None
+    damage = 0
+    severity = "None"
+
+    # Step 0 is inside the cadence (the negative control: silence must NOT flag).
+    # Each later step is one full cadence of continued silence, landing just past
+    # the boundary rather than exactly on it — the cadence test is `>`, so a step
+    # that lands on the cadence would charge a whole cadence of damage for one
+    # second of it.
+    for step in range(0, 4):
+        as_of = t0 + 1 + step * (cadence + 1)
+        al = erosion_alert(arch, as_of=as_of, rite_cadence_seconds=cadence)
+        severity = al.severity
+        # Nothing was rolled back and nothing was done during a fast; if any
+        # act-triggered signal fired, the scenario is not measuring what it claims.
+        assert not al.list_contraction and not al.fast_contraction
+        assert al.active_fast_deviations == 0
+        if step == 0:
+            assert severity == "None", "silence inside the cadence must not flag"
+            continue
+        if ranks[severity] >= ranks[MIN_SEVERITY_QUIET]:
+            detected = True
+            latency = step - 1  # cadences of silence past the first, before flagging
+            break
+        # A whole cadence of unnoticed silence is the damage unit here.
+        damage += 1
+
+    passed = detected and damage <= MAX_DAMAGE_QUIET
+    return ScenarioResult(
+        move=8, key="quiet-polity", name="the quiet polity (omission, no adversary)",
+        supported=True, detected=detected, detection_latency=latency, damage=damage,
+        threshold_latency=MAX_DETECTION_LATENCY_STEPS, threshold_damage=MAX_DAMAGE_QUIET,
+        passed=passed,
+        notes=(
+            f"erosion_alert reached {severity} on an absolute re-affirmation cadence; "
+            "no act-triggered signal fired"
+        ),
+    )
+
+
 # --- Unsupported scenarios (detector deferred past this MVP) -----------------
 #
 # All seven capture-resistance scenarios now have a built detector; none remain
@@ -445,9 +522,10 @@ def _unsupported_results() -> list[ScenarioResult]:
 
 
 def run_harness() -> HarnessReport:
-    """Run the seven capture-resistance scenarios and score the supported ones
-    against the falsification criteria. Returns a `HarnessReport`. The supported
-    scenarios each build a fresh, time-evolving archive through the public API."""
+    """Run the seven capture-resistance scenarios plus the quiet-polity scenario,
+    and score the supported ones against the falsification criteria. Returns a
+    `HarnessReport`. Each scenario builds a fresh, time-evolving archive through
+    the public API."""
     supported = [
         _scenario_interpretation_monopoly(),
         _scenario_incapable_erosion(),
@@ -456,6 +534,7 @@ def run_harness() -> HarnessReport:
         _scenario_forged_quorum(),
         _scenario_principal_capture(),
         _scenario_admissions_capture(),
+        _scenario_quiet_polity(),
     ]
     results = sorted(supported + _unsupported_results(), key=lambda r: r.move)
     n_supported = sum(1 for r in results if r.supported)

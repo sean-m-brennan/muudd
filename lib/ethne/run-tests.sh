@@ -55,6 +55,12 @@ require pytest
 echo "=== cargo test --workspace --exclude en-pyo3 ==="
 cargo test --workspace --exclude en-pyo3 "$@"
 
+# The SQLite backend is off by default (it is the tree's only C dependency), so its
+# tests — including the differential check against FileStore — need their own run.
+echo
+echo "=== cargo test -p en-store --features sqlite ==="
+cargo test -p en-store --features sqlite "$@"
+
 echo
 echo "=== ethne._core (PyO3 build via maturin) ==="
 maturin develop --quiet
@@ -66,6 +72,14 @@ pytest src/python/tests/
 echo
 echo "=== python src/python/examples/polity_demo.py ==="
 python src/python/examples/polity_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+# The reference host, over a simulated timeline so it terminates. Its final check is
+# the one D20 exists for: reload from storage alone and demand it match the live log
+# CID for CID, prunings and all.
+echo
+echo "=== cargo run -p polity_host ==="
+cargo run --quiet -p polity_host >/dev/null
 echo "  ✓ exit 0"
 
 echo

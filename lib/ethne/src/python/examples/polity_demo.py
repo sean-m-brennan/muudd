@@ -23,17 +23,36 @@ coherence monitor grading the drift, and finally the handoff to kith-covenant.
 """
 from __future__ import annotations
 
+import json
+import os
+
 import ethne as e
 from ethne.authoring import (
     Signer,
+    prune_observations,
     admit_member,
+    record_observation,
+    authorize_envoy,
     confer_office,
     induct_member,
     ratify_charter,
     reaffirm_member,
+    rotate_guardian,
 )
-from ethne.monitor import cohesion_report, founding_candidate, manual_founding
-from ethne.uplift import coherence_concern, community_identity, concern_dict, identity_dict
+from ethne.monitor import (
+    cohesion_report,
+    founding_candidate,
+    manual_founding,
+    select_from_candidate,
+)
+from ethne.uplift import (
+    coherence_concern,
+    community_identity,
+    concern_dict,
+    delegation_dict,
+    envoy_delegation,
+    identity_dict,
+)
 
 DAY = 86_400
 
@@ -69,6 +88,12 @@ def main() -> None:
     ratify_charter(archive, proposal, founders[:2], founded_at=t0 + DAY)
     print(f"chartered {short(polity_did)} — ratified by {e.majority(3)} of 3")
 
+    # The roll — never an office — confers the offices. Conferring an Inductor is
+    # not decoration: from here the induction rite needs them among its witnesses,
+    # or a higher bar from the roll itself (D14).
+    confer_office(archive, polity_did, "Inductor", founders[1], founders[:2],
+                  decided_at=t0 + 95 * DAY)
+
     # A newcomer joins the roll, and is then inducted into the substrate: two
     # distinct acts. Between them they are a member who has not received anything.
     joiner = Signer.generate()
@@ -78,14 +103,26 @@ def main() -> None:
 
     induct_member(archive, polity_did, joiner, founders, affirmed_at=t0 + 102 * DAY)
     af = archive.affirmation_state(polity_did, as_of=t0 + 103 * DAY)
-    print(f"inducted, witnessed by {len(founders)} of the roll of 4 — "
+    offices = archive.office_state(polity_did, as_of=t0 + 103 * DAY)
+    print(f"inducted, witnessed by {len(founders)} of the roll of 4 "
+          f"(the Inductor {short(offices.holders('Inductor')[0])} among them) — "
           f"inducted? {af.is_inducted(joiner.did)}")
 
-    # The roll — never an office — confers the first offices.
     confer_office(archive, polity_did, "Convener", founders[0], founders[:3],
                   decided_at=t0 + 110 * DAY)
-    offices = archive.office_state(polity_did, as_of=t0 + 111 * DAY)
-    print(f"offices: {offices.holdings}")
+    confer_office(archive, polity_did, "EnvoyAuthorizer", founders[0], founders[:3],
+                  decided_at=t0 + 111 * DAY)
+    offices = archive.office_state(polity_did, as_of=t0 + 112 * DAY)
+    print(f"offices: {[(o, short(h)) for o, h in offices.holdings]}")
+
+    # The other kind of teeth: the EnvoyAuthorizer names the polity's voice on its
+    # own signature, where the roll would otherwise need a majority. The envoy
+    # co-signs — speaking for a community is a duty, so it is never conscripted.
+    authorize_envoy(archive, polity_did, joiner, [founders[0]],
+                    decided_at=t0 + 115 * DAY)
+    envoys = archive.envoy_state(polity_did, as_of=t0 + 116 * DAY)
+    print(f"envoy authorized by 1 officer where the roll would need "
+          f"{e.majority(4)}: {[short(d) for d in envoys.envoys()]}")
 
     # Two members renew; the rest have not affirmed since the founding.
     now = t0 + 380 * DAY
@@ -100,22 +137,47 @@ def main() -> None:
     state = archive.charter_state(polity_did, as_of=now)
     print(f"roll of {len(state.members)}, commitments in force: "
           f"{[k for k, _ in state.commitments]}")
-    stale = archive.affirmation_state(polity_did, as_of=now).stale_members(
-        cadence_seconds=180 * DAY, as_of=now
-    )
+    affirmations = archive.affirmation_state(polity_did, as_of=now)
+    stale = affirmations.stale_members(cadence_seconds=180 * DAY, as_of=now)
     print(f"{len(stale)} member(s) overdue on a 180-day re-affirmation cadence")
 
     # Time passes and the substrate shows only two of the four still cooperating.
-    thinned = founding_candidate([(founders[0].did, 0.8, None), (joiner.did, 0.7, None)])
-    report = cohesion_report(state.members, thinned)
+    # The monitor reads both sides: what the provider observes, and — via the same
+    # affirmation state printed above — whether the substrate is still being carried.
+    thinned = founding_candidate([(founders[0].did, 0.8, None, None, False), (joiner.did, 0.7, None, None, False)])
+    report = cohesion_report(state.members, thinned, affirmations=affirmations, as_of=now)
     print(f"cohesion: {report.observed}/{report.chartered} observed, "
-          f"attrition {report.attrition:.0%}, erosion {report.erosion}")
+          f"{report.rated_members} rated, "
+          f"attrition {report.attrition:.0%}, "
+          f"{report.stale_affirmations}/{report.affirming_members} lapsed on affirmation, "
+          f"erosion {report.erosion}")
+
+    # D18: unrated is not failing. The SAME roll, once with no reputation reading at
+    # all and once rated genuinely low, used to be indistinguishable — both landed
+    # below the 0.3 failure floor and graded Concern, so a freshly founded polity
+    # crossed to KC for being new.
+    unrated = founding_candidate([(d, None, None, None, False) for d in state.members])
+    low = founding_candidate([(d, 0.2, None, None, False) for d in state.members])
+    u = cohesion_report(state.members, unrated, as_of=now)
+    l = cohesion_report(state.members, low, as_of=now)
+    print(f"unrated roll: {u.rated_members} rated of {u.observed} observed, "
+          f"{u.reputation_floor_breaches} breach(es) — erosion {u.erosion} "
+          "(capped: a young cohort and a provider that stopped rating look alike)")
+    print(f"the same roll rated 0.2: {l.reputation_floor_breaches} breach(es) — "
+          f"erosion {l.erosion} (unknown and failing now diverge)")
 
     # The handoff, and — only at Concern — the one signal that crosses to KC.
     identity = community_identity(
         archive, polity_did, "Ourania", polity_priv, polity_pub, created_at=now
     )
     print(f"handoff: CommunityIdentity for {identity_dict(identity)['payload']['name']}")
+
+    # The fourth border artifact, and the only one an office produces.
+    delegation = delegation_dict(envoy_delegation(
+        archive, polity_did, joiner.did, polity_priv, polity_pub, issued_at=now, as_of=now
+    ))
+    print(f"envoy delegation: scope {delegation['payload']['scope']} for "
+          f"{short(delegation['payload']['speaker_did'])}")
 
     concern = concern_dict(coherence_concern(report, polity_did, founders[0], at=now))
     if concern is None:
@@ -125,5 +187,446 @@ def main() -> None:
               f"({concern['payload']['reporter_perspective']})")
 
 
+def founding_boundary() -> None:
+    """What a founding says about the cluster it came from (D21).
+
+    A founding may narrow the emergent boundary — a group of five inside a
+    thirty-node cluster may have every right to charter alone. What it may not do is
+    narrow it *silently*. The charter carries the boundary it claims to ratify, and
+    since the charter's core has no amendment path, it carries it forever.
+    """
+    print("\n--- the founding boundary: who consented (D21) --------------------")
+
+    def cluster(n=30):
+        nodes = [Signer.generate() for _ in range(n)]
+        _priv, _pub, did = e.generate_keypair()
+        cand = founding_candidate(
+            [(s.did, 0.9, None, None, False) for s in nodes],
+            substrate_name="tradition",
+            substrate_statement="answers to what it did not author",
+        )
+        return nodes, did, cand
+
+    t0 = e.now_seconds() - 10 * DAY
+    print("the substrate shows a cluster of 30.\n")
+    print(f"{'faction':>8} {'signed':>7} {'saw':>5} {'named':>6} {'consent':>8}  basis")
+
+    for n in (30, 5, 3, 1):
+        nodes, did, cand = cluster()
+        faction = nodes[:n]
+        # `select_from_candidate`: the DELIBERATE narrowing. Every member the
+        # candidate showed and the roll does not name is recorded, with a reason.
+        proposal = select_from_candidate(
+            cand, did, [s.did for s in faction],
+            "not of this founding", proposed_at=t0,
+        )
+        arch = e.Archive()
+        sigs = e.majority(n)
+        ratify_charter(arch, proposal, faction[:sigs], founded_at=t0 + DAY)
+        arch.verify_all()
+        arch.check_authority()
+        leg = arch.founding_legitimacy(did)
+        print(f"{n:>8} {leg.ratifiers:>7} {leg.candidate_size:>5} "
+              f"{leg.excluded:>6} {leg.consent_share:>8.3f}  {leg.basis}")
+
+    print("\nbefore D21 every row above read `chartered` and nothing more: the roll\n"
+          "was its own denominator, so one node chartering thirty passed the majority\n"
+          "bar at a single signature, and the other 29 were not merely outvoted —\n"
+          "they were unrecorded.")
+
+    # The accounting is GATED; the judgement is only GRADED. A proposal that claims
+    # a boundary it does not account for is refused outright.
+    nodes, did, _cand = cluster()
+    bad = json.loads(e.propose_charter(
+        did, "tradition", "answers to what it did not author",
+        [nodes[0].did], proposed_at=t0,
+    ))
+    bad["attestation"]["candidate_size"] = 30   # claims 30, accounts for 1
+    arch = e.Archive()
+    ratify_charter(arch, json.dumps(bad), nodes[:1], founded_at=t0 + DAY)
+    try:
+        arch.check_authority()
+        print("\nUNREACHED")
+    except Exception as ex:
+        print(f"\na charter claiming 30 and accounting for 1 is refused:\n  {ex}")
+
+    # And the convener's own word keeps working — labelled as exactly that, forever.
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    manual = manual_founding([s.did for s in founders], "tradition",
+                             "answers to what it did not author")
+    arch = e.Archive()
+    ratify_charter(arch, e.propose_from_candidate(manual, did, proposed_at=t0),
+                   founders[:2], founded_at=t0 + DAY)
+    leg = arch.founding_legitimacy(did)
+    print(f"a convener-asserted founding: basis {leg.basis} (source {leg.source}) — "
+          f"chartered,\n  and honest about the fact that nobody else attests this "
+          "boundary. The same\n  honest chartered state as an unguarded machine's "
+          "`guardian: None` (D15).")
+
+
+def machine_polity() -> None:
+    """A machine-majority polity: the guardian edge is chartered, not merely
+    observed, and from that one fact both D15 rules follow."""
+    print("\n--- a machine-majority polity ------------------------------------")
+    nodes = [Signer.generate() for _ in range(3)]
+    humans = [Signer.generate() for _ in range(2)]
+    polity_priv, polity_pub, polity_did = e.generate_keypair()
+    t0 = e.now_seconds() - 10 * DAY
+
+    # Emergence proposes the guardian edges along with the boundary: all three are
+    # machines (derived), two have a human behind them, the third has nobody. Since
+    # D18 the candidate can SAY that third thing — `derived` is carried separately
+    # from the guardian edge, so an unguarded machine is ratified as what it is.
+    candidate = founding_candidate([
+        (nodes[0].did, 0.9, humans[0].did, t0, True),
+        (nodes[1].did, 0.9, humans[1].did, t0, True),
+        (nodes[2].did, 0.9, None, None, True),
+    ])
+    proposal = e.propose_from_candidate(
+        candidate,
+        polity_did,
+        substrate_name="the guardians' ground",
+        substrate_statement="answers to the humans whose standing its machines carry",
+        commitments=[("answer-for-our-machines", "each node has a human")],
+        proposed_at=t0,
+    )
+    # Every named guardian co-signs the founding: answerability is accepted, never
+    # assigned.
+    ratify_charter(archive := e.Archive(), proposal, nodes[:2], founded_at=t0 + DAY,
+                   guardians=humans)
+    edges = archive.guardian_state(polity_did, as_of=t0 + 2 * DAY)
+    print(f"chartered {len(edges.derivations)} derived members, "
+          f"{len(edges.guarded_members())} with a human, "
+          f"{len(edges.unguarded_members())} answering to nobody — machine-majority? "
+          f"{edges.is_machine_majority(3)}")
+    print("  (all three straight from the provider's reading: before D18 the third "
+          "node\n   proposed silently as a HUMAN, and reaching its true state needed "
+          "a\n   deliberate designate_derived after founding)")
+
+    # It may hold no office here. The refusal is about the missing human, not about the machine —
+    # tried in a throwaway copy of the log, since a refused entry stays in it.
+    refused = e.Archive.load_json(archive.dump_json())
+    confer_office(refused, polity_did, "Convener", nodes[2], nodes[:2], decided_at=t0 + 4 * DAY)
+    print("conferral on the unguarded machine: "
+          f"{[m for _cid, m in refused.authority_violations()][0][:72]}…")
+
+    # Give that node a human, and the identical conferral goes through.
+    rotate_guardian(archive, polity_did, nodes[2].did, humans[0], nodes[:2],
+                    decided_at=t0 + 5 * DAY)
+    confer_office(archive, polity_did, "Convener", nodes[2], nodes[:2], decided_at=t0 + 6 * DAY)
+    archive.verify_all()
+    archive.check_authority()
+    print("the same conferral, once a human answers for it: authorized")
+
+    # An edge the charter records but the substrate no longer shows is erosion —
+    # graded against what the polity ratified, not against a snapshot alone.
+    later = t0 + 20 * DAY
+    thinned = founding_candidate([
+        (nodes[0].did, 0.9, humans[0].did, later, True),
+        (nodes[1].did, 0.9, None, None, True),    # its human is simply gone
+        (nodes[2].did, 0.9, None, None, True),
+    ])
+    roll = archive.charter_state(polity_did, as_of=later).members
+    edges = archive.guardian_state(polity_did, as_of=later)
+    report = cohesion_report(roll, thinned, guardians=edges, as_of=later)
+    print(f"guardian edges: {report.guardian_edges_lost} of "
+          f"{report.chartered_guardian_members} chartered edges lost — "
+          f"erosion {report.erosion}")
+    concern = concern_dict(coherence_concern(report, polity_did, nodes[0], at=later))
+    print("Concern crossed to KC" if concern else "no Concern crossed the boundary")
+
+
+def watched_absence() -> None:
+    """The one absence signal that escalates. A snapshot cannot tell a night shift
+    from an abandoned polity — so the attendance component is capped at Notice by
+    construction. What lifts the cap is not a looser threshold but *evidence*: a log
+    of what the polity's monitors actually saw, over time."""
+    print("\n--- a watched absence -------------------------------------------")
+    nodes = [Signer.generate() for _ in range(2)]
+    human = Signer.generate()
+    monitor = Signer.generate()          # a monitor need not be a member
+    polity_priv, polity_pub, polity_did = e.generate_keypair()
+    t0 = e.now_seconds() - 10 * DAY
+
+    proposal = e.propose_charter(
+        polity_did, "the guardians' ground", "answers to the humans behind it",
+        member_dids=[n.did for n in nodes], proposed_at=t0,
+    )
+    archive = e.Archive()
+    ratify_charter(archive, proposal, nodes, founded_at=t0 + DAY)
+    watched = nodes[0].did
+
+    # One snapshot: the guardian is not present *now*. That is all a snapshot knows.
+    roll = archive.charter_state(polity_did, as_of=t0 + 2 * DAY).members
+    seen_now = founding_candidate([(n.did, 0.9, human.did, None, True) for n in nodes])
+    snapshot = cohesion_report(roll, seen_now, as_of=t0 + 2 * DAY)
+    print(f"snapshot alone: {snapshot.unattended} of {snapshot.guardian_members} "
+          f"unattended — erosion {snapshot.erosion} (capped: a night shift and an "
+          f"abandoned polity look alike)")
+
+    # Three recorded observations across a day, the human present only in the first.
+    base = t0 + 2 * DAY
+    record_observation(archive, polity_did, monitor,
+                       [(watched, 0.9, human.did, base)], observed_at=base)
+    for offset in (DAY // 2, DAY):
+        record_observation(archive, polity_did, monitor,
+                           [(watched, 0.9, human.did, None)], observed_at=base + offset)
+    archive.verify_all()
+    archive.check_authority()
+
+    later = base + DAY + 60
+    w = archive.observation_window(polity_did, since=base, as_of=later)
+    print(f"observed {w.reading_count()} times over {w.span_seconds() // 3600}h; "
+          f"unattended for {w.unattended_span(watched, as_of=later) // 3600}h")
+
+    report = cohesion_report(roll, seen_now, window=w, as_of=later)
+    print(f"with the record: {report.sustained_absences} sustained absence(s) — "
+          f"erosion {report.erosion}")
+    concern = concern_dict(coherence_concern(report, polity_did, nodes[0], at=later))
+    print("Concern crossed to KC" if concern else "no Concern crossed the boundary")
+    _ = polity_priv, polity_pub
+    return archive, polity_did, nodes, watched, later
+
+
+def pruning(archive, polity_did, nodes, watched, now):
+    """A log that forgets, and says so.
+
+    The observation record is the only one a polity may drop — it decides nothing,
+    so losing it cannot rewrite what was resolved. What it *can* do is make an
+    absence unmeasurable, so the dropping is itself a signed act with a receipt, and
+    what survives is clamped so pruning can only ever weaken a reading.
+    """
+    print("\n--- pruning the observation log --------------------------------")
+    keeper = nodes[0]
+    roll = archive.charter_state(polity_did, as_of=now).members
+    quorum = nodes[: e.majority(len(roll))]
+    confer_office(archive, polity_did, "CharterKeeper", keeper, quorum, decided_at=now)
+    print(f"CharterKeeper conferred on {keeper.did[:24]}…")
+
+    # The custodian reaching for recent evidence: refused.
+    speculative = e.Archive.load_json(archive.dump_json())
+    prune_observations(speculative, polity_did, horizon=now - DAY,
+                       deciders=[keeper], pruned_at=now)
+    try:
+        speculative.check_authority()
+        print("  (unexpected: recent evidence was prunable by one officer)")
+    except RuntimeError as err:
+        print(f"  a keeper pruning yesterday: REFUSED — {str(err).split(',')[0]}")
+
+    # A second monitor reports in, carrying a staler reading than the first
+    # observation held. This is the case the clamp exists for.
+    second = Signer.generate()
+    first_seen = now - DAY - 60
+    record_observation(archive, polity_did, second,
+                       [(watched, 0.9, None, first_seen - 3600)], observed_at=now)
+    before = archive.observation_window(polity_did, since=0, as_of=now)
+    span_before = before.unattended_span(watched, as_of=now)
+
+    # The same act by the roll, inside the settling period: allowed. The roll is
+    # sovereign over its own log; the floor binds the officer route, not the polity.
+    horizon = first_seen + 1
+    prune_observations(archive, polity_did, horizon=horizon, deciders=quorum,
+                       rationale="housekeeping", pruned_at=now)
+    archive.check_authority()
+
+    compacted = archive.apply_prunings(polity_did, as_of=now)
+    dropped = len(archive) - len(compacted)
+    kinds = [k for _cid, k in compacted.entries()]
+    print(f"the roll pruned {dropped} observation(s); {len(kinds)} entries remain, "
+          f"every governing one intact ({kinds.count('Observed')} observations left)")
+
+    after = compacted.observation_window(polity_did, since=0, as_of=now)
+    span_after = after.unattended_span(watched, as_of=now)
+    unclamped = now - after.last_attested(watched)
+    print(f"unattended span {span_before // 3600}h → {span_after // 3600}h; "
+          f"unclamped it would read {unclamped // 3600}h")
+    print("  the pruned interval held the fresher stamp, so dropping it would have "
+          "LENGTHENED\n  the absence — pruning manufacturing a Concern. The clamp "
+          "forbids it: a signal\n  may only ever weaken.")
+
+    # Persistence: a host appends what is new instead of rewriting the whole log.
+    cursor = e.Cursor(compacted.generation, len(compacted) - 1)
+    segment = compacted.dump_json_since(cursor)
+    print(f"incremental save: {len(segment)} bytes for the tail vs "
+          f"{len(compacted.dump_json())} for the whole log")
+
+
+def storage():
+    """A log that survives a restart — including the prunings.
+
+    The incremental save above is what a growing log needs, and it is also where a
+    host can quietly destroy its own evidence. A cursor means nothing across a
+    compaction: entries go from the *middle*, so the same index is a different entry,
+    and an index past the new end used to read as "already current" — so the save
+    wrote nothing, the pruning record never reached storage, and the observations it
+    dropped were still sitting in the earlier segments. Reloading brought them back,
+    and every check said the log was fine.
+
+    `FileStore` owns the cursor so that cannot happen.
+    """
+    print("\n--- storage that survives a pruning ------------------------------")
+    import tempfile
+
+    nodes = [Signer.generate() for _ in range(3)]
+    monitor = Signer.generate()
+    polity_priv, polity_pub, polity_did = e.generate_keypair()
+    now = e.now_seconds()
+    t0 = now - 400 * DAY
+
+    proposal = e.propose_charter(
+        polity_did, "the kept record", "answers to what it did not author",
+        member_dids=[n.did for n in nodes], proposed_at=t0,
+    )
+    archive = e.Archive()
+    ratify_charter(archive, proposal, nodes[:2], founded_at=t0 + 60)
+    keeper, watched = nodes[0], nodes[2].did
+    confer_office(archive, polity_did, "CharterKeeper", keeper, nodes[:2], decided_at=t0 + 120)
+
+    path = tempfile.mktemp(suffix=".log", prefix="ethne-demo-")
+    store = e.FileStore(path)
+    out = store.save(archive)
+    print(f"founded and saved: {out.appended} entries, {out.bytes} bytes")
+
+    # A year of observation, persisted incrementally as it arrives.
+    appended = 0
+    for i in range(120):
+        record_observation(archive, polity_did, monitor,
+                           [(watched, 0.9, None, None)], observed_at=t0 + 200 + i * 3 * DAY)
+        appended += store.save(archive).appended
+    for at in (now - 3 * DAY, now - DAY, now - 3600):
+        record_observation(archive, polity_did, monitor,
+                           [(watched, 0.9, None, None)], observed_at=at)
+        appended += store.save(archive).appended
+    print(f"{appended} observations appended one at a time (never rewriting the log)")
+
+    # Now prune, which is where a hand-rolled cursor goes wrong.
+    rec = archive.prune_recommendation(polity_did, as_of=now)
+    prune_observations(archive, polity_did, horizon=rec.horizon, deciders=[keeper],
+                       rationale="retention policy", pruned_at=now)
+    archive = archive.apply_prunings(polity_did, as_of=now)
+    print(f"pruned {rec.dropped}; the log is now generation {archive.generation}")
+
+    out = store.save(archive)
+    print(f"the store noticed and REWROTE: {out.rewrote}, {out.appended} entries, "
+          f"{out.bytes} bytes")
+
+    # Restart.
+    reloaded = e.FileStore(path).load()
+    live_obs = [k for _c, k in archive.entries()].count("Observed")
+    back_obs = [k for _c, k in reloaded.entries()].count("Observed")
+    reloaded.verify_all()
+    reloaded.check_authority()
+    w = reloaded.observation_window(polity_did, since=0, as_of=now)
+    print(f"reloaded: {len(reloaded)} entries, {back_obs} observations "
+          f"(live has {live_obs}), generation {reloaded.generation}")
+    print(f"  the clamp came back with it: pruned_before is set, span "
+          f"{w.unattended_span(watched, as_of=now) // DAY}d")
+    assert reloaded.cids() == archive.cids(), "storage must agree with the live log"
+    print("  storage and the live log agree CID for CID — nothing resurrected")
+
+    # And a stale cursor cannot be used by hand either.
+    try:
+        archive.dump_json_since(e.Cursor(0, 5))
+        print("  (unexpected: a pre-compaction cursor was accepted)")
+    except RuntimeError as err:
+        print(f"  a cursor from before the pruning: REFUSED — "
+              f"{str(err).split('—')[0].split(':')[-1].strip()}")
+    os.remove(path)
+    _ = polity_priv, polity_pub
+
+
+def retention():
+    """When to prune, and who can sign it — without clipping a live signal.
+
+    The act of pruning is D17's; what a host still had to invent for itself was the
+    *horizon*, and getting it wrong is silent. Too aggressive and it clips the
+    evidence a Concern rests on; too timid and the log grows without bound. So the
+    tier offers a read-model — it recommends, and the polity still ratifies.
+
+    A policy, never a schedule: nothing here calls the clock. The loop belongs to the
+    host, exactly as the storage backend does.
+    """
+    print("\n--- what pruning to run, and who may sign it ---------------------")
+    nodes = [Signer.generate() for _ in range(3)]
+    monitor = Signer.generate()
+    polity_priv, polity_pub, polity_did = e.generate_keypair()
+    now = e.now_seconds()
+    t0 = now - 400 * DAY
+
+    proposal = e.propose_charter(
+        polity_did, "the long watch", "answers to what it did not author",
+        member_dids=[n.did for n in nodes], proposed_at=t0,
+    )
+    archive = e.Archive()
+    ratify_charter(archive, proposal, nodes[:2], founded_at=t0 + 60)
+    keeper, watched = nodes[0], nodes[2].did
+    confer_office(archive, polity_did, "CharterKeeper", keeper, nodes[:2],
+                  decided_at=t0 + 120)
+
+    # A year of watching, then a few readings inside the live window.
+    for i in range(120):
+        record_observation(archive, polity_did, monitor,
+                           [(watched, 0.9, None, None)], observed_at=t0 + 200 + i * 3 * DAY)
+    for at in (now - 3 * DAY, now - DAY, now - 3600):
+        record_observation(archive, polity_did, monitor,
+                           [(watched, 0.9, None, None)], observed_at=at)
+    archive.check_authority()
+    print(f"{len(archive)} entries: a year of observation, kept because nothing "
+          f"said to stop")
+
+    # 1. Ask. The defaults are en-charter's own; the host carries no second copy.
+    rec = archive.prune_recommendation(polity_did, as_of=now)
+    print(f"recommendation: drop {rec.dropped} observations before "
+          f"{(now - rec.horizon) // DAY}d ago, keeping "
+          f"{rec.seconds_retained // DAY}d — routes {rec.routes}")
+    print(f"  one CharterKeeper can carry it alone: {rec.keeper_may_authorize} "
+          f"(otherwise {rec.roll_majority_need} of {len(nodes)} must co-sign)")
+
+    # 2. The safe default is also the cheap one — a coincidence worth seeing.
+    shorter = archive.prune_recommendation(polity_did, retain_seconds=30 * DAY - 1,
+                                           as_of=now)
+    print(f"  a second less retention and the office route closes: "
+          f"{shorter.routes} — the settling floor is what the custody rests on")
+
+    # 3. And retention can never be tuned below what the polity's own grading reads.
+    #    Two floors, because a sustained absence is graded on a span AND on a witness
+    #    count: here the three surviving readings are what holds the horizon back,
+    #    past even the 24h the span alone would need.
+    greedy = archive.prune_recommendation(polity_did, retain_seconds=60, as_of=now)
+    span_only = archive.prune_recommendation(polity_did, retain_seconds=60,
+                                             min_witness_readings=0, as_of=now)
+    print(f"  asked to keep 60s, it keeps {greedy.seconds_retained // 3600}h — "
+          f"{span_only.seconds_retained // 3600}h for the span a sustained absence "
+          f"reads back over,")
+    print(f"  and the rest to leave 3 readings standing. Prune to the span alone and "
+          f"the witness\n  count falls below the grade: the Concern becomes a Notice "
+          f"with nothing saying why.")
+
+    # 4. Act on it — the officer route, at exactly the horizon returned.
+    prune_observations(archive, polity_did, horizon=rec.horizon, deciders=[keeper],
+                       rationale="retention policy", pruned_at=now)
+    archive.verify_all()
+    archive.check_authority()
+    compacted = archive.apply_prunings(polity_did, as_of=now)
+    print(f"authorized by one officer and accepted: {len(archive)} → "
+          f"{len(compacted)} entries "
+          f"({len(compacted.dump_json())} bytes, was {len(archive.dump_json())})")
+
+    w = compacted.observation_window(polity_did, since=0, as_of=now)
+    print(f"  {w.reading_count()} readings survive inside the retained window; "
+          f"the log now says it forgot before {(now - w.pruned_before) // DAY}d ago")
+
+    # 5. And it goes quiet, because a receding horizon would claim what is gone.
+    print(f"asked again: {compacted.prune_recommendation(polity_did, as_of=now)} "
+          f"— nothing further worth a permanent record")
+    _ = polity_priv, polity_pub
+
+
 if __name__ == "__main__":
     main()
+    founding_boundary()
+    machine_polity()
+    pruning(*watched_absence())
+    retention()
+    storage()

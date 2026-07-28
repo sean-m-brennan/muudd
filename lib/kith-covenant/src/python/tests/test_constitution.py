@@ -21,9 +21,13 @@ from kith_covenant import (
     Archive, new_identity, ratify_constitution, amend_compact_incapable,
     amend_fast_cadence, file_dispute, constitution_state, compact_incapable,
     in_structured_fast, substrate_deference, now_seconds,
-    erosion_alert, observer_dashboard,
+    erosion_alert, observer_dashboard, run_intra_rite,
+    decide_designation, overdue_reexaminations,
     AMENDMENT_KINDS, FAST_CHANGES,
 )
+
+# The default generational re-affirmation cadence, in seconds (30 years).
+CADENCE = 30 * 365 * 86_400
 
 
 def _founded():
@@ -195,3 +199,121 @@ def test_unknown_kind_rejected_at_facade():
         amend_compact_incapable(arch, "Obliterate", "x", [a, b])
     with pytest.raises(ValueError):
         amend_fast_cadence(arch, "Abolish", "annual", t0 + 1000, t0 + 1200, [a, b])
+
+
+# --- Uniform drift: the omission signals on the alert -----------------------
+#
+# See doc/architecture/erosion-legibility.md. The three original signals all
+# require a record — somebody amends the list, shortens a fast, or acts during
+# one — so a polity that merely stops emits none of them. These cover the two
+# signals whose reference is not the polity's own recent behaviour.
+
+
+def test_erosion_alert_flags_a_polity_that_merely_stopped():
+    """The regression this slice exists for: nothing rolled back, no act of any
+    kind, the community simply stopped re-affirming."""
+    arch, t0, a, b, c = _founded()
+    run_intra_rite(arch, a, witness_count=5, sealed_at=t0 + 100)
+    arch.verify_all()
+
+    al = erosion_alert(arch, as_of=t0 + 100 + CADENCE + 1)
+    assert not al.list_contraction and not al.fast_contraction
+    assert al.active_fast_deviations == 0
+    assert al.severity == "Notice"
+    assert len(al.overdue_reaffirmations) == 1
+    # The dashboard bundles the same alert.
+    dash = observer_dashboard(arch, as_of=t0 + 100 + CADENCE + 1)
+    assert dash.erosion.severity == "Notice"
+
+
+def test_erosion_alert_quiet_within_the_cadence():
+    """Negative control: read on the last second before the cadence elapses, the
+    same archive must be None — otherwise the signal is only a clock."""
+    arch, t0, a, b, c = _founded()
+    run_intra_rite(arch, a, witness_count=5, sealed_at=t0 + 100)
+    arch.verify_all()
+
+    al = erosion_alert(arch, as_of=t0 + 100 + CADENCE)
+    assert al.severity == "None"
+    assert al.overdue_reaffirmations == ()
+    assert al.reasons == ()
+
+
+def test_erosion_alert_overdue_carries_its_provenance():
+    arch, t0, a, b, c = _founded()
+    run_intra_rite(arch, a, witness_count=5, sealed_at=t0 + 100)
+    run_intra_rite(arch, a, witness_count=5, sealed_at=t0 + 500)
+    arch.verify_all()
+
+    al = erosion_alert(arch, as_of=t0 + 500 + CADENCE + 7)
+    (o,) = al.overdue_reaffirmations
+    assert o.community_did == a.did
+    assert o.seconds_since_last == CADENCE + 7
+    assert o.cadence_seconds == CADENCE
+    assert o.last_rite_cid  # traces back to a signed record
+
+
+def test_erosion_alert_cadence_is_a_parameter():
+    """protocol-components.md records that the 25-30y default lacks empirical
+    support and wants a compact-formation parameter, so it must be reachable."""
+    arch, t0, a, b, c = _founded()
+    run_intra_rite(arch, a, witness_count=5, sealed_at=t0 + 100)
+    arch.verify_all()
+
+    as_of = t0 + 100 + 5000
+    assert erosion_alert(arch, as_of=as_of).severity == "None"
+    tight = erosion_alert(arch, as_of=as_of, rite_cadence_seconds=3600)
+    assert tight.severity == "Notice"
+    assert tight.overdue_reaffirmations[0].cadence_seconds == 3600
+
+
+def test_erosion_alert_flags_hollowing_against_the_founding_rite():
+    """Witnesses 5 -> 4 -> 4: below the FIRST, which a rolling baseline would
+    have absorbed. Read inside the cadence so hollowing is the only signal."""
+    arch, t0, a, b, c = _founded()
+    run_intra_rite(arch, a, witness_count=5, sealed_at=t0 + 100)
+    run_intra_rite(arch, a, witness_count=4, sealed_at=t0 + 200)
+    run_intra_rite(arch, a, witness_count=4, sealed_at=t0 + 300)
+    arch.verify_all()
+
+    al = erosion_alert(arch, as_of=t0 + 800)
+    assert al.hollowing_communities == (a.did,)
+    assert al.overdue_reaffirmations == ()
+    assert al.severity == "Notice"
+
+
+def test_erosion_alert_flags_a_designation_left_past_re_examination():
+    """The severest act the compact can take, with the least follow-through: an
+    expedited designation carries a mandatory re-examination date, and before this
+    lens nothing computed whether it had arrived."""
+    arch, t0, a, b, c = _founded()
+    decide_designation(
+        arch, c.did, [a, b], "named pattern",
+        urgency="Expedited", reversal_conditions="rev",
+        cited_acts=[arch.cids()[0]], reexamine_after=t0 + 1_000, designated_at=t0 + 100,
+    )
+    arch.verify_all()
+
+    al = erosion_alert(arch, as_of=t0 + 1_500)
+    assert al.severity == "Notice"
+    (o,) = al.overdue_reexaminations
+    assert o.subject == c.did
+    assert o.tier == "Anathema"
+    assert o.seconds_overdue == 500
+    # Reachable as a standalone lens too.
+    assert len(overdue_reexaminations(arch, as_of=t0 + 1_500)) == 1
+
+
+def test_erosion_alert_quiet_before_the_re_examination_date():
+    """Negative control: one second before the date, nothing is owed yet."""
+    arch, t0, a, b, c = _founded()
+    decide_designation(
+        arch, c.did, [a, b], "named pattern",
+        urgency="Expedited", reversal_conditions="rev",
+        cited_acts=[arch.cids()[0]], reexamine_after=t0 + 1_000, designated_at=t0 + 100,
+    )
+    arch.verify_all()
+
+    al = erosion_alert(arch, as_of=t0 + 999)
+    assert al.overdue_reexaminations == ()
+    assert al.severity == "None"

@@ -54,14 +54,21 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-pub use authority::{authority_violations, check_authority, majority};
+pub use authority::{authority_violations, check_authority, majority, PRUNE_SETTLING_SECONDS};
 pub use entry::{didkey_resolver, verify_all, verify_entry, CharterEntry};
 pub use record::{
-    Affirmation, AffirmationKind, AmendmentKind, CharterDissolution, Commitment,
-    CommitmentAmendment, FoundingProposal, MembershipChange, MembershipKind, Office, OfficeChange,
-    OfficeKind, PolityCharter, Substrate,
+    BoundaryAttestation, BoundarySource, Exclusion,
+    pruning_digest, Affirmation, AffirmationKind, AmendmentKind, CharterDissolution, Commitment,
+    CommitmentAmendment, Derivation, EnvoyAuthorization, EnvoyKind, FoundingProposal,
+    GuardianChange, GuardianKind, MemberReading, MembershipChange, MembershipKind, Observation,
+    ObservationPruning, Office, OfficeChange, OfficeKind, PolityCharter, Substrate,
 };
 pub use state::{
-    affirmation_state, charter_state, office_state, AffirmationState, CharterState, MemberAffirmation,
-    OfficeHolding, OfficeState,
+    affirmation_state, apply_prunings, charter_state, decay_trends, effective_prune_horizon,
+    founding_legitimacy, FoundingBasis, FoundingLegitimacy,
+    envoy_state, guardian_state, is_prunable, observation_window, office_state,
+    prunable_observations, prune_recommendation, AffirmationPoint, AffirmationState, CharterState,
+    ChurnPoint, DecayTrends, EnvoyHolding, EnvoyState, GuardianState, MemberAffirmation,
+    ObservationPoint, ObservationWindow, OfficeHolding, OfficeState, PruneRecommendation,
+    PruneRoute, RetentionPolicy,
 };

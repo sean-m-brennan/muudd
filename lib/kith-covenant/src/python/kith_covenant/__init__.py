@@ -60,7 +60,8 @@ try:
         IncapableMatter, FastPeriod, ConstitutionState, FastDeviation,
         SubstrateDeferenceReport, constitution_state, compact_incapable,
         in_structured_fast, substrate_deference,
-        ErosionAlert, erosion_alert,
+        ErosionAlert, erosion_alert, OverdueReaffirmation,
+        OverdueReexamination, overdue_reexaminations,
     )
     from kith_covenant.harness import (
         ScenarioResult, HarnessReport, run_harness,
@@ -112,7 +113,8 @@ try:
         'IncapableMatter', 'FastPeriod', 'ConstitutionState', 'FastDeviation',
         'SubstrateDeferenceReport', 'constitution_state', 'compact_incapable',
         'in_structured_fast', 'substrate_deference',
-        'ErosionAlert', 'erosion_alert',
+        'ErosionAlert', 'erosion_alert', 'OverdueReaffirmation',
+        'OverdueReexamination', 'overdue_reexaminations',
         'ScenarioResult', 'HarnessReport', 'run_harness',
         'Signer', 'new_identity', 'delegate_speaker', 'revoke_delegation',
         'vouch', 'attest_interpretation', 'attest_interpreter_independence',

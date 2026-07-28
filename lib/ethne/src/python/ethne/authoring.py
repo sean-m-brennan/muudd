@@ -52,6 +52,10 @@ from ethne import _core
 MEMBERSHIP_KINDS = ("Admit", "DepartVoluntary", "Expel")
 #: Office-lifecycle record kinds.
 OFFICE_KINDS = ("Confer", "Resign", "Revoke")
+#: Guardian-edge record kinds — which members are machines, and whose.
+GUARDIAN_KINDS = ("Designate", "Rotate", "Release")
+#: Envoy-standing record kinds — who may speak for the polity beyond it.
+ENVOY_KINDS = ("Authorize", "Resign", "Revoke")
 #: Affirmation kinds — the transmission of the substrate, and its renewal.
 AFFIRMATION_KINDS = ("Induction", "ReAffirmation")
 
@@ -91,11 +95,16 @@ def ratify_charter(
     proposal_json: str,
     ratifiers: Sequence[Signer],
     founded_at: Optional[int] = None,
+    guardians: Sequence[Signer] = (),
 ) -> str:
     """Ratify a proposal into the polity's genesis charter. The ratifiers must be
-    a majority of the proposed roll — emergence proposes, the polity ratifies."""
+    a majority of the proposed roll — emergence proposes, the polity ratifies.
+
+    Where the proposal carries derivations, every named `guardian` must co-sign as
+    well: answerability for a machine is accepted, never assigned."""
     dids, privs = _split(ratifiers)
-    return archive.ratify_charter(proposal_json, dids, privs, founded_at)
+    g_dids, g_privs = _split(guardians)
+    return archive.ratify_charter(proposal_json, dids, privs, g_dids, g_privs, founded_at)
 
 
 # ---- Commitments ------------------------------------------------------------
@@ -219,6 +228,167 @@ def revoke_office(
     )
 
 
+# ---- Observation ------------------------------------------------------------
+
+
+def record_observation(
+    archive,
+    polity_did: str,
+    observer: Signer,
+    readings: Sequence[tuple[str, float, Optional[str], Optional[int]]],
+    opaque_boundary: bool = False,
+    observed_at: Optional[int] = None,
+) -> str:
+    """Record what a monitor saw: `(member_did, reputation, guardian_did, attested_at)`
+    per member observed.
+
+    An observation asserts nothing about the polity — it is one party's perspectival
+    evidence, signed by whoever looked, and the observer need not be a member. What it
+    makes possible is duration: only a record of observation can say how long a
+    guardian has been absent, and only that can escalate."""
+    return archive.record_observation(
+        polity_did, observer.did, observer.priv, list(readings), opaque_boundary, observed_at
+    )
+
+
+def prune_observations(
+    archive,
+    polity_did: str,
+    horizon: int,
+    deciders: Sequence[Signer],
+    rationale: str = "",
+    pruned_at: Optional[int] = None,
+) -> str:
+    """Drop the observations recorded before `horizon`, leaving a signed record of
+    the fact and a receipt for what went.
+
+    Observations are the one entry class a polity may drop: they decide nothing, so
+    removing one cannot rewrite what the polity resolved. An effective
+    `CharterKeeper` among the deciders suffices beyond the settling horizon (30
+    days) — the custody that office is — while a majority of the roll may prune
+    anything. Recent evidence is deliberately beyond any single custodian's reach,
+    because destroying it is exactly the move a captured party makes.
+
+    This authors the record. Call `archive.apply_prunings(polity_did)` to get an
+    archive with the observations actually dropped."""
+    return archive.prune_observations(
+        polity_did, horizon, [d.did for d in deciders], [d.priv for d in deciders],
+        rationale, pruned_at,
+    )
+
+
+# ---- The guardian edge ------------------------------------------------------
+
+
+def designate_derived(
+    archive,
+    polity_did: str,
+    member_did: str,
+    deciders: Sequence[Signer],
+    guardian: Optional[Signer] = None,
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Designate a member a derived (machine) party at a majority, with the named
+    guardian co-signing its acceptance. Passing no guardian charters a machine with
+    nobody behind it — honest, and refused an office where machines are the
+    majority."""
+    dids, privs = _split(deciders)
+    return archive.designate_derived(
+        polity_did, member_did, dids, privs,
+        guardian.did if guardian else None,
+        guardian.priv if guardian else None,
+        rationale, decided_at,
+    )
+
+
+def rotate_guardian(
+    archive,
+    polity_did: str,
+    member_did: str,
+    guardian: Signer,
+    deciders: Sequence[Signer],
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Point a designated member at a (new) guardian — the operator changed, or an
+    unguarded machine acquires one. A majority plus the incoming guardian's consent."""
+    dids, privs = _split(deciders)
+    return archive.rotate_guardian(
+        polity_did, member_did, guardian.did, guardian.priv, dids, privs, rationale, decided_at
+    )
+
+
+def release_guardian(
+    archive,
+    polity_did: str,
+    member_did: str,
+    guardian: Optional[Signer] = None,
+    deciders: Sequence[Signer] = (),
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Record that a member's guardian edge is gone. Either the departing `guardian`
+    signs (stepping away) or a majority of the `deciders` records that the human is
+    no longer there. The designation survives the release."""
+    dids, privs = _split(deciders)
+    return archive.release_guardian(
+        polity_did, member_did,
+        guardian.did if guardian else None,
+        guardian.priv if guardian else None,
+        dids, privs, rationale, decided_at,
+    )
+
+
+# ---- Envoy standing ---------------------------------------------------------
+
+
+def authorize_envoy(
+    archive,
+    polity_did: str,
+    envoy: Signer,
+    authorizers: Sequence[Signer],
+    rationale: str = "",
+    expires_at: Optional[int] = None,
+    decided_at: Optional[int] = None,
+) -> str:
+    """Authorize an envoy to speak for the polity beyond it. Either a single
+    `EnvoyAuthorizer` (the office's delegated power) or a majority of the roll may
+    do it, and the envoy always co-signs — the duty is never conscripted."""
+    dids, privs = _split(authorizers)
+    return archive.authorize_envoy(
+        polity_did, envoy.did, envoy.priv, dids, privs, rationale, expires_at, decided_at
+    )
+
+
+def resign_envoy(
+    archive,
+    polity_did: str,
+    envoy: Signer,
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """The envoy stands down: self-signed."""
+    return archive.resign_envoy(
+        polity_did, envoy.did, envoy.priv, rationale, decided_at
+    )
+
+
+def revoke_envoy(
+    archive,
+    polity_did: str,
+    envoy_did: str,
+    authorizers: Sequence[Signer],
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """The polity withdraws the standing, on the same two routes, envoy excluded."""
+    dids, privs = _split(authorizers)
+    return archive.revoke_envoy(
+        polity_did, envoy_did, dids, privs, rationale, decided_at
+    )
+
+
 # ---- Transmission -----------------------------------------------------------
 
 
@@ -270,18 +440,27 @@ def dissolve_charter(
 
 __all__ = [
     "AFFIRMATION_KINDS",
+    "ENVOY_KINDS",
+    "GUARDIAN_KINDS",
     "MEMBERSHIP_KINDS",
     "OFFICE_KINDS",
     "Signer",
     "admit_member",
     "amend_commitment",
+    "authorize_envoy",
     "confer_office",
     "depart_member",
+    "designate_derived",
     "dissolve_charter",
     "expel_member",
     "induct_member",
     "ratify_charter",
+    "record_observation",
     "reaffirm_member",
+    "release_guardian",
+    "resign_envoy",
     "resign_office",
+    "revoke_envoy",
     "revoke_office",
+    "rotate_guardian",
 ]

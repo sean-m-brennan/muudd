@@ -21,11 +21,13 @@ from __future__ import annotations
 
 import json
 
+from dataclasses import asdict
+
 import pytest
 
 import ethne as e
 from ethne import _core
-from ethne.authoring import Signer
+from ethne.authoring import Signer, record_observation
 
 
 def test_core_version_and_alg_constant():
@@ -82,7 +84,11 @@ def test_entries_report_cid_and_kind(polity):
 def test_dump_json_round_trip_preserves_cids(polity):
     dumped = polity.archive.dump_json()
     parsed = json.loads(dumped)
-    assert len(parsed) == 1 and "PolityChartered" in parsed[0]
+    # A versioned envelope, so the format can move without silently misreading.
+    # Version 2 added the generation and start position (D20).
+    assert parsed["version"] == 2
+    assert parsed["generation"] == 0 and parsed["start"] == 0
+    assert len(parsed["entries"]) == 1 and "PolityChartered" in parsed["entries"][0]
 
     restored = e.Archive.load_json(dumped)
     assert len(restored) == len(polity.archive)
@@ -118,6 +124,126 @@ def test_default_thresholds_exposes_the_rust_values():
         "mean_reputation_concern",
         "breach_notice",
         "breach_concern",
+        "attendance_cadence_seconds",
+        "unattended_notice",
+        "unrated_notice",
+        "affirmation_cadence_seconds",
+        "affirmation_stale_notice",
+        "affirmation_stale_concern",
+        "guardian_lost_notice",
+        "guardian_lost_concern",
+        "churn_window_seconds",
+        "churn_notice",
+        "churn_concern",
+        "sustained_absence_seconds",
+        "sustained_absence_readings",
     }
     # The dataclass defaults are those same values, not a second copy.
     assert e.Thresholds().attrition_concern == e.DEFAULT_THRESHOLDS["attrition_concern"]
+    # Every dataclass field must be a real keyword on the Rust side: monitor.py
+    # splats asdict(thresholds), so a name that drifts raises TypeError at the
+    # first override rather than being silently ignored.
+    assert set(asdict(e.Thresholds())) == set(e.DEFAULT_THRESHOLDS)
+
+
+def test_default_retention_exposes_the_rust_values(polity):
+    assert set(e.DEFAULT_RETENTION) == {
+        "retain_seconds",
+        "min_dropped",
+        "live_measure_seconds",
+        "min_witness_readings",
+    }
+    # The dataclass defaults are those same values, not a second copy.
+    assert e.RetentionPolicy().retain_seconds == e.DEFAULT_RETENTION["retain_seconds"]
+    assert set(asdict(e.RetentionPolicy())) == set(e.DEFAULT_RETENTION)
+    # And every field is a real keyword on the Rust side, so a host can splat a
+    # policy straight through. A drifted name would raise TypeError here.
+    assert polity.archive.prune_recommendation(
+        polity.did, **asdict(e.RetentionPolicy()), as_of=100
+    ) is None
+
+
+def test_the_envoy_surface_is_exported():
+    # The read-model class and every authoring/uplift entry point for D14.
+    assert e.EnvoyState is _core.EnvoyState
+    assert e.ENVOY_KINDS == ("Authorize", "Resign", "Revoke")
+    for name in ("authorize_envoy", "resign_envoy", "revoke_envoy", "envoy_delegation"):
+        assert name in e.__all__ and callable(getattr(e, name))
+
+
+def test_envoy_state_of_an_empty_log_is_empty(polity):
+    st = polity.archive.envoy_state(polity.did)
+    assert st.standings == [] and st.envoys() == []
+    assert not st.is_active(polity.founders[0].did)
+
+
+def test_the_guardian_surface_is_exported():
+    assert e.GuardianState is _core.GuardianState
+    assert e.GUARDIAN_KINDS == ("Designate", "Rotate", "Release")
+    for name in ("designate_derived", "rotate_guardian", "release_guardian"):
+        assert name in e.__all__ and callable(getattr(e, name))
+
+
+def test_guardian_state_of_a_wholly_human_polity_is_empty(polity):
+    st = polity.archive.guardian_state(polity.did)
+    assert st.derivations == []
+    assert not st.is_derived(polity.founders[0].did)
+    assert st.guardian_of(polity.founders[0].did) is None
+    assert not st.is_machine_majority(3)
+
+
+def test_the_trend_and_observation_surface_is_exported():
+    assert e.DecayTrends is _core.DecayTrends
+    assert e.ObservationWindow is _core.ObservationWindow
+    assert "record_observation" in e.__all__ and callable(e.record_observation)
+
+
+def test_an_empty_log_has_no_trends_and_no_observations(polity):
+    t = polity.archive.decay_trends(polity.did)
+    assert t.affirmations == [] and t.gaps_seconds == []
+    assert t.seconds_since_last is None
+    # Not enough series to compare: unknown, which is not the same as "no".
+    assert t.latest_gap_widening() is None
+    assert t.witness_count_declined() is False
+
+    w = polity.archive.observation_window(polity.did, since=0)
+    assert w.reading_count() == 0
+    assert w.span_seconds() is None
+    assert w.unattended_span(polity.founders[0].did) is None
+
+
+def test_load_json_still_reads_a_bare_array(polity):
+    """The shape earlier builds emitted. Only the envelope is ever written now, but
+    a dump taken then must still load."""
+    entries = json.loads(polity.archive.dump_json())["entries"]
+    restored = e.Archive.load_json(json.dumps(entries))
+    assert restored.cids() == polity.archive.cids()
+
+
+def test_incremental_dump_carries_only_what_is_new(polity):
+    """A host persisting a growing log appends what is new rather than rewriting
+    the whole archive each time — which is what the observation log needs."""
+    monitor = Signer.generate()
+    cursor = polity.archive.cursor()
+    record_observation(
+        polity.archive, polity.did, monitor,
+        [(polity.founders[0].did, 0.9, None, None)],
+    )
+    segment = polity.archive.dump_json_since(cursor)
+    assert len(json.loads(segment)["entries"]) == 1
+
+    replica = e.Archive.load_json(polity.archive.dump_json())
+    assert replica.cids() == polity.archive.cids()
+
+    # Fold the segment onto a replica that stopped at the cursor.
+    behind = e.Archive.load_json(
+        json.dumps({"version": 2, "generation": 0, "start": 0,
+                    "entries": json.loads(polity.archive.dump_json())["entries"][:cursor.index]})
+    )
+    assert behind.append_json(segment) == 1
+    assert behind.cids() == polity.archive.cids()
+
+    # A cursor already at the end costs nothing, and replaying raises.
+    assert behind.append_json(polity.archive.dump_json_since(polity.archive.cursor())) == 0
+    with pytest.raises(ValueError):
+        behind.append_json(segment)

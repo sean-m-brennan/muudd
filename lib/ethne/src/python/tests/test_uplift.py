@@ -22,10 +22,13 @@ import pytest
 
 import ethne as e
 from ethne.monitor import cohesion_report, founding_candidate
+from ethne.authoring import authorize_envoy, confer_office, resign_envoy
 from ethne.uplift import (
     coherence_concern,
     community_identity,
     concern_dict,
+    delegation_dict,
+    envoy_delegation,
     fission,
     fusion,
     identity_dict,
@@ -40,7 +43,7 @@ def _identity(found, name):
 
 def _concern_level_report(polity):
     roll = polity.roll(as_of=300)
-    return cohesion_report(roll, founding_candidate([(roll[0], 0.9, None)]))
+    return cohesion_report(roll, founding_candidate([(roll[0], 0.9, None, None, False)]))
 
 
 def test_community_identity_is_self_signed_and_matches_the_charter(polity):
@@ -66,7 +69,7 @@ def test_identity_needs_a_charter_in_this_log(polity):
 
 def test_no_concern_below_concern_level_erosion(polity):
     roll = polity.roll(as_of=300)
-    healthy = cohesion_report(roll, founding_candidate([(d, 0.9, None) for d in roll]))
+    healthy = cohesion_report(roll, founding_candidate([(d, 0.9, None, None, False) for d in roll]))
     assert healthy.erosion == "None"
     assert coherence_concern(healthy, polity.did, polity.founders[0], at=600) is None
     assert concern_dict(None) is None
@@ -113,11 +116,10 @@ def test_fusion_merges_predecessors_from_one_log(found):
     """Both predecessors' charters live in a shared log, as a KC-side view would."""
     first = found(3)
     second = found(3)
-    merged_log = e.Archive.load_json(
-        json.dumps(
-            json.loads(first.archive.dump_json()) + json.loads(second.archive.dump_json())
-        )
-    )
+    merged_log = e.Archive.load_json(first.archive.dump_json())
+    # `merge_json`, not `append_json`: two independent logs folded into one view is
+    # a different operation from applying the next segment of this one (D20).
+    merged_log.merge_json(second.archive.dump_json())
     # The merged polity is chartered in its own right before it is handed off.
     fused_holder = found(3)
     fused = community_identity(
@@ -166,3 +168,67 @@ def test_fission_rejects_a_non_identity_payload(polity, found):
     _a, alpha = _identity(found, "Alpha")
     with pytest.raises(ValueError, match="signed community identity"):
         fission(polity.archive, polity.did, alpha, "{}", polity.priv, at=800)
+
+# --- the envoy artifact (D14) ------------------------------------------------
+
+
+def test_an_authorized_envoy_crosses_as_a_kc_speaker_delegation(polity):
+    officer, envoy = polity.founders[0], polity.founders[2]
+    confer_office(polity.archive, polity.did, "EnvoyAuthorizer", officer,
+                  polity.founders[:2], decided_at=200)
+    authorize_envoy(polity.archive, polity.did, envoy, [officer],
+                    expires_at=9_000, decided_at=300)
+    polity.archive.check_authority()
+
+    signed = delegation_dict(envoy_delegation(
+        polity.archive, polity.did, envoy.did, polity.priv, polity.pub,
+        issued_at=400, as_of=400,
+    ))
+    payload = signed["payload"]
+    assert payload["community_did"] == polity.did
+    assert payload["speaker_did"] == envoy.did
+    assert payload["scope"] == "Envoy"
+    assert payload["revoked_at"] is None
+    # The polity's own expiry travels with it, so the tiers cannot disagree about
+    # when the standing ends.
+    assert payload["expires_at"] is not None
+    # Signed by the polity root — that is what makes it resolvable by community.
+    assert [sig["signer_did"] for sig in signed["signatures"]] == [polity.did]
+
+
+def test_no_delegation_without_a_standing(polity):
+    with pytest.raises(RuntimeError, match="no envoy standing"):
+        envoy_delegation(
+            polity.archive, polity.did, polity.founders[2].did,
+            polity.priv, polity.pub, issued_at=400, as_of=400,
+        )
+
+
+def test_a_resigned_envoy_can_no_longer_be_delegated(polity):
+    """The use-time rule reaching the border: the standing is read as of `as_of`,
+    so the delegation cannot outlive it."""
+    officer, envoy = polity.founders[0], polity.founders[2]
+    confer_office(polity.archive, polity.did, "EnvoyAuthorizer", officer,
+                  polity.founders[:2], decided_at=200)
+    authorize_envoy(polity.archive, polity.did, envoy, [officer], decided_at=300)
+    resign_envoy(polity.archive, polity.did, envoy, decided_at=400)
+    polity.archive.check_authority()
+
+    # Before the resignation the delegation was mintable; after it, not.
+    envoy_delegation(polity.archive, polity.did, envoy.did, polity.priv, polity.pub,
+                     issued_at=350, as_of=350)
+    with pytest.raises(RuntimeError, match="no envoy standing"):
+        envoy_delegation(polity.archive, polity.did, envoy.did, polity.priv, polity.pub,
+                         issued_at=500, as_of=500)
+
+
+def test_a_delegation_needs_the_polity_root_key(polity):
+    officer, envoy = polity.founders[0], polity.founders[2]
+    confer_office(polity.archive, polity.did, "EnvoyAuthorizer", officer,
+                  polity.founders[:2], decided_at=200)
+    authorize_envoy(polity.archive, polity.did, envoy, [officer], decided_at=300)
+    other_priv, other_pub, _did = e.generate_keypair()
+    with pytest.raises(RuntimeError, match="does not match"):
+        envoy_delegation(polity.archive, polity.did, envoy.did, other_priv, other_pub,
+                         issued_at=400, as_of=400)
+

@@ -20,7 +20,7 @@
 //! founded — and thence recognized by kith-covenant — with **no autonomous_trust
 //! anywhere in the dependency graph**.
 
-use en_charter::Substrate;
+use en_charter::{BoundarySource, Substrate};
 use en_core::{DidKey, KcResult};
 
 use crate::provider::{FoundingCandidate, MemberCandidate, SubstrateProvider};
@@ -35,12 +35,30 @@ impl ManualFounding {
     /// A convener asserts the membership roll and substrate. Asserted members are
     /// given full reputation (there is no emergent track record to read) and no
     /// guardian; use [`ManualFounding::from_candidate`] for finer control.
+    ///
+    /// Full reputation is `Some(1.0)`, an assertion, and deliberately not `None`: a
+    /// convener vouching for a roll *is* the reading here, where `None` would claim
+    /// the opposite — that nothing is known about these members.
     pub fn new(members: Vec<DidKey>, substrate: Substrate) -> Self {
         let members = members
             .into_iter()
-            .map(|did| MemberCandidate { did, reputation: 1.0, guardian: None })
+            .map(|did| MemberCandidate {
+                did,
+                reputation: Some(1.0),
+                derived: false,
+                guardian: None,
+                attested_at: None,
+            })
             .collect();
-        Self { candidate: FoundingCandidate { members, substrate: Some(substrate) } }
+        Self {
+            candidate: FoundingCandidate {
+                members,
+                substrate: Some(substrate),
+                // Nobody but the convener attests this roll (design **D21**). The
+                // charter will say so for as long as it exists.
+                source: BoundarySource::ConvenerAsserted,
+            },
+        }
     }
 
     /// Wrap an explicitly-built candidate (e.g. to assert per-member guardians).
@@ -55,6 +73,6 @@ impl SubstrateProvider for ManualFounding {
     }
 
     fn member_reputation(&self, member: &DidKey) -> Option<f64> {
-        self.candidate.members.iter().find(|m| &m.did == member).map(|m| m.reputation)
+        self.candidate.members.iter().find(|m| &m.did == member).and_then(|m| m.reputation)
     }
 }

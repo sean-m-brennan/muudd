@@ -16,6 +16,7 @@ en-charter = { workspace = true }
 en-substrate = { workspace = true }
 en-cohesion = { workspace = true }
 en-uplift = { workspace = true }
+en-store = { workspace = true }
 # The neutral base, for the KC-facing record types the uplift calls carry
 # (`CommunityIdentity`). Same dependency every en-* crate already has via en-core.
 kc-core = { workspace = true }

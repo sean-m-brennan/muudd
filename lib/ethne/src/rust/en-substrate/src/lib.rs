@@ -35,4 +35,6 @@ mod provider;
 mod tests;
 
 pub use manual::ManualFounding;
-pub use provider::{FoundingCandidate, MemberCandidate, SubstrateProvider};
+pub use provider::{
+    ChangeStream, FoundingCandidate, MemberCandidate, SubstrateChange, SubstrateProvider,
+};

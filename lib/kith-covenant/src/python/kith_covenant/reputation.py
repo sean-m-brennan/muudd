@@ -551,6 +551,9 @@ class CeremonyCostDecay:
     max_witness_count: Optional[int]
     witness_count_declined: bool
     latest_gap_widening: Optional[bool]
+    # pinned to the FIRST gap; stays true after a settled drift, where the
+    # rolling reading above goes quiet
+    gap_widening_since_founding: Optional[bool]
 
 
 def rejection_pattern(archive, as_of: Optional[int] = None) -> RejectionPattern:
@@ -632,6 +635,7 @@ def ceremony_cost_decay(
         max_witness_count=d.max_witness_count,
         witness_count_declined=d.witness_count_declined,
         latest_gap_widening=d.latest_gap_widening,
+        gap_widening_since_founding=d.gap_widening_since_founding,
     )
 
 
@@ -1013,6 +1017,44 @@ def _substrate_from(r) -> SubstrateDeferenceReport:
 
 
 @dataclass(frozen=True)
+class OverdueReaffirmation:
+    community_did: str
+    # the last sealed rite, so the finding traces to a signed record
+    last_rite_cid: str
+    seconds_since_last: int
+    # the cadence it was judged against, reported rather than assumed
+    cadence_seconds: int
+
+
+@dataclass(frozen=True)
+class OverdueReexamination:
+    designation_cid: str
+    # the designated community, whose exclusion is being left unexamined
+    subject: str
+    # "Anathema"; HostisHumaniGeneris is forbidden a re-examination date
+    tier: str
+    reexamine_after: int
+    seconds_overdue: int
+
+
+def overdue_reexaminations(
+    archive, as_of: Optional[int] = None
+) -> tuple[OverdueReexamination, ...]:
+    """§5 designation follow-through: designations whose mandated
+    ``reexamine_after`` has passed and which are still standing, longest-overdue
+    first. "Still standing" means not reversed — no ``DesignationLifted`` conduct
+    record naming it and no re-entry answering it.
+
+    Known limit: a re-examination that *confirms* a designation leaves no record,
+    so this cannot distinguish "nobody looked" from "the panel looked and let it
+    stand". It reports the weaker claim, which is the honest one."""
+    return tuple(
+        OverdueReexamination(cid, subject, tier, due, overdue)
+        for cid, subject, tier, due, overdue in archive.overdue_reexaminations(as_of)
+    )
+
+
+@dataclass(frozen=True)
 class ErosionAlert:
     # "None" | "Notice" | "Alert" — escalates as erosion signals compound.
     severity: str
@@ -1021,18 +1063,40 @@ class ErosionAlert:
     list_contraction: bool
     fast_contraction: bool
     active_fast_deviations: int
+    # communities overdue for re-affirmation, longest-overdue first
+    overdue_reaffirmations: tuple[OverdueReaffirmation, ...]
+    # communities drawing fewer witnesses than at founding
+    hollowing_communities: tuple[str, ...]
+    # designations past a mandated re-examination and still standing
+    overdue_reexaminations: tuple[OverdueReexamination, ...]
 
 
-def erosion_alert(archive, as_of: Optional[int] = None) -> ErosionAlert:
-    """§9 erosion-detection alerting: a graded, derived reading of the
-    substrate-deference report that escalates (None→Notice→Alert) as the erosion
-    signals compound — a list contraction, a fast contraction, or deliberative
-    acts during a fast. Diagnostic only: surfaced to the observer corps, never a
-    verdict and never a refusal (non-ultimacy is a disposition demonstrated, not a
-    rule enforced). A human observer who sees an ``Alert`` may then choose to
-    publish an attributed ``ObserverReport``; that step is intentionally not
-    automated."""
-    return _erosion_from(archive.erosion_alert(as_of))
+def erosion_alert(
+    archive,
+    as_of: Optional[int] = None,
+    rite_cadence_seconds: Optional[int] = None,
+) -> ErosionAlert:
+    """§9 erosion-detection alerting: a graded, derived reading that escalates
+    (None→Notice→Alert) as the erosion signals compound.
+
+    Five signals across five dimensions. Three fire on an *act* — a list
+    contraction, a fast contraction, deliberative acts during a fast. Two fire on
+    *omission and a pinned baseline*: a re-affirmation overdue against an absolute
+    generational cadence, and a ceremony drawing fewer witnesses than it did at
+    founding. The asymmetry is deliberate; an alert built only from act-triggered
+    signals reads a polity that has stopped functioning as a polity in perfect
+    health (see ``doc/architecture/erosion-legibility.md``).
+
+    ``rite_cadence_seconds`` overrides the cadence (default 30 years). The
+    calibration is an open question in ``protocol-components.md``, so it is a
+    parameter rather than a constant.
+
+    Diagnostic only: surfaced to the observer corps, never a verdict and never a
+    refusal (non-ultimacy is a disposition demonstrated, not a rule enforced). An
+    overdue re-affirmation is *reported*, never *enforced*. A human observer who
+    sees an ``Alert`` may then choose to publish an attributed ``ObserverReport``;
+    that step is intentionally not automated."""
+    return _erosion_from(archive.erosion_alert(as_of, rite_cadence_seconds))
 
 
 def _erosion_from(a) -> ErosionAlert:
@@ -1042,6 +1106,20 @@ def _erosion_from(a) -> ErosionAlert:
         list_contraction=a.list_contraction,
         fast_contraction=a.fast_contraction,
         active_fast_deviations=a.active_fast_deviations,
+        overdue_reaffirmations=tuple(
+            OverdueReaffirmation(
+                community_did=did,
+                last_rite_cid=cid,
+                seconds_since_last=since,
+                cadence_seconds=cadence,
+            )
+            for did, cid, since, cadence in a.overdue_reaffirmations
+        ),
+        hollowing_communities=tuple(a.hollowing_communities),
+        overdue_reexaminations=tuple(
+            OverdueReexamination(cid, subject, tier, due, overdue)
+            for cid, subject, tier, due, overdue in a.overdue_reexaminations
+        ),
     )
 
 

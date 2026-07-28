@@ -200,8 +200,11 @@ the tiers decoupled (no ethne→KC-governance edge) and lets ethne run standalon
 Ethne defines a narrow `SubstrateProvider` interface (built in `en-substrate`):
 the source of the emergent evidence a founding ratifies and the ongoing
 behavioural input cohesion monitors. It exposes, roughly: a candidate membership
-set with soft boundaries, a per-member earned-reputation reading, and a
-change/anomaly stream. The shipped `ManualFounding` provider needs no substrate
+set with soft boundaries, a per-member earned-reputation reading, a per-member
+guardian edge with the liveness stamp of when that guardian was last verified
+present, and a change/anomaly stream (**built 2026-07-27 — D16**: `SubstrateChange`
+deltas behind a *separate* `ChangeStream` trait, so a provider with no notion of
+change is not made to fake one). The shipped `ManualFounding` provider needs no substrate
 service; an existing-organisation roster importer is another trivial provider.
 
 **`ethne-at` — the autonomous_trust provider, over AT's C interface (decision
@@ -262,6 +265,13 @@ guardian assembly** — the humans whose standing is at stake in the machines'
 conduct. The charter's substrate for such a polity is the guardians' ground; the
 offices are held by guardians; the membership roll records node→guardian edges.
 This gives Facets 1–3 of machine-participation an entity to live in.
+
+**Built 2026-07-27 (D15).** The relation is structural: a `Derivation` on the
+charter says which members are derived (machine) parties and which human each
+answers to, ratified at founding (with every named guardian co-signing) and moved
+afterwards by `GuardianChange` records. From that one fact both halves follow — a
+machine-majority polity refuses an office to a machine with nobody behind it, and a
+chartered edge the substrate stops showing is graded as coherence erosion.
 
 ## Lifecycle
 
@@ -403,10 +413,13 @@ KC cannot see on its own and AT cannot decide on its own.
   departs and revives if they return; the roll ends it for good by `Revoke`. There
   is no self-govern floor (offices may all be vacant), the bars are symmetric
   (the roll stays sovereign; offices are functional roles under it), and multiple
-  holders per office are allowed. Use-time enforcement (e.g. requiring the
-  `EnvoyAuthorizer` to authorize an envoy) is a later slice; v1 is conferral +
-  derivation (`office_state`) + a `holds` query. The machine-majority "offices held
-  by guardians" constraint is also a later refinement — v1 lets any member hold one.
+  holders per office are allowed. Use-time enforcement — v1 was conferral +
+  derivation (`office_state`) + a `holds` query, and nothing consulted them — is
+  **built as of 2026-07-27; see D14**. The machine-majority "offices held by
+  guardians" constraint **is now an authority rule, as of D15** — the obstacle was
+  that the charter log recorded no guardians (they were read from the substrate
+  provider only), and D15 removes it by chartering the node→guardian edge. In a
+  machine-majority polity a conferral refuses a derived member with no guardian.
 - **D13 — transmission is roll-witnessed induction plus self-signed
   re-affirmation, with a query-time freshness cadence (locked 2026-07-24).** Of
   responsibility #5's three parts, two need no new machinery: **succession** falls
@@ -426,11 +439,523 @@ KC cannot see on its own and AT cannot decide on its own.
   `kc-reputation::ceremony_cost_decay`'s staleness shape: `affirmation_state`
   reports each current member's induction status and last affirmation, and
   `stale_members(cadence_seconds, as_of)` names those who are un-inducted or
-  overdue — so a community whose members stop re-affirming shows erosion. The
+  overdue — so a community whose members stop re-affirming shows erosion.
+  **Built 2026-07-27:** `en-cohesion` grades that list as a fifth erosion
+  component, calling `stale_members` rather than restating the rule, and — unlike
+  the absent-guardian component — it may reach `Concern`, because duration is
+  already inside the measure: a member a whole cadence past re-affirming is not
+  merely away from the console. An absent `AffirmationState` means *not evaluated*,
+  never *all fresh*. The
   cadence is a **query-time** parameter (like `en-cohesion`'s thresholds), not a
-  charter term, so no `PolityCharter` change. The `Inductor` office stays a named
-  role: roll-witnessing was chosen over office-gated induction, and office
-  use-time enforcement remains a later slice.
+  charter term, so no `PolityCharter` change. Roll-witnessing was chosen over
+  office-gated induction, and the `Inductor` office was a named role only —
+  **until D14 gave it a defeasible presiding requirement over the rite
+  (2026-07-27), which does not displace the witnessing rule but adds to it**.
+
+- **D14 — offices bite at use time, in two different ways (locked 2026-07-27).**
+  D12 built offices as conferral plus derivation; nothing consulted the derivation,
+  so an office was a label. Two of the four now carry authority into the records
+  themselves, and deliberately *not* by the same mechanism:
+  - The **`Inductor` presides** — a **defeasible gate**. Where the office is
+    effectively held, one of its holders *other than the inductee* must be among an
+    induction's witnesses; the roll may still induct without them, but only at a
+    majority **+ 1** (D11's asymmetric-bar move). So an officer can raise the bar
+    for the rite and can never block it. The cost is stated rather than hidden:
+    conferring an `Inductor` *does* raise the roll's own bar for inducting without
+    them, majority → majority + 1. The zero-cost alternative — recording who
+    presided without requiring it — was considered and declined as no teeth at all.
+  - The **`EnvoyAuthorizer` holds a delegated power** — an **alternative route**,
+    not a gate. One holder's signature stands in for the roll's majority on an
+    `EnvoyAuthorization`; because the majority route always stays open, filling the
+    office costs the roll nothing and lets the officer stall nothing. The officer
+    may not be the envoy on that route, so the office is never a unilateral
+    self-appointment as the polity's voice; the envoy always co-signs (a duty is
+    not conscripted). What use-time enforcement means concretely: a record taking
+    the officer route must name someone who **actually held the office at that
+    point in the log**, which `reconstruct`'s per-index office state already knew.
+  `Convener` gates nothing, and gating the roll's own deliberations (admission,
+  expulsion, amendment, conferral) on one would put an office in the path of every
+  sovereign act, which D12 exists to refuse. **The `CharterKeeper` had no record to
+  gate until D17 gave it one** — custody of the log is what that office is, and
+  pruning the observation record is the act it now holds a delegated power over
+  (bounded by a settling horizon, since destroying evidence is not like authorizing
+  an envoy). Self-signed acts —
+  re-affirmation, voluntary departure, resignation — are never gated: they are
+  precisely the acts no one else may condition.
+
+  The envoy record is the substance of the second half. `EnvoyAuthorization`
+  (`EnvoyKind { Authorize, Resign, Revoke }`, mirroring `OfficeKind` for the same
+  reasons) names who may speak for the polity, in **ethne's own vocabulary** — the
+  record carries no KC delegation scope, so `en-charter` stays `kc-core`-only. A
+  standing is effective only while its envoy is on the roll (lapsing and reviving
+  as an office holding does) and until its own `expires_at`; the record also carries
+  the envoy's public key, checked to derive their DID, because the KC-side artifact
+  names its speaker by key. `en-uplift::envoy_delegation` turns an *effective*
+  standing into KC's `SpeakerDelegation` scoped `Envoy` — the fourth border
+  artifact, and the only one an office produces. It takes the derived `EnvoyState`,
+  not the archive, so the border crate still never walks a log. `kc-identity` becomes
+  a *direct* `en-uplift` dependency, confined exactly as `kc-conduct` is — and it
+  **widens the build graph not at all**: `kc-conduct → kc-ceremony → kc-identity`
+  already put it in the tree, so D14 only makes an existing edge explicit.
+
+- **D15 — the node→guardian edge is chartered, not merely observed (locked
+  2026-07-27).** The relation KC's integration analysis calls "asserted in prose,
+  absent from both codebases' types" now has a type on the ethne side. A
+  `Derivation { member, guardian: Option<DidKey> }` marks a member a derived
+  (machine) party; founding derivations live in the `PolityCharter` and later ones
+  in `GuardianChange` records (`Designate` / `Rotate` / `Release`). `guardian: None`
+  is a **real chartered state** — a machine with nobody behind it — and not a
+  missing value; recording it honestly is what gives the office rule something to
+  refuse.
+  - **Ratified, not read.** The provider *observes* the edge
+    (`MemberCandidate.guardian`); `FoundingCandidate::propose` now carries it into
+    the proposal instead of discarding it, and only ratification makes it a fact.
+    That is the same move the roll itself undergoes, so the guardian edge obeys
+    ratify-don't-replace rather than becoming a provider assertion the polity is
+    stuck with.
+  - **Consent, everywhere.** A named guardian co-signs the founding, a
+    `Designate`, and a `Rotate` (the *incoming* one) — answerability for a machine
+    is accepted, never assigned, which is KC's "irrevocably tied to one specific
+    named human" read as a *bilateral* tie. Symmetrically nobody is held to it: a
+    `Release` needs either the departing guardian's own signature or a majority of
+    the roll recording that the human is simply gone. A `Release` clears the *edge*
+    and keeps the designation — a machine does not become human by losing its human.
+  - **No machine guards a machine**, at founding or on rotation, and nothing guards
+    itself; otherwise the human-above-machine anchor closes into a loop.
+  - **The shape follows the tier's grain, not the charter's roll.** `members` stays
+    `Vec<DidKey>`. Designation is a separate record with a separate derivation, as
+    D11's admission, D12's offices, D13's induction and D14's envoy standing all
+    are — this tier already distinguishes "on the roll" from "has property X", and
+    restructuring the roll into typed members would have rippled through every
+    signature that takes one for a guarantee the provider reading cannot give anyway.
+  - **What follows.** `guardian_state` derives the effective picture (designations
+    lapse while their member is off the roll, exactly as office holdings do) and
+    answers `is_machine_majority(roll_len)`. The office rule (D12) refuses a
+    conferral on an unguarded derived member **where the polity is machine-majority
+    at that point in the log** — a mostly human polity is untouched, because the
+    rule exists for the polity that substantially *is* its guardian assembly, not
+    because machines are second class. `en-cohesion` gains a sixth component: a
+    chartered edge the provider no longer shows, counted only over members it still
+    observes, so an absent member is attrition and an opaque boundary cannot
+    masquerade as answerability collapsing.
+  - **Two honest limits.** (1) A machine that was never designated reads as human;
+    the designation is only as good as the provider's reading, which is **Q5**, not
+    something a founding can settle. (2) **CLOSED by D18.** `MemberCandidate` could not
+    *express* "derived but unguarded" — a `guardian: None` reading meant human, or
+    machine with nobody, or a provider that cannot tell — so `propose` ratified only
+    *guarded* machines and the unguarded state had to be designated deliberately
+    after founding. `MemberCandidate::derived` now carries the substrate's reading of
+    *kind* independently of the edge, and `propose` filters on it.
+
+- **D16 — what was seen is recorded, so that duration can be judged (locked
+  2026-07-27).** Every measure before this one read a *snapshot*, which is why the
+  attendance component had to be capped: a night shift, a weekend and an abandoned
+  polity are the same picture. D16 gives the polity a memory of its own observation
+  and grades four things that only exist over time.
+  - **The stream.** `SubstrateChange` deltas — appearance, vanishing, reputation
+    move, guardian-edge move, an advancing attendance stamp, boundary opacity —
+    drained through a `ChangeStream` trait kept **separate** from `SubstrateProvider`,
+    because `ManualFounding` is a convener with a list and *an empty stream and no
+    stream are different claims*. Deltas rather than a diff of two candidates: the
+    provider is the one place the prior reading is already in hand, and two equal
+    snapshots either side of a flap look like no change at all.
+  - **The record.** `CharterEntry::Observed(Signed<Observation>)` carries what one
+    monitor saw at one instant — the readings in full, not the deltas, because a
+    duration measure needs the stamps and a self-describing record is what makes it
+    evidence. An observation **asserts nothing about the polity**: it is perspectival,
+    in the sense KC's observer reports are, so there are no deciders, no majority, and
+    the observer **need not be a member** — a monitor that had to be inside the roll
+    could be silenced by expulsion. The one rule is that it must be signed by exactly
+    the observer it names: nobody may put an observation in another's mouth. (This is
+    the entry `entry.rs` anticipated when it said a later slice would fold cohesion
+    records in. It also cost `CharterEntry` its `Eq` derive — an observation carries
+    float reputations, and a total equality over those would be a lie.)
+  - **Sustained absence, the exception that proves the cap.** A guardian unattended
+    across the recorded window for at least `sustained_absence_seconds`, *and* seen by
+    at least `sustained_absence_readings` observations, reaches `Concern`. Two
+    conditions doing two different jobs: **the span is the absence; the count is the
+    evidence that somebody was watching while it lasted.** One stale reading with a
+    long silence behind it says nothing about the polity — only that nobody looked.
+    The snapshot cap is unchanged and still absolute; what lifts it is not a looser
+    threshold but a record. A member the window never saw is *not evaluated*, never
+    assumed absent.
+  - **Three trends that needed no stream at all.** Gap-widening, witness-decline and
+    roll churn are derivable from the polity's own signed records — `Affirmation`
+    carries its instant and its witnesses, `MembershipChange` its instant — so
+    `decay_trends` reads them with no provider involved, borrowing the shape of
+    `kc_reputation::analytics::ceremony_cost_decay` one tier up, hedges included: a
+    witness decline needs two inductions (never a trend from one point) and a widening
+    gap is judged against the **median** of prior gaps, so one aberrant interval does
+    not read as decay. The two booleans **warn but never escalate** — a trend is a
+    leading indicator, and the lapse it leads to is already escalatable by the
+    affirmation component, so grading both to `Concern` would count one decay twice.
+    Churn, being a rate rather than a trend, carries a full pair.
+  - **`CohesionInputs`.** With four charter-side read-models the report's positional
+    signature became four adjacent references of the same shape; they now live in one
+    struct of `Option<&T>` with `Default`, which also puts *not evaluated* in the type
+    instead of in a convention repeated by hand at every component.
+
+- **D17 — the log may forget, but only by saying so (locked 2026-07-27).** D16 left
+  exactly one thing owed: nothing pruned the observation record, and nothing persisted
+  it incrementally. Both are measurable rather than theoretical. One observation is
+  1.7 KB of JSON for a five-member polity and 5.6 KB at twenty-five, so at the
+  attendance cadence a twenty-five-member polity writes roughly **557 MiB a year** —
+  D16's "no change ⇒ no entry" bounds that below the poll rate, but an attendance stamp
+  advances on every re-announce, so an attended fleet sits near it. And `en-archive`
+  had no persistence at all: it existed only in the Python extension module, as a
+  whole-log re-serialization, so a Rust consumer could not save a log and a Python one
+  saving per observation paid for the whole archive every time.
+  - **Why observations, and only observations.** `reconstruct` matches an observation
+    and does nothing with it: *an observation changes no state.* Every other record
+    here governs something, so dropping one would rewrite what the polity decided;
+    dropping an observation cannot. **Observations are the one inert entry class,
+    which is exactly what makes them the one prunable class** — the argument is
+    structural, not a matter of taste about which data is precious.
+  - **A recorded act, not a sweep.** `ObservationPruning` names a horizon and carries a
+    receipt — how many records went, and a digest over their CIDs. A Concern crossing
+    to kith-covenant rests on observations, so evidence that could vanish silently
+    would make D16's reading count — the *evidence somebody was watching* — impossible
+    to falsify, and leave an auditor unable to tell "nobody looked" from "we deleted
+    it". The receipt is checked **conditionally**: while the observations are still
+    present the record must say truthfully what it drops, but once compaction has run
+    they are gone, and a rule that recomputed regardless would report every historical
+    pruning as a violation. So the log verifies what it still can and treats an applied
+    pruning as beyond its power to check rather than as a lie. The receipt keeps its
+    force for anyone holding an earlier copy.
+  - **The CharterKeeper's teeth, bounded.** One effective `CharterKeeper` among the
+    deciders suffices — the delegated-power shape D14 gave the `EnvoyAuthorizer` — but
+    **only beyond `PRUNE_SETTLING_SECONDS` (30 days)**; the roll may prune anything at a
+    majority. The asymmetry is the point: destroying evidence is precisely the move a
+    captured party makes, so the recent record stays out of any single custodian's
+    reach while the majority route keeps the office from stalling anything. That
+    constant is deliberately **law rather than a threshold** — every other cadence here
+    is a query-time parameter because it is policy, but a floor the party it constrains
+    could lower is not a floor.
+  - **Pruning may only ever weaken a signal.** The window carries the `pruned_before`
+    horizon and `unattended_span` clamps to it, because behind the horizon the log
+    holds no evidence and no absence may be claimed across it. This is not a
+    precaution. `last_attested` is a *max* over the window's stamps, so dropping the
+    interval that held the freshest one lowers that max, starts the absence earlier and
+    makes it **longer** — pruning manufacturing a Concern. Building the slice surfaced
+    that the clamp is only sound given something D16 never enforced: **an attendance
+    stamp may not postdate the observation reporting it.** A monitor cannot have seen
+    an attestation that had not happened yet, and with every stamp preceding its own
+    look, a dropped observation can only have carried stamps from before the horizon.
+    That rule is now part of the observation record's own authority pass, and D17's
+    invariant rests on it.
+  - **Compaction, not mutation.** `apply_prunings` returns a *new* archive. `en-archive`
+    stays append-only with no removal path, because giving the neutral mechanism one
+    would hand it to every entry class that ever lives there; the knowledge that only
+    observations may go belongs with the domain. A single predicate, `is_prunable`, is
+    what the authoring receipt, the authority check and the compaction all read, so
+    they cannot disagree about what was dropped — and it is where the guarantee lives
+    that a pruning can never reach a governing record.
+  - **Persistence.** A versioned dump/load moves down into `en-archive`, generic over
+    the entry type as the rest of that crate is, plus `dump_json_from(start)` /
+    `append_json` so a host holding a cursor appends what is new instead of rewriting
+    the log. The Python surface now emits the envelope and reads either it or the bare
+    array earlier builds wrote.
+
+- **D18 — the candidate says what the provider *knows*, not just what it saw
+  (locked 2026-07-28).** `MemberCandidate` was lossy about its own provider's
+  epistemic state, and three separate findings turned out to be that one defect:
+  `guardian: None` conflated human / machine-with-nobody / cannot-tell (D15's second
+  honest limit), `attested_at: None` conflated nobody-there / cannot-confirm, and a
+  bare `reputation: f64` conflated **unrated** with **rated low**. D16 had already
+  made this move one layer up — `CohesionInputs` became a struct of `Option<&T>` so
+  that "not evaluated" lives *in the type* rather than in a convention
+  hand-implemented three times — and D18 gives `MemberCandidate`'s own fields the
+  same treatment.
+  - **Why the reputation conflation was a live hazard, not a tidiness complaint.**
+    autonomous_trust returns its `PREREP_NEUTRAL` (0.2) both for a peer it knows
+    nothing about *and* as a score a peer can genuinely earn, while `en-cohesion`'s
+    `reputation_floor` (0.3) means *this member is failing*. Measured before the
+    change: a four-member roll of unrated members graded **`Concern`** — the level
+    that crosses to kith-covenant — on day one, purely for being new. Unknown and
+    failing were literally indistinguishable: the same input, the same grade.
+  - **`reputation: Option<f64>`.** `None` is *unrated*. Both reputation components
+    are computed over the members that carry a reading, with `rated_members` as the
+    denominator, and report nothing when nobody is rated — the same "no reading means
+    not evaluated, never healthy" shape the transmission and guardian components
+    already used.
+  - **An eleventh component: the unrated share, capped at `Notice` by
+    construction.** There is deliberately no `unrated_concern`, exactly as there is
+    no `unattended_concern`, and for the same kind of reason: a cohort too young to
+    have been rated and a provider that has stopped rating are the same picture from
+    a snapshot. What it exists to prevent is the two components above going
+    *silently* dark — they report nothing when nobody is rated, and something has to
+    say that they are not reporting.
+  - **`derived: bool`, independent of the guardian edge.** `propose` filters on it
+    instead of inferring derivation from `guardian.is_some()`, so a machine the
+    substrate reads as having nobody behind it is ratified as the unguarded
+    `Derivation { guardian: None }` the charter has always understood. **No
+    en-charter change was needed** — the charter could already express the state; only
+    the candidate could not propose it. That makes D15's machine-majority office rule
+    non-vacuous *at founding* rather than only after a deliberate designation.
+  - **An unrated candidate does not satisfy a demanded floor.** A positive
+    `min_reputation` is a positive assertion and `None` cannot support it; a floor of
+    `0.0` demands nothing and admits everyone. Behaviour-preserving at both ends: a
+    provider that used to collapse "unknown" into a low number saw those members
+    trimmed by any floor above it, and still does.
+  - **The AT mapping is structural, which was a finding rather than a choice.** In
+    AT's model there is no such thing as a human peer — a peer *is* a node — so every
+    AT candidate is `derived: true` and what varies is `operator_bound`, i.e. whether
+    the guardian edge is there. A node with no operator is precisely the unguarded
+    machine; before D18 it proposed silently as a human member.
+  - **The honest limit that remains.** `reputation: None` is not yet reachable from a
+    live node: AT collapses "no bilateral history" into `PREREP_NEUTRAL` at its own
+    API boundary, and "exactly 0.2" is not a safe inference because a peer can earn
+    it. Exposing the distinction is a named **AT-side prerequisite**, sequenced the
+    way Q9 sequenced the operator signal — build the AT half first. The type is honest
+    now; the feed is not yet there.
+
+- **D19 — a retention policy, because a horizon chosen by hand is chosen blind
+  (locked 2026-07-28).** D17 left exactly one thing owed: it gave the polity the *act*
+  of pruning and nothing that says when. A host wanting to prune had to invent a
+  horizon, and getting it wrong is silent in both directions — too aggressive and it
+  clips the evidence a kith-covenant Concern rests on, too timid and the log grows
+  without bound. Measured on the marginal bytes an observation adds to the serialized
+  log, with readings across the whole roll: **3.4 KB at five members, 4.6 KB at ten,
+  8.0 KB at twenty-five**, so at the attendance cadence a twenty-five-member polity
+  writes **~803 MiB a year** and an attended fleet sits near that rate, because a
+  stamp advances on every re-announce.
+  - **"Scheduler" is the wrong name for what was owed.** This tier's libraries never
+    call `now()` — every cadence is a query-time parameter (`stale_members(cadence,
+    as_of)`, `Thresholds`, `cohesion_report(as_of)`) — so the loop and the clock
+    belong to the host exactly as the storage backend does. What does *not* belong to
+    the host is which history a live measure still needs and which authorization route
+    a given horizon leaves open. That is tier knowledge a host cannot be expected to
+    reconstruct, so the deliverable is a **pure read-model**:
+    `prune_recommendation(archive, polity, &RetentionPolicy, as_of)`. It signs nothing
+    and appends nothing; the host feeds the horizon it returns to D17's ordinary
+    authoring path. *Emergence proposes; the polity ratifies* applies to the polity's
+    own housekeeping too.
+  - **The recommendation can only ever propose what the authority pass accepts.**
+    That is the whole reason it exists. Five conditions, each deferring to the rule
+    that already owns it rather than restating it: the polity must be chartered and
+    undissolved; the horizon is floored twice (below); it must **advance** past
+    `effective_prune_horizon`, since D17 rejects a receding one; and at least
+    `min_dropped` observations must actually fall before it. Any failure yields
+    `None`. Swept across retentions spanning the settling boundary, every horizon it
+    named was accepted by `check_authority` on the cheapest route it named.
+  - **The safety floor is a duration *and* a count — and the second half was a
+    finding, not a design.** The slice was specified with one floor,
+    `live_measure_seconds`, on the reasoning that the longest observation-based
+    measure is `sustained_absence_seconds` (one day). Measurement refuted it. A
+    sustained absence is graded on **two** conditions, and D17's clamp only protects
+    one: the span survives, because the window clamps it to the pruned horizon, but
+    the **witness count** does not. The same absence, the same 24-hour horizon, graded
+    `Concern` at a dense observation cadence and `Notice` at a sparse one — four
+    readings falling to two, one short of `sustained_absence_readings`, with nothing
+    saying that evidence rather than conduct is what changed. So `min_witness_readings`
+    (default 3, mirroring the threshold it protects) holds the horizon back to leave
+    that many readings of **every watched member** standing. Per member, because
+    `readings_for` is per member: a member the monitors mention rarely has thin
+    evidence, and thinning it further is exactly the clip this read-model exists to
+    refuse. A thinly-watched member can therefore *pin* the horizon indefinitely.
+    That is the correct answer and not a deadlock — D17 always leaves the roll free to
+    prune anything by majority. What is refused is *recommending* it.
+  - **Age-only retention, and the default is the cheap one by coincidence worth
+    asserting.** `retain_seconds` defaults to `PRUNE_SETTLING_SECONDS` (30 days): the
+    smallest value that simultaneously preserves every observation-based measure and
+    keeps the **single-`CharterKeeper`** route open, since that route requires
+    `horizon <= pruned_at - PRUNE_SETTLING_SECONDS`. A *shorter* retention keeps more
+    history and is therefore more expensive to authorize, not less — which is
+    counter-intuitive enough to be a test rather than a comment. It also happens to be
+    the cheap one to store: a keeper-authorized pruning is ~2.9 KB with its one
+    signature, where a roll-majority one carries a majority of them (5.8 KB at five
+    members, 20.2 KB at twenty-five). At the default the log is bounded — 8,640
+    observations retained, **28 MiB at five members and 66 MiB at twenty-five** — so no
+    count- or size-based retention rule is needed and none is built.
+  - **`min_dropped` exists because a pruning record is itself unprunable.**
+    Observations are the one entry class a polity may drop; the records that drop them
+    are governing records and stay forever. Run as a control — the same simulated year
+    through a host loop waking daily — pruning at `min_dropped=1` authored **335
+    permanent pruning records and left a 1.27 MB log**, against **13 records and 435 KB**
+    at the default of 100. Eager housekeeping made the log **2.9× larger**. The default
+    keeps the permanent residue under ~3 MiB/year even at the fastest realistic
+    observation rate, and stays small enough to fire promptly on a slow cadence, where
+    a large floor would let the log run well past its retention target before anything
+    triggered.
+  - **The recommendation names its authorization route**, so the host knows whom to
+    ask: `PruneRoute::CharterKeeper { holders }` — from `office_state`, already
+    intersected with the roll, so a departed keeper is never offered — and/or
+    `PruneRoute::RollMajority { need }`. Both are reported when both are open, because
+    the officer route is an *alternative* to the roll and never a gate on it.
+  - **Not graded in `en-cohesion`.** An unpruned log is a housekeeping fact, not
+    evidence the polity is losing coherence; the eleven components stay about the
+    polity's own life. The **accepted risk**, recorded rather than mitigated: a polity
+    that leaves `CharterKeeper` vacant and never prunes accumulates silently, and only
+    whoever runs the loop will see it.
+  - **What remains the host's**, unchanged from D17: a storage backend (file/SQLite)
+    and the loop itself. D19 closes the horizon question, not those.
+
+
+- **D20 — storage, and the loop (locked 2026-07-28).** D17 and D19 each closed with
+  the same deferral: no storage backend ships, and nothing runs the loop. Taking it
+  on turned up that the first half was not a gap but a **defect**. D17 shipped
+  incremental saving (keep a cursor, write the segment past it) and compaction
+  (`apply_prunings` returns a new archive with observations removed), and *those two
+  do not compose*. Measured on the real surface: a host saving per observation and
+  then pruning reloaded **12 entries instead of 6, with 7 pruned observations
+  resurrected**.
+  - **Why it was invisible, which is the part that matters.** The reloaded log passed
+    `verify_all` *and* `check_authority` — the pruning receipt re-verified, because
+    every CID it named was back. And the mechanism was a documented convenience:
+    `dump_json_from` treated an index past the end as "already current" and returned
+    an empty segment, so after a compaction (cursor 12, new length 6) the save wrote
+    **nothing** and the `ObservationsPruned` record never reached storage at all. With
+    it went the window's `pruned_before`, so `unattended_span` read **300 days instead
+    of 230**. A storage bug *lengthening* a measured absence is precisely the
+    Concern-manufacturing failure D17's clamp exists to prevent, re-entering by a
+    route the clamp does not cover.
+  - **Generations.** An index is only meaningful within an append-only run, because
+    compaction removes entries from the *middle* — post-compaction index N is a
+    different entry. So the archive carries a `generation`, advanced by
+    `Archive::next_generation` (one caller: `apply_prunings`) and never by an append,
+    and a cursor is `(generation, index)`. `dump_json_since` refuses a cursor from
+    another generation or past the end; `append_json` refuses a segment whose
+    generation or start position is not the next piece of *this* log. Envelope version
+    2 carries both. Merging two independent logs into one view is a genuinely
+    different operation and now says so — `merge_json`, which the KC-side
+    several-communities reader wants and persistence never does.
+  - **`en-store`: the branch is one line, and that is the crate.** *Same generation ⇒
+    append a segment; generation changed ⇒ rewrite in full.* The store owns the
+    cursor, because the whole hazard is what happens when a caller keeps one. An
+    `ArchiveStore` trait generic over the entry type (as the rest of the archive
+    machinery is, D1 — so the crate needs no `en-charter` dependency at all), with
+    `FileStore` (one segment per line; append is write+fsync, rewrite is
+    temp+fsync+rename, which POSIX makes atomic) and `SqliteStore` behind a `sqlite`
+    feature. Both persist *the same segment envelopes*, so they are differentially
+    testable and neither can drift into its own idea of a stored log; SQLite earns its
+    place on the rewrite, which is one transaction rather than a temp-file dance.
+  - **A torn tail is named, not swallowed.** A crash mid-append leaves a partial final
+    line. Loading reports it; `recover()` truncates it as a deliberate, reported act.
+    Silently skipping an unparseable last line would discard a signed entry without
+    saying so — the same shape of failure as the bug above. The log may forget, but
+    only by saying so.
+  - **`en-host`: `tick` decides and computes; the host signs and does I/O.**
+    `HostCycle::tick(archive, candidate, as_of)` returns the `DueAction`s owed —
+    persist, a graded `CohesionReport`, a `RaiseConcern` when it reaches that level, a
+    `PruneRecommendation` when the log is due. It takes `as_of` like every other
+    cadence in this tier, so a year of host behaviour runs in microseconds at times
+    chosen to land on cadence boundaries, and it **authors nothing**: raising a
+    Concern and pruning both need signing keys the host holds. Emergence proposes and
+    the polity ratifies, applied to the host's own duties. It covers the cadenced
+    duties and only those — membership, induction, office conferral and envoy
+    authorization are deliberate acts, and nothing schedules them.
+  - **One clock, and it is not a library.** `src/rust/examples/polity_host` is a
+    `[[bin]]`, mirroring KC's `two_communities_demo`; nothing depends on it. Its
+    single `time::now()` is the only clock read in ethne outside a test, apart from
+    `en-pyo3`'s pre-existing `*_at=None ⇒ now` binding convenience. It runs a
+    simulated timeline by default so it terminates and can be verified, and
+    `--follow` is the real loop.
+  - **Measured.** With the whole log at 5,000 entries an append writes **67 bytes**
+    against a rewrite's **63,954** — 955×. The measurement also caught a real defect
+    in the claim "each save costs what is new": `dump_json_from_to` reached the tail
+    with `iter().skip(start)`, walking and index-looking-up every skipped entry, so an
+    append to a 5,000-entry log burned **~5.4 ms of pure CPU**. Slicing the order
+    index instead (`iter_from`) makes it flat at **~14 µs**, independent of log size.
+  - **The honest limits.** `SqliteStore` is ethne's first C dependency
+    (`rusqlite/bundled`); it is off by default and `cargo tree` confirms the default
+    workspace graph is unchanged and still `kc-core`-only. Concurrent writers are a
+    host error — two stores over one file fail loudly rather than interleaving, but
+    nothing *locks*. And `en-host` is Rust-side only: a Python host gets `FileStore`
+    and the read-models, not the cycle.
+
+- **D21 — a founding says what it excluded (locked 2026-07-28, resolving Q1).**
+  The genesis authority rule asked for a majority of `p.members.len()` — the
+  *proposal's own roll* — and `FoundingCandidate::propose` discarded the candidate
+  it derived that roll from. The charter had no referent outside itself. Measured
+  against a thirty-node substrate: a faction of one chartered the cluster as a
+  polity of itself, on one signature, passing both `verify_all` and
+  `check_authority`; the exclusion of the other twenty-nine was not merely
+  unpunished but **unrecorded**. The majority bar was vacuous because the faction
+  picked its own denominator.
+
+  The resolution splits the problem in two, along the seam the tier already uses
+  elsewhere — *the log may forget, but only by saying so; a founding may exclude,
+  but only by saying so*:
+
+  - **The accounting is gated.** `FoundingProposal` and `PolityCharter` carry a
+    `BoundaryAttestation`: the `candidate_size` the boundary showed, and an
+    `Exclusion { member, reason }` for everyone it showed that the roll does not
+    name. Genesis authority refuses a charter whose numbers do not add up
+    (`candidate_size == members + exclusions`), whose exclusions repeat, or that
+    excludes someone it also enrolls. Because the charter's core has no amendment
+    path, the attestation is genesis-immutable by construction.
+  - **The judgement is only graded.** Nothing refuses a charter for being *narrow*.
+    A genuinely separate group of three inside a thirty-node cluster is
+    indistinguishable from a faction capturing it without a substantive judgement
+    about the tradition — the same shape as the attendance cap's inability to tell a
+    night shift from an abandoned polity (D8/Q9). What the rule removes is the
+    silence, not the discretion.
+
+  `founding_legitimacy(charter)` is a read-model over the charter **alone** — no
+  provider, no cohesion input — so anyone holding the charter can re-run it forever.
+  It reports `consent_share`, **the single number Q1 asks for**: ratifiers over
+  everyone the boundary showed, rather than over the roll the founders chose. Its
+  `FoundingBasis` (`Corroborated` / `Narrowed` / `SelfAttested`) is deliberately
+  **not** ordered and **not** an `ErosionLevel` — a founding is not eroding, and
+  these are not comparable harms.
+
+  `BoundarySource` rides on `FoundingCandidate`, not on `propose`. The provider is
+  the only party who knows whether a boundary is an independent reading or a
+  convener's word, and a `ManualFounding` candidate has exactly the same *shape* as
+  a trust service's, so the distinction cannot be inferred downstream. This is D18's
+  move applied to the roll — put the epistemic state in the type — and the codebase
+  already drew the line informally: `ManualFounding` gives asserted members
+  `Some(1.0)` rather than `None` precisely because *a convener vouching for a roll is
+  the reading here*. A convener-asserted founding still charters; the charter simply
+  never pretends it was corroborated, which is the same honest chartered state as an
+  unguarded machine's `guardian: None` (D15).
+
+  `propose` now records whoever the reputation floor trims, with the reason it
+  actually used — distinguishing "reputation 0.21 below the floor 0.30" from
+  "unrated; a floor of 0.30 demands a reading" (D18's semantics, stated where an
+  excluded party can read them). `propose_selecting` is new, for the *deliberate*
+  narrowing: if the only ergonomic path were the floor, an honest small founding
+  would be dressed up as a floor it is not, or done by hand with an attestation the
+  convener writes themselves.
+
+  *Judgement call, flagged:* `FoundingLegitimacy` carries the exclusion **list**,
+  not only the count, though a Rust caller holding the charter could read it off the
+  attestation. A grade reporting "29 excluded" without their names would reinstate,
+  one level up, the exact silence D21 removes — and it is the only way the excluded,
+  or anyone auditing for them, can read the reason off a surface that is not Rust.
+
+  **Measured**, against a thirty-node substrate — a founding narrowed honestly, and
+  the same narrowing asserted on the convener's own word:
+
+  | faction | signed | boundary saw | named excluded | `consent_share` | basis |
+  |--------:|-------:|-------------:|---------------:|----------------:|-------|
+  | 30 | 16 | 30 |  0 | 0.533 | `Corroborated` |
+  |  5 |  3 | 30 | 25 | 0.100 | `Narrowed` |
+  |  3 |  2 | 30 | 27 | 0.067 | `Narrowed` |
+  |  1 |  1 | 30 | 29 | 0.033 | `Narrowed` |
+
+  Before, every row read `chartered` and nothing more.
+
+  **The honest limits.**
+  - This is **accountability, not prevention**, and it does not pretend otherwise.
+    The attestation is the proposer's *signed claim*. Nothing in the archive can
+    check it against the substrate, because the archive has no provider — a
+    hand-built proposal can still understate `candidate_size`. What changes is that
+    doing so is now an explicit false statement rather than an omission: the
+    distinction between negligence and fraud, and what makes a later audit possible
+    at all.
+  - That residue is **Q5** (a captured provider feeding a gerrymandered boundary),
+    which this slice does not close and names as adjacent.
+  - The soft-boundary problem is real but bounded here: Q7 resolved the AT boundary
+    as the enumerated subtree roster, which is crisp, so "who did the substrate
+    show" has a definite answer on the one provider that exists.
+  - Adding a required field to `PolityCharter` **breaks deserialization of existing
+    dumps**. Acceptable — pre-release, uncommitted, and genesis is a singleton so
+    there are no long-lived logs — but it is a real format break, alongside D20's
+    envelope v2.
+  - Nothing new crosses to KC. D4 holds: a founding defect is not conduct, and the
+    border stays at four artifacts.
+
 
 ## Open questions (round 2)
 
@@ -440,7 +965,11 @@ KC cannot see on its own and AT cannot decide on its own.
   **(a) semantics → both.** Two signals: a durable **operator-bound** attestation
   (the node has a human guardian) and a live **attended-now** freshness (a verified
   operator session is active). ethne's guardian edge uses *bound*; *attended-now*
-  feeds cohesion/liveness later.
+  feeds cohesion/liveness later. **Both halves are now built (2026-07-27):** AT
+  carries `operator_attested_at` (consumer-pull, no keepalive) and `en-at` folds it
+  onto each `MemberCandidate`, where `en-cohesion` grades it as a fourth erosion
+  component — capped at `Notice`, never a Concern, because a point-in-time snapshot
+  cannot tell a night shift from an abandoned polity.
   **(b) verifiability & placement → credential-hash in the signed Identity.** The
   signal carries the operator's chain-verifiable `zta_credential_hash` (+ issuer)
   inside the *signed* Identity payload — tamper-evident, non-forgeable, reusing the
@@ -452,18 +981,45 @@ KC cannot see on its own and AT cannot decide on its own.
 
 ## Open questions
 
-- **Q1 — the ratification quorum.** What makes a founding *legitimate* rather than
-  a capture of the emergent cluster by a faction? Who must consent, and how is the
-  soft boundary's "who is really in" resolved without letting the founders
-  gerrymander the roll?
+- **Q1 — the ratification quorum. RESOLVED 2026-07-28 → gate the accounting, grade
+  the judgement (see D21).** A founding may still narrow the cluster it came from,
+  but never *silently*: the charter carries the boundary it claims to ratify —
+  `candidate_size` plus a reasoned `Exclusion` for everyone the boundary showed and
+  the roll does not name — and, the charter's core having no amendment path, carries
+  it permanently. Authority refuses a charter whose boundary does not add up;
+  nothing refuses one merely for being narrow, because a genuinely separate group of
+  three inside a thirty-node cluster is indistinguishable from a faction capturing
+  it without a substantive judgement no rule can make. The number Q1 asks for —
+  what share of the cluster actually consented — is `founding_legitimacy`'s
+  `consent_share`, derivable by anyone holding the charter, forever: the faction of
+  one that used to pass a "majority" at a single signature now reads **0.033**.
+  Accountability, not prevention; the residue (a captured provider feeding a
+  gerrymandered boundary) is **Q5**.
 - **Q2 — when is a schism a fission? RESOLVED 2026-07-24 → ratified, never
   auto-verdicted.** The cohesion monitor (`en-cohesion`) does **not** decide a
   fission — algorithmically splitting a polity would be exactly the "replace
   emergence" move the tier exists to refuse. What the monitor does is grade strain
   into an `ErosionLevel` (`None` / `Notice` / `Concern`, mirroring KC's own
   erosion alert one tier down) off two snapshots: the chartered roll vs. the
-  provider's current candidate (attrition, reputation decay, floor breaches, an
-  opaque boundary capping attrition at `Notice`). At `Concern`, `en-uplift` emits
+  provider's current candidate (attrition, reputation decay, floor breaches, absent
+  guardians, transmission decay — members lapsed on re-affirming the substrate,
+  read off `en-charter`'s `AffirmationState` — lost guardian edges (D15: a
+  chartered node→guardian edge the substrate no longer shows, over members it still
+  observes), a widening affirmation gap, a thinning induction witness turnout, roll
+  churn, sustained absence, the **unrated share** (D18: observed members the
+  provider has no reputation reading for), and an opaque boundary capping attrition
+  at `Notice`).
+  Five of those are
+  capped at `Notice`: the opaque boundary caps *attrition*; the absent-guardian
+  component is capped outright, because a *snapshot* of absence is ambiguous by
+  nature; the unrated component likewise, because a young cohort and a provider that
+  has stopped rating are the same picture (D18); and the two decay trends
+  (gap-widening, witness-decline) are capped
+  because a trend is a leading indicator whose consequence is already gradeable by
+  the affirmation component (D16). **Sustained** absence is the one signal that
+  passes the attendance cap, and only on the strength of a record: an unattended
+  span long enough *and* witnessed by enough archived observations reaches
+  `Concern`. At `Concern`, `en-uplift` emits
   KC's `ConductKind::Concern` — an **early warning**, the strain that *precedes* a
   split, not a verdict. A fission is a **deliberate re-charter**: the community
   ratifies two successor foundings, and only then does `en-uplift::fission` emit
@@ -511,7 +1067,7 @@ relation KC governs) and from the anonymous nodes AT knows. Rust crate prefix
 
 ## Status & next steps
 
-Decisions D1–D13 locked; Q2/Q3/Q6/Q7/Q8/Q9 resolved. Build order (steps 1–5
+Decisions D1–D21 locked; Q1/Q2/Q3/Q6/Q7/Q8/Q9 resolved. Build order (steps 1–5
 **built**):
 
 1. ✅ Scaffold the `ethne` workspace (D2) with `en-core` deps on `kc-core`, and a
@@ -532,22 +1088,27 @@ Decisions D1–D13 locked; Q2/Q3/Q6/Q7/Q8/Q9 resolved. Build order (steps 1–5
 5. ✅ Wire the upward interface to KC recognition (D4/D9/D10). `CommunityIdentity`
    + `SuccessorLink` extracted to `kc-core` (D9). `en-cohesion` grades coherence
    erosion (`None`/`Notice`/`Concern`) off the chartered-roll vs. current-candidate
-   diff, staying `kc-core`-only. `en-uplift` (the one crate holding the confined
-   `kc-conduct` dep, D10) emits the three border artifacts: the `CommunityIdentity`
+   diff, staying `kc-core`-only. `en-uplift` (the crate holding the confined
+   KC-record deps, D10) emits the four border artifacts: the `CommunityIdentity`
    handoff, the `Concern` conduct record on `Concern`-level erosion (neutral
-   `Other("coherence-erosion")` bearing), and a ratified `fission` bundle (two
+   `Other("coherence-erosion")` bearing), a ratified `fission` bundle (two
    successor identities + two signed `SuccessorLink`s + the predecessor's
-   `CharterDissolution`, a new `en-charter` charter-lifecycle record). `cargo tree`
-   confirms all core + monitor crates remain `kc-core`-only and the `kc-conduct`
-   coupling stops at `en-uplift`.
+   `CharterDissolution`, a new `en-charter` charter-lifecycle record), and — since
+   D14 — the envoy `SpeakerDelegation` for whoever the polity has authorized to
+   speak for it. `cargo tree`
+   confirms all core + monitor crates remain `kc-core`-only and that both
+   KC-record couplings (`kc-conduct`, and `kc-identity` since D14) stop at
+   `en-uplift`.
 
 Deferred (later slices): the full intra/inter ceremony rites for envoy recognition
 (KC's job once it holds the `CommunityIdentity`) and the multi-movement
 choreography of the intra-community rite (v1 records the rite's completion, not its
-movements); use-time office enforcement and the machine-majority guardian-only
-office constraint; wiring affirmation staleness into `en-cohesion` / an `en-uplift`
-`Concern` (v1 keeps it a standalone `en-charter` lens), and richer decay analytics
-(gap-widening / witness-decline trends, as in KC's full `ceremony_cost_decay`);
+movements); the at-ffi decoder that would fill these fields from a live node, and
+the AT-side signal it needs before `MemberCandidate::reputation: None` is reachable
+at all (AT collapses "no history" into `PREREP_NEUTRAL` at its own API boundary —
+see D18); formerly-deferred
+richer decay analytics (gap-widening / witness-decline trends, as
+in KC's full `ceremony_cost_decay`);
 Python bindings for `en-at`. Membership join/leave amendments (D11), **fusion** (the
 mirror of fission — `en-uplift::fusion`, N-ary), **internal offices**
 (responsibility #3 / D12), **longevity & continuity** (responsibility #5 / D13 —

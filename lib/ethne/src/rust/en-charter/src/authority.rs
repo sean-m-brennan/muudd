@@ -41,7 +41,33 @@
 //!   regress): *Confer* needs a majority of the current roll **and** the holder's
 //!   co-signature (consent), on a current member; *Resign* is signed by the holder
 //!   alone; *Revoke* needs a majority with the holder excluded. A holding is
-//!   effective only while its holder is on the roll.
+//!   effective only while its holder is on the roll. In a **machine-majority**
+//!   polity a conferral additionally refuses a *derived member with no guardian*
+//!   (D15): the polity substantially is its guardian assembly, so every office must
+//!   trace to a human.
+//! - **The guardian edge** (D15) — which members are derived (machine) parties and
+//!   the human each answers to. Founding derivations are ratified in the charter
+//!   (and every named guardian co-signs it, since answerability is accepted rather
+//!   than assigned); afterwards *Designate* needs a majority plus the named
+//!   guardian's consent, *Rotate* a majority plus the **incoming** guardian's, and
+//!   *Release* either the departing guardian's own signature or a majority of the
+//!   roll recording that the human is gone. No guardian may itself be a derived
+//!   member of the same polity — a machine cannot guard a machine.
+//! - **Offices in use** (D14) — an office is not only held, it *bites*, in two
+//!   different ways. The `Inductor` is a **presiding requirement**: where the
+//!   office is effectively held, one of its holders other than the inductee must
+//!   witness an induction, and the roll may proceed without them only at a
+//!   majority **+ 1** — its own override, so no officer can block the polity's
+//!   rite. The `EnvoyAuthorizer` is a **delegated authority**: one holder's
+//!   signature stands in for the roll's majority on an envoy record, and because
+//!   the majority route always remains open, filling the office costs the roll
+//!   nothing and lets the officer stall nothing. `Convener` and `CharterKeeper`
+//!   gate nothing — the roll stays sovereign over its own deliberations.
+//! - **Envoy standing** — who may speak for the polity beyond it: *Authorize* on
+//!   either route above **and** the envoy's co-signature (no conscription), on a
+//!   current member whose public key derives their DID; *Resign* is signed by the
+//!   envoy alone; *Revoke* takes the same two routes with the envoy excluded. A
+//!   standing is effective only while the envoy is on the roll and unexpired.
 //! - **Transmission** — admission puts someone on the roll; *induction* is the
 //!   separate step by which they acquire the substrate, and it is **witnessed by
 //!   the roll**: a majority of current members co-sign alongside the inductee (the
@@ -51,8 +77,8 @@
 //!   — renewal is the member's own act, and its freshness decays
 //!   ([`crate::AffirmationState::stale_members`]).
 //! - **Terminal dissolution** — once a polity is dissolved, no further charter
-//!   event (amendment, membership change, office change, affirmation, or a second
-//!   dissolution) is authorized.
+//!   event (amendment, membership change, office change, guardian change, envoy
+//!   authorization, affirmation, or a second dissolution) is authorized.
 //!
 //! Like kith-covenant's constitution rules, state is reconstructed by walking
 //! entries *before* the one under test in insertion order; an unauthorized prior
@@ -62,10 +88,30 @@
 use std::collections::BTreeSet;
 
 use en_archive::Archive;
-use en_core::{Cid, DidKey, KcError, KcResult};
+use en_core::{Cid, DidKey, KcError, KcResult, Timestamp};
 
 use crate::entry::CharterEntry;
-use crate::record::{AffirmationKind, AmendmentKind, MembershipKind, Office, OfficeKind};
+use crate::state::is_prunable;
+use crate::record::{
+    pruning_digest, AffirmationKind, AmendmentKind, EnvoyKind, GuardianKind, MembershipKind, Office,
+    OfficeKind,
+};
+
+/// How far back an effective `CharterKeeper` must reach before its delegated power
+/// over observation-pruning applies: **30 days**.
+///
+/// This is a constant, not a tunable threshold, and the difference is deliberate.
+/// Cadences in this tier are query-time parameters — `stale_members` takes one,
+/// `Thresholds` carries the rest — because they are policy. This one is *law*: it
+/// exists to keep one officer from reaching evidence that grades a live Concern,
+/// and a floor the party it constrains could lower is not a floor. The roll can
+/// still prune anything more recent; it simply has to do so as the roll, at a
+/// majority, rather than through a single custodian.
+///
+/// Thirty days is thirty times the longest observation-based measure
+/// (`sustained_absence_seconds`, one day), so the officer route cannot touch
+/// anything a current grading rests on.
+pub const PRUNE_SETTLING_SECONDS: i64 = 30 * 86_400;
 
 /// Majority of `n`: `n / 2 + 1`.
 pub fn majority(n: usize) -> usize {
@@ -99,6 +145,19 @@ struct Reconstructed {
     founding_members: Vec<DidKey>,
     /// Members with a prior `Induction` record.
     inducted: Vec<DidKey>,
+    /// Derived-party designations (founding derivations + `GuardianChange`s), as
+    /// `(member, guardian)`. Not yet intersected with the live roll; a designation
+    /// lapses while its member is off the roll, exactly as an office holding does.
+    derivations: Vec<(DidKey, Option<DidKey>)>,
+    /// Raw envoy standings (`Authorize` − `Resign`/`Revoke`), not yet intersected
+    /// with the live roll. Expiry is a derivation-time concern
+    /// ([`crate::envoy_state`]), not an authority one: a standing that has lapsed
+    /// of its own accord was still validly granted.
+    envoys: Vec<DidKey>,
+    /// The most recent observation-pruning horizon for this polity, if any. A
+    /// pruning must advance it: a horizon that recedes claims to drop what an
+    /// earlier one already dropped, so it could only ever mislead.
+    prune_horizon: Option<Timestamp>,
 }
 
 /// Reconstruct a polity's charter state from entries strictly before `upto`.
@@ -106,12 +165,15 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
     let mut r = Reconstructed {
         chartered: false,
         dissolved: false,
+        prune_horizon: None,
         members: Vec::new(),
         founding: BTreeSet::new(),
         in_force: BTreeSet::new(),
         offices: Vec::new(),
         founding_members: Vec::new(),
         inducted: Vec::new(),
+        derivations: Vec::new(),
+        envoys: Vec::new(),
     };
     for (idx, (_cid, e)) in archive.iter().enumerate() {
         if idx >= upto {
@@ -125,6 +187,9 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                 for c in &s.payload.founding_commitments {
                     r.founding.insert(c.key.clone());
                     r.in_force.insert(c.key.clone());
+                }
+                for d in &s.payload.derivations {
+                    r.derivations.push((d.member.clone(), d.guardian.clone()));
                 }
             }
             CharterEntry::CommitmentAmended(s) if &s.payload.polity == polity => match s.payload.kind {
@@ -162,6 +227,45 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                     }
                 }
             }
+            CharterEntry::GuardianChanged(s) if &s.payload.polity == polity => {
+                let gc = &s.payload;
+                match gc.kind {
+                    GuardianKind::Designate => {
+                        if !r.derivations.iter().any(|(m, _)| m == &gc.member) {
+                            r.derivations.push((gc.member.clone(), gc.guardian.clone()));
+                        }
+                    }
+                    GuardianKind::Rotate => {
+                        for (m, g) in r.derivations.iter_mut() {
+                            if m == &gc.member {
+                                *g = gc.guardian.clone();
+                            }
+                        }
+                    }
+                    GuardianKind::Release => {
+                        // The designation survives; only the edge is cleared. A
+                        // machine does not become human by losing its human.
+                        for (m, g) in r.derivations.iter_mut() {
+                            if m == &gc.member {
+                                *g = None;
+                            }
+                        }
+                    }
+                }
+            }
+            CharterEntry::EnvoyAuthorized(s) if &s.payload.polity == polity => {
+                let ea = &s.payload;
+                match ea.kind {
+                    EnvoyKind::Authorize => {
+                        if !r.envoys.contains(&ea.envoy) {
+                            r.envoys.push(ea.envoy.clone());
+                        }
+                    }
+                    EnvoyKind::Resign | EnvoyKind::Revoke => {
+                        r.envoys.retain(|d| d != &ea.envoy);
+                    }
+                }
+            }
             CharterEntry::MemberAffirmed(s) if &s.payload.polity == polity => {
                 let a = &s.payload;
                 if a.kind == AffirmationKind::Induction && !r.inducted.contains(&a.member) {
@@ -171,10 +275,52 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
             CharterEntry::CharterDissolved(s) if &s.payload.polity == polity => {
                 r.dissolved = true;
             }
+            // An observation changes no state: it records what someone saw.
+            CharterEntry::Observed(_) => {}
+            CharterEntry::ObservationsPruned(s) if &s.payload.polity == polity => {
+                let h = s.payload.horizon;
+                if r.prune_horizon.is_none_or(|prev| h > prev) {
+                    r.prune_horizon = Some(h);
+                }
+            }
             _ => {}
         }
     }
     r
+}
+
+/// Who *effectively* holds `office` as of the reconstructed point: a raw grant
+/// counts only while its holder is on the roll (D12 — a holding lapses when its
+/// holder departs and revives when they return). Both use-time rules (D14) read
+/// the holdings through this, never the raw grants, so a departed officer neither
+/// presides nor authorizes.
+fn effective_holders(prior: &Reconstructed, office: &Office) -> BTreeSet<String> {
+    prior
+        .offices
+        .iter()
+        .filter(|(o, h)| o == office && prior.members.contains(h))
+        .map(|(_, h)| h.as_str().to_string())
+        .collect()
+}
+
+/// The designations in force as of the reconstructed point: a designation counts
+/// only while its member is on the roll (the same lapse-and-revive rule offices
+/// follow — see [`effective_holders`]).
+fn effective_derivations(prior: &Reconstructed) -> Vec<(&DidKey, &Option<DidKey>)> {
+    prior
+        .derivations
+        .iter()
+        .filter(|(m, _)| prior.members.contains(m))
+        .map(|(m, g)| (m, g))
+        .collect()
+}
+
+/// Whether the polity is **machine-majority** at the reconstructed point: derived
+/// members are at least a majority of the live roll. This is what conditions the
+/// office rule (D15) — a wholly or mostly human polity is left alone.
+fn is_machine_majority(prior: &Reconstructed) -> bool {
+    let roll = prior.members.len();
+    roll > 0 && effective_derivations(prior).len() >= majority(roll)
 }
 
 /// All authority violations in the archive, each as `(entry_cid, reason)`.
@@ -211,8 +357,90 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     )));
                     continue;
                 }
-                if e.signer_dids() != ratifiers {
-                    out.push((*cid, "charter signers must be exactly the ratifiers".into()));
+                // D21 — the boundary must ACCOUNT for itself (resolving Q1).
+                //
+                // Nothing here refuses a *narrow* founding: a genuinely separate
+                // group of three inside a thirty-node cluster is indistinguishable
+                // from a faction capturing it, without a substantive judgement about
+                // the tradition that no rule can make. What is refused is the
+                // SILENCE — before this, the quorum's denominator was the proposal's
+                // own roll, so one node could charter a thirty-node cluster as a
+                // polity of itself and the other twenty-nine went unrecorded.
+                let att = &p.attestation;
+                if !att.accounts_for(p.members.len()) {
+                    out.push((*cid, format!(
+                        "boundary does not account for itself: it showed {} but the roll \
+                         names {} and only {} are excluded",
+                        att.candidate_size,
+                        p.members.len(),
+                        att.exclusions.len()
+                    )));
+                    continue;
+                }
+                let mut excluded: BTreeSet<String> = BTreeSet::new();
+                let mut bad_exclusion = false;
+                for e in &att.exclusions {
+                    if !excluded.insert(e.member.as_str().to_string()) {
+                        out.push((*cid, format!("duplicate exclusion for {}", e.member)));
+                        bad_exclusion = true;
+                        break;
+                    }
+                    if members.contains(e.member.as_str()) {
+                        out.push((*cid, format!(
+                            "{} is excluded and also on the roll", e.member
+                        )));
+                        bad_exclusion = true;
+                        break;
+                    }
+                }
+                if bad_exclusion {
+                    continue;
+                }
+                // D15 — the founding derivations. Every designated member is on the
+                // roll, named once, and no guardian is itself a derived member of
+                // this same polity: a machine cannot guard a machine, or the
+                // human-above-machine anchor closes into a loop.
+                let mut designated: BTreeSet<String> = BTreeSet::new();
+                let mut bad_derivation = false;
+                for d in &p.derivations {
+                    if !designated.insert(d.member.as_str().to_string()) {
+                        out.push((*cid, format!("duplicate derivation for {}", d.member)));
+                        bad_derivation = true;
+                        break;
+                    }
+                    if !members.contains(d.member.as_str()) {
+                        out.push((*cid, format!(
+                            "derivation names {}, who is not in the membership roll", d.member
+                        )));
+                        bad_derivation = true;
+                        break;
+                    }
+                }
+                if bad_derivation {
+                    continue;
+                }
+                if let Some(g) = p
+                    .derivations
+                    .iter()
+                    .filter_map(|d| d.guardian.as_ref())
+                    .find(|g| designated.contains(g.as_str()))
+                {
+                    out.push((*cid, format!(
+                        "guardian {g} is itself a derived member; a machine cannot guard a machine"
+                    )));
+                    continue;
+                }
+                // Answerability is accepted, never assigned — so a named guardian
+                // co-signs the founding alongside the ratifiers, exactly as a joiner
+                // co-signs their own admission.
+                let mut required = ratifiers.clone();
+                for d in &p.derivations {
+                    if let Some(g) = &d.guardian {
+                        required.insert(g.as_str().to_string());
+                    }
+                }
+                if e.signer_dids() != required {
+                    out.push((*cid, "charter signers must be exactly the ratifiers plus every named guardian (consent)".into()));
                     continue;
                 }
             }
@@ -429,6 +657,23 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, format!("conferral needs a majority (>= {need}), got {}", oc.deciders.len())));
                             continue;
                         }
+                        // D15 — in a machine-majority polity every office must trace
+                        // to a human: the polity substantially *is* its guardian
+                        // assembly, so a machine with nobody behind it may hold no
+                        // office. Conditional on machine-majority *at this point in
+                        // the log*; a mostly human polity is left alone.
+                        if is_machine_majority(&prior)
+                            && effective_derivations(&prior)
+                                .iter()
+                                .any(|(m, g)| *m == &oc.holder && g.is_none())
+                        {
+                            out.push((*cid, format!(
+                                "office conferred on {}, a derived member with no guardian, in a \
+                                 machine-majority polity",
+                                oc.holder
+                            )));
+                            continue;
+                        }
                         // Signers must be exactly the deciders plus the holder (the
                         // holder co-signs to consent; overlap with the deciders is
                         // fine, since the holder is already a member).
@@ -483,6 +728,269 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     }
                 }
             }
+            CharterEntry::GuardianChanged(s) => {
+                let gc = &s.payload;
+                let prior = reconstruct(archive, &gc.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!(
+                        "guardian change for {} precedes its charter", gc.polity
+                    )));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!(
+                        "guardian change for {} after its dissolution", gc.polity
+                    )));
+                    continue;
+                }
+                let members = did_set(&prior.members);
+                let deciders = did_set(&gc.deciders);
+                let signers = e.signer_dids();
+                let member = gc.member.as_str().to_string();
+                let roll = prior.members.len();
+                let need = majority(roll);
+                let designated: Vec<(&DidKey, &Option<DidKey>)> = effective_derivations(&prior);
+                let current = designated.iter().find(|(m, _)| *m == &gc.member).map(|(_, g)| *g);
+                if !members.contains(&member) {
+                    out.push((*cid, "guardian change for a non-member".into()));
+                    continue;
+                }
+                if deciders.len() != gc.deciders.len() {
+                    out.push((*cid, "duplicate decider".into()));
+                    continue;
+                }
+                if !deciders.is_subset(&members) {
+                    out.push((*cid, "decider is not a member of the polity".into()));
+                    continue;
+                }
+                // A machine cannot guard a machine (the same rule the founding
+                // applies), and nothing may be its own guardian.
+                if let Some(g) = &gc.guardian {
+                    if g == &gc.member {
+                        out.push((*cid, "a member cannot be its own guardian".into()));
+                        continue;
+                    }
+                    if designated.iter().any(|(m, _)| *m == g) {
+                        out.push((*cid, format!(
+                            "guardian {g} is itself a derived member; a machine cannot guard a machine"
+                        )));
+                        continue;
+                    }
+                }
+                match gc.kind {
+                    GuardianKind::Designate => {
+                        if current.is_some() {
+                            out.push((*cid, "member is already designated a derived party".into()));
+                            continue;
+                        }
+                        if gc.deciders.len() < need {
+                            out.push((*cid, format!(
+                                "designation needs a majority of the roll (>= {need}), got {}",
+                                gc.deciders.len()
+                            )));
+                            continue;
+                        }
+                        // Signers = the deciders plus the named guardian, who accepts
+                        // the answerability. A designation with no guardian (a machine
+                        // with nobody behind it) is the roll's own act alone.
+                        let mut required = deciders.clone();
+                        if let Some(g) = &gc.guardian {
+                            required.insert(g.as_str().to_string());
+                        }
+                        if signers != required {
+                            out.push((*cid, "designation signers must be exactly the deciders plus the named guardian (consent)".into()));
+                            continue;
+                        }
+                    }
+                    GuardianKind::Rotate => {
+                        if current.is_none() {
+                            out.push((*cid, "rotation for a member who is not a designated derived party".into()));
+                            continue;
+                        }
+                        let Some(incoming) = &gc.guardian else {
+                            out.push((*cid, "rotation must name the incoming guardian (use Release to clear the edge)".into()));
+                            continue;
+                        };
+                        if current.map(|g| g.as_ref()) == Some(Some(incoming)) {
+                            out.push((*cid, "rotation to the guardian already in place".into()));
+                            continue;
+                        }
+                        if gc.deciders.len() < need {
+                            out.push((*cid, format!(
+                                "rotation needs a majority of the roll (>= {need}), got {}",
+                                gc.deciders.len()
+                            )));
+                            continue;
+                        }
+                        // The *incoming* guardian consents; the outgoing one is
+                        // released rather than held (nobody is forced to keep serving).
+                        let mut required = deciders.clone();
+                        required.insert(incoming.as_str().to_string());
+                        if signers != required {
+                            out.push((*cid, "rotation signers must be exactly the deciders plus the incoming guardian (consent)".into()));
+                            continue;
+                        }
+                    }
+                    GuardianKind::Release => {
+                        let Some(outgoing) = current else {
+                            out.push((*cid, "release for a member who is not a designated derived party".into()));
+                            continue;
+                        };
+                        if gc.guardian.is_some() {
+                            out.push((*cid, "a release names no incoming guardian".into()));
+                            continue;
+                        }
+                        let Some(outgoing) = outgoing else {
+                            out.push((*cid, "release of a guardian edge that is already absent".into()));
+                            continue;
+                        };
+                        // Two routes: the guardian steps away on their own signature,
+                        // or the roll records at a majority that the human is gone.
+                        let by_guardian: BTreeSet<String> =
+                            std::iter::once(outgoing.as_str().to_string()).collect();
+                        if gc.deciders.is_empty() {
+                            if signers != by_guardian {
+                                out.push((*cid, "a release with no deciders must be signed by exactly the departing guardian".into()));
+                                continue;
+                            }
+                        } else {
+                            if signers != deciders {
+                                out.push((*cid, "release signers must be exactly the deciders".into()));
+                                continue;
+                            }
+                            if gc.deciders.len() < need {
+                                out.push((*cid, format!(
+                                    "a release the roll records needs a majority (>= {need}), got {}",
+                                    gc.deciders.len()
+                                )));
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+            CharterEntry::EnvoyAuthorized(s) => {
+                let ea = &s.payload;
+                let prior = reconstruct(archive, &ea.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!(
+                        "envoy authorization for {} precedes its charter", ea.polity
+                    )));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!(
+                        "envoy authorization for {} after its dissolution", ea.polity
+                    )));
+                    continue;
+                }
+                // The record names the speaker by key as well as by DID, because the
+                // KC-side delegation does; a key that does not derive the DID would
+                // let an unrelated key speak for the polity.
+                if DidKey::from_pubkey(&ea.envoy_pubkey).ok().as_ref() != Some(&ea.envoy) {
+                    out.push((*cid, "envoy_pubkey does not derive the envoy DID".into()));
+                    continue;
+                }
+                let members = did_set(&prior.members);
+                let authorizers = did_set(&ea.authorizers);
+                let signers = e.signer_dids();
+                let envoy = ea.envoy.as_str().to_string();
+                let roll = prior.members.len();
+                let is_member = prior.members.contains(&ea.envoy);
+                let raw_standing = prior.envoys.contains(&ea.envoy);
+                // A standing is effective only while the envoy is on the roll.
+                let stands = is_member && raw_standing;
+                // D14 — the EnvoyAuthorizer's *delegated power*: one holder's
+                // signature stands in for the roll's majority. Never the envoy's
+                // own, so an authorizer cannot appoint themselves unilaterally —
+                // self-appointment must go through the roll. The majority route
+                // always stays open, so filling the office costs the roll nothing
+                // and the officer can never stall an authorization.
+                let officers = effective_holders(&prior, &Office::EnvoyAuthorizer);
+                let by_officer = authorizers.iter().any(|a| a != &envoy && officers.contains(a));
+                let need = majority(roll);
+                match ea.kind {
+                    EnvoyKind::Authorize => {
+                        if !is_member {
+                            out.push((*cid, "envoy authorized who is not a member of the polity".into()));
+                            continue;
+                        }
+                        if raw_standing {
+                            out.push((*cid, "envoy standing already authorized".into()));
+                            continue;
+                        }
+                        if authorizers.len() != ea.authorizers.len() {
+                            out.push((*cid, "duplicate authorizer".into()));
+                            continue;
+                        }
+                        if !authorizers.is_subset(&members) {
+                            out.push((*cid, "authorizer is not a member of the polity".into()));
+                            continue;
+                        }
+                        if !by_officer && ea.authorizers.len() < need {
+                            out.push((*cid, format!(
+                                "authorization needs an EnvoyAuthorizer other than the envoy among \
+                                 the authorizers, or a majority of the roll (>= {need}), got {}",
+                                ea.authorizers.len()
+                            )));
+                            continue;
+                        }
+                        // Signers are exactly the authorizers plus the envoy: speaking
+                        // for the polity is a duty, so it is never conscripted.
+                        let mut required = authorizers.clone();
+                        required.insert(envoy.clone());
+                        if signers != required {
+                            out.push((*cid, "authorization signers must be exactly the authorizers plus the envoy (consent)".into()));
+                            continue;
+                        }
+                    }
+                    EnvoyKind::Resign => {
+                        if !stands {
+                            out.push((*cid, "resignation of an envoy standing not held".into()));
+                            continue;
+                        }
+                        if !ea.authorizers.is_empty() {
+                            out.push((*cid, "envoy resignation records no authorizers".into()));
+                            continue;
+                        }
+                        let required: BTreeSet<String> = std::iter::once(envoy.clone()).collect();
+                        if signers != required {
+                            out.push((*cid, "envoy resignation must be signed by exactly the resigning envoy".into()));
+                            continue;
+                        }
+                    }
+                    EnvoyKind::Revoke => {
+                        if !stands {
+                            out.push((*cid, "revocation of an envoy standing not held".into()));
+                            continue;
+                        }
+                        if authorizers.contains(&envoy) {
+                            out.push((*cid, "revoked envoy cannot be among the authorizers".into()));
+                            continue;
+                        }
+                        if authorizers.len() != ea.authorizers.len() {
+                            out.push((*cid, "duplicate authorizer".into()));
+                            continue;
+                        }
+                        if !authorizers.is_subset(&members) {
+                            out.push((*cid, "authorizer is not a member of the polity".into()));
+                            continue;
+                        }
+                        if signers != authorizers {
+                            out.push((*cid, "envoy revocation signers must be exactly the authorizers".into()));
+                            continue;
+                        }
+                        if !by_officer && ea.authorizers.len() < need {
+                            out.push((*cid, format!(
+                                "envoy revocation needs an EnvoyAuthorizer among the authorizers, \
+                                 or a majority of the roll (>= {need}), got {}",
+                                ea.authorizers.len()
+                            )));
+                            continue;
+                        }
+                    }
+                }
+            }
             CharterEntry::MemberAffirmed(s) => {
                 let af = &s.payload;
                 let prior = reconstruct(archive, &af.polity, idx);
@@ -528,6 +1036,28 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             )));
                             continue;
                         }
+                        // D14 — the Inductor presides, *defeasibly*. Where the
+                        // office is effectively held, one of its holders (never the
+                        // inductee: nobody presides over their own reception) must
+                        // be among the witnesses. The roll may still induct without
+                        // them, but only at a majority + 1 — its own override, on
+                        // D11's asymmetric-bar pattern — so an officer can raise the
+                        // bar for the rite and never block it. A vacant office
+                        // leaves the plain-majority rule untouched.
+                        let inductors = effective_holders(&prior, &Office::Inductor);
+                        if !inductors.is_empty()
+                            && !witnesses.iter().any(|w| w != &member && inductors.contains(w))
+                        {
+                            let over = need + 1;
+                            if af.witnesses.len() < over {
+                                out.push((*cid, format!(
+                                    "induction needs an Inductor other than the inductee among the \
+                                     witnesses, or the roll's override of >= {over} witnesses, got {}",
+                                    af.witnesses.len()
+                                )));
+                                continue;
+                            }
+                        }
                         // The community receives them and they participate: signers
                         // are exactly the witnesses plus the inductee (overlap is
                         // fine — the inductee is already on the roll).
@@ -551,6 +1081,145 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                         let required: BTreeSet<String> = std::iter::once(member.clone()).collect();
                         if signers != required {
                             out.push((*cid, "re-affirmation must be signed by exactly the affirming member".into()));
+                            continue;
+                        }
+                    }
+                }
+            }
+            CharterEntry::Observed(s) => {
+                let ob = &s.payload;
+                let prior = reconstruct(archive, &ob.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("observation of {} precedes its charter", ob.polity)));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!("observation of {} after its dissolution", ob.polity)));
+                    continue;
+                }
+                // An observation is evidence, not a decision: no deciders, no
+                // majority, and the observer need not be a member — a monitor may
+                // run outside the roll, and one that must be inside it could be
+                // silenced by expulsion. What is enforced is only that nobody may
+                // put an observation in somebody else's mouth.
+                let signers = e.signer_dids();
+                let required: BTreeSet<String> =
+                    std::iter::once(ob.observer.as_str().to_string()).collect();
+                if signers != required {
+                    out.push((*cid, "an observation must be signed by exactly its observer".into()));
+                    continue;
+                }
+                let mut seen: BTreeSet<&str> = BTreeSet::new();
+                if let Some(dup) = ob.readings.iter().find(|r| !seen.insert(r.member.as_str())) {
+                    out.push((*cid, format!("duplicate reading for {} in one observation", dup.member)));
+                    continue;
+                }
+                // An attendance stamp cannot postdate the look that reported it: a
+                // monitor claiming an attestation from after the moment it observed
+                // is claiming to have seen the future. Beyond being incoherent, this
+                // is what makes the pruning clamp sound (D17) — a dropped
+                // observation can only ever have carried stamps from before the
+                // horizon, so dropping it can never lengthen a measured absence.
+                if let Some(ahead) = ob
+                    .readings
+                    .iter()
+                    .find(|r| r.attested_at.is_some_and(|s| s > ob.observed_at))
+                {
+                    out.push((*cid, format!(
+                        "attendance stamp for {} postdates the observation that reports it",
+                        ahead.member
+                    )));
+                    continue;
+                }
+            }
+            CharterEntry::ObservationsPruned(s) => {
+                let pr = &s.payload;
+                let prior = reconstruct(archive, &pr.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("pruning of {} precedes its charter", pr.polity)));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!("pruning of {} after its dissolution", pr.polity)));
+                    continue;
+                }
+                // A horizon must advance. A receding one claims to drop what an
+                // earlier pruning already dropped, so it can only mislead a reader
+                // about how far back the log's evidence actually goes.
+                if let Some(prev) = prior.prune_horizon {
+                    if pr.horizon <= prev {
+                        out.push((*cid, format!(
+                            "pruning horizon must advance past the previous one ({prev})"
+                        )));
+                        continue;
+                    }
+                }
+                let members = did_set(&prior.members);
+                let deciders = did_set(&pr.deciders);
+                let signers = e.signer_dids();
+                if deciders.len() != pr.deciders.len() {
+                    out.push((*cid, "duplicate decider".into()));
+                    continue;
+                }
+                if !deciders.is_subset(&members) {
+                    out.push((*cid, "decider is not a member of the polity".into()));
+                    continue;
+                }
+                if signers != deciders {
+                    out.push((*cid, "a pruning must be signed by exactly its deciders".into()));
+                    continue;
+                }
+                // D17 — the CharterKeeper's *delegated power*, the teeth that office
+                // had none of: one holder's signature stands in for the roll's
+                // majority, but only beyond the settling horizon. Destroying
+                // evidence is precisely the move a captured party makes, so the
+                // recent record — the part a live grading rests on — stays out of
+                // any single custodian's reach. The majority route is always open,
+                // so the office can stall nothing.
+                let keepers = effective_holders(&prior, &Office::CharterKeeper);
+                let settled =
+                    pr.horizon.as_second() <= pr.pruned_at.as_second() - PRUNE_SETTLING_SECONDS;
+                let by_officer = settled && deciders.iter().any(|d| keepers.contains(d));
+                let need = majority(prior.members.len());
+                if !by_officer && pr.deciders.len() < need {
+                    out.push((*cid, format!(
+                        "pruning needs a CharterKeeper among the deciders and a horizon at least \
+                         {PRUNE_SETTLING_SECONDS}s old, or a majority of the roll (>= {need}), got {}",
+                        pr.deciders.len()
+                    )));
+                    continue;
+                }
+                // The receipt, checked *conditionally*. While the observations are
+                // still here, the record must say truthfully what it drops. Once the
+                // pruning has been applied they are gone, and a rule that recomputed
+                // the digest regardless would then find nothing and report every
+                // historical pruning as a violation. So: verify what is still
+                // verifiable, and treat an already-applied pruning as beyond this
+                // log's power to check rather than as a lie. The receipt keeps its
+                // force for anyone holding an earlier copy.
+                let dropped: Vec<Cid> = archive
+                    .iter()
+                    .take(idx)
+                    .filter(|(_, entry)| is_prunable(entry, &pr.polity, pr.horizon))
+                    .map(|(c, _)| *c)
+                    .collect();
+                if !dropped.is_empty() {
+                    if dropped.len() != pr.dropped {
+                        out.push((*cid, format!(
+                            "pruning claims {} dropped, but {} observations precede its horizon",
+                            pr.dropped,
+                            dropped.len()
+                        )));
+                        continue;
+                    }
+                    match pruning_digest(&dropped) {
+                        Ok(d) if d == pr.digest => {}
+                        Ok(_) => {
+                            out.push((*cid, "pruning digest does not match what it drops".into()));
+                            continue;
+                        }
+                        Err(err) => {
+                            out.push((*cid, format!("pruning digest: {err}")));
                             continue;
                         }
                     }
