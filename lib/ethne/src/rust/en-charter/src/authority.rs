@@ -93,8 +93,8 @@ use en_core::{Cid, DidKey, KcError, KcResult, Timestamp};
 use crate::entry::CharterEntry;
 use crate::state::is_prunable;
 use crate::record::{
-    pruning_digest, AffirmationKind, AmendmentKind, EnvoyKind, GuardianKind, MembershipKind, Office,
-    OfficeKind,
+    pruning_digest, AffirmationKind, AmendmentKind, BoundarySource, DissentKind, EnvoyKind,
+    GuardianKind, MembershipKind, Office, OfficeKind,
 };
 
 /// How far back an effective `CharterKeeper` must reach before its delegated power
@@ -154,10 +154,20 @@ struct Reconstructed {
     /// ([`crate::envoy_state`]), not an authority one: a standing that has lapsed
     /// of its own accord was still validly granted.
     envoys: Vec<DidKey>,
+    /// Everyone the founding boundary named as excluded, set once at genesis. The
+    /// dissent rules read the FOUNDING accounting (roll + exclusions), never the
+    /// live roll: a member admitted years later was still not part of the boundary
+    /// a dissenter is contesting.
+    founding_exclusions: BTreeSet<String>,
     /// The most recent observation-pruning horizon for this polity, if any. A
     /// pruning must advance it: a horizon that recedes claims to drop what an
     /// earlier one already dropped, so it could only ever mislead.
     prune_horizon: Option<Timestamp>,
+    /// The substrate anchor the founding chartered, set once at genesis and never
+    /// mutated — the substrate has no amendment path (design **D23**). This is who
+    /// a disavowal must be: the ground is *in* the record, unlike an omitted party,
+    /// so unlike a dissent the filer is checkable.
+    anchor: Option<DidKey>,
 }
 
 /// Reconstruct a polity's charter state from entries strictly before `upto`.
@@ -174,6 +184,8 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
         inducted: Vec::new(),
         derivations: Vec::new(),
         envoys: Vec::new(),
+        founding_exclusions: BTreeSet::new(),
+        anchor: None,
     };
     for (idx, (_cid, e)) in archive.iter().enumerate() {
         if idx >= upto {
@@ -191,6 +203,10 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                 for d in &s.payload.derivations {
                     r.derivations.push((d.member.clone(), d.guardian.clone()));
                 }
+                for x in &s.payload.attestation.exclusions {
+                    r.founding_exclusions.insert(x.member.as_str().to_string());
+                }
+                r.anchor = s.payload.substrate.anchor.clone();
             }
             CharterEntry::CommitmentAmended(s) if &s.payload.polity == polity => match s.payload.kind {
                 AmendmentKind::Add => {
@@ -275,8 +291,17 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
             CharterEntry::CharterDissolved(s) if &s.payload.polity == polity => {
                 r.dissolved = true;
             }
-            // An observation changes no state: it records what someone saw.
-            CharterEntry::Observed(_) => {}
+            // Neither an observation nor a dissent changes any state: each
+            // records what one party says, and the tier never adjudicates it.
+            // None of these three changes reconstructed state. An observation
+            // records what someone saw; a dissent is an excluded party's assertion;
+            // and a disavowal is the ground's, which cannot rewrite a
+            // genesis-immutable substrate — a withdrawal that voided a charter would
+            // hand any anchor a unilateral kill switch over a polity, which is a
+            // worse hole than the one D23 closed.
+            CharterEntry::Observed(_)
+            | CharterEntry::BoundaryDissented(_)
+            | CharterEntry::SubstrateDisavowed(_) => {}
             CharterEntry::ObservationsPruned(s) if &s.payload.polity == polity => {
                 let h = s.payload.horizon;
                 if r.prune_horizon.is_none_or(|prev| h > prev) {
@@ -396,6 +421,160 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 if bad_exclusion {
                     continue;
                 }
+                // D22 — the boundary must be ATTRIBUTABLE, not merely claimed
+                // (resolving Q5).
+                //
+                // D21 could check only that the numbers added up, and it checked
+                // them against the proposer's own report — so any internally
+                // consistent fabrication passed, and flipping one field promoted a
+                // bare assertion to a "reading" nobody took. Here the `Substrate`
+                // arm carries its evidence: each reading is signed by the reader it
+                // names, bound to this founding, and must actually show the boundary
+                // that was ratified.
+                //
+                // As everywhere in this tier, none of this refuses a NARROW
+                // founding, and none of it can tell an honest reader from a captured
+                // one. What it removes is anonymity: a gerrymandered boundary is now
+                // attributable to a named key, permanently.
+                let mut bad_reading = false;
+                if let BoundarySource::Substrate { readings } = &att.source {
+                    if readings.is_empty() {
+                        out.push((
+                            *cid,
+                            "boundary claims a substrate reading but carries none".to_string(),
+                        ));
+                        continue;
+                    }
+                    for r in readings {
+                        let rd = &r.payload;
+                        // Nobody may put a reading in somebody else's mouth — the
+                        // same rule D16 applies to an observation.
+                        let signers = r
+                            .signatures
+                            .iter()
+                            .map(|sg| sg.signer_did.clone())
+                            .collect::<BTreeSet<String>>();
+                        let sole: BTreeSet<String> =
+                            std::iter::once(rd.reader.as_str().to_string()).collect();
+                        if signers != sole {
+                            out.push((*cid, format!(
+                                "reading names {} as its reader but was not signed by it alone",
+                                rd.reader
+                            )));
+                            bad_reading = true;
+                            break;
+                        }
+                        // Bound to THIS founding. Without it, an honest reader's
+                        // account of one cluster replays into somebody else's
+                        // founding and the signature still verifies.
+                        if rd.polity != p.polity {
+                            out.push((*cid, format!(
+                                "reading by {} is for polity {}, not {}",
+                                rd.reader, rd.polity, p.polity
+                            )));
+                            bad_reading = true;
+                            break;
+                        }
+                        // The count stops being the proposer's word.
+                        if rd.members.len() != att.candidate_size {
+                            out.push((*cid, format!(
+                                "reading by {} shows {} members but the boundary claims {}",
+                                rd.reader,
+                                rd.members.len(),
+                                att.candidate_size
+                            )));
+                            bad_reading = true;
+                            break;
+                        }
+                    }
+                    if bad_reading {
+                        continue;
+                    }
+                    // The teeth: at least one signed reading must show the roll plus
+                    // the named exclusions EXACTLY — identity, where D21 had only
+                    // arithmetic. Readers may disagree with each other and with the
+                    // founding; what may not happen is a founding no reader supports.
+                    if !readings.iter().any(|r| att.corroborated_by(&p.members, &r.payload)) {
+                        out.push((
+                            *cid,
+                            "no signed reading shows the boundary this charter ratifies"
+                                .to_string(),
+                        ));
+                        continue;
+                    }
+                }
+                // D23 — the polity must stand on something (resolving Q4).
+                //
+                // Non-ultimacy is the tier's whole reason for a substrate, and until
+                // D23 nothing checked it: `anchor` was read by no rule anywhere, and
+                // measured, a charter whose entire ground was two empty strings passed
+                // both verification passes. A polity with nothing above itself is
+                // exactly the failure kith-covenant's non-ultimacy feature guards
+                // against, so it may not be the thing this tier hands upward.
+                //
+                // ARTICULATED, and only that. Presence is checkable; content is not.
+                // No rule can read a tradition and this one does not pretend to — what
+                // it refuses is the blank, which is not a tradition anyone could have
+                // been mistaken about.
+                if p.substrate.name.trim().is_empty() || p.substrate.statement.trim().is_empty() {
+                    out.push((
+                        *cid,
+                        "substrate is not articulated: it must carry both a name and a statement"
+                            .into(),
+                    ));
+                    continue;
+                }
+                // NON-CLOSURE. Q4 asks whether a group can charter with no ground; the
+                // sharper hole is that it can charter with itself as its ground. A
+                // presence-only rule is defeated by naming your own DID, so the anchor
+                // may be neither the polity nor anyone on its roll. This is the
+                // guardian loop rule below, one level out: a ground inside what it
+                // grounds is no ground.
+                if let Some(a) = &p.substrate.anchor {
+                    if a == &p.polity {
+                        out.push((
+                            *cid,
+                            "substrate anchor is the polity itself; a polity cannot ground itself"
+                                .into(),
+                        ));
+                        continue;
+                    }
+                    if members.contains(a.as_str()) {
+                        out.push((*cid, format!(
+                            "substrate anchor {a} is on the polity's own roll; a ground inside \
+                             what it grounds is no ground"
+                        )));
+                        continue;
+                    }
+                }
+                // GROUNDED. The keyed anchor is demanded exactly where nobody could
+                // hold an unkeyed one: every member a machine, and not one of them
+                // answering to a human. A human member holds the statement; a guarded
+                // machine already has a consenting human above it, which is D15's model
+                // of legitimate machine participation. Neither present, and the
+                // articulated statement is a sentence the polity wrote about itself.
+                //
+                // Counted over the *distinct derivations that are actually on the roll*,
+                // so the rule cannot be dodged by padding `derivations` with names the
+                // roll never had — the checks that refuse such padding run below this
+                // one, and a rule that relied on their order would be load-bearing by
+                // accident.
+                let derived_on_roll: BTreeSet<&str> = p
+                    .derivations
+                    .iter()
+                    .map(|d| d.member.as_str())
+                    .filter(|m| members.contains(*m))
+                    .collect();
+                let all_derived = derived_on_roll.len() == members.len();
+                let none_guarded = !p.derivations.iter().any(|d| d.guardian.is_some());
+                if all_derived && none_guarded && p.substrate.anchor.is_none() {
+                    out.push((*cid, format!(
+                        "a roll of {} machines answering to nobody must name a substrate anchor: \
+                         nobody here can hold a tradition",
+                        p.members.len()
+                    )));
+                    continue;
+                }
                 // D15 — the founding derivations. Every designated member is on the
                 // roll, named once, and no guardian is itself a derived member of
                 // this same polity: a machine cannot guard a machine, or the
@@ -433,14 +612,24 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 // Answerability is accepted, never assigned — so a named guardian
                 // co-signs the founding alongside the ratifiers, exactly as a joiner
                 // co-signs their own admission.
+                //
+                // And since **D23**, so does a named substrate anchor. The same
+                // principle reaches the ground: you may not conscript what you claim to
+                // stand under. Without this the strongest available grounding — a keyed
+                // party outside the roll — would be a name the founders could write
+                // down about somebody who never agreed to it, which is the anonymity
+                // D22 spent a whole slice removing from the boundary.
                 let mut required = ratifiers.clone();
                 for d in &p.derivations {
                     if let Some(g) = &d.guardian {
                         required.insert(g.as_str().to_string());
                     }
                 }
+                if let Some(a) = &p.substrate.anchor {
+                    required.insert(a.as_str().to_string());
+                }
                 if e.signer_dids() != required {
-                    out.push((*cid, "charter signers must be exactly the ratifiers plus every named guardian (consent)".into()));
+                    out.push((*cid, "charter signers must be exactly the ratifiers plus every named guardian and the substrate anchor (consent)".into()));
                     continue;
                 }
             }
@@ -1223,6 +1412,116 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                     }
+                }
+            }
+            CharterEntry::BoundaryDissented(s) => {
+                let d = &s.payload;
+                let prior = reconstruct(archive, &d.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!(
+                        "dissent from {}'s founding precedes it", d.polity
+                    )));
+                    continue;
+                }
+                // DELIBERATELY no dissolution guard — the only entry class without
+                // one (design **D22**). Every other act governs a polity that no
+                // longer exists; this one contests a founding that did. Blocking it
+                // would let founders silence the parties they excluded by winding
+                // the polity up, which is D17's "destroying evidence is the move a
+                // captured party makes" wearing a different costume. The founding's
+                // legitimacy outlives the polity in any case: kith-covenant holds a
+                // CommunityIdentity derived from that charter.
+                //
+                // Like an observation, a dissent is evidence and not a decision: no
+                // deciders, no majority, and the dissenter need not be a member —
+                // an excluded party required to sit inside the roll could be
+                // silenced by simply never being admitted.
+                let signers = e.signer_dids();
+                let sole: BTreeSet<String> =
+                    std::iter::once(d.dissenter.as_str().to_string()).collect();
+                if signers != sole {
+                    out.push((
+                        *cid,
+                        "a dissent must be signed by exactly its dissenter".to_string(),
+                    ));
+                    continue;
+                }
+                // What the tier CAN check is that the dissent is coherent with the
+                // record it contests — never whether it is true.
+                let who = d.dissenter.as_str();
+                let on_roll = prior.founding_members.iter().any(|m| m.as_str() == who);
+                let excluded = prior.founding_exclusions.contains(who);
+                match d.kind {
+                    // "I was excluded and I reject the reason." You may reject the
+                    // reason given for you, not one given for somebody else.
+                    DissentKind::ReasonRejected if !excluded => {
+                        out.push((*cid, format!(
+                            "{} rejects an exclusion reason but the founding excludes no such member",
+                            d.dissenter
+                        )));
+                        continue;
+                    }
+                    // "The accounting never mentioned me." A record that does
+                    // mention them contradicts the claim outright.
+                    DissentKind::Unnamed if on_roll || excluded => {
+                        out.push((*cid, format!(
+                            "{} claims the founding accounting omitted them, but it names them",
+                            d.dissenter
+                        )));
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+            CharterEntry::SubstrateDisavowed(s) => {
+                let d = &s.payload;
+                let prior = reconstruct(archive, &d.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!(
+                        "disavowal of {}'s substrate precedes its founding", d.polity
+                    )));
+                    continue;
+                }
+                // Like a dissent, DELIBERATELY no dissolution guard — the second
+                // entry class without one, for the same reason in a new costume: a
+                // polity that could silence its ground by winding up would make the
+                // ground's consent worth exactly as much as the founders' patience.
+                //
+                // Nobody may put a withdrawal in the ground's mouth.
+                let signers = e.signer_dids();
+                let sole: BTreeSet<String> =
+                    std::iter::once(d.disavower.as_str().to_string()).collect();
+                if signers != sole {
+                    out.push((
+                        *cid,
+                        "a disavowal must be signed by exactly its disavower".to_string(),
+                    ));
+                    continue;
+                }
+                // And here this record is STRICTER than a dissent, because it can
+                // afford to be. A dissent must admit any filer: an omitted party is
+                // by definition absent from the record, so requiring them to appear
+                // in it would be the silence D22 removed. A ground is *named on the
+                // charter*, so only that key can withdraw — anyone else's withdrawal
+                // is not a contested claim, it is noise about somebody else's
+                // relationship.
+                match &prior.anchor {
+                    None => {
+                        out.push((*cid, format!(
+                            "{} has no chartered substrate anchor; there is nothing to withdraw",
+                            d.polity
+                        )));
+                        continue;
+                    }
+                    Some(a) if a != &d.disavower => {
+                        out.push((*cid, format!(
+                            "{} is not {}'s chartered substrate anchor; only the named ground may \
+                             withdraw",
+                            d.disavower, d.polity
+                        )));
+                        continue;
+                    }
+                    Some(_) => {}
                 }
             }
             CharterEntry::CharterDissolved(s) => {

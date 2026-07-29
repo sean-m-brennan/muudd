@@ -20,7 +20,7 @@
 //! founded — and thence recognized by kith-covenant — with **no autonomous_trust
 //! anywhere in the dependency graph**.
 
-use en_charter::{BoundarySource, Substrate};
+use en_charter::Substrate;
 use en_core::{DidKey, KcResult};
 
 use crate::provider::{FoundingCandidate, MemberCandidate, SubstrateProvider};
@@ -39,6 +39,13 @@ impl ManualFounding {
     /// Full reputation is `Some(1.0)`, an assertion, and deliberately not `None`: a
     /// convener vouching for a roll *is* the reading here, where `None` would claim
     /// the opposite — that nothing is known about these members.
+    ///
+    /// Nobody but the convener attests this roll, and since **D22** that is a fact
+    /// about what can be produced rather than a label anyone chose: a founding is
+    /// `Substrate`-sourced only if it carries a reading somebody signed, and this
+    /// provider holds no reader key. A convener who *does* obtain a signed reading
+    /// matching their roll has genuine corroboration and is welcome to it — what is
+    /// no longer available is claiming one for free.
     pub fn new(members: Vec<DidKey>, substrate: Substrate) -> Self {
         let members = members
             .into_iter()
@@ -54,9 +61,6 @@ impl ManualFounding {
             candidate: FoundingCandidate {
                 members,
                 substrate: Some(substrate),
-                // Nobody but the convener attests this roll (design **D21**). The
-                // charter will say so for as long as it exists.
-                source: BoundarySource::ConvenerAsserted,
             },
         }
     }

@@ -47,7 +47,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use en_charter::{AffirmationState, DecayTrends, GuardianState, ObservationWindow};
+use en_charter::{AffirmationState, DecayTrends, GroundStanding, GuardianState, ObservationWindow};
 use en_core::{DidKey, Timestamp};
 use en_substrate::FoundingCandidate;
 
@@ -288,6 +288,14 @@ pub struct CohesionReport {
     /// count, this one escalates: nobody has been there all day, and we were
     /// watching.
     pub sustained_absences: usize,
+    /// Whether the polity's chartered substrate anchor has withdrawn (design
+    /// **D23**). `false` both when no ground reading was supplied and when the ground
+    /// still stands, which is safe *here* only because the alternative — a polity
+    /// with no anchor at all — cannot be disavowed in the first place.
+    ///
+    /// Not a ratio, and not comparable to the rest of this report: it is one signed
+    /// act by the one key entitled to perform it.
+    pub ground_disavowed: bool,
     /// The graded erosion this report carries.
     pub erosion: ErosionLevel,
 }
@@ -351,6 +359,11 @@ pub struct CohesionInputs<'a> {
     /// input that is not a state but a memory, and the only one that can turn an
     /// ambiguous snapshot reading into a duration.
     pub window: Option<&'a ObservationWindow>,
+    /// Whether the polity's chartered ground has withdrawn (D23). `None` when no
+    /// reading was supplied, in which case the component says nothing rather than
+    /// reporting false health — the same discipline every other optional input here
+    /// follows.
+    pub ground: Option<&'a GroundStanding>,
 }
 
 /// Read a polity's cohesion by comparing its `chartered_roll` against the
@@ -645,6 +658,26 @@ pub fn cohesion_report(
         ErosionLevel::None
     };
 
+    // D23 — the ground has withdrawn.
+    //
+    // The one component that grades a single act rather than a quantity, and it goes
+    // straight to Concern. Every other measure here asks how far something has
+    // drifted, because drift is what they can see; this one is a signed statement by
+    // the only key entitled to make it, saying the polity is standing on a ground
+    // that disowns it. There is nothing gradual to grade and no threshold that could
+    // tune it, so there is no threshold — like kith-covenant's
+    // `contraction_detected`, it is event-triggered, not a ratio.
+    //
+    // It cannot decay back to None: a disavowal is unprunable and there is no
+    // withdrawal of a withdrawal. A polity whose ground has gone stays legibly
+    // unmoored until it deliberately re-charters, which is the honest reading.
+    let ground_disavowed = inputs.ground.is_some_and(GroundStanding::disavowed);
+    let ground_level = if ground_disavowed {
+        ErosionLevel::Concern
+    } else {
+        ErosionLevel::None
+    };
+
     let erosion = attrition_level
         .max(mean_level)
         .max(breach_level)
@@ -655,7 +688,8 @@ pub fn cohesion_report(
         .max(gap_level)
         .max(witness_level)
         .max(churn_level)
-        .max(sustained_level);
+        .max(sustained_level)
+        .max(ground_level);
 
     CohesionReport {
         attrition,
@@ -676,15 +710,15 @@ pub fn cohesion_report(
         witness_count_declined,
         churn_rate,
         sustained_absences,
+        ground_disavowed,
         erosion,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use en_charter::BoundarySource;
     use super::*;
-    use en_charter::{MemberAffirmation, Substrate};
+    use en_charter::{DisavowalEntry, MemberAffirmation, Substrate};
     use en_core::{keys, Alg, DidKey};
     use en_substrate::{FoundingCandidate, MemberCandidate};
 
@@ -736,7 +770,6 @@ mod tests {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         }
     }
 
@@ -755,7 +788,6 @@ mod tests {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         }
     }
 
@@ -846,7 +878,6 @@ mod tests {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         }
     }
 
@@ -1946,4 +1977,109 @@ mod tests {
         // capped snapshot reading — which is the whole reason D16 exists.
         assert_eq!(r.erosion, ErosionLevel::Notice);
     }
+
+    fn withdrawn(at_secs: i64) -> GroundStanding {
+        GroundStanding {
+            entries: vec![DisavowalEntry {
+                disavower: did(),
+                rationale: "I do not stand above these people".into(),
+                disavowed_at: at(at_secs),
+            }],
+        }
+    }
+
+    #[test]
+    fn a_withdrawn_ground_is_a_concern_on_its_own() {
+        // Everything else about this polity is healthy: full reputation, nobody gone,
+        // no lapsed affirmations. The ground has withdrawn, and that alone reaches the
+        // level that crosses to kith-covenant — because unlike every other component
+        // here there is nothing gradual to grade.
+        let members: Vec<_> = (0..4).map(|_| (did(), 0.9, None, None)).collect();
+        let roll: Vec<DidKey> = members.iter().map(|(d, ..)| d.clone()).collect();
+        let ground = withdrawn(500);
+        let r = cohesion_report(
+            &roll,
+            &guarded(&members),
+            false,
+            &CohesionInputs { ground: Some(&ground), ..CohesionInputs::default() },
+            at(600),
+            &Thresholds::default(),
+        );
+        assert!(r.ground_disavowed);
+        assert_eq!(r.erosion, ErosionLevel::Concern);
+    }
+
+    #[test]
+    fn a_ground_still_standing_says_nothing() {
+        let members: Vec<_> = (0..4).map(|_| (did(), 0.9, None, None)).collect();
+        let roll: Vec<DidKey> = members.iter().map(|(d, ..)| d.clone()).collect();
+        let standing = GroundStanding::default();
+        let r = cohesion_report(
+            &roll,
+            &guarded(&members),
+            false,
+            &CohesionInputs { ground: Some(&standing), ..CohesionInputs::default() },
+            at(600),
+            &Thresholds::default(),
+        );
+        assert!(!r.ground_disavowed);
+        assert_eq!(r.erosion, ErosionLevel::None);
+    }
+
+    #[test]
+    fn an_unsupplied_ground_reading_says_nothing_either() {
+        // The same discipline every optional input here follows: a host that did not
+        // ask gets silence, not false health and not a complaint.
+        let members: Vec<_> = (0..4).map(|_| (did(), 0.9, None, None)).collect();
+        let roll: Vec<DidKey> = members.iter().map(|(d, ..)| d.clone()).collect();
+        let r = cohesion_report(
+            &roll,
+            &guarded(&members),
+            false,
+            &CohesionInputs::default(),
+            at(600),
+            &Thresholds::default(),
+        );
+        assert!(!r.ground_disavowed);
+        assert_eq!(r.erosion, ErosionLevel::None);
+    }
+
+    #[test]
+    fn a_withdrawal_does_not_decay_back_to_none() {
+        // There is no withdrawal of a withdrawal, and a disavowal is unprunable, so
+        // an arbitrarily old one still reads. A polity whose ground has gone stays
+        // legibly unmoored until it deliberately re-charters.
+        let members: Vec<_> = (0..4).map(|_| (did(), 0.9, None, None)).collect();
+        let roll: Vec<DidKey> = members.iter().map(|(d, ..)| d.clone()).collect();
+        let ground = withdrawn(1);
+        let r = cohesion_report(
+            &roll,
+            &guarded(&members),
+            false,
+            &CohesionInputs { ground: Some(&ground), ..CohesionInputs::default() },
+            at(50_000_000),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.erosion, ErosionLevel::Concern);
+    }
+
+    #[test]
+    fn the_ground_component_adds_no_threshold() {
+        // It is event-triggered, not a ratio: there is no knob a captured roll could
+        // tune to make a withdrawal read quieter.
+        let t = Thresholds::default();
+        let members: Vec<_> = (0..4).map(|_| (did(), 0.9, None, None)).collect();
+        let roll: Vec<DidKey> = members.iter().map(|(d, ..)| d.clone()).collect();
+        let ground = withdrawn(500);
+        let inputs = CohesionInputs { ground: Some(&ground), ..CohesionInputs::default() };
+        // Every threshold at its most permissive still cannot silence it.
+        let permissive = Thresholds {
+            attrition_notice: 1.0,
+            attrition_concern: 1.0,
+            ..t
+        };
+        let r = cohesion_report(&roll, &guarded(&members), false, &inputs, at(600), &permissive);
+        assert_eq!(r.erosion, ErosionLevel::Concern);
+    }
+
 }

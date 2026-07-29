@@ -42,7 +42,8 @@ use en_archive::{Archive, Cursor};
 use en_charter::{
     affirmation_state, apply_prunings, authority_violations, charter_state, check_authority,
     decay_trends, envoy_state, guardian_state, observation_window, office_state,
-    founding_legitimacy as founding_legitimacy_rs, prunable_observations,
+    founding_dissent as founding_dissent_rs, founding_legitimacy as founding_legitimacy_rs, prunable_observations,
+    substrate_disavowal as substrate_disavowal_rs,
     prune_recommendation as prune_recommendation_rs, pruning_digest,
     verify_all, Affirmation,
     AffirmationKind, AffirmationState, AmendmentKind, CharterDissolution, CharterEntry, Commitment,
@@ -53,7 +54,9 @@ use en_charter::{
     Substrate,
 };
 use en_charter::{
-    BoundaryAttestation, BoundarySource, Exclusion, FoundingBasis, FoundingLegitimacy,
+    BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion, FoundingBasis,
+    FoundingDissent, FoundingLegitimacy, GroundStanding, SubstrateDisavowal, SubstrateGrounding,
+    SubstrateReading,
 };
 use en_store::{ArchiveStore, FileStore, SaveOutcome};
 use en_cohesion::{
@@ -217,6 +220,46 @@ fn office_name(o: &Office) -> String {
         Office::CharterKeeper => "CharterKeeper".into(),
         Office::Other(s) => s.clone(),
     }
+}
+
+/// Parse signed readings handed in as JSON — what `sign_reading` produced.
+fn readings_from(readings: Vec<String>) -> PyResult<Vec<Signed<SubstrateReading>>> {
+    readings
+        .iter()
+        .map(|r| serde_json::from_str(r).map_err(json_err_to_py))
+        .collect()
+}
+
+/// Sign `candidate`'s reading of `polity_did` as `reader_did` — the host's act, not
+/// the provider's (design **D22**).
+///
+/// A substrate provider holds no keys and gains none: signing belongs to whoever
+/// runs it, exactly as D20 settled for every other authored act. The result is JSON,
+/// to be passed to `propose_from_candidate(readings=[...])`.
+///
+/// This is what makes a boundary *attributable*. Before D22 a charter could say a
+/// reading stood behind it without naming who read — an unsigned self-report, so
+/// flipping one field promoted a bare assertion to a corroborated one. A reader's
+/// key is recovered from its DID, so none of this needs a registry.
+#[pyfunction]
+#[pyo3(signature = (candidate, polity_did, reader_did, reader_priv, read_at=None, opaque_boundary=false))]
+fn sign_reading(
+    candidate: &PyFoundingCandidate,
+    polity_did: &str,
+    reader_did: &str,
+    reader_priv: &[u8],
+    read_at: Option<i64>,
+    opaque_boundary: bool,
+) -> PyResult<String> {
+    let signers = Signers::only(reader_did, reader_priv)?;
+    let mut reading = candidate.inner.reading(
+        parse_did(polity_did)?,
+        parse_did(reader_did)?,
+        ts_or_now(read_at)?,
+    );
+    reading.opaque_boundary = opaque_boundary;
+    let signed = Signed::build(reading, &signers.pairs()).map_err(en_err_to_py)?;
+    serde_json::to_string(&signed).map_err(json_err_to_py)
 }
 
 fn commitments_from(pairs: Vec<(String, String)>) -> Vec<Commitment> {
@@ -447,7 +490,6 @@ fn founding_candidate(
         inner: FoundingCandidate {
             members: out,
             substrate: substrate_from(substrate_name, substrate_statement, substrate_anchor)?,
-            source: BoundarySource::Substrate,
         },
     })
 }
@@ -483,6 +525,7 @@ fn manual_founding(
     substrate_anchor=None,
     commitments=Vec::new(),
     min_reputation=0.0,
+    readings=Vec::new(),
     proposed_at=None,
 ))]
 #[allow(clippy::too_many_arguments)]
@@ -494,6 +537,7 @@ fn propose_from_candidate(
     substrate_anchor: Option<String>,
     commitments: Vec<(String, String)>,
     min_reputation: f64,
+    readings: Vec<String>,
     proposed_at: Option<i64>,
 ) -> PyResult<String> {
     let substrate = match substrate_from(substrate_name, substrate_statement, substrate_anchor)? {
@@ -509,6 +553,7 @@ fn propose_from_candidate(
         substrate,
         commitments_from(commitments),
         min_reputation,
+        readings_from(readings)?,
         ts_or_now(proposed_at)?,
     );
     serde_json::to_string(&proposal).map_err(json_err_to_py)
@@ -537,6 +582,7 @@ fn propose_from_candidate(
     substrate_statement=None,
     substrate_anchor=None,
     commitments=Vec::new(),
+    readings=Vec::new(),
     proposed_at=None,
 ))]
 #[allow(clippy::too_many_arguments)]
@@ -549,6 +595,7 @@ fn select_from_candidate(
     substrate_statement: Option<String>,
     substrate_anchor: Option<String>,
     commitments: Vec<(String, String)>,
+    readings: Vec<String>,
     proposed_at: Option<i64>,
 ) -> PyResult<String> {
     let substrate = match substrate_from(substrate_name, substrate_statement, substrate_anchor)? {
@@ -566,6 +613,7 @@ fn select_from_candidate(
         commitments_from(commitments),
         &keep,
         reason,
+        readings_from(readings)?,
         ts_or_now(proposed_at)?,
     );
     serde_json::to_string(&proposal).map_err(json_err_to_py)
@@ -714,6 +762,18 @@ impl PyCohesionReport {
         self.inner.sustained_absences
     }
 
+    /// Whether the polity's chartered substrate anchor has withdrawn (design
+    /// **D23**). `False` both when no ground reading was supplied and when the ground
+    /// still stands — safe only because a polity with no anchor cannot be disavowed in
+    /// the first place.
+    ///
+    /// Not a ratio, and not comparable to the rest of this report: it is one signed
+    /// act by the one key entitled to perform it, and it reaches `Concern` alone.
+    #[getter]
+    fn ground_disavowed(&self) -> bool {
+        self.inner.ground_disavowed
+    }
+
     /// `"None"`, `"Notice"`, or `"Concern"`.
     #[getter]
     fn erosion(&self) -> &'static str {
@@ -758,6 +818,7 @@ impl PyCohesionReport {
     affirmations=None,
     trends=None,
     window=None,
+    ground=None,
     as_of=None,
 ))]
 #[allow(clippy::too_many_arguments)]
@@ -789,6 +850,7 @@ fn cohesion_report(
     affirmations: Option<&PyAffirmationState>,
     trends: Option<&PyDecayTrends>,
     window: Option<&PyObservationWindow>,
+    ground: Option<&PyGroundStanding>,
     as_of: Option<i64>,
 ) -> PyResult<PyCohesionReport> {
     let d = Thresholds::default();
@@ -829,6 +891,7 @@ fn cohesion_report(
         affirmations: affirmations.map(|a| &a.inner),
         trends: trends.map(|t| &t.inner),
         window: window.map(|w| &w.inner),
+        ground: ground.map(|g| &g.inner),
     };
     let inner = cohesion_report_rs(
         &parse_dids(&chartered_roll)?,
@@ -1054,9 +1117,14 @@ impl PyArchive {
     /// Where the proposal carries derivations (D15), every **named guardian** must
     /// also co-sign, because answerability for a machine is accepted and never
     /// assigned: pass them as `guardian_dids` / `guardian_privs`.
+    ///
+    /// Where its substrate names an **anchor** (D23), that key co-signs too, for the
+    /// same reason one level up: you may not conscript what you claim to stand under.
+    /// Pass it as `anchor_did` / `anchor_priv`.
     #[pyo3(signature = (
         proposal_json, ratifier_dids, ratifier_privs,
-        guardian_dids=Vec::new(), guardian_privs=Vec::new(), founded_at=None,
+        guardian_dids=Vec::new(), guardian_privs=Vec::new(),
+        anchor_did=None, anchor_priv=None, founded_at=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn ratify_charter(
@@ -1066,6 +1134,8 @@ impl PyArchive {
         ratifier_privs: Vec<Vec<u8>>,
         guardian_dids: Vec<String>,
         guardian_privs: Vec<Vec<u8>>,
+        anchor_did: Option<String>,
+        anchor_priv: Option<Vec<u8>>,
         founded_at: Option<i64>,
     ) -> PyResult<String> {
         let proposal: FoundingProposal =
@@ -1079,6 +1149,15 @@ impl PyArchive {
             return Err(PyValueError::new_err(
                 "guardian_dids and guardian_privs must be the same length",
             ));
+        }
+        match (&anchor_did, &anchor_priv) {
+            (Some(did), Some(priv_)) => signers.consent(did, priv_)?,
+            (None, None) => {}
+            _ => {
+                return Err(PyValueError::new_err(
+                    "anchor_did and anchor_priv must be given together",
+                ))
+            }
         }
         let charter = proposal
             .ratify(ratifiers, ts_or_now(founded_at)?)
@@ -1806,6 +1885,120 @@ impl PyArchive {
     fn founding_legitimacy(&self, polity_did: &str) -> PyResult<Option<PyFoundingLegitimacy>> {
         Ok(founding_legitimacy_rs(&self.inner, &parse_did(polity_did)?)
             .map(|inner| PyFoundingLegitimacy { inner }))
+    }
+
+    /// What the excluded have said back about `polity_did`'s founding, as of
+    /// `as_of` (design **D22**).
+    ///
+    /// Kept **separate from `founding_legitimacy` on purpose**: that read-model's
+    /// value is that it derives from the charter alone and gives the same answer
+    /// forever, while dissent lives in the archive and accrues over time. Folding
+    /// them would destroy the first property and improve neither.
+    ///
+    /// Reports dissent from a **dissolved** polity too — dissolution is the one
+    /// thing that does not close this record, since otherwise founders silence the
+    /// parties they excluded simply by winding the polity up.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn founding_dissent(&self, polity_did: &str, as_of: Option<i64>) -> PyResult<PyFoundingDissent> {
+        let d = founding_dissent_rs(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyFoundingDissent { inner: d })
+    }
+
+    /// File `dissenter_did`'s dissent from `polity_did`'s founding boundary.
+    ///
+    /// `kind` is `"Unnamed"` (the accounting never mentioned me — the claim that
+    /// contradicts an understated `candidate_size`, which nothing else in the tier
+    /// can reach) or `"ReasonRejected"` (I am named as excluded and reject the
+    /// reason given).
+    ///
+    /// Perspectival evidence, exactly as an observation is: signed by the dissenter
+    /// alone, no deciders, no majority, and the dissenter need not be a member — one
+    /// required to sit inside the roll could be silenced by never being admitted. A
+    /// dissent **asserts; it does not adjudicate**, and nothing here decides whether
+    /// it is true.
+    #[pyo3(signature = (polity_did, dissenter_did, dissenter_priv, kind, rationale="", dissented_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn dissent_boundary(
+        &mut self,
+        polity_did: &str,
+        dissenter_did: &str,
+        dissenter_priv: &[u8],
+        kind: &str,
+        rationale: &str,
+        dissented_at: Option<i64>,
+    ) -> PyResult<String> {
+        let signers = Signers::only(dissenter_did, dissenter_priv)?;
+        let kind = match kind {
+            "Unnamed" => DissentKind::Unnamed,
+            "ReasonRejected" => DissentKind::ReasonRejected,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown dissent kind {other:?} (expected Unnamed or ReasonRejected)"
+                )))
+            }
+        };
+        let record = BoundaryDissent {
+            polity: parse_did(polity_did)?,
+            dissenter: parse_did(dissenter_did)?,
+            kind,
+            rationale: rationale.to_string(),
+            dissented_at: ts_or_now(dissented_at)?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::BoundaryDissented(signed))
+    }
+
+    /// How `polity_did`'s chartered ground stands as of `as_of`: whether the substrate
+    /// anchor that consented at founding has since withdrawn (design **D23**).
+    ///
+    /// Kept **separate from `founding_legitimacy`** on the same test D22 applied to
+    /// dissent. `grounding` — what the charter committed to — lives there, because a
+    /// genesis-immutable substrate cannot change and the answer is the same forever.
+    /// Whether the ground still stands there lives here, because that can change.
+    ///
+    /// Reports withdrawals from a **dissolved** polity too: the second entry class a
+    /// dissolution does not close, since otherwise founders silence their ground by
+    /// winding the polity up.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn substrate_disavowal(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyGroundStanding> {
+        let g = substrate_disavowal_rs(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyGroundStanding { inner: g })
+    }
+
+    /// File the chartered substrate anchor's withdrawal from `polity_did` (design
+    /// **D23**).
+    ///
+    /// Only the anchor the charter names may do this, and it must sign alone — unlike
+    /// a dissent, which has to admit any filer because an omitted party is by
+    /// definition absent from the record. The ground is *on* the record.
+    ///
+    /// **This asserts; it does not un-charter.** The substrate is genesis-immutable,
+    /// so nothing here voids the founding, dissolves the polity, or stops it
+    /// governing itself — giving a withdrawal that power would hand any anchor a
+    /// unilateral kill switch. What it produces is a legible fact, which
+    /// `cohesion_report` reads as a Concern.
+    #[pyo3(signature = (polity_did, anchor_did, anchor_priv, rationale="", disavowed_at=None))]
+    fn disavow_substrate(
+        &mut self,
+        polity_did: &str,
+        anchor_did: &str,
+        anchor_priv: &[u8],
+        rationale: &str,
+        disavowed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let signers = Signers::only(anchor_did, anchor_priv)?;
+        let record = SubstrateDisavowal {
+            polity: parse_did(polity_did)?,
+            disavower: parse_did(anchor_did)?,
+            rationale: rationale.to_string(),
+            disavowed_at: ts_or_now(disavowed_at)?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::SubstrateDisavowed(signed))
     }
 
     /// The polity's decay trends as of `as_of` — the affirmation series and its
@@ -2625,6 +2818,145 @@ impl PyFileStore {
 }
 
 /// What a polity's founding rests on, derived from its charter alone (D21).
+/// What the excluded said back about a founding — one party's assertion each, and
+/// never a verdict (design **D22**).
+#[pyclass(name = "FoundingDissent")]
+#[derive(Clone)]
+struct PyFoundingDissent {
+    inner: FoundingDissent,
+}
+
+#[pymethods]
+impl PyFoundingDissent {
+    /// Every dissent filed, in append order, as
+    /// `(dissenter, kind, rationale, dissented_at)`.
+    #[getter]
+    fn entries(&self) -> Vec<(String, &'static str, String, i64)> {
+        self.inner
+            .entries
+            .iter()
+            .map(|d| {
+                (
+                    d.dissenter.as_str().to_string(),
+                    dissent_kind_name(d.kind),
+                    d.rationale.clone(),
+                    d.dissented_at.as_second(),
+                )
+            })
+            .collect()
+    }
+
+    /// Dissenters claiming the founding accounting never mentioned them.
+    ///
+    /// **The answer to the limit D21 recorded as beyond its reach**: the archive
+    /// holds no provider, so nothing can check `candidate_size` against what the
+    /// substrate showed — but the people it omitted can say so, and this is where
+    /// that shows up.
+    #[getter]
+    fn unnamed(&self) -> Vec<String> {
+        self.inner.unnamed().iter().map(|d| d.dissenter.as_str().to_string()).collect()
+    }
+
+    /// Dissenters named as excluded who reject the reason given.
+    #[getter]
+    fn reasons_rejected(&self) -> Vec<String> {
+        self.inner.reasons_rejected().iter().map(|d| d.dissenter.as_str().to_string()).collect()
+    }
+
+    /// Distinct dissenters, however many records each filed.
+    #[getter]
+    fn dissenters(&self) -> Vec<String> {
+        self.inner.dissenters().iter().map(|d| (*d).to_string()).collect()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.entries.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "FoundingDissent(entries={}, unnamed={}, reasons_rejected={})",
+            self.inner.entries.len(),
+            self.inner.unnamed().len(),
+            self.inner.reasons_rejected().len()
+        )
+    }
+}
+
+#[pyclass(name = "GroundStanding")]
+#[derive(Clone)]
+struct PyGroundStanding {
+    inner: GroundStanding,
+}
+
+#[pymethods]
+impl PyGroundStanding {
+    /// Every withdrawal filed, in append order, as
+    /// `(disavower, rationale, disavowed_at)`.
+    #[getter]
+    fn entries(&self) -> Vec<(String, String, i64)> {
+        self.inner
+            .entries
+            .iter()
+            .map(|d| {
+                (
+                    d.disavower.as_str().to_string(),
+                    d.rationale.clone(),
+                    d.disavowed_at.as_second(),
+                )
+            })
+            .collect()
+    }
+
+    /// Whether the chartered ground has withdrawn at all.
+    ///
+    /// **The whole reading.** There is no "how much" and deliberately no recovery
+    /// path: a ground that withdrew cannot un-say it, because the substrate has no
+    /// amendment record and this tier does not invent one. Such a polity has the
+    /// option every polity has — to re-charter, deliberately, as the different polity
+    /// it now is.
+    #[getter]
+    fn disavowed(&self) -> bool {
+        self.inner.disavowed()
+    }
+
+    /// When the ground first withdrew, if it has. The FIRST, not the latest: a ground
+    /// that repeats itself has not withdrawn more recently, it has withdrawn for
+    /// longer.
+    #[getter]
+    fn first_disavowed_at(&self) -> Option<i64> {
+        self.inner.first_disavowed_at().map(|t| t.as_second())
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.entries.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "GroundStanding(disavowed={}, entries={})",
+            self.inner.disavowed(),
+            self.inner.entries.len()
+        )
+    }
+}
+
+fn grounding_name(g: SubstrateGrounding) -> &'static str {
+    match g {
+        SubstrateGrounding::Anchored => "Anchored",
+        SubstrateGrounding::Guarded => "Guarded",
+        SubstrateGrounding::Held => "Held",
+        SubstrateGrounding::Bare => "Bare",
+    }
+}
+
+fn dissent_kind_name(k: DissentKind) -> &'static str {
+    match k {
+        DissentKind::Unnamed => "Unnamed",
+        DissentKind::ReasonRejected => "ReasonRejected",
+    }
+}
+
 #[pyclass(name = "FoundingLegitimacy")]
 struct PyFoundingLegitimacy {
     inner: FoundingLegitimacy,
@@ -2637,7 +2969,7 @@ impl PyFoundingLegitimacy {
     #[getter]
     fn source(&self) -> &'static str {
         match self.inner.source {
-            BoundarySource::Substrate => "Substrate",
+            BoundarySource::Substrate { .. } => "Substrate",
             BoundarySource::ConvenerAsserted => "ConvenerAsserted",
         }
     }
@@ -2661,6 +2993,32 @@ impl PyFoundingLegitimacy {
     }
 
     /// Exclusions carrying no reason — named, but unjustified.
+    /// Every reader who signed a reading behind this boundary (design **D22**).
+    /// Empty for a convener's assertion.
+    #[getter]
+    fn readers(&self) -> Vec<String> {
+        self.inner.readers.iter().map(|d| d.as_str().to_string()).collect()
+    }
+
+    /// The readers whose signed reading actually **agrees** with the boundary the
+    /// charter ratified.
+    ///
+    /// Not `len(readers)`: a reader who signed a different boundary corroborates
+    /// nothing, and the gap between the two is a reader contradicting the founding
+    /// on the record. **The limit is stated, not engineered around** — `did:key`
+    /// costs nothing, so a captured reader can mint its own corroborators and this
+    /// cannot tell them apart. A lens, never a gate.
+    #[getter]
+    fn corroborating_readers(&self) -> Vec<String> {
+        self.inner.corroborating_readers.iter().map(|d| d.as_str().to_string()).collect()
+    }
+
+    /// Readers who signed a reading that does **not** match what was ratified.
+    #[getter]
+    fn dissenting_readers(&self) -> Vec<String> {
+        self.inner.dissenting_readers().iter().map(|d| d.as_str().to_string()).collect()
+    }
+
     /// Who the boundary showed that the roll does not name, each with the reason
     /// given, as `(did, reason)`. The names, not just the count — a report that said
     /// only "29 excluded" would reinstate the silence D21 removes.
@@ -2676,6 +3034,26 @@ impl PyFoundingLegitimacy {
     #[getter]
     fn unreasoned_exclusions(&self) -> usize {
         self.inner.unreasoned_exclusions
+    }
+
+    /// What stands above the polity (design **D23**): `"Anchored"` (a keyed party
+    /// outside the roll consented — the only grounding somebody signed), `"Guarded"`
+    /// (no anchor, but human guardians stand above the machines), `"Held"` (no derived
+    /// party at all: a human community holding an unkeyed tradition), or `"Bare"`
+    /// (articulated and nothing else — unguarded machines on a mixed roll).
+    ///
+    /// Descriptive, not ordered. `"Bare"` is permitted, and reported so that
+    /// "permitted" is not mistaken for "grounded".
+    #[getter]
+    fn grounding(&self) -> &'static str {
+        grounding_name(self.inner.grounding)
+    }
+
+    /// The anchor that co-signed the founding, if any — the key that consented to
+    /// standing above this polity, and the only key a later withdrawal may be.
+    #[getter]
+    fn anchor(&self) -> Option<String> {
+        self.inner.anchor.as_ref().map(|d| d.as_str().to_string())
     }
 
     #[getter]
@@ -2723,9 +3101,10 @@ impl PyFoundingLegitimacy {
 
     fn __repr__(&self) -> String {
         format!(
-            "FoundingLegitimacy(basis={}, candidate_size={}, roll_size={}, excluded={}, \
-             ratifiers={}, consent_share={:.3})",
+            "FoundingLegitimacy(basis={}, grounding={}, candidate_size={}, roll_size={}, \
+             excluded={}, ratifiers={}, consent_share={:.3})",
             self.basis(),
+            self.grounding(),
             self.inner.candidate_size,
             self.inner.roll_size,
             self.inner.excluded,
@@ -2788,6 +3167,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyObservationWindow>()?;
     m.add_class::<PyPruneRecommendation>()?;
     m.add_class::<PyFoundingLegitimacy>()?;
+    m.add_class::<PyGroundStanding>()?;
     m.add_class::<PyCursor>()?;
     m.add_class::<PySaveOutcome>()?;
     m.add_class::<PyFileStore>()?;
@@ -2806,6 +3186,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(manual_founding, m)?)?;
     m.add_function(wrap_pyfunction!(propose_from_candidate, m)?)?;
     m.add_function(wrap_pyfunction!(select_from_candidate, m)?)?;
+    m.add_function(wrap_pyfunction!(sign_reading, m)?)?;
     m.add_function(wrap_pyfunction!(cohesion_report, m)?)?;
     m.add_function(wrap_pyfunction!(coherence_concern, m)?)?;
     Ok(())

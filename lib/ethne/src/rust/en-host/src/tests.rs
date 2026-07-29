@@ -28,7 +28,6 @@ use en_charter::{
 };
 use en_core::{keys, Alg, DidKey, PrivKey, Signed, Timestamp};
 use en_cohesion::ErosionLevel;
-use en_charter::BoundarySource;
 use en_substrate::{FoundingCandidate, MemberCandidate};
 
 use crate::{DueAction, HostConfig, HostCycle};
@@ -86,6 +85,55 @@ impl Fixture {
         Fixture { polity, ids, monitor, archive }
     }
 
+    /// A chartered polity of `n` members grounded on a consenting substrate anchor,
+    /// which co-signs the founding (design **D23**) — the only kind of polity whose
+    /// ground can later withdraw. Returns the anchor's identity with it.
+    fn new_anchored(n: usize) -> (Self, (PrivKey, DidKey)) {
+        let ground = id();
+        let mut f = Self::new(n);
+        let sub = Substrate {
+            name: "the operators".into(),
+            statement: "answers to what it did not author".into(),
+            anchor: Some(ground.1.clone()),
+        };
+        let roll = f.roll();
+        let prop = FoundingProposal::convener_asserted(
+            f.polity.clone(),
+            sub,
+            vec![],
+            roll.clone(),
+            vec![],
+            t(50),
+        );
+        let charter: PolityCharter =
+            prop.ratify(vec![roll[0].clone(), roll[1].clone()], t(100)).unwrap();
+        let signers: Vec<(&str, &PrivKey)> = vec![
+            (f.ids[0].1.as_str(), &f.ids[0].0),
+            (f.ids[1].1.as_str(), &f.ids[1].0),
+            (ground.1.as_str(), &ground.0),
+        ];
+        f.archive = Archive::new();
+        f.archive
+            .append(CharterEntry::PolityChartered(Signed::build(charter, &signers).unwrap()))
+            .unwrap();
+        (f, ground)
+    }
+
+    /// The chartered ground withdrawing.
+    fn disavow(&mut self, ground: &(PrivKey, DidKey), at_secs: i64) {
+        let d = en_charter::SubstrateDisavowal {
+            polity: self.polity.clone(),
+            disavower: ground.1.clone(),
+            rationale: "I do not stand above these people".into(),
+            disavowed_at: t(at_secs),
+        };
+        self.archive
+            .append(CharterEntry::SubstrateDisavowed(
+                Signed::build(d, &[(ground.1.as_str(), &ground.0)]).unwrap(),
+            ))
+            .unwrap();
+    }
+
     fn roll(&self) -> Vec<DidKey> {
         self.ids.iter().map(|(_, d)| d.clone()).collect()
     }
@@ -105,7 +153,6 @@ impl Fixture {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         }
     }
 
@@ -120,7 +167,6 @@ impl Fixture {
                 attested_at: None,
             }],
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         }
     }
 
@@ -271,6 +317,37 @@ fn grading_supplies_every_read_model_the_archive_has() {
     let since = t(5 * DAY - c.config().observation_window_seconds);
     let w = en_charter::observation_window(&f.archive, &f.polity, since, t(5 * DAY));
     assert_eq!(w.reading_count(), 4);
+}
+
+#[test]
+fn grading_supplies_the_ground_reading_too() {
+    // The wiring most likely to rot silently: `grade` assembles the read-models, and a
+    // component whose input it forgets reports health rather than complaining. So a
+    // polity whose ground has actually withdrawn must come back a Concern from the
+    // HOST, not merely from a hand-built `CohesionInputs`.
+    let (mut f, ground) = Fixture::new_anchored(3);
+    let before = f.cycle().grade(&f.archive, &f.healthy(), t(5 * DAY));
+    assert!(!before.ground_disavowed);
+    assert_eq!(before.erosion, ErosionLevel::None);
+
+    f.disavow(&ground, 2 * DAY);
+    let after = f.cycle().grade(&f.archive, &f.healthy(), t(5 * DAY));
+    assert!(after.ground_disavowed);
+    assert_eq!(after.erosion, ErosionLevel::Concern);
+    // Nothing else about the polity changed: everyone is present and well-regarded.
+    assert_eq!(after.observed, 3);
+    assert_eq!(after.chartered, 3);
+}
+
+#[test]
+fn a_withdrawn_ground_raises_the_concern_that_crosses_upward() {
+    // The Concern is the artifact that reaches kith-covenant, so the host must
+    // actually surface it as a duty rather than only grading it.
+    let (mut f, ground) = Fixture::new_anchored(3);
+    f.disavow(&ground, 2 * DAY);
+    let mut c = f.cycle();
+    let due = c.tick(&f.archive, &f.healthy(), t(5 * DAY));
+    assert!(kinds(&due).contains(&"RaiseConcern"), "{:?}", kinds(&due));
 }
 
 // --- retention ----------------------------------------------------------------

@@ -404,7 +404,6 @@ pub fn fusion(
 
 #[cfg(test)]
 mod tests {
-    use en_charter::BoundarySource;
     use super::*;
     use en_charter::{FoundingProposal, Substrate};
     use en_charter::{AffirmationState, EnvoyHolding, EnvoyState};
@@ -460,7 +459,6 @@ mod tests {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         }
     }
 
@@ -565,7 +563,6 @@ mod tests {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         };
         let report = cohesion_report(
             &roll,
@@ -617,7 +614,6 @@ mod tests {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         };
         let report = cohesion_report(
             &roll,

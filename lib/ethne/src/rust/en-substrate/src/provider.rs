@@ -25,9 +25,9 @@ use std::collections::BTreeSet;
 
 use en_charter::{
     BoundaryAttestation, BoundarySource, Commitment, Derivation, Exclusion, FoundingProposal,
-    Substrate,
+    Substrate, SubstrateReading,
 };
-use en_core::{DidKey, KcResult, Timestamp};
+use en_core::{DidKey, KcResult, Signed, Timestamp};
 use serde::{Deserialize, Serialize};
 
 /// A candidate member the provider surfaces from the substrate.
@@ -90,15 +90,31 @@ pub struct FoundingCandidate {
     /// with no articulated ground — which (design open question Q4) must anchor
     /// to a substrate before it can charter at all.
     pub substrate: Option<Substrate>,
-    /// What kind of reading this boundary is (design **D21**), which only the
-    /// provider can say. A trust service reading a live cluster and a convener
-    /// typing out a roll produce the same shape of candidate and are not the same
-    /// claim, so the distinction has to be carried rather than inferred here — and
-    /// it rides through `propose` onto the charter, permanently.
-    pub source: BoundarySource,
 }
 
 impl FoundingCandidate {
+    /// This candidate as an **unsigned** [`SubstrateReading`] offered for `polity`
+    /// (design **D22**).
+    ///
+    /// The provider stops here. It holds no keys and gains none: signing is the
+    /// host's, exactly as D20 settled for every other authored act ("`tick` decides
+    /// and computes; the host signs and does I/O"). Whoever runs this provider signs
+    /// the result and hands it to [`Self::propose`].
+    ///
+    /// D21 carried the *kind* of boundary as a label on the candidate, which only
+    /// the provider could set and nobody could check. D22 replaces the label with
+    /// the evidence, so a candidate can no longer claim a provenance it cannot
+    /// produce a signature for.
+    pub fn reading(&self, polity: DidKey, reader: DidKey, read_at: Timestamp) -> SubstrateReading {
+        SubstrateReading {
+            polity,
+            reader,
+            read_at,
+            members: self.members.iter().map(|m| m.did.clone()).collect(),
+            opaque_boundary: false,
+        }
+    }
+
     /// Draw a deliberate [`FoundingProposal`] from this soft candidate — the
     /// "ratify emergence, do not replace it" translation. The convener supplies
     /// the polity DID, the substrate the polity commits to (it may adopt
@@ -142,6 +158,7 @@ impl FoundingCandidate {
         substrate: Substrate,
         founding_commitments: Vec<Commitment>,
         min_reputation: f64,
+        readings: Vec<Signed<SubstrateReading>>,
         proposed_at: Timestamp,
     ) -> FoundingProposal {
         // An unrated candidate clears a floor of 0.0 (which demands nothing) and
@@ -172,7 +189,7 @@ impl FoundingCandidate {
             substrate,
             founding_commitments,
             keeps,
-            self.source,
+            readings,
             exclusions,
             proposed_at,
         )
@@ -200,6 +217,7 @@ impl FoundingCandidate {
         founding_commitments: Vec<Commitment>,
         keep: &[DidKey],
         reason: &str,
+        readings: Vec<Signed<SubstrateReading>>,
         proposed_at: Timestamp,
     ) -> FoundingProposal {
         let kept: BTreeSet<&str> = keep.iter().map(DidKey::as_str).collect();
@@ -215,7 +233,7 @@ impl FoundingCandidate {
             substrate,
             founding_commitments,
             keeps,
-            self.source,
+            readings,
             exclusions,
             proposed_at,
         )
@@ -230,7 +248,7 @@ impl FoundingCandidate {
         substrate: Substrate,
         founding_commitments: Vec<Commitment>,
         keeps: impl Fn(&MemberCandidate) -> bool,
-        source: BoundarySource,
+        readings: Vec<Signed<SubstrateReading>>,
         exclusions: Vec<Exclusion>,
         proposed_at: Timestamp,
     ) -> FoundingProposal {
@@ -246,9 +264,17 @@ impl FoundingCandidate {
             founding_commitments,
             proposed_members,
             proposed_derivations,
+            // The evidence IS the source (design **D22**): readings present make
+            // this a `Substrate` boundary, their absence a convener's assertion.
+            // There is no separate label to fall out of step with what can actually
+            // be produced.
             attestation: BoundaryAttestation {
-                source,
                 candidate_size: self.members.len(),
+                source: if readings.is_empty() {
+                    BoundarySource::ConvenerAsserted
+                } else {
+                    BoundarySource::Substrate { readings }
+                },
                 exclusions,
             },
             proposed_at,

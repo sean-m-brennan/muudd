@@ -18,14 +18,36 @@
 
 use std::collections::BTreeSet;
 
-use en_core::{Cid, DidKey, KcError, KcResult, PubKey, Timestamp};
+use en_core::{Cid, DidKey, KcError, KcResult, PubKey, Signed, Timestamp};
 use serde::{Deserialize, Serialize};
 
 /// What the polity holds above itself — its non-ultimacy anchor. **Genesis-
 /// immutable**: there is deliberately no amendment record that changes a
 /// substrate, because a polity that re-decides what it defers to has become a
-/// different polity. (For a derived — e.g. machine-majority — polity, `anchor`
-/// names the human/guardian ground the substrate rests on.)
+/// different polity.
+///
+/// `name` and `statement` must both be **articulated** — non-empty — for a
+/// founding to carry authority (design **D23**, resolving open question **Q4**).
+/// Before D23 an empty pair chartered: measured, a polity whose entire ground was
+/// two empty strings passed both verification passes. What is checked is
+/// *presence*, never content: no rule can read a tradition, and this one does not
+/// pretend to.
+///
+/// For a human roll the statement **is** the anchor, and unkeyed on purpose — a
+/// tradition, a rule, the dead. `anchor` is the *keyed* ground, and it exists for
+/// the derived case: a machine cannot itself hold a tradition, so where nobody on
+/// the roll could, the ground must be a key that **consents**. Hence, since D23:
+///
+/// - an `anchor` may be neither the polity nor anyone on its own roll, exactly as a
+///   machine may not guard a machine — a ground inside what it grounds is no ground;
+/// - a present `anchor` **co-signs the founding**, because answerability is accepted
+///   and never assigned;
+/// - a roll of nothing but machines answering to nobody *must* carry one.
+///
+/// A named anchor may later withdraw ([`SubstrateDisavowal`]), which the archive
+/// records and the cohesion monitor reads. It does not change this field: the
+/// polity does not get to relabel its ground, and neither does the ground get to
+/// erase having stood there.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Substrate {
     pub name: String,
@@ -48,19 +70,78 @@ pub struct Derivation {
     pub guardian: Option<DidKey>,
 }
 
+/// One party's signed account of what the substrate showed (design **D22**,
+/// resolving open question **Q5**).
+///
+/// **Why this is signed and named.** D21 recorded *that* a boundary came from a
+/// reading; it could not say *whose*, so the label was an unsigned self-report and
+/// therefore evidence of nothing. Measured: flipping one public field promoted a
+/// convener's bare assertion to `Substrate`, and the grade with it to
+/// `Corroborated`, with no provider ever consulted and both verification passes
+/// green. A reading nobody signed cannot be told apart from a reading nobody took.
+///
+/// The reader's key is recovered from its DID (`did:key` self-resolves), so this
+/// costs no registry. What it buys is that a convener can no longer *claim* a
+/// reading: forging one needs a key they do not hold.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubstrateReading {
+    /// The founding this reading is offered for. Bound deliberately: without it an
+    /// honest reader's account of one cluster could be replayed into somebody
+    /// else's founding, and the signature would still verify.
+    pub polity: DidKey,
+    /// Who looked. Mirrors [`Observation::observer`] — the reader need not be a
+    /// member, and must be the sole signer of its own reading.
+    pub reader: DidKey,
+    pub read_at: Timestamp,
+    /// Every member the reader saw, as it saw them.
+    pub members: Vec<DidKey>,
+    /// Whether the observed boundary was (partly) an intentional opaque edge.
+    #[serde(default)]
+    pub opaque_boundary: bool,
+}
+
+impl SubstrateReading {
+    /// The members this reading showed, as a set — what the charter's roll and
+    /// exclusions are checked against.
+    pub fn member_set(&self) -> BTreeSet<&str> {
+        self.members.iter().map(DidKey::as_str).collect()
+    }
+}
+
 /// How the boundary a charter ratifies was established (design **D21**, resolving
-/// open question **Q1**).
+/// open question **Q1**; readings added by **D22**, resolving **Q5**).
 ///
 /// The distinction the codebase already made informally now has a home:
 /// `en-substrate`'s `ManualFounding` gives asserted members `Some(1.0)` rather than
 /// `None` precisely because *a convener vouching for a roll is the reading here*.
 /// This says the same thing in the charter, permanently.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// D22 made the `Substrate` arm **carry its evidence** rather than assert it. The
+/// variant holds the readings themselves, each signed by the reader it names, so
+/// "this boundary was read" is true by construction rather than by claim — there is
+/// no way to be `Substrate` without producing at least one signature.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BoundarySource {
-    /// An independent reading of the substrate.
-    Substrate,
+    /// One or more independent readings, each signed by the reader it names.
+    /// Non-empty, enforced at genesis.
+    Substrate { readings: Vec<Signed<SubstrateReading>> },
     /// The convener's own assertion — nobody else attests this boundary.
     ConvenerAsserted,
+}
+
+impl BoundarySource {
+    /// The readings behind this boundary; empty for a convener's assertion.
+    pub fn readings(&self) -> &[Signed<SubstrateReading>] {
+        match self {
+            BoundarySource::Substrate { readings } => readings,
+            BoundarySource::ConvenerAsserted => &[],
+        }
+    }
+
+    /// Whether an independent reading stands behind this boundary at all.
+    pub fn is_read(&self) -> bool {
+        matches!(self, BoundarySource::Substrate { .. })
+    }
 }
 
 /// Someone the boundary showed whom the roll does not name, and why.
@@ -136,11 +217,106 @@ impl BoundaryAttestation {
         }
     }
 
+    /// A boundary drawn from one or more signed readings (design **D22**).
+    ///
+    /// `candidate_size` is taken from the readings rather than passed in, because
+    /// the whole point of D22 is that the count stops being the proposer's word.
+    pub fn read(readings: Vec<Signed<SubstrateReading>>, exclusions: Vec<Exclusion>) -> Self {
+        let candidate_size = readings.first().map_or(0, |r| r.payload.members.len());
+        BoundaryAttestation {
+            source: BoundarySource::Substrate { readings },
+            candidate_size,
+            exclusions,
+        }
+    }
+
     /// Whether the accounting adds up: everyone the boundary showed is either on
     /// `roll` or explicitly excluded. The rule genesis authority enforces.
+    ///
+    /// This is **arithmetic against a self-report**, and D21 could offer nothing
+    /// stronger. [`Self::corroborated_by`] is the D22 upgrade: identity against a
+    /// signature.
     pub fn accounts_for(&self, roll_size: usize) -> bool {
         self.candidate_size == roll_size + self.exclusions.len()
     }
+
+    /// Whether `reading` actually shows the boundary this charter ratified: its
+    /// members are exactly the roll plus the named exclusions, no more and no less
+    /// (design **D22**).
+    ///
+    /// This is the rule with teeth. D21's arithmetic passes for any internally
+    /// consistent fabrication, because the proposer supplies both sides of the sum;
+    /// here the right-hand side is signed by somebody else.
+    pub fn corroborated_by(&self, roll: &[DidKey], reading: &SubstrateReading) -> bool {
+        let mut claimed: BTreeSet<&str> = roll.iter().map(DidKey::as_str).collect();
+        claimed.extend(self.exclusions.iter().map(|e| e.member.as_str()));
+        claimed == reading.member_set()
+    }
+
+    /// Every reader whose signed reading agrees with the ratified boundary, in
+    /// record order — the honest content of "corroborated" (design **D22**).
+    ///
+    /// Deliberately *agreement*, not a count of readings: a reader who signed a
+    /// different boundary corroborates nothing, and their disagreement is itself
+    /// worth reading off the charter.
+    pub fn corroborating_readers(&self, roll: &[DidKey]) -> Vec<DidKey> {
+        self.source
+            .readings()
+            .iter()
+            .filter(|r| self.corroborated_by(roll, &r.payload))
+            .map(|r| r.payload.reader.clone())
+            .collect()
+    }
+}
+
+/// What an excluded party says back (design **D22**).
+///
+/// D21 named the excluded in someone else's record; this lets them answer. It is
+/// **the only thing in the tier that can contradict an understated
+/// `candidate_size`** — the residue D21 recorded as beyond its reach, since the
+/// archive holds no provider and the excluded are therefore the only witnesses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DissentKind {
+    /// "The accounting never mentioned me." The dissenter appears neither on the
+    /// roll nor among the exclusions, so the boundary they say they were inside was
+    /// understated.
+    Unnamed,
+    /// "I was excluded, and I reject the reason given." The dissenter is named in
+    /// the charter's exclusions; the accounting is correct and the justification is
+    /// disputed.
+    ReasonRejected,
+}
+
+/// One party's signed dissent from a founding's boundary (design **D22**).
+///
+/// Perspectival evidence in the shape D16 established for [`Observation`]: signed
+/// by the dissenter alone, **no deciders and no majority**, and the dissenter need
+/// not be a member — an excluded party who had to sit inside the roll could be
+/// silenced by simply never being admitted.
+///
+/// A dissent **asserts; it does not adjudicate**. Nothing in the tier decides
+/// whether a dissenter is telling the truth, and nothing should: that would be the
+/// "replace emergence" move the tier exists to refuse.
+///
+/// Two properties are deliberate and are the reason this record is worth anything:
+///
+/// - It may be filed **after dissolution** — the only entry class that may. The
+///   alternative is that founders silence their victims by winding the polity up,
+///   which is D17's "destroying evidence is the move a captured party makes" wearing
+///   a different costume. A founding's legitimacy outlives its polity in any case:
+///   kith-covenant holds a `CommunityIdentity` derived from that charter.
+/// - It is **unprunable**, and for free: [`crate::is_prunable`] matches only
+///   observations, which D17 made the one prunable class precisely because they are
+///   inert. A dissent is the opposite of inert.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BoundaryDissent {
+    pub polity: DidKey,
+    /// Who is dissenting. Must be the sole signer — nobody may put a dissent in
+    /// somebody else's mouth.
+    pub dissenter: DidKey,
+    pub kind: DissentKind,
+    pub rationale: String,
+    pub dissented_at: Timestamp,
 }
 
 /// A self-binding rule the polity commits to. Founding commitments are
@@ -666,4 +842,41 @@ pub struct Affirmation {
     /// member is the sole signer).
     pub witnesses: Vec<DidKey>,
     pub affirmed_at: Timestamp,
+}
+
+/// The named substrate anchor's signed withdrawal (design **D23**).
+///
+/// D23 made a keyed anchor a *consenting* party: it co-signs the founding, because
+/// answerability is accepted and never assigned. The moment a ground can consent it
+/// can also change its mind, and D15 answered exactly that question for guardians
+/// with [`GuardianChange`]. This is the same question for the ground itself, and it
+/// gets a deliberately weaker answer.
+///
+/// **A disavowal asserts; it cannot un-charter.** The substrate is
+/// genesis-immutable — a polity that re-decides what it defers to has become a
+/// different polity — so nothing here rewrites [`Substrate`], reconstructs any
+/// authority state, or dissolves anything. What it produces is a legible fact: this
+/// polity is now standing on a ground that disowns it. The members' honest options
+/// are to live with that or to re-charter, which is what the fission machinery is
+/// for. Handing a withdrawal the power to void a charter would let any anchor
+/// destroy a polity unilaterally, which is a worse hole than the one D23 closed.
+///
+/// Unlike a [`BoundaryDissent`], the filer **is checkable**: the charter names its
+/// anchor, so only that key may withdraw. A dissent has to admit anyone because an
+/// omitted party is by definition not in the record; a ground is in the record.
+///
+/// Shares the two deliberate properties of a dissent, for the same reasons:
+/// - it may be filed **after dissolution**, so founders cannot silence their ground
+///   by winding the polity up;
+/// - it is **unprunable**, and for free ([`crate::is_prunable`] matches only
+///   observations).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubstrateDisavowal {
+    pub polity: DidKey,
+    /// The withdrawing anchor. Must be the polity's chartered anchor, and must be
+    /// the sole signer — nobody may put a withdrawal in the ground's mouth, and
+    /// nobody else's withdrawal means anything.
+    pub disavower: DidKey,
+    pub rationale: String,
+    pub disavowed_at: Timestamp,
 }

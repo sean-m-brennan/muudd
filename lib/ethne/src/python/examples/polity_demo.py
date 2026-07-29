@@ -29,6 +29,9 @@ import os
 import ethne as e
 from ethne.authoring import (
     Signer,
+    disavow_substrate,
+    dissent_boundary,
+    dissolve_charter,
     prune_observations,
     admit_member,
     record_observation,
@@ -263,6 +266,111 @@ def founding_boundary() -> None:
           f"chartered,\n  and honest about the fact that nobody else attests this "
           "boundary. The same\n  honest chartered state as an unguarded machine's "
           "`guardian: None` (D15).")
+
+
+def attributable_boundary() -> None:
+    """Who says the boundary was real (D22, resolving Q5).
+
+    D21 recorded *that* a boundary came from a reading. It could not say whose — so
+    the label was an unsigned self-report, and one edit to a public field promoted a
+    convener's bare assertion to a corroborated reading. D22 makes the `Substrate`
+    arm carry its evidence.
+    """
+    print("\n--- who says the boundary was real (D22) -------------------------")
+    t0 = e.now_seconds() - 10 * DAY
+
+    def cluster(n=4):
+        nodes = [Signer.generate() for _ in range(n)]
+        _p, _q, did = e.generate_keypair()
+        cand = founding_candidate(
+            [(s.did, 0.9, None, None, False) for s in nodes],
+            substrate_name="tradition",
+            substrate_statement="answers to what it did not author",
+        )
+        return nodes, did, cand
+
+    # 1. The forgery D21 could not stop. One field, no provider, nothing signed.
+    nodes, did, cand = cluster()
+    doc = json.loads(e.propose_charter(
+        did, "tradition", "answers to what it did not author",
+        [s.did for s in nodes], proposed_at=t0,
+    ))
+    doc["attestation"]["source"] = {"Substrate": {"readings": []}}
+    arch = e.Archive()
+    ratify_charter(arch, json.dumps(doc), nodes[:3], founded_at=t0 + DAY)
+    try:
+        arch.check_authority()
+        print("UNREACHED")
+    except Exception as ex:
+        print(f"claiming a reading nobody took:\n  {ex}")
+
+    # 2. With a signature it goes through — and the charter names who looked. The
+    #    provider never signs: it holds no keys, and D20 already settled that
+    #    signing is the host's.
+    nodes, did, cand = cluster()
+    reader = Signer.generate()
+    reading = e.sign_reading(cand, did, reader.did, reader.priv, read_at=t0)
+    arch = e.Archive()
+    ratify_charter(
+        arch,
+        e.propose_from_candidate(cand, did, readings=[reading], proposed_at=t0),
+        nodes[:3], founded_at=t0 + DAY,
+    )
+    arch.verify_all()
+    arch.check_authority()
+    leg = arch.founding_legitimacy(did)
+    print(f"with a signed reading: basis {leg.basis}, read by {short(leg.readers[0])}")
+
+    # 3. A reader who saw something else corroborates nothing — and says so forever.
+    nodes, did, cand = cluster()
+    other = founding_candidate(
+        [(Signer.generate().did, 0.9, None, None, False) for _ in range(4)],
+        substrate_name="tradition", substrate_statement="answers to what it did not author",
+    )
+    r_ok, r_no = Signer.generate(), Signer.generate()
+    arch = e.Archive()
+    ratify_charter(
+        arch,
+        e.propose_from_candidate(cand, did, proposed_at=t0, readings=[
+            e.sign_reading(cand, did, r_ok.did, r_ok.priv, read_at=t0),
+            e.sign_reading(other, did, r_no.did, r_no.priv, read_at=t0),
+        ]),
+        nodes[:3], founded_at=t0 + DAY,
+    )
+    arch.check_authority()
+    leg = arch.founding_legitimacy(did)
+    print(f"two readers, one disagreeing: {len(leg.readers)} read, "
+          f"{len(leg.corroborating_readers)} corroborate, "
+          f"{len(leg.dissenting_readers)} contradict the founding on its own charter")
+    print("  (a lens, never a gate: did:key is free, so a captured reader can mint\n"
+          "   its own corroborators. Independence attestation is the next slice.)")
+
+    # 4. And the excluded answer back — the one thing that can contradict an
+    #    understated boundary, since the archive holds no provider.
+    nodes, did, cand = cluster(3)
+    arch = e.Archive()
+    ratify_charter(
+        arch,
+        e.propose_charter(did, "tradition", "answers to what it did not author",
+                          [s.did for s in nodes], proposed_at=t0),
+        nodes[:2], founded_at=t0 + DAY,
+    )
+    omitted = Signer.generate()
+    dissent_boundary(arch, did, omitted, "Unnamed",
+                     "I was in that cluster and the accounting never named me",
+                     dissented_at=t0 + 2 * DAY)
+    # Winding the polity up does not close this record.
+    dissolve_charter(arch, did, nodes[:2], dissolved_at=t0 + 3 * DAY)
+    later = Signer.generate()
+    dissent_boundary(arch, did, later, "Unnamed", "nor me",
+                     dissented_at=t0 + 9 * DAY)
+    arch.verify_all()
+    arch.check_authority()
+    d = arch.founding_dissent(did, as_of=e.now_seconds())
+    print(f"dissent filed: {len(d.unnamed)} say the accounting omitted them "
+          f"({len(d)} records, one of them after dissolution —\n"
+          "  the only entry class a winding-up does not close, because otherwise\n"
+          "  founders silence the excluded by dissolving)")
 
 
 def machine_polity() -> None:
@@ -623,9 +731,137 @@ def retention():
     _ = polity_priv, polity_pub
 
 
+def standing_ground() -> None:
+    """What the polity stands on (D23, resolving Q4).
+
+    Q4 asked whether a purely emergent group — a fresh AT cluster of machines with no
+    articulated tradition — can charter at all. Measured before the slice: it could,
+    and so could a polity whose entire ground was two empty strings, or one that named
+    ITSELF as the thing it defers to. Both verification passes were green, because
+    `substrate.anchor` was read by no rule anywhere.
+    """
+    print("\n--- what the polity stands on (D23) ------------------------------")
+    t0 = e.now_seconds() - 10 * DAY
+    founded = t0 + DAY
+
+    def machines(n=3):
+        """A fresh cluster: n nodes, and the polity DID they might charter as."""
+        nodes = [Signer.generate() for _ in range(n)]
+        _p, _q, did = e.generate_keypair()
+        return nodes, did
+
+    def cluster_proposal(nodes, did, anchor=None):
+        """Q4's exact case: every member a machine, nobody behind any of them."""
+        return e.propose_charter(
+            did,
+            "the operators",
+            "answers to what it did not author",
+            member_dids=[s.did for s in nodes],
+            substrate_anchor=anchor.did if anchor is not None else None,
+            derivations=[(s.did, None) for s in nodes],
+            proposed_at=t0,
+        )
+
+    def refusal(proposal, nodes, anchor=None):
+        """Ratify, then report the single authority violation it earns."""
+        arch = e.Archive()
+        ratify_charter(arch, proposal, nodes[:2], founded_at=founded, anchor=anchor)
+        arch.verify_all()  # the signatures are always fine; the ground is the problem
+        return arch.authority_violations()[0][1]
+
+    # 1. The blank ground.
+    nodes, did = machines()
+    blank = e.propose_charter(did, "", "", [s.did for s in nodes], proposed_at=t0)
+    print(f"a ground of two empty strings:\n  {refusal(blank, nodes)}")
+
+    # 2. A polity naming itself — the hole a presence-only rule would have let past.
+    nodes, did = machines()
+    circular = e.propose_charter(
+        did, "us", "we answer to ourselves", [s.did for s in nodes],
+        substrate_anchor=did, proposed_at=t0,
+    )
+    print(f"a polity as its own ground:\n  {refusal(circular, nodes)}")
+
+    # 3. The fresh machine cluster with nothing above it.
+    nodes, did = machines()
+    print(f"a cluster of machines answering to nobody:"
+          f"\n  {refusal(cluster_proposal(nodes, did), nodes)}")
+
+    # 4. Named a ground without asking it. Answerability is accepted, never assigned,
+    #    so naming a key you do not hold buys nothing.
+    nodes, did = machines()
+    ground = Signer.generate()
+    grounded = cluster_proposal(nodes, did, anchor=ground)
+    print(f"named a ground that did not consent:\n  {refusal(grounded, nodes)}")
+
+    # 5. The same proposal, with the ground co-signing.
+    arch = e.Archive()
+    ratify_charter(arch, grounded, nodes[:2], founded_at=founded, anchor=ground)
+    arch.verify_all()
+    arch.check_authority()
+    print(f"with the ground co-signing: chartered, "
+          f"grounding={arch.founding_legitimacy(did).grounding}")
+
+    # A human roll with no anchor and no machines is a different picture, and legal:
+    # what it defers to may have no key at all.
+    people, human_did = machines()
+    human = e.Archive()
+    ratify_charter(
+        human,
+        e.propose_charter(human_did, "tradition", "answers to what it did not author",
+                          [s.did for s in people], proposed_at=t0),
+        people[:2],
+        founded_at=founded,
+    )
+    print(f"  a human roll holding an unkeyed tradition: "
+          f"grounding={human.founding_legitimacy(human_did).grounding}")
+
+    # 6. Nobody but the named ground may withdraw it.
+    intruded = e.Archive()
+    ratify_charter(intruded, grounded, nodes[:2], founded_at=founded, anchor=ground)
+    disavow_substrate(intruded, did, Signer.generate(), "not mine to give up", founded + 1)
+    print(f"someone else withdrawing it:\n  {intruded.authority_violations()[0][1]}")
+
+    # 7. The ground changes its mind. It cannot un-charter the polity — the substrate
+    #    is genesis-immutable — but the record says so permanently, and the monitor
+    #    reads it as the Concern that crosses to kith-covenant.
+    now = t0 + 3 * DAY
+    roll = arch.charter_state(did, now).members
+    candidate = manual_founding(
+        [s.did for s in nodes], "the operators", "answers to what it did not author"
+    )
+    before = cohesion_report(
+        roll, candidate, ground=arch.substrate_disavowal(did, now), as_of=now
+    )
+    disavow_substrate(arch, did, ground, "I do not stand above these people", t0 + 2 * DAY)
+    after = cohesion_report(
+        roll, candidate, ground=arch.substrate_disavowal(did, now), as_of=now
+    )
+    arch.check_authority()
+    state = arch.charter_state(did, now)
+    print(f"the ground withdraws: erosion {before.erosion} → {after.erosion}, "
+          f"still chartered={state.chartered}, dissolved={state.dissolved}")
+    print(f"  the charter still reads grounding="
+          f"{arch.founding_legitimacy(did).grounding} — the founding WAS anchored, "
+          f"and there is no record that edits it")
+
+    # 8. And winding the polity up does not silence it: the second entry class a
+    #    dissolution does not close.
+    late = e.Archive()
+    ratify_charter(late, grounded, nodes[:2], founded_at=founded, anchor=ground)
+    dissolve_charter(late, did, nodes[:2], rationale="done", dissolved_at=t0 + 2 * DAY)
+    disavow_substrate(late, did, ground, "and I never did", now)
+    late.verify_all()
+    late.check_authority()
+    print(f"filed after dissolution and still authorized: "
+          f"{late.substrate_disavowal(did, now).disavowed}")
+
+
 if __name__ == "__main__":
     main()
     founding_boundary()
+    attributable_boundary()
+    standing_ground()
     machine_polity()
     pruning(*watched_absence())
     retention()

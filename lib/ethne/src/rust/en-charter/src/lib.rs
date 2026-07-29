@@ -57,15 +57,18 @@ mod tests;
 pub use authority::{authority_violations, check_authority, majority, PRUNE_SETTLING_SECONDS};
 pub use entry::{didkey_resolver, verify_all, verify_entry, CharterEntry};
 pub use record::{
-    BoundaryAttestation, BoundarySource, Exclusion,
+    BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion,
+    SubstrateReading,
     pruning_digest, Affirmation, AffirmationKind, AmendmentKind, CharterDissolution, Commitment,
     CommitmentAmendment, Derivation, EnvoyAuthorization, EnvoyKind, FoundingProposal,
     GuardianChange, GuardianKind, MemberReading, MembershipChange, MembershipKind, Observation,
     ObservationPruning, Office, OfficeChange, OfficeKind, PolityCharter, Substrate,
+    SubstrateDisavowal,
 };
 pub use state::{
     affirmation_state, apply_prunings, charter_state, decay_trends, effective_prune_horizon,
-    founding_legitimacy, FoundingBasis, FoundingLegitimacy,
+    founding_dissent, founding_legitimacy, substrate_disavowal, DisavowalEntry, DissentEntry,
+    FoundingBasis, FoundingDissent, FoundingLegitimacy, GroundStanding, SubstrateGrounding,
     envoy_state, guardian_state, is_prunable, observation_window, office_state,
     prunable_observations, prune_recommendation, AffirmationPoint, AffirmationState, CharterState,
     ChurnPoint, DecayTrends, EnvoyHolding, EnvoyState, GuardianState, MemberAffirmation,

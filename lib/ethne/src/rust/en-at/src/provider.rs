@@ -30,7 +30,7 @@
 
 use std::collections::HashMap;
 
-use en_charter::{BoundarySource, Substrate};
+use en_charter::Substrate;
 use en_core::{DidKey, KcResult, Timestamp};
 use en_substrate::{
     ChangeStream, FoundingCandidate, MemberCandidate, SubstrateChange, SubstrateProvider,
@@ -229,9 +229,6 @@ impl<S: AtEventSource> SubstrateProvider for AtSubstrateProvider<S> {
         Ok(FoundingCandidate {
             members,
             substrate: self.substrate.clone(),
-            // An independent reading: this is the AT subtree as the trust service
-            // actually observed it, not a roll anyone typed out (design **D21**).
-            source: BoundarySource::Substrate,
         })
     }
 

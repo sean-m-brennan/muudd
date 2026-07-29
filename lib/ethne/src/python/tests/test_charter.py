@@ -21,6 +21,8 @@ import pytest
 import ethne as e
 from ethne.authoring import (
     Signer,
+    disavow_substrate,
+    dissent_boundary,
     admit_member,
     amend_commitment,
     authorize_envoy,
@@ -39,7 +41,7 @@ from ethne.authoring import (
     revoke_office,
     rotate_guardian,
 )
-from ethne.monitor import manual_founding, propose_from_candidate
+from ethne.monitor import cohesion_report, manual_founding, propose_from_candidate
 
 from .conftest import FOUNDED_AT, PROPOSED_AT
 
@@ -484,6 +486,12 @@ def _cluster(n=30):
     return nodes, did, candidate
 
 
+def _read(candidate, polity, reader=None):
+    """A signed reading of `polity` by a fresh reader — the host's act (D22)."""
+    reader = reader or Signer.generate()
+    return e.sign_reading(candidate, polity, reader.did, reader.priv, read_at=40), reader
+
+
 def test_a_faction_may_not_silently_charter_the_cluster_it_came_from():
     """The Q1 hole, as a regression: one node chartering thirty.
 
@@ -514,8 +522,14 @@ def test_a_faction_may_not_silently_charter_the_cluster_it_came_from():
 def test_a_narrow_founding_goes_through_when_it_names_who_it_left_out():
     """Accounting is gated; judgement is only graded. Thirty down to one, honestly."""
     nodes, did, candidate = _cluster()
+    reading, reader = _read(candidate, did)
     proposal = e.select_from_candidate(
-        candidate, did, [nodes[0].did], "not of this founding", proposed_at=PROPOSED_AT
+        candidate,
+        did,
+        [nodes[0].did],
+        "not of this founding",
+        readings=[reading],
+        proposed_at=PROPOSED_AT,
     )
     arch = e.Archive()
     ratify_charter(arch, proposal, nodes[:1], founded_at=FOUNDED_AT)
@@ -532,11 +546,18 @@ def test_a_narrow_founding_goes_through_when_it_names_who_it_left_out():
     # The single number Q1 asks for: one node in thirty consented.
     assert leg.consent_share == pytest.approx(1 / 30)
     assert leg.basis == "Narrowed"
+    # And since D22 the boundary is attributable: the reader who saw all thirty
+    # signed for exactly the roll-plus-exclusions this charter ratified.
+    assert leg.readers == [reader.did]
+    assert leg.corroborating_readers == [reader.did]
 
 
 def test_the_whole_cluster_chartering_itself_is_corroborated():
     nodes, did, candidate = _cluster()
-    proposal = propose_from_candidate(candidate, did, proposed_at=PROPOSED_AT)
+    reading, reader = _read(candidate, did)
+    proposal = propose_from_candidate(
+        candidate, did, readings=[reading], proposed_at=PROPOSED_AT
+    )
     arch = e.Archive()
     ratify_charter(arch, proposal, nodes[: e.majority(30)], founded_at=FOUNDED_AT)
     arch.check_authority()
@@ -545,6 +566,7 @@ def test_the_whole_cluster_chartering_itself_is_corroborated():
     assert leg.excluded == 0
     assert leg.basis == "Corroborated"
     assert leg.consent_share == pytest.approx(e.majority(30) / 30)
+    assert leg.corroborating_readers == [reader.did]
 
 
 def test_a_convener_asserted_roll_is_labelled_so_permanently():
@@ -634,3 +656,420 @@ def test_the_floor_records_why_each_trimmed_member_was_trimmed():
     reasons = sorted(r for _did, r in leg.exclusions)
     assert "reputation 0.21 below the floor 0.30" in reasons[0]
     assert "unrated" in reasons[1]
+
+
+# ---- The boundary is attributable, and the excluded answer back (D22) --------
+
+
+def test_a_convener_cannot_claim_a_reading_they_do_not_hold():
+    """The Q5 regression, measured before the slice: one edit to a public field
+    promoted a bare assertion to `Substrate` — and the grade to `Corroborated` —
+    with no provider consulted and both verification passes green."""
+    import json
+
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    doc = json.loads(
+        e.propose_charter(
+            did, "tradition", "answers to X", [s.did for s in founders],
+            proposed_at=PROPOSED_AT,
+        )
+    )
+    assert doc["attestation"]["source"] == "ConvenerAsserted"
+    # The old forgery: claim a reading nobody took.
+    doc["attestation"]["source"] = {"Substrate": {"readings": []}}
+    arch = e.Archive()
+    ratify_charter(arch, json.dumps(doc), founders[:2], founded_at=FOUNDED_AT)
+    with pytest.raises(Exception) as excinfo:
+        arch.check_authority()
+    assert "carries none" in str(excinfo.value)
+
+
+def test_a_signed_reading_makes_the_boundary_attributable():
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    candidate = e.founding_candidate(
+        [(s.did, 0.9, None, None, False) for s in founders],
+        substrate_name="tradition",
+        substrate_statement="answers to X",
+    )
+    reading, reader = _read(candidate, did)
+    proposal = propose_from_candidate(
+        candidate, did, readings=[reading], proposed_at=PROPOSED_AT
+    )
+    arch = e.Archive()
+    ratify_charter(arch, proposal, founders[:2], founded_at=FOUNDED_AT)
+    arch.verify_all()
+    arch.check_authority()
+
+    leg = arch.founding_legitimacy(did)
+    assert leg.source == "Substrate"
+    assert leg.readers == [reader.did]
+    assert leg.corroborating_readers == [reader.did]
+    assert leg.dissenting_readers == []
+    assert leg.basis == "Corroborated"
+
+
+def test_a_reading_of_one_cluster_does_not_travel_to_another_founding():
+    """Anti-replay: without the binding an honest reader's account of one cluster
+    founds somebody else's polity, and the signature still verifies."""
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    _p2, _q2, elsewhere = e.generate_keypair()
+    candidate = e.founding_candidate(
+        [(s.did, 0.9, None, None, False) for s in founders],
+        substrate_name="tradition",
+        substrate_statement="answers to X",
+    )
+    stolen, _reader = _read(candidate, elsewhere)  # read for a DIFFERENT polity
+    proposal = propose_from_candidate(
+        candidate, did, readings=[stolen], proposed_at=PROPOSED_AT
+    )
+    arch = e.Archive()
+    ratify_charter(arch, proposal, founders[:2], founded_at=FOUNDED_AT)
+    with pytest.raises(Exception) as excinfo:
+        arch.check_authority()
+    assert "is for polity" in str(excinfo.value)
+
+
+def test_corroboration_counts_readers_who_agree():
+    """A reader who signed a different boundary corroborates nothing — and the gap
+    is that reader contradicting the founding, on the charter, permanently."""
+    founders = [Signer.generate() for _ in range(3)]
+    stranger = Signer.generate()
+    _priv, _pub, did = e.generate_keypair()
+    candidate = e.founding_candidate(
+        [(s.did, 0.9, None, None, False) for s in founders],
+        substrate_name="tradition",
+        substrate_statement="answers to X",
+    )
+    agrees, agreeing = _read(candidate, did)
+    # A second reader who saw a different set of three.
+    other = e.founding_candidate(
+        [(s.did, 0.9, None, None, False) for s in [founders[0], stranger, Signer.generate()]],
+        substrate_name="tradition",
+        substrate_statement="answers to X",
+    )
+    disagrees, disagreeing = _read(other, did)
+
+    proposal = propose_from_candidate(
+        candidate, did, readings=[agrees, disagrees], proposed_at=PROPOSED_AT
+    )
+    arch = e.Archive()
+    ratify_charter(arch, proposal, founders[:2], founded_at=FOUNDED_AT)
+    arch.check_authority()
+
+    leg = arch.founding_legitimacy(did)
+    assert sorted(leg.readers) == sorted([agreeing.did, disagreeing.did])
+    assert leg.corroborating_readers == [agreeing.did]
+    assert leg.dissenting_readers == [disagreeing.did]
+
+
+def test_the_excluded_may_answer_and_the_record_reads_it_back(found):
+    """The two claims a dissent can make, and the read-model that reports them
+    without adjudicating either."""
+    p = found(3)
+    omitted = Signer.generate()
+    dissent_boundary(
+        p.archive, p.did, omitted, "Unnamed",
+        "I was inside that cluster", dissented_at=200,
+    )
+    p.archive.verify_all()
+    p.archive.check_authority()
+
+    d = p.archive.founding_dissent(p.did, as_of=300)
+    assert len(d) == 1
+    assert d.unnamed == [omitted.did]
+    assert d.reasons_rejected == []
+    assert d.dissenters == [omitted.did]
+    assert d.entries[0][1] == "Unnamed"
+    # Read as of a moment, like every other derivation here.
+    assert len(p.archive.founding_dissent(p.did, as_of=150)) == 0
+
+
+def test_nobody_may_put_a_dissent_in_somebody_elses_mouth(found):
+    """Two protections, and this is the one Python can reach.
+
+    The binding always labels the signature with the dissenter's own DID, so filing
+    under someone else's name means signing with a key that does not match it — and
+    the signature check refuses it. (The authority-level rule, that the signer *set*
+    is exactly the dissenter, is exercised in the Rust suite, where an entry naming
+    one party and signed by another can actually be constructed.)"""
+    p = found(3)
+    omitted = Signer.generate()
+    p.archive.dissent_boundary(
+        p.did, omitted.did, p.founders[0].priv, "Unnamed", "not mine to file", 200
+    )
+    with pytest.raises(Exception):
+        p.archive.verify_all()
+
+
+def test_an_unnamed_dissent_from_someone_the_founding_names_is_refused(found):
+    p = found(3)
+    dissent_boundary(p.archive, p.did, p.founders[2], "Unnamed", "", dissented_at=200)
+    with pytest.raises(Exception) as excinfo:
+        p.archive.check_authority()
+    assert "but it names them" in str(excinfo.value)
+
+
+def test_rejecting_an_exclusion_reason_requires_being_excluded(found):
+    p = found(3)
+    stranger = Signer.generate()
+    dissent_boundary(p.archive, p.did, stranger, "ReasonRejected", "", dissented_at=200)
+    with pytest.raises(Exception) as excinfo:
+        p.archive.check_authority()
+    assert "excludes no such member" in str(excinfo.value)
+
+
+def test_an_unknown_dissent_kind_is_a_value_error(found):
+    p = found(3)
+    with pytest.raises(ValueError):
+        dissent_boundary(p.archive, p.did, Signer.generate(), "Grumbling")
+
+
+def test_dissent_outlives_the_polity_it_contests(found):
+    """The one entry class a dissolution does not close — otherwise founders silence
+    the parties they excluded by winding the polity up."""
+    p = found(3)
+    omitted = Signer.generate()
+    dissolve_charter(p.archive, p.did, p.founders[:2], dissolved_at=300)
+    dissent_boundary(p.archive, p.did, omitted, "Unnamed", "", dissented_at=400)
+    p.archive.verify_all()
+    p.archive.check_authority()
+    assert p.archive.founding_dissent(p.did, as_of=500).unnamed == [omitted.did]
+
+
+# ---- D23: the ground a polity stands on (Q4) --------------------------------
+
+
+def _machine_cluster(anchor=None, n=3, at=PROPOSED_AT):
+    """A proposal for a roll of nothing but machines answering to nobody — Q4's exact
+    case, a fresh AT cluster. Returns `(proposal_json, polity_did, priv, founders)`."""
+    founders = [Signer.generate() for _ in range(n)]
+    _priv, _pub, did = e.generate_keypair()
+    proposal = e.propose_charter(
+        did,
+        "the operators",
+        "answers to what it did not author",
+        member_dids=[s.did for s in founders],
+        substrate_anchor=anchor.did if anchor is not None else None,
+        derivations=[(s.did, None) for s in founders],
+        proposed_at=at,
+    )
+    return proposal, did, founders
+
+
+def test_a_polity_whose_whole_ground_is_two_empty_strings_is_refused():
+    # The Q4 regression, measured before the slice: an empty substrate chartered, and
+    # both verification passes were green.
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    proposal = e.propose_charter(
+        did, "", "", member_dids=[s.did for s in founders], proposed_at=PROPOSED_AT
+    )
+    archive = e.Archive()
+    ratify_charter(archive, proposal, founders[:2], founded_at=FOUNDED_AT)
+    # The signatures are fine. It is the ground that is missing.
+    archive.verify_all()
+    violations = archive.authority_violations()
+    assert len(violations) == 1
+    assert "not articulated" in violations[0][1]
+
+
+def test_a_polity_cannot_be_its_own_ground():
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    proposal = e.propose_charter(
+        did,
+        "us",
+        "we answer to ourselves",
+        member_dids=[s.did for s in founders],
+        substrate_anchor=did,
+        proposed_at=PROPOSED_AT,
+    )
+    archive = e.Archive()
+    ratify_charter(archive, proposal, founders[:2], founded_at=FOUNDED_AT)
+    assert "cannot ground itself" in archive.authority_violations()[0][1]
+
+
+def test_a_ground_inside_what_it_grounds_is_no_ground():
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    proposal = e.propose_charter(
+        did,
+        "boss",
+        "we answer to the first of us",
+        member_dids=[s.did for s in founders],
+        substrate_anchor=founders[0].did,
+        proposed_at=PROPOSED_AT,
+    )
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=founders[0]
+    )
+    assert "no ground" in archive.authority_violations()[0][1]
+
+
+def test_a_roll_of_machines_answering_to_nobody_must_name_an_anchor():
+    proposal, _did, founders = _machine_cluster()
+    archive = e.Archive()
+    ratify_charter(archive, proposal, founders[:2], founded_at=FOUNDED_AT)
+    assert "must name a substrate anchor" in archive.authority_violations()[0][1]
+
+
+def test_a_machine_roll_charters_once_a_ground_consents():
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    archive.verify_all()
+    archive.check_authority()
+    leg = archive.founding_legitimacy(did)
+    assert leg.grounding == "Anchored"
+    assert leg.anchor == ground.did
+    assert leg.grounding in e.SUBSTRATE_GROUNDINGS
+
+
+def test_a_ground_cannot_be_conscripted():
+    # Named and did not sign. Nothing else is wrong with the charter.
+    ground = Signer.generate()
+    proposal, _did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(archive, proposal, founders[:2], founded_at=FOUNDED_AT)
+    assert "consent" in archive.authority_violations()[0][1]
+
+
+def test_a_human_roll_holds_its_own_tradition(polity):
+    # No anchor, no derived parties. The statement IS the ground, unkeyed on purpose.
+    assert polity.archive.founding_legitimacy(polity.did).grounding == "Held"
+
+
+def test_the_named_ground_may_withdraw():
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    disavow_substrate(archive, did, ground, "I do not stand above these people", 500)
+    archive.verify_all()
+    archive.check_authority()
+    standing = archive.substrate_disavowal(did, 600)
+    assert standing.disavowed
+    assert standing.first_disavowed_at == 500
+    assert len(standing) == 1
+    # And invisible before it happened.
+    assert not archive.substrate_disavowal(did, 400).disavowed
+
+
+def test_a_withdrawal_does_not_un_charter_the_polity():
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    disavow_substrate(archive, did, ground, disavowed_at=500)
+    state = archive.charter_state(did, 600)
+    assert state.chartered
+    assert not state.dissolved
+    assert state.substrate_anchor == ground.did
+    # The charter-alone read-model says exactly what it said before: this polity WAS
+    # anchored. Whether the ground still stands there is a different question of a
+    # different read-model.
+    assert archive.founding_legitimacy(did).grounding == "Anchored"
+
+
+def test_only_the_named_ground_may_withdraw():
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    stranger = Signer.generate()
+    disavow_substrate(archive, did, stranger, disavowed_at=500)
+    assert "only the named ground may withdraw" in archive.authority_violations()[0][1]
+
+
+def test_nobody_may_put_a_withdrawal_in_the_grounds_mouth():
+    # The binding labels the signature with the signer's own DID, so a borrowed key
+    # fails the CRYPTOGRAPHIC check from Python; the authority-level rule (signer set
+    # == exactly the disavower) is exercised in the Rust suite, where such an entry can
+    # actually be constructed. Both protections exist, each tested where it is
+    # reachable.
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    impostor = Signer(did=ground.did, priv=Signer.generate().priv)
+    disavow_substrate(archive, did, impostor, disavowed_at=500)
+    with pytest.raises(Exception):
+        archive.verify_all()
+
+
+def test_there_is_nothing_to_withdraw_from_an_unanchored_polity(polity):
+    stranger = Signer.generate()
+    disavow_substrate(polity.archive, polity.did, stranger, disavowed_at=500)
+    assert "nothing to withdraw" in polity.archive.authority_violations()[0][1]
+
+
+def test_a_disowned_polity_cannot_silence_its_ground_by_winding_up():
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    dissolve_charter(archive, did, founders[:2], rationale="done", dissolved_at=400)
+    disavow_substrate(archive, did, ground, disavowed_at=500)
+    archive.verify_all()
+    archive.check_authority()
+    assert archive.substrate_disavowal(did, 600).disavowed
+
+
+def test_a_withdrawn_ground_is_a_concern_on_its_own():
+    # Everything else about this polity is healthy. The ground has withdrawn, and that
+    # alone reaches the level that crosses to kith-covenant.
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    roll = archive.charter_state(did, 600).members
+    candidate = manual_founding([s.did for s in founders], "the operators", "x")
+
+    before = cohesion_report(
+        roll, candidate, ground=archive.substrate_disavowal(did, 600), as_of=600
+    )
+    assert not before.ground_disavowed
+    assert before.erosion == "None"
+
+    disavow_substrate(archive, did, ground, disavowed_at=500)
+    after = cohesion_report(
+        roll, candidate, ground=archive.substrate_disavowal(did, 600), as_of=600
+    )
+    assert after.ground_disavowed
+    assert after.erosion == "Concern"
+
+
+def test_an_unsupplied_ground_reading_says_nothing():
+    # The same discipline every optional input follows: a caller who did not ask gets
+    # silence, not false health.
+    ground = Signer.generate()
+    proposal, did, founders = _machine_cluster(anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, anchor=ground
+    )
+    disavow_substrate(archive, did, ground, disavowed_at=500)
+    roll = archive.charter_state(did, 600).members
+    candidate = manual_founding([s.did for s in founders], "the operators", "x")
+    r = cohesion_report(roll, candidate, as_of=600)
+    assert not r.ground_disavowed
+    assert r.erosion == "None"

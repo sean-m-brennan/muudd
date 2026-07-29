@@ -18,15 +18,15 @@
 //! holdings, guardian edges, and envoy standings of a polity as of a point in time,
 //! plus the decay trends visible across its whole log.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use en_archive::Archive;
 use en_core::{Cid, DidKey, KcResult, PubKey, Timestamp};
 
 use crate::entry::CharterEntry;
 use crate::record::{
-    AffirmationKind, AmendmentKind, BoundarySource, Commitment, Derivation, EnvoyKind, Exclusion,
-    GuardianKind,
+    AffirmationKind, AmendmentKind, BoundarySource, Commitment, Derivation, DissentKind, EnvoyKind,
+    Exclusion, GuardianKind,
     MemberReading, MembershipKind, Office, OfficeKind, Substrate,
 };
 
@@ -868,6 +868,15 @@ pub fn is_prunable(entry: &CharterEntry, polity: &DidKey, horizon: Timestamp) ->
         CharterEntry::Observed(s) => {
             &s.payload.polity == polity && s.payload.observed_at < horizon
         }
+        // Everything else, and deliberately so. Worth naming the two cases that
+        // look inert and are not: a `BoundaryDissented` (D22) and a
+        // `SubstrateDisavowed` (D23) both fall here and are therefore **unprunable
+        // for free**. D17 made observations the one forgettable class precisely
+        // because they are inert — dropping one cannot rewrite what the polity
+        // resolved. These two are the opposite of inert: one is the excluded party's
+        // only mark on a record they had no hand in, the other the ground's only way
+        // to say it does not stand there. A pruning route to either would hand the
+        // founders the erasure both records exist to prevent.
         _ => false,
     }
 }
@@ -1192,6 +1201,35 @@ pub enum FoundingBasis {
     SelfAttested,
 }
 
+/// What stands above a polity, read off its charter alone (design **D23**,
+/// resolving open question **Q4**).
+///
+/// Like [`FoundingBasis`], descriptive and deliberately **not** ordered: these are
+/// different kinds of ground, not degrees of one. `Bare` is not a violation — a
+/// human community answering to something with no key is the ordinary case, and
+/// D23's authority rules permit it. What the tier refuses is to be unable to say
+/// which of these it is looking at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubstrateGrounding {
+    /// A keyed party outside the roll consented to standing above this polity: the
+    /// strongest grounding available here, because it is the only one somebody
+    /// signed.
+    Anchored,
+    /// No anchor, but human guardians stand above the machines on the roll — D15's
+    /// derived-party edges doing the grounding.
+    Guarded,
+    /// No derived party on the roll at all — a human community holding an
+    /// articulated tradition. Nobody keyed above it, and none need be: what such a
+    /// community defers to may have no key, and usually does not.
+    Held,
+    /// Articulated, and nothing else: no anchor, unguarded machines on the roll, and
+    /// no guardian edge anywhere. Reachable only on a *mixed* roll, since a wholly
+    /// machine roll answering to nobody is refused outright — so somebody here can
+    /// hold the tradition, and nothing says anybody does. Reported so that
+    /// "permitted" is not mistaken for "grounded".
+    Bare,
+}
+
 /// What a polity's founding rests on, derived from its charter alone (design
 /// **D21**, resolving open question **Q1**).
 ///
@@ -1219,6 +1257,23 @@ pub struct FoundingLegitimacy {
     /// Exclusions carrying an empty reason: named, but unjustified. Accounting
     /// without justification is still accounting, and this is what says so.
     pub unreasoned_exclusions: usize,
+    /// Every reader who signed a reading behind this boundary, in record order
+    /// (design **D22**). Empty for a convener's assertion.
+    pub readers: Vec<DidKey>,
+    /// The readers whose signed reading actually **agrees** with the boundary the
+    /// charter ratified (design **D22**).
+    ///
+    /// Deliberately not `readers.len()`: a reader who signed a *different* boundary
+    /// corroborates nothing, and the gap between these two numbers is a reader
+    /// disagreeing with the founding on the record.
+    ///
+    /// **The limit, stated rather than engineered around:** `did:key` costs
+    /// nothing, so a captured reader can mint its own corroborators and this count
+    /// cannot tell them from independent ones. It is therefore a lens and never a
+    /// gate — the same stance kith-covenant took on capture move 1, where a declared
+    /// `interpreter_did` was likewise just a name the faction minted. Independence
+    /// attestation is the named successor to D22.
+    pub corroborating_readers: Vec<DidKey>,
     /// How many actually signed.
     pub ratifiers: usize,
     /// **The number Q1 asks for**: ratifiers as a share of everyone the boundary
@@ -1227,12 +1282,37 @@ pub struct FoundingLegitimacy {
     /// satisfied reported nothing at all.
     pub consent_share: f64,
     pub basis: FoundingBasis,
+    /// What stands above the polity (design **D23**). Belongs on *this* read-model
+    /// rather than a separate one for the reason stated at [`FoundingDissent`]: the
+    /// substrate is genesis-immutable and sits on the genesis charter, so grounding
+    /// cannot accrue and anyone holding the charter re-derives the same answer
+    /// forever. Disavowal, which *does* accrue, is kept out — see
+    /// [`substrate_disavowal`].
+    pub grounding: SubstrateGrounding,
+    /// The anchor that co-signed the founding, if any — the key that consented to
+    /// standing above this polity. Carried so a reader can name it without parsing
+    /// the substrate, and because it is who a later disavowal must be.
+    pub anchor: Option<DidKey>,
 }
 
 impl FoundingLegitimacy {
-    /// Whether an independent reading stands behind the boundary.
+    /// Whether an independent reading that **agrees with the ratified boundary**
+    /// stands behind it.
+    ///
+    /// Before D22 this asked only whether the charter carried the `Substrate`
+    /// label, which the proposer supplied and nobody signed.
     pub fn corroborated(&self) -> bool {
-        self.source == BoundarySource::Substrate
+        !self.corroborating_readers.is_empty()
+    }
+
+    /// Readers who signed a reading that does **not** match the ratified boundary.
+    /// A non-empty answer is a reader contradicting the founding, in the charter,
+    /// permanently.
+    pub fn dissenting_readers(&self) -> Vec<&DidKey> {
+        self.readers
+            .iter()
+            .filter(|r| !self.corroborating_readers.contains(r))
+            .collect()
     }
 
     /// Whether the charter names fewer than the boundary showed.
@@ -1267,19 +1347,47 @@ pub fn founding_legitimacy(
     } else {
         ratifiers as f64 / candidate_size as f64
     };
-    let basis = match att.source {
-        BoundarySource::ConvenerAsserted => FoundingBasis::SelfAttested,
+    let readers: Vec<DidKey> =
+        att.source.readings().iter().map(|r| r.payload.reader.clone()).collect();
+    let corroborating_readers = att.corroborating_readers(&charter.members);
+    let basis = if !att.source.is_read() {
+        FoundingBasis::SelfAttested
+    } else if corroborating_readers.is_empty() {
+        // `Substrate` with no reading that matches what was ratified. The label is
+        // no longer enough on its own (D22): a reading that shows a different
+        // boundary is not corroboration of this one.
+        FoundingBasis::Narrowed
+    } else if ratifiers >= crate::majority(candidate_size) {
         // A majority of what was seen is the bar the old rule *claimed* to apply
         // while actually applying it to the roll. Here it classifies rather than
         // gates, which is the D21 split: gate the accounting, grade the judgement.
-        BoundarySource::Substrate if ratifiers >= crate::majority(candidate_size) => {
-            FoundingBasis::Corroborated
-        }
-        BoundarySource::Substrate => FoundingBasis::Narrowed,
+        FoundingBasis::Corroborated
+    } else {
+        FoundingBasis::Narrowed
+    };
+
+    // D23 — what stands above it. Ordered by strength of what somebody actually
+    // did: a consenting key first, then guardian edges, then a roll that could hold
+    // the tradition itself, then nothing but the sentence.
+    let anchor = charter.substrate.anchor.clone();
+    let derived_on_roll = charter
+        .derivations
+        .iter()
+        .any(|d| charter.members.iter().any(|m| m == &d.member));
+    let grounding = if anchor.is_some() {
+        SubstrateGrounding::Anchored
+    } else if charter.derivations.iter().any(|d| d.guardian.is_some()) {
+        SubstrateGrounding::Guarded
+    } else if !derived_on_roll {
+        SubstrateGrounding::Held
+    } else {
+        SubstrateGrounding::Bare
     };
 
     Some(FoundingLegitimacy {
-        source: att.source,
+        source: att.source.clone(),
+        readers,
+        corroborating_readers,
         candidate_size,
         roll_size: charter.members.len(),
         excluded: att.exclusions.len(),
@@ -1288,5 +1396,173 @@ pub fn founding_legitimacy(
         ratifiers,
         consent_share,
         basis,
+        grounding,
+        anchor,
     })
+}
+
+/// One party's dissent from a founding boundary, as recorded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DissentEntry {
+    pub dissenter: DidKey,
+    pub kind: DissentKind,
+    pub rationale: String,
+    pub dissented_at: Timestamp,
+}
+
+/// What the excluded have said back about a founding (design **D22**).
+///
+/// Kept **separate from [`founding_legitimacy`] on purpose.** That read-model's
+/// whole value is that it derives from the charter *alone* and so gives the same
+/// answer forever to anyone holding it; dissent lives in the archive and accrues
+/// over time. Folding the two would destroy the first one's property in order to
+/// improve neither. Two read-models, two honest claims.
+///
+/// Nothing here adjudicates. A dissent is one party's assertion, and the tier
+/// records that it was made — no more.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FoundingDissent {
+    /// Every dissent filed against this founding, in append order.
+    pub entries: Vec<DissentEntry>,
+}
+
+impl FoundingDissent {
+    /// Dissenters claiming the founding accounting never mentioned them.
+    ///
+    /// **This is the answer to the limit D21 recorded as beyond its reach.** The
+    /// archive holds no provider, so nothing can check `candidate_size` against
+    /// what the substrate showed — but the people it omitted can say so, and this
+    /// is where that shows up.
+    pub fn unnamed(&self) -> Vec<&DissentEntry> {
+        self.entries.iter().filter(|d| d.kind == DissentKind::Unnamed).collect()
+    }
+
+    /// Dissenters who were named as excluded and reject the reason given.
+    pub fn reasons_rejected(&self) -> Vec<&DissentEntry> {
+        self.entries.iter().filter(|d| d.kind == DissentKind::ReasonRejected).collect()
+    }
+
+    /// Distinct dissenters, however many records each filed.
+    pub fn dissenters(&self) -> BTreeSet<&str> {
+        self.entries.iter().map(|d| d.dissenter.as_str()).collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+/// Read back the dissent filed against `polity`'s founding, up to `as_of`.
+///
+/// Reports dissent from a **dissolved** polity too: that is the one entry class a
+/// dissolution does not close, so a read-model that dropped it after winding-up
+/// would hand founders exactly the silence the record exists to deny them.
+pub fn founding_dissent(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> FoundingDissent {
+    let entries = archive
+        .iter()
+        .filter_map(|(_, e)| match e {
+            CharterEntry::BoundaryDissented(s)
+                if &s.payload.polity == polity && s.payload.dissented_at <= as_of =>
+            {
+                Some(DissentEntry {
+                    dissenter: s.payload.dissenter.clone(),
+                    kind: s.payload.kind,
+                    rationale: s.payload.rationale.clone(),
+                    dissented_at: s.payload.dissented_at,
+                })
+            }
+            _ => None,
+        })
+        .collect();
+    FoundingDissent { entries }
+}
+
+// ---------------------------------------------------------------------------
+// D23 — whether the ground still stands there.
+// ---------------------------------------------------------------------------
+
+/// One withdrawal by a polity's chartered substrate anchor, as recorded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DisavowalEntry {
+    pub disavower: DidKey,
+    pub rationale: String,
+    pub disavowed_at: Timestamp,
+}
+
+/// How a polity's chartered ground stands: whether the anchor that consented at
+/// founding has since withdrawn (design **D23**).
+///
+/// Named for the *standing* rather than the act because the record shape
+/// [`crate::SubstrateDisavowal`] is the act — the same split D22 made between
+/// `BoundaryDissent` (one filing) and `FoundingDissent` (what has accrued).
+///
+/// Kept **separate from [`founding_legitimacy`]**, and on exactly the test D22
+/// applied to dissent: that read-model derives from the genesis charter alone and so
+/// gives the same answer forever, while this accrues over time. `grounding` — what
+/// the charter *committed to* — belongs there, because a genesis-immutable substrate
+/// cannot change. Whether the ground still stands there belongs here, because that
+/// can.
+///
+/// Nothing here adjudicates, and nothing here un-charters. A disavowal is the
+/// ground's own assertion, and the tier records that it was made.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GroundStanding {
+    /// Every withdrawal filed for this polity, in append order. More than one is
+    /// possible and is not a contradiction — a ground may say it twice.
+    pub entries: Vec<DisavowalEntry>,
+}
+
+impl GroundStanding {
+    /// Whether the chartered ground has withdrawn at all.
+    ///
+    /// **This is the whole reading.** There is no "how much" here and deliberately
+    /// no recovery path: a ground that withdrew and later changed its mind cannot
+    /// un-say it, because the substrate has no amendment record and this tier does
+    /// not invent one. What such a polity has is the option every polity has — to
+    /// re-charter, deliberately, as the different polity it now is.
+    pub fn disavowed(&self) -> bool {
+        !self.entries.is_empty()
+    }
+
+    /// When the ground first withdrew, if it has.
+    pub fn first_disavowed_at(&self) -> Option<Timestamp> {
+        self.entries.iter().map(|d| d.disavowed_at).min()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+/// Read back the withdrawals filed against `polity`'s substrate, up to `as_of`.
+///
+/// Reports them for a **dissolved** polity too, for the reason
+/// [`founding_dissent`] does: this is the second entry class a dissolution does not
+/// close, and a read-model that dropped it after winding-up would hand founders the
+/// silence the record exists to deny them.
+pub fn substrate_disavowal(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> GroundStanding {
+    let entries = archive
+        .iter()
+        .filter_map(|(_, e)| match e {
+            CharterEntry::SubstrateDisavowed(s)
+                if &s.payload.polity == polity && s.payload.disavowed_at <= as_of =>
+            {
+                Some(DisavowalEntry {
+                    disavower: s.payload.disavower.clone(),
+                    rationale: s.payload.rationale.clone(),
+                    disavowed_at: s.payload.disavowed_at,
+                })
+            }
+            _ => None,
+        })
+        .collect();
+    GroundStanding { entries }
 }

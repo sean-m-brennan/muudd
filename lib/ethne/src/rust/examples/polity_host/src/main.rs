@@ -36,7 +36,6 @@ use std::path::PathBuf;
 use en_archive::Archive;
 use en_charter::{
     apply_prunings, majority, prunable_observations, pruning_digest, Affirmation, AffirmationKind,
-    BoundarySource,
     CharterEntry, Commitment, FoundingProposal, MemberReading, Observation, ObservationPruning,
     Substrate,
 };
@@ -226,7 +225,6 @@ impl Keys {
                 })
                 .collect(),
             substrate: Some(substrate()),
-            source: BoundarySource::Substrate,
         }
     }
 }

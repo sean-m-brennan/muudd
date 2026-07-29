@@ -45,6 +45,7 @@ AffirmationState = _core.AffirmationState
 GuardianState = _core.GuardianState
 DecayTrends = _core.DecayTrends
 ObservationWindow = _core.ObservationWindow
+GroundStanding = _core.GroundStanding
 CohesionReport = _core.CohesionReport
 FoundingCandidate = _core.FoundingCandidate
 
@@ -52,6 +53,7 @@ founding_candidate = _core.founding_candidate
 manual_founding = _core.manual_founding
 propose_from_candidate = _core.propose_from_candidate
 select_from_candidate = _core.select_from_candidate
+sign_reading = _core.sign_reading
 
 
 #: `en-cohesion`'s own defaults, read from the Rust core so there is only ever one
@@ -137,6 +139,7 @@ def cohesion_report(
     affirmations: Optional[AffirmationState] = None,
     trends: Optional[DecayTrends] = None,
     window: Optional[ObservationWindow] = None,
+    ground: Optional[GroundStanding] = None,
     as_of: Optional[int] = None,
 ) -> CohesionReport:
     """Grade a polity's coherence erosion: the chartered roll against what the
@@ -158,8 +161,16 @@ def cohesion_report(
     `window` — `archive.observation_window(polity, since, as_of)` — for what the
     polity's monitors actually recorded seeing. The window is what makes a *sustained*
     absence gradeable at all; without it an absent guardian can never be more than the
-    capped snapshot reading. `as_of` (epoch seconds, default now) is the moment every
-    freshness measure is judged against."""
+    capped snapshot reading.
+
+    Pass `ground` — `archive.substrate_disavowal(polity, as_of)` — to include whether
+    the polity's chartered substrate anchor has withdrawn (D23). That component is the
+    one here that grades a single act rather than a quantity, and it reaches `Concern`
+    alone: there is nothing gradual about a ground saying it does not stand above
+    these people, so there is no threshold for it either. Omitted, it says nothing.
+
+    `as_of` (epoch seconds, default now) is the moment every freshness measure is
+    judged against."""
     kwargs = asdict(thresholds) if thresholds is not None else {}
     return _core.cohesion_report(
         list(chartered_roll),
@@ -169,6 +180,7 @@ def cohesion_report(
         affirmations=affirmations,
         trends=trends,
         window=window,
+        ground=ground,
         as_of=as_of,
         **kwargs,
     )
@@ -177,6 +189,7 @@ def cohesion_report(
 __all__ = [
     "DEFAULT_THRESHOLDS",
     "CohesionReport",
+    "GroundStanding",
     "FoundingCandidate",
     "Thresholds",
     "cohesion_report",
@@ -184,4 +197,5 @@ __all__ = [
     "manual_founding",
     "propose_from_candidate",
     "select_from_candidate",
+    "sign_reading",
 ]

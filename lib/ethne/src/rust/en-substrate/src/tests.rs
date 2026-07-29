@@ -17,7 +17,7 @@
 use en_archive::Archive;
 use en_charter::{
     charter_state, check_authority, verify_all, BoundarySource, CharterEntry, Commitment,
-    Substrate,
+    Substrate, SubstrateReading,
 };
 use en_core::{keys, Alg, DidKey, PrivKey, Signed, Timestamp};
 
@@ -34,6 +34,14 @@ fn id() -> (PrivKey, DidKey) {
 
 fn substrate() -> Substrate {
     Substrate { name: "tradition".into(), statement: "answers to X above itself".into(), anchor: None }
+}
+
+/// Sign `candidate`'s reading of `polity` as a fresh reader — what a host does with
+/// the key the provider does not hold (design **D22**).
+fn read_by(candidate: &FoundingCandidate, polity: &DidKey) -> Signed<SubstrateReading> {
+    let (sk, reader) = id();
+    let reading = candidate.reading(polity.clone(), reader.clone(), t(40));
+    Signed::build(reading, &[(reader.as_str(), &sk)]).unwrap()
 }
 
 /// The founding path end to end through the *manual* provider — with neither
@@ -60,6 +68,7 @@ fn manual_founding_end_to_end_without_at() {
         substrate(),
         vec![Commitment { key: "mutual-aid".into(), description: "aid among members".into() }],
         0.0,
+        vec![],
         t(50),
     );
     assert_eq!(proposal.proposed_members.len(), 3);
@@ -97,7 +106,6 @@ fn reputation_filter_trims_low_reputation_candidates_from_the_roll() {
             MemberCandidate { did: keep_b.clone(), reputation: Some(0.8), derived: false, guardian: None, attested_at: None },
         ],
         substrate: Some(substrate()),
-        source: BoundarySource::Substrate,
     };
     let provider = ManualFounding::from_candidate(candidate);
 
@@ -106,6 +114,7 @@ fn reputation_filter_trims_low_reputation_candidates_from_the_roll() {
         substrate(),
         vec![],
         0.5,
+        vec![],
         t(50),
     );
     assert_eq!(proposal.proposed_members, vec![keep_a, keep_b]);
@@ -158,9 +167,8 @@ fn an_unguarded_machine_is_ratified_as_the_unguarded_derivation_it_is() {
             cand(&unguarded_machine, Some(0.9), true, None),
         ],
         substrate: Some(substrate()),
-        source: BoundarySource::Substrate,
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, t(50));
+    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
 
     assert_eq!(proposal.proposed_members.len(), 3, "all three are on the roll");
     // TWO derivations, and one of them is unguarded — the state that makes D15's
@@ -186,9 +194,8 @@ fn a_guardian_on_a_non_derived_member_does_not_invent_a_derivation() {
     let candidate = FoundingCandidate {
         members: vec![cand(&member, Some(0.9), false, Some(&operator))],
         substrate: Some(substrate()),
-        source: BoundarySource::Substrate,
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, t(50));
+    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
     assert_eq!(proposal.proposed_members.len(), 1);
     assert!(proposal.proposed_derivations.is_empty());
 }
@@ -206,13 +213,12 @@ fn an_unrated_candidate_fails_a_demanded_floor_but_clears_no_floor_at_all() {
             cand(&unrated, None, false, None),
         ],
         substrate: Some(substrate()),
-        source: BoundarySource::Substrate,
     };
 
-    let demanded = candidate.propose(id().1, substrate(), vec![], 0.5, t(50));
+    let demanded = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], t(50));
     assert_eq!(demanded.proposed_members, vec![rated_ok.clone()], "unrated fails a floor");
 
-    let no_floor = candidate.propose(id().1, substrate(), vec![], 0.0, t(50));
+    let no_floor = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
     assert_eq!(no_floor.proposed_members.len(), 2, "0.0 demands nothing");
 }
 
@@ -224,9 +230,8 @@ fn an_unrated_machine_trimmed_by_a_floor_takes_its_derivation_with_it() {
     let candidate = FoundingCandidate {
         members: vec![cand(&unrated_machine, None, true, None)],
         substrate: Some(substrate()),
-        source: BoundarySource::Substrate,
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.5, t(50));
+    let proposal = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], t(50));
     assert!(proposal.proposed_members.is_empty());
     assert!(proposal.proposed_derivations.is_empty());
 }
@@ -258,7 +263,6 @@ fn rated(members: &[(DidKey, Option<f64>)]) -> FoundingCandidate {
             })
             .collect(),
         substrate: Some(substrate()),
-        source: BoundarySource::Substrate,
     }
 }
 
@@ -278,9 +282,17 @@ fn the_floor_records_whoever_it_trims_and_why() {
         (unrated.clone(), None),
     ]);
 
-    let prop = candidate.propose(id().1, substrate(), vec![], 0.5, t(50));
+    let polity = id().1;
+    let prop = candidate.propose(
+        polity.clone(),
+        substrate(),
+        vec![],
+        0.5,
+        vec![read_by(&candidate, &polity)],
+        t(50),
+    );
     assert_eq!(prop.proposed_members, vec![keep]);
-    assert_eq!(prop.attestation.source, BoundarySource::Substrate);
+    assert!(prop.attestation.source.is_read());
     assert_eq!(prop.attestation.candidate_size, 3);
     assert!(prop.attestation.accounts_for(prop.proposed_members.len()));
 
@@ -296,7 +308,7 @@ fn a_floor_that_demands_nothing_excludes_nobody() {
     let a = id().1;
     let b = id().1;
     let candidate = rated(&[(a, Some(0.9)), (b, None)]);
-    let prop = candidate.propose(id().1, substrate(), vec![], 0.0, t(50));
+    let prop = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
     assert_eq!(prop.proposed_members.len(), 2);
     assert!(prop.attestation.exclusions.is_empty());
     assert!(prop.attestation.accounts_for(2));
@@ -318,6 +330,7 @@ fn deliberate_narrowing_is_a_first_class_act() {
         vec![],
         keep,
         "founding on the older rite",
+        vec![],
         t(50),
     );
     assert_eq!(prop.proposed_members.len(), 3);
@@ -346,7 +359,7 @@ fn selecting_someone_the_boundary_never_showed_is_ignored() {
     let mut keep = vec![seen[0].clone()];
     keep.push(id().1); // never in the candidate
 
-    let prop = candidate.propose_selecting(id().1, substrate(), vec![], &keep, "chosen", t(50));
+    let prop = candidate.propose_selecting(id().1, substrate(), vec![], &keep, "chosen", vec![], t(50));
     assert_eq!(prop.proposed_members, vec![seen[0].clone()]);
     assert_eq!(prop.attestation.candidate_size, 3);
     assert_eq!(prop.attestation.exclusions.len(), 2);
@@ -356,15 +369,15 @@ fn selecting_someone_the_boundary_never_showed_is_ignored() {
 #[test]
 fn a_convener_asserted_boundary_says_so_forever() {
     // The distinction the charter keeps for as long as it exists: an independent
-    // reading, or the convener's word. `ManualFounding` produces a candidate of the
-    // same *shape* as a trust service does, so the source cannot be inferred at
-    // `propose` — the provider is the only one who knows, and carries it.
+    // reading, or the convener's word. Since D22 it is not a label anybody chooses
+    // — a boundary is `Substrate`-sourced only if it carries a reading somebody
+    // signed, and this provider holds no reader key, so it cannot claim one.
     let roll: Vec<DidKey> = (0..3).map(|_| id().1).collect();
     let provider = ManualFounding::new(roll, substrate());
     let prop = provider
         .founding_candidate()
         .unwrap()
-        .propose(id().1, substrate(), vec![], 0.0, t(50));
+        .propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
     assert_eq!(prop.attestation.source, BoundarySource::ConvenerAsserted);
 }
 
@@ -381,8 +394,21 @@ fn a_proposal_drawn_from_a_substrate_reading_says_so() {
             })
             .collect(),
         substrate: Some(substrate()),
-        source: BoundarySource::Substrate,
     };
-    let prop = candidate.propose(id().1, substrate(), vec![], 0.0, t(50));
-    assert_eq!(prop.attestation.source, BoundarySource::Substrate);
+    let polity = id().1;
+    let reading = read_by(&candidate, &polity);
+    let reader = reading.payload.reader.clone();
+    let prop = candidate.propose(
+        polity.clone(),
+        substrate(),
+        vec![],
+        0.0,
+        vec![reading],
+        t(50),
+    );
+    assert!(prop.attestation.source.is_read());
+    // Attributable, which is the whole of D22: the boundary names who read it.
+    assert_eq!(prop.attestation.source.readings()[0].payload.reader, reader);
+    assert_eq!(prop.attestation.source.readings()[0].payload.polity, polity);
+    assert_eq!(prop.attestation.corroborating_readers(&prop.proposed_members), vec![reader]);
 }

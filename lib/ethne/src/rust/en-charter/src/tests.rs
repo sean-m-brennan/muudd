@@ -2951,6 +2951,29 @@ fn excl(p: &Polity, i: usize, reason: &str) -> Exclusion {
     Exclusion { member: p.ids[i].1.clone(), reason: reason.into() }
 }
 
+/// A signed reading of `polity` showing exactly `members`, by a fresh reader
+/// (design **D22**). Standing in for what a host signs with the key the provider
+/// does not hold.
+fn reading_of(polity: &DidKey, members: Vec<DidKey>) -> Signed<SubstrateReading> {
+    let (sk, reader) = id();
+    let r = SubstrateReading {
+        polity: polity.clone(),
+        reader: reader.clone(),
+        read_at: t(40),
+        members,
+        opaque_boundary: false,
+    };
+    Signed::build(r, &[(reader.as_str(), &sk)]).unwrap()
+}
+
+/// A `Substrate` boundary of `size` showing the polity's whole roll plus everyone
+/// the exclusions name — the shape D22's identity rule demands.
+fn read_source(p: &Polity, exclusions: &[Exclusion]) -> BoundarySource {
+    let mut members = p.roll();
+    members.extend(exclusions.iter().map(|e| e.member.clone()));
+    BoundarySource::Substrate { readings: vec![reading_of(&p.polity, members)] }
+}
+
 #[test]
 fn a_faction_can_no_longer_charter_a_cluster_in_silence() {
     // **The Q1 regression.** A one-member polity drawn from a thirty-member cluster.
@@ -2961,7 +2984,7 @@ fn a_faction_can_no_longer_charter_a_cluster_in_silence() {
     a.append(p.charter_attested(
         &[0],
         BoundaryAttestation {
-            source: BoundarySource::Substrate,
+            source: BoundarySource::ConvenerAsserted,
             candidate_size: 30,
             exclusions: vec![],
         },
@@ -2985,7 +3008,7 @@ fn the_same_faction_may_still_charter_if_it_says_who_it_left_out() {
     a.append(p.charter_attested(
         &[0],
         BoundaryAttestation {
-            source: BoundarySource::Substrate,
+            source: read_source(&p, &others),
             candidate_size: 30,
             exclusions: others,
         },
@@ -3011,7 +3034,7 @@ fn an_exclusion_may_not_also_be_on_the_roll() {
     a.append(p.charter_attested(
         &[0, 1],
         BoundaryAttestation {
-            source: BoundarySource::Substrate,
+            source: BoundarySource::ConvenerAsserted,
             candidate_size: 4,
             exclusions: vec![excl(&p, 2, "left")],
         },
@@ -3031,7 +3054,7 @@ fn a_duplicate_exclusion_is_refused() {
     a.append(p.charter_attested(
         &[0, 1],
         BoundaryAttestation {
-            source: BoundarySource::Substrate,
+            source: BoundarySource::ConvenerAsserted,
             candidate_size: 4,
             exclusions: vec![dup.clone(), dup],
         },
@@ -3066,7 +3089,7 @@ fn a_whole_cluster_ratifying_reads_as_corroborated() {
     a.append(p.charter_attested(
         &[0, 1, 2],
         BoundaryAttestation {
-            source: BoundarySource::Substrate,
+            source: read_source(&p, &[]),
             candidate_size: 5,
             exclusions: vec![],
         },
@@ -3090,7 +3113,7 @@ fn an_unreasoned_exclusion_is_counted_but_not_refused() {
     a.append(p.charter_attested(
         &[0, 1],
         BoundaryAttestation {
-            source: BoundarySource::Substrate,
+            source: BoundarySource::ConvenerAsserted,
             candidate_size: 4,
             exclusions: vec![
                 Exclusion { member: id().1, reason: String::new() },
@@ -3126,7 +3149,7 @@ fn the_attestation_is_genesis_immutable_because_the_charter_is() {
     a.append(p.charter_attested(
         &[0, 1],
         BoundaryAttestation {
-            source: BoundarySource::Substrate,
+            source: read_source(&p, &[]),
             candidate_size: 3,
             exclusions: vec![],
         },
@@ -3137,4 +3160,694 @@ fn the_attestation_is_genesis_immutable_because_the_charter_is() {
     // And the first account is what stands.
     let l = founding_legitimacy(&a, &p.polity).unwrap();
     assert_eq!(l.source, BoundarySource::ConvenerAsserted);
+}
+
+
+// ---- D22: the boundary is attributable, and the excluded answer back ---------
+
+/// A dissent entry signed by `who` (or, for the negative case, by `signer`).
+fn dissent_by(
+    polity: &DidKey,
+    who: &(PrivKey, DidKey),
+    signer: &(PrivKey, DidKey),
+    kind: DissentKind,
+    at: i64,
+) -> CharterEntry {
+    let d = BoundaryDissent {
+        polity: polity.clone(),
+        dissenter: who.1.clone(),
+        kind,
+        rationale: "I was inside that cluster".into(),
+        dissented_at: t(at),
+    };
+    CharterEntry::BoundaryDissented(
+        Signed::build(d, &[(signer.1.as_str(), &signer.0)]).unwrap(),
+    )
+}
+
+#[test]
+fn a_convener_can_no_longer_claim_a_reading_they_do_not_hold() {
+    // **The Q5 regression, measured before the slice.** Flipping one public field
+    // promoted a convener's bare assertion to `Substrate` — and the grade with it to
+    // `Corroborated` — with no provider consulted and nothing signed. The label was
+    // an unsigned self-report, so it was evidence of nothing.
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_attested(
+        &[0, 1],
+        BoundaryAttestation {
+            source: BoundarySource::Substrate { readings: vec![] },
+            candidate_size: 3,
+            exclusions: vec![],
+        },
+    ))
+    .unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("carries none"), "{}", v[0].1);
+}
+
+#[test]
+fn a_reading_must_be_signed_by_the_reader_it_names() {
+    // D16's rule for observations, applied to readings: nobody may put a reading in
+    // somebody else's mouth.
+    let p = Polity::new(3);
+    let (_sk, reader) = id();
+    let (impostor_sk, impostor) = id();
+    let r = SubstrateReading {
+        polity: p.polity.clone(),
+        reader,
+        read_at: t(40),
+        members: p.roll(),
+        opaque_boundary: false,
+    };
+    let forged = Signed::build(r, &[(impostor.as_str(), &impostor_sk)]).unwrap();
+    let mut a = Archive::new();
+    a.append(p.charter_attested(
+        &[0, 1],
+        BoundaryAttestation {
+            source: BoundarySource::Substrate { readings: vec![forged] },
+            candidate_size: 3,
+            exclusions: vec![],
+        },
+    ))
+    .unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("not signed by it alone"), "{}", v[0].1);
+}
+
+#[test]
+fn a_reading_of_one_cluster_does_not_travel_to_another_founding() {
+    // Anti-replay. Without the binding, an honest reader's account of one cluster
+    // founds somebody else's polity and the signature still verifies.
+    let p = Polity::new(3);
+    let elsewhere = id().1;
+    let mut a = Archive::new();
+    a.append(p.charter_attested(
+        &[0, 1],
+        BoundaryAttestation {
+            source: BoundarySource::Substrate {
+                readings: vec![reading_of(&elsewhere, p.roll())],
+            },
+            candidate_size: 3,
+            exclusions: vec![],
+        },
+    ))
+    .unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("is for polity"), "{}", v[0].1);
+}
+
+#[test]
+fn a_gerrymandered_boundary_is_refused_although_its_arithmetic_is_perfect() {
+    // **The teeth.** D21 could only check that the numbers added up, and it checked
+    // them against the proposer's own report — so a boundary that named a wholly
+    // different set of the right SIZE sailed through. Here the right-hand side is
+    // signed by somebody else, so the check is identity, not arithmetic.
+    let p = Polity::new(1);
+    // An honest reader saw the polity's member plus two others.
+    let real: Vec<DidKey> = vec![p.ids[0].1.clone(), id().1, id().1];
+    // The convener excludes two people the reader never saw — the count is right and
+    // every name is wrong.
+    let substituted: Vec<Exclusion> = (0..2)
+        .map(|i| Exclusion { member: id().1, reason: format!("not of this tradition ({i})") })
+        .collect();
+    let mut a = Archive::new();
+    a.append(p.charter_attested(
+        &[0],
+        BoundaryAttestation {
+            source: BoundarySource::Substrate { readings: vec![reading_of(&p.polity, real)] },
+            candidate_size: 3,
+            exclusions: substituted,
+        },
+    ))
+    .unwrap();
+    // D21's rule is satisfied: 3 == 1 + 2.
+    let att = match a.iter().next().unwrap().1 {
+        CharterEntry::PolityChartered(s) => s.payload.attestation.clone(),
+        _ => unreachable!(),
+    };
+    assert!(att.accounts_for(1), "the arithmetic is perfect");
+    // D22's is not.
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("no signed reading shows the boundary"), "{}", v[0].1);
+}
+
+#[test]
+fn a_reading_that_counts_differently_from_the_boundary_is_refused() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_attested(
+        &[0, 1],
+        BoundaryAttestation {
+            source: BoundarySource::Substrate {
+                readings: vec![reading_of(&p.polity, p.roll())],
+            },
+            candidate_size: 30, // the reading shows 3
+            exclusions: (0..27)
+                .map(|i| Exclusion { member: id().1, reason: format!("({i})") })
+                .collect(),
+        },
+    ))
+    .unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("but the boundary claims"), "{}", v[0].1);
+}
+
+#[test]
+fn corroboration_counts_readers_who_agree_not_readings_filed() {
+    // A reader who signed a DIFFERENT boundary corroborates nothing, and the gap
+    // between the two counts is that reader contradicting the founding, on the
+    // charter, permanently.
+    let p = Polity::new(3);
+    let agrees = reading_of(&p.polity, p.roll());
+    let disagrees = reading_of(&p.polity, vec![p.ids[0].1.clone(), id().1, id().1]);
+    let agreeing_reader = agrees.payload.reader.clone();
+    let dissenting_reader = disagrees.payload.reader.clone();
+    let mut a = Archive::new();
+    a.append(p.charter_attested(
+        &[0, 1],
+        BoundaryAttestation {
+            source: BoundarySource::Substrate { readings: vec![agrees, disagrees] },
+            candidate_size: 3,
+            exclusions: vec![],
+        },
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+
+    let leg = founding_legitimacy(&a, &p.polity).unwrap();
+    assert_eq!(leg.readers.len(), 2, "both readings are on the charter");
+    assert_eq!(leg.corroborating_readers, vec![agreeing_reader]);
+    assert_eq!(leg.dissenting_readers(), vec![&dissenting_reader]);
+    assert!(leg.corroborated());
+    assert_eq!(leg.basis, FoundingBasis::Corroborated);
+}
+
+#[test]
+fn a_dissent_must_be_signed_by_exactly_its_dissenter() {
+    let p = Polity::new(3);
+    let left_out = id();
+    let mut a = Archive::new();
+    a.append(p.charter_attested(&[0, 1], BoundaryAttestation::convener_asserted(3))).unwrap();
+    a.append(dissent_by(&p.polity, &left_out, &p.ids[0], DissentKind::Unnamed, 200)).unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("signed by exactly its dissenter"), "{}", v[0].1);
+}
+
+#[test]
+fn an_unnamed_dissent_from_someone_the_founding_names_is_refused() {
+    // "The accounting never mentioned me" is contradicted by a record that does.
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_attested(&[0, 1], BoundaryAttestation::convener_asserted(3))).unwrap();
+    a.append(dissent_by(&p.polity, &p.ids[2], &p.ids[2], DissentKind::Unnamed, 200)).unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("but it names them"), "{}", v[0].1);
+}
+
+#[test]
+fn rejecting_an_exclusion_reason_requires_being_excluded() {
+    // You may reject the reason given for you, never one given for somebody else.
+    let p = Polity::new(3);
+    let stranger = id();
+    let mut a = Archive::new();
+    a.append(p.charter_attested(&[0, 1], BoundaryAttestation::convener_asserted(3))).unwrap();
+    a.append(dissent_by(&p.polity, &stranger, &stranger, DissentKind::ReasonRejected, 200))
+        .unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("excludes no such member"), "{}", v[0].1);
+}
+
+#[test]
+fn the_excluded_may_answer_and_the_record_reads_it_back() {
+    // The two claims a dissent can make, both authorized, and the read-model that
+    // reports them without adjudicating either.
+    let p = Polity::new(1);
+    let named = id();
+    let omitted = id();
+    let mut a = Archive::new();
+    let excl_named =
+        Exclusion { member: named.1.clone(), reason: "not of this tradition".into() };
+    a.append(p.charter_attested(
+        &[0],
+        BoundaryAttestation {
+            source: read_source(&p, std::slice::from_ref(&excl_named)),
+            candidate_size: 2,
+            exclusions: vec![excl_named],
+        },
+    ))
+    .unwrap();
+    a.append(dissent_by(&p.polity, &named, &named, DissentKind::ReasonRejected, 200)).unwrap();
+    a.append(dissent_by(&p.polity, &omitted, &omitted, DissentKind::Unnamed, 210)).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+
+    let d = founding_dissent(&a, &p.polity, t(300));
+    assert_eq!(d.entries.len(), 2);
+    assert_eq!(d.dissenters().len(), 2);
+    assert_eq!(d.reasons_rejected().len(), 1);
+    // The one thing D21 said it could not reach: an understated `candidate_size`,
+    // surfaced by the only witness available — the party it omitted.
+    assert_eq!(d.unnamed().len(), 1);
+    assert_eq!(d.unnamed()[0].dissenter, omitted.1);
+    // And it is read as of a moment, like every other derivation here.
+    assert_eq!(founding_dissent(&a, &p.polity, t(205)).entries.len(), 1);
+}
+
+#[test]
+fn dissent_outlives_the_polity_it_contests() {
+    // The ONE entry class a dissolution does not close. Otherwise founders silence
+    // the parties they excluded by winding the polity up — D17's "destroying
+    // evidence is the move a captured party makes" in a different costume.
+    let p = Polity::new(3);
+    let omitted = id();
+    let mut a = Archive::new();
+    a.append(p.charter_attested(&[0, 1], BoundaryAttestation::convener_asserted(3))).unwrap();
+    a.append(p.dissolve(&[], &[0, 1], 300)).unwrap();
+    a.append(dissent_by(&p.polity, &omitted, &omitted, DissentKind::Unnamed, 400)).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(founding_dissent(&a, &p.polity, t(500)).unnamed().len(), 1);
+}
+
+#[test]
+fn dissent_is_not_prunable() {
+    // For free, and worth stating: `is_prunable` matches only observations, which
+    // D17 made forgettable precisely because they are inert. A dissent is the
+    // opposite of inert.
+    let p = Polity::new(1);
+    let omitted = id();
+    let entry = dissent_by(&p.polity, &omitted, &omitted, DissentKind::Unnamed, 100);
+    assert!(!is_prunable(&entry, &p.polity, t(10_000)));
+}
+
+#[test]
+fn a_dissent_precedes_nothing() {
+    let p = Polity::new(3);
+    let omitted = id();
+    let mut a = Archive::new();
+    a.append(dissent_by(&p.polity, &omitted, &omitted, DissentKind::Unnamed, 10)).unwrap();
+    let v = authority_violations(&a);
+    assert_eq!(v.len(), 1);
+    assert!(v[0].1.contains("precedes it"), "{}", v[0].1);
+}
+
+// ---------------------------------------------------------------------------
+// D23 — the ground a polity stands on (resolving Q4).
+// ---------------------------------------------------------------------------
+
+/// A founding with an arbitrary substrate, every member ratifying, and `derived`
+/// designating machines with no guardian. `extra` co-signs alongside the roll — how
+/// a substrate anchor's consent is supplied.
+fn charter_grounded(
+    p: &Polity,
+    sub: Substrate,
+    derived: &[usize],
+    extra: Option<&(PrivKey, DidKey)>,
+) -> CharterEntry {
+    let prop = FoundingProposal::convener_asserted(
+        p.polity.clone(),
+        sub,
+        vec![],
+        p.roll(),
+        derived
+            .iter()
+            .map(|m| Derivation { member: p.ids[*m].1.clone(), guardian: None })
+            .collect(),
+        t(50),
+    );
+    let all: Vec<usize> = (0..p.ids.len()).collect();
+    let charter = prop.ratify(p.dids(&all), t(100)).unwrap();
+    let mut signers = p.signers(&all);
+    if let Some(a) = extra {
+        signers.push((a.1.as_str(), &a.0));
+    }
+    CharterEntry::PolityChartered(Signed::build(charter, &signers).unwrap())
+}
+
+fn archive_of(entry: CharterEntry) -> Archive<CharterEntry> {
+    let mut a = Archive::new();
+    a.append(entry).unwrap();
+    a
+}
+
+/// The one violation an archive reports, for the D23 refusals.
+fn sole_violation(a: &Archive<CharterEntry>) -> String {
+    let v = authority_violations(a);
+    assert_eq!(v.len(), 1, "expected exactly one violation, got {v:?}");
+    v[0].1.clone()
+}
+
+#[test]
+fn a_polity_whose_whole_ground_is_two_empty_strings_is_refused() {
+    // **The Q4 regression, measured before the slice.** An empty substrate chartered:
+    // `verify_all` and `check_authority` both green, and `charter_state` reported the
+    // polity founded on `Substrate { name: "", statement: "", anchor: None }`. The
+    // non-ultimacy anchor was a decorative field — nothing read it anywhere.
+    let p = Polity::new(3);
+    let empty = Substrate { name: String::new(), statement: String::new(), anchor: None };
+    let a = archive_of(charter_grounded(&p, empty, &[], None));
+    // The signatures are perfectly good. It is the ground that is missing.
+    verify_all(&a).unwrap();
+    assert!(sole_violation(&a).contains("not articulated"));
+}
+
+#[test]
+fn whitespace_is_not_an_articulated_substrate() {
+    let p = Polity::new(3);
+    let blank = Substrate { name: "  ".into(), statement: "\t\n".into(), anchor: None };
+    let a = archive_of(charter_grounded(&p, blank, &[], None));
+    assert!(sole_violation(&a).contains("not articulated"));
+}
+
+#[test]
+fn a_statement_without_a_name_is_not_articulated_either() {
+    let p = Polity::new(3);
+    let half = Substrate { name: String::new(), statement: "answers to X".into(), anchor: None };
+    let a = archive_of(charter_grounded(&p, half, &[], None));
+    assert!(sole_violation(&a).contains("not articulated"));
+}
+
+#[test]
+fn a_polity_cannot_be_its_own_ground() {
+    // Q4 as written asks about the ABSENCE of a ground. The sharper hole, measured
+    // the same way, is that a polity could name ITSELF — so a rule demanding only
+    // presence would have been defeated by one assignment.
+    let p = Polity::new(3);
+    let circular = Substrate {
+        name: "us".into(),
+        statement: "we answer to ourselves".into(),
+        anchor: Some(p.polity.clone()),
+    };
+    let a = archive_of(charter_grounded(&p, circular, &[], None));
+    assert!(sole_violation(&a).contains("cannot ground itself"));
+}
+
+#[test]
+fn a_ground_inside_what_it_grounds_is_no_ground() {
+    // One step out from the self-anchor: the anchor is a member of the very roll it
+    // is supposed to stand above. This is the guardian loop rule ("a machine cannot
+    // guard a machine") applied to the substrate the rule's own comment names.
+    let p = Polity::new(3);
+    let inside = Substrate {
+        name: "boss".into(),
+        statement: "we answer to member 0".into(),
+        anchor: Some(p.ids[0].1.clone()),
+    };
+    let a = archive_of(charter_grounded(&p, inside, &[], None));
+    assert!(sole_violation(&a).contains("no ground"));
+}
+
+#[test]
+fn a_roll_of_machines_answering_to_nobody_must_name_an_anchor() {
+    // **Q4's exact case: a fresh AT cluster.** Every member a machine, nobody behind
+    // any of them, and an articulated statement that is therefore a sentence the
+    // polity wrote about itself. Measured before the slice: chartered, three
+    // derivations, zero guarded, both passes green.
+    let p = Polity::new(3);
+    let a = archive_of(charter_grounded(&p, substrate(), &[0, 1, 2], None));
+    assert!(sole_violation(&a).contains("must name a substrate anchor"));
+}
+
+#[test]
+fn a_machine_roll_charters_once_a_ground_consents() {
+    // And the same cluster, grounded: an anchor outside the roll that co-signs.
+    let p = Polity::new(3);
+    let ground = id();
+    let sub = Substrate {
+        name: "the operators".into(),
+        statement: "answers to what it did not author".into(),
+        anchor: Some(ground.1.clone()),
+    };
+    let a = archive_of(charter_grounded(&p, sub, &[0, 1, 2], Some(&ground)));
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    let leg = founding_legitimacy(&a, &p.polity).unwrap();
+    assert_eq!(leg.grounding, SubstrateGrounding::Anchored);
+    assert_eq!(leg.anchor.as_ref(), Some(&ground.1));
+}
+
+#[test]
+fn a_ground_cannot_be_conscripted() {
+    // The anchor is named and does NOT sign. Nothing else is wrong with the charter.
+    // Answerability is accepted, never assigned — the rule D15 applies to a guardian,
+    // reaching the ground itself.
+    let p = Polity::new(3);
+    let ground = id();
+    let sub = Substrate {
+        name: "the operators".into(),
+        statement: "answers to what it did not author".into(),
+        anchor: Some(ground.1.clone()),
+    };
+    let a = archive_of(charter_grounded(&p, sub, &[0, 1, 2], None));
+    assert!(sole_violation(&a).contains("consent"));
+}
+
+#[test]
+fn a_guarded_machine_roll_needs_no_anchor() {
+    // A wholly machine roll where every machine answers to a named human is already
+    // grounded — that is D15's model of legitimate machine participation, and the
+    // guardians co-sign. Demanding an anchor on top would be demanding a second
+    // ground from the only polities that already produced one.
+    let p = Polity::new(3);
+    let g = id();
+    let a = archive_of(p.charter_derived(
+        &[0, 1, 2],
+        vec![],
+        &[(0, Some(&g)), (1, Some(&g)), (2, Some(&g))],
+    ));
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Guarded
+    );
+}
+
+#[test]
+fn the_padding_dodge_does_not_work() {
+    // The grounded rule counts derivations that are actually ON the roll. Otherwise a
+    // wholly machine cluster could dodge it by designating a name the roll never had,
+    // so that `derivations.len() != members.len()` — passing this rule and failing a
+    // later one, which would make the ORDER of the checks load-bearing by accident.
+    let p = Polity::new(3);
+    let outsider = id();
+    let prop = FoundingProposal::convener_asserted(
+        p.polity.clone(),
+        substrate(),
+        vec![],
+        p.roll(),
+        (0..3)
+            .map(|m| Derivation { member: p.ids[m].1.clone(), guardian: None })
+            .chain(std::iter::once(Derivation {
+                member: outsider.1.clone(),
+                guardian: None,
+            }))
+            .collect(),
+        t(50),
+    );
+    let charter = prop.ratify(p.dids(&[0, 1, 2]), t(100)).unwrap();
+    let a = archive_of(CharterEntry::PolityChartered(
+        Signed::build(charter, &p.signers(&[0, 1, 2])).unwrap(),
+    ));
+    assert!(sole_violation(&a).contains("must name a substrate anchor"));
+}
+
+#[test]
+fn a_human_roll_holds_its_own_tradition() {
+    // No anchor, no derived parties: `Held`. The statement IS the ground, and unkeyed
+    // on purpose — a tradition, a rule, the dead. Permitted, and not the same picture
+    // as `Bare`.
+    let p = Polity::new(3);
+    let a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Held
+    );
+}
+
+#[test]
+fn a_mixed_roll_with_an_unguarded_machine_reads_bare() {
+    // Legal — a human is on the roll and can hold the tradition — and reported, so
+    // that "permitted" is not mistaken for "grounded".
+    let p = Polity::new(3);
+    let a = archive_of(charter_grounded(&p, substrate(), &[0], None));
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Bare
+    );
+}
+
+// ---- the ground answering back ----
+
+fn disavow_by(
+    polity: &DidKey,
+    who: &(PrivKey, DidKey),
+    signer: &(PrivKey, DidKey),
+    at: i64,
+) -> CharterEntry {
+    let d = SubstrateDisavowal {
+        polity: polity.clone(),
+        disavower: who.1.clone(),
+        rationale: "I do not stand above these people".into(),
+        disavowed_at: t(at),
+    };
+    CharterEntry::SubstrateDisavowed(
+        Signed::build(d, &[(signer.1.as_str(), &signer.0)]).unwrap(),
+    )
+}
+
+/// A machine polity grounded on a consenting anchor — the founding a disavowal
+/// contests. Returns the archive and the anchor's identity.
+fn anchored_polity(p: &Polity) -> (Archive<CharterEntry>, (PrivKey, DidKey)) {
+    let ground = id();
+    let sub = Substrate {
+        name: "the operators".into(),
+        statement: "answers to what it did not author".into(),
+        anchor: Some(ground.1.clone()),
+    };
+    let a = archive_of(charter_grounded(p, sub, &[0, 1, 2], Some(&ground)));
+    (a, ground)
+}
+
+#[test]
+fn the_named_ground_may_withdraw() {
+    let p = Polity::new(3);
+    let (mut a, ground) = anchored_polity(&p);
+    a.append(disavow_by(&p.polity, &ground, &ground, 500)).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    let st = substrate_disavowal(&a, &p.polity, t(600));
+    assert!(st.disavowed());
+    assert_eq!(st.first_disavowed_at(), Some(t(500)));
+    // And it is not yet visible before it happened.
+    assert!(!substrate_disavowal(&a, &p.polity, t(400)).disavowed());
+}
+
+#[test]
+fn a_withdrawal_does_not_un_charter_the_polity() {
+    // The substrate is genesis-immutable. A disavowal is the ground's assertion, and
+    // handing it the power to void a charter would give any anchor a unilateral kill
+    // switch — a worse hole than the one D23 closed. The polity stands, on a ground
+    // that disowns it, and the record says so.
+    let p = Polity::new(3);
+    let (mut a, ground) = anchored_polity(&p);
+    a.append(disavow_by(&p.polity, &ground, &ground, 500)).unwrap();
+    let st = charter_state(&a, &p.polity, t(600));
+    assert!(st.chartered);
+    assert!(!st.dissolved);
+    assert_eq!(st.substrate.unwrap().anchor.as_ref(), Some(&ground.1));
+    // The founding read-model is charter-alone, so it says exactly what it said
+    // before: this polity was anchored. Whether the ground still stands there is a
+    // different question, asked of a different read-model.
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Anchored
+    );
+}
+
+#[test]
+fn only_the_named_ground_may_withdraw() {
+    // Unlike a dissent, which must admit any filer because an omitted party is by
+    // definition absent from the record, the ground IS named on the charter.
+    let p = Polity::new(3);
+    let (mut a, _ground) = anchored_polity(&p);
+    let stranger = id();
+    a.append(disavow_by(&p.polity, &stranger, &stranger, 500)).unwrap();
+    assert!(sole_violation(&a).contains("only the named ground may withdraw"));
+}
+
+#[test]
+fn a_member_cannot_withdraw_the_polity_s_own_ground() {
+    let p = Polity::new(3);
+    let (mut a, _ground) = anchored_polity(&p);
+    a.append(disavow_by(&p.polity, &p.ids[0], &p.ids[0], 500)).unwrap();
+    assert!(sole_violation(&a).contains("only the named ground may withdraw"));
+}
+
+#[test]
+fn a_disavowal_must_be_signed_by_exactly_its_disavower() {
+    let p = Polity::new(3);
+    let (mut a, ground) = anchored_polity(&p);
+    a.append(disavow_by(&p.polity, &ground, &p.ids[0], 500)).unwrap();
+    assert!(sole_violation(&a).contains("signed by exactly its disavower"));
+}
+
+#[test]
+fn there_is_nothing_to_withdraw_from_an_unanchored_polity() {
+    let p = Polity::new(3);
+    let a0 = archive_of(p.charter(&[0, 1, 2], vec![]));
+    let mut a = a0;
+    let stranger = id();
+    a.append(disavow_by(&p.polity, &stranger, &stranger, 500)).unwrap();
+    assert!(sole_violation(&a).contains("nothing to withdraw"));
+}
+
+#[test]
+fn a_disavowal_precedes_nothing() {
+    let p = Polity::new(3);
+    let ground = id();
+    let mut a = Archive::new();
+    a.append(disavow_by(&p.polity, &ground, &ground, 10)).unwrap();
+    assert!(sole_violation(&a).contains("precedes its founding"));
+}
+
+#[test]
+fn a_disowned_polity_cannot_silence_its_ground_by_winding_up() {
+    // The second entry class a dissolution does not close, for D22's reason in a new
+    // costume: a ground that could be silenced by the founders' patience gave a
+    // consent worth nothing.
+    let p = Polity::new(3);
+    let (mut a, ground) = anchored_polity(&p);
+    a.append(p.dissolve(&[], &[0, 1, 2], 400)).unwrap();
+    a.append(disavow_by(&p.polity, &ground, &ground, 500)).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    assert!(substrate_disavowal(&a, &p.polity, t(600)).disavowed());
+}
+
+#[test]
+fn a_disavowal_is_not_prunable() {
+    let p = Polity::new(3);
+    let ground = id();
+    let entry = disavow_by(&p.polity, &ground, &ground, 100);
+    assert!(!is_prunable(&entry, &p.polity, t(10_000)));
+}
+
+#[test]
+fn a_ground_may_say_it_twice() {
+    let p = Polity::new(3);
+    let (mut a, ground) = anchored_polity(&p);
+    a.append(disavow_by(&p.polity, &ground, &ground, 500)).unwrap();
+    a.append(disavow_by(&p.polity, &ground, &ground, 900)).unwrap();
+    check_authority(&a).unwrap();
+    let st = substrate_disavowal(&a, &p.polity, t(1000));
+    assert_eq!(st.entries.len(), 2);
+    // The reading is the FIRST withdrawal, not the latest — a ground that repeats
+    // itself has not withdrawn more recently, it has withdrawn for longer.
+    assert_eq!(st.first_disavowed_at(), Some(t(500)));
+}
+
+#[test]
+fn the_polity_still_governs_itself_after_its_ground_withdraws() {
+    // The other half of "a withdrawal does not un-charter": not merely that the state
+    // reads chartered, but that the polity's acts still CARRY. A disavowal contributes
+    // nothing to reconstructed authority state, so admitting a member the day after
+    // the ground walked is exactly as valid as the day before.
+    let p = Polity::new(3);
+    let (mut a, ground) = anchored_polity(&p);
+    a.append(disavow_by(&p.polity, &ground, &ground, 500)).unwrap();
+    let joiner = id();
+    a.append(p.admit(&joiner, &[0, 1], 600)).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(charter_state(&a, &p.polity, t(700)).members.len(), 4);
 }

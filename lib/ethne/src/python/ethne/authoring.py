@@ -96,15 +96,29 @@ def ratify_charter(
     ratifiers: Sequence[Signer],
     founded_at: Optional[int] = None,
     guardians: Sequence[Signer] = (),
+    anchor: Optional[Signer] = None,
 ) -> str:
     """Ratify a proposal into the polity's genesis charter. The ratifiers must be
     a majority of the proposed roll — emergence proposes, the polity ratifies.
 
     Where the proposal carries derivations, every named `guardian` must co-sign as
-    well: answerability for a machine is accepted, never assigned."""
+    well: answerability for a machine is accepted, never assigned.
+
+    Where its substrate names an `anchor` (D23), that key co-signs too — the same
+    principle one level up. You may not conscript what you claim to stand under, so a
+    ground nobody signed for is not a ground the founding may claim."""
     dids, privs = _split(ratifiers)
     g_dids, g_privs = _split(guardians)
-    return archive.ratify_charter(proposal_json, dids, privs, g_dids, g_privs, founded_at)
+    return archive.ratify_charter(
+        proposal_json,
+        dids,
+        privs,
+        g_dids,
+        g_privs,
+        anchor.did if anchor is not None else None,
+        anchor.priv if anchor is not None else None,
+        founded_at,
+    )
 
 
 # ---- Commitments ------------------------------------------------------------
@@ -225,6 +239,66 @@ def revoke_office(
     dids, privs = _split(deciders)
     return archive.revoke_office(
         polity_did, office, holder_did, dids, privs, rationale, decided_at
+    )
+
+
+# ---- Founding-boundary dissent ----------------------------------------------
+
+
+def dissent_boundary(
+    archive,
+    polity_did: str,
+    dissenter: Signer,
+    kind: str,
+    rationale: str = "",
+    dissented_at: Optional[int] = None,
+) -> str:
+    """File a dissent from a founding's boundary (D22).
+
+    `kind` is `"Unnamed"` — the accounting never mentioned me, which is the claim
+    that contradicts an understated `candidate_size` and the one thing nothing else
+    in the tier can reach — or `"ReasonRejected"`, where the dissenter is named as
+    excluded and rejects the reason given for it.
+
+    Perspectival evidence, exactly as an observation is: signed by the dissenter
+    alone, no deciders, no majority, and the dissenter need not be a member — one
+    required to sit inside the roll could be silenced by never being admitted. It is
+    also the only record a **dissolved** polity still accepts, because otherwise
+    founders silence the parties they excluded by winding the polity up.
+
+    A dissent asserts; it does not adjudicate. Nothing decides whether it is true."""
+    return archive.dissent_boundary(
+        polity_did, dissenter.did, dissenter.priv, kind, rationale, dissented_at
+    )
+
+
+# ---- Substrate disavowal ----------------------------------------------------
+
+
+def disavow_substrate(
+    archive,
+    polity_did: str,
+    anchor: Signer,
+    rationale: str = "",
+    disavowed_at: Optional[int] = None,
+) -> str:
+    """File the chartered substrate anchor's withdrawal from a polity (D23).
+
+    D23 made a keyed anchor a *consenting* party — it co-signs the founding, because
+    answerability is accepted and never assigned. A ground that can consent can also
+    change its mind, and this is how it says so.
+
+    Only the anchor the charter names may file this, and it signs alone. That is
+    stricter than a dissent, which has to admit any filer because an omitted party is
+    by definition absent from the record; the ground is *on* the record.
+
+    **It asserts; it does not un-charter.** The substrate is genesis-immutable, so
+    nothing here voids the founding, dissolves the polity, or stops it governing
+    itself — a withdrawal with that power would be a unilateral kill switch in every
+    anchor's hands. What it produces is a legible fact, which `cohesion_report` reads
+    as a Concern. Like a dissent it survives dissolution and cannot be pruned."""
+    return archive.disavow_substrate(
+        polity_did, anchor.did, anchor.priv, rationale, disavowed_at
     )
 
 
@@ -455,6 +529,7 @@ __all__ = [
     "expel_member",
     "induct_member",
     "ratify_charter",
+    "dissent_boundary",
     "record_observation",
     "reaffirm_member",
     "release_guardian",

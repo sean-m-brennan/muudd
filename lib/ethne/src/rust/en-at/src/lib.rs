@@ -185,6 +185,7 @@ mod tests {
             substrate,
             vec![],
             0.5,
+            vec![],
             Timestamp::from_second(0).unwrap(),
         );
         assert_eq!(proposal.proposed_members.len(), 2);

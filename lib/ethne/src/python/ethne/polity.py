@@ -51,6 +51,7 @@ EnvoyState = _core.EnvoyState
 GuardianState = _core.GuardianState
 DecayTrends = _core.DecayTrends
 ObservationWindow = _core.ObservationWindow
+GroundStanding = _core.GroundStanding
 AffirmationState = _core.AffirmationState
 PruneRecommendation = _core.PruneRecommendation
 FoundingLegitimacy = _core.FoundingLegitimacy
@@ -74,6 +75,10 @@ FOUNDING_BASES = ("Corroborated", "Narrowed", "SelfAttested")
 #: Where a charter's boundary came from: an independent reading, or the convener's
 #: own word with nobody else attesting it.
 BOUNDARY_SOURCES = ("Substrate", "ConvenerAsserted")
+#: What stands above a polity (D23). **Not ordered** — these are different kinds of
+#: ground, not degrees of one. `"Bare"` is permitted, and named so that "permitted"
+#: is not mistaken for "grounded".
+SUBSTRATE_GROUNDINGS = ("Anchored", "Guarded", "Held", "Bare")
 
 
 #: `en-charter`'s own retention defaults, read from the Rust core so there is only
@@ -148,6 +153,7 @@ __all__ = [
     "AMENDMENT_KINDS",
     "BOUNDARY_SOURCES",
     "FOUNDING_BASES",
+    "SUBSTRATE_GROUNDINGS",
     "EROSION_LEVELS",
     "OFFICES",
     "AffirmationState",
@@ -162,6 +168,7 @@ __all__ = [
     "Cursor",
     "FileStore",
     "FoundingLegitimacy",
+    "GroundStanding",
     "PruneRecommendation",
     "RetentionPolicy",
     "SaveOutcome",

@@ -956,6 +956,184 @@ KC cannot see on its own and AT cannot decide on its own.
   - Nothing new crosses to KC. D4 holds: a founding defect is not conduct, and the
     border stays at four artifacts.
 
+- **D22 — a boundary says who read it, and the excluded answer back (locked
+  2026-07-28, resolving Q5).** D21 recorded *that* a boundary came from a reading.
+  It could not say **whose** — `BoundarySource::Substrate` was an unsigned label the
+  proposer supplied, so it was evidence of nothing. Measured, and worse than Q5's
+  wording: flipping one public field promoted a convener's bare assertion to
+  `Substrate`, and the grade with it to `Corroborated`, with no provider ever
+  consulted and both verification passes green. **D21's own locked decision #2 —
+  that a convener-asserted boundary is labelled so permanently — was unenforced.**
+  And since D21's rule checked only that the *numbers* added up, against a
+  self-report, any internally consistent fabrication passed.
+
+  Three moves, each in the tier's existing grain:
+
+  - **A — the reading is attributable (authority).** The `Substrate` arm now
+    *carries* its evidence: `Substrate { readings: Vec<Signed<SubstrateReading>> }`,
+    each reading naming a `reader` and signed by that reader alone (D16's "nobody
+    may put an observation in somebody else's mouth"), bound to the founding it is
+    offered for (without which an honest reader's account of one cluster replays
+    into somebody else's founding while the signature still verifies). Nesting a
+    signed envelope is an established idiom in the corpus — `kc-ceremony` and
+    `kc-escalation` both carry a `Signed<Recitation>` — and `didkey_resolver`
+    recovers the reader's key from its DID, so none of this needs a registry.
+
+    **The rule with teeth is identity, not arithmetic:** the roll ∪ exclusions must
+    equal some signed reading's members *as a set*. D21 supplied both sides of its
+    own sum; here the right-hand side is signed by somebody else.
+
+    Key custody is unchanged from D20 — the provider holds no keys and gains none
+    ("`tick` decides and computes; the host signs and does I/O").
+    `FoundingCandidate::reading()` yields an *unsigned* reading and whoever runs the
+    provider signs it. **No `en-at` change.**
+
+  - **B — corroboration means readers who agree (a lens, never a gate).**
+    `FoundingLegitimacy` gains `readers` and `corroborating_readers` — deliberately
+    *not* a count of readings filed, since a reader who signed a different boundary
+    corroborates nothing, and the gap between the two numbers is a reader
+    contradicting the founding on its own charter, permanently. `Corroborated` now
+    requires at least one agreeing attributable reading, where before the label
+    alone sufficed. This stays inside `founding_legitimacy`, so D21's property
+    survives: the grade still derives **from the charter alone, forever**.
+
+  - **C — the excluded answer back.** An eleventh entry,
+    `BoundaryDissented(Signed<BoundaryDissent>)`, over
+    `DissentKind { Unnamed, ReasonRejected }`. Perspectival evidence in D16's exact
+    shape: signed by the dissenter alone, no deciders, no majority, and the
+    dissenter need not be a member — one required to sit inside the roll could be
+    silenced by never being admitted. **This is the only thing in the tier that can
+    contradict an understated `candidate_size`**, which is precisely what D21
+    recorded as beyond its reach: the archive holds no provider, so the excluded are
+    the only available witnesses.
+
+    Authority checks coherence with the record contested, never truth: a
+    `ReasonRejected` dissenter must actually appear in the charter's exclusions (you
+    may reject the reason given for *you*), and an `Unnamed` dissenter must appear in
+    neither the founding roll nor the exclusions (a record that names them
+    contradicts the claim outright). `founding_dissent` is a **separate** read-model
+    from `founding_legitimacy` on purpose — dissent lives in the archive and accrues
+    over time, so folding it in would destroy the charter-alone property and improve
+    neither.
+
+    Two deliberate departures. A dissent may be filed **after dissolution** — the
+    only entry class that may, where nine others are blocked — because otherwise
+    founders silence the parties they excluded by winding the polity up, which is
+    D17's "destroying evidence is the move a captured party makes" in a different
+    costume; a founding's legitimacy outlives its polity in any case, since KC holds
+    a `CommunityIdentity` derived from that charter. And it is **unprunable for
+    free**: `is_prunable` matches only observations, which D17 made the one
+    forgettable class precisely because they are inert. A dissent is the opposite of
+    inert.
+
+  *The finding that changed the design.* The plan kept a `source` field on
+  `FoundingCandidate` for `propose` to copy across. Once `propose` takes the signed
+  readings, that field **should not exist**: the evidence *is* the source, empty
+  readings meaning a convener's assertion. Keeping both would have left a claim and
+  its evidence as two things that could disagree — the very defect D22 exists to
+  close, reintroduced one level down. So the sweep across the tier became a
+  *deletion* of `source:` lines rather than an edit of them, and `ManualFounding` is
+  `ConvenerAsserted` **because it holds no reader key**, not because it is labelled
+  so. A convener who genuinely obtains a signed reading matching their roll has real
+  corroboration and is welcome to it; what is no longer free is *claiming* one.
+
+  **The honest limits.**
+  - Still **accountability, not prevention**. A captured reader that signs a
+    gerrymandered boundary still charters one. What changes is that the lie is
+    attributable to a named key forever, and that the parties it omitted can
+    contradict it on the record — D21's negligence-versus-fraud distinction taken
+    one step further, from an unsigned claim to a signed one with an author.
+  - **Corroboration is sockpuppet-vulnerable by construction.** `did:key` costs
+    nothing, so a captured reader can mint its own corroborators and the count
+    cannot tell them from independent ones. Stated rather than engineered around,
+    following kith-covenant's capture-move-1 precedent exactly, where a declared
+    `interpreter_did` was likewise "just a name the community minted" and the
+    plurality count was kept a lens with independence attested separately.
+    **Independence attestation is the named successor to D22.**
+  - A dissent asserts; it does not adjudicate. Nothing decides whether a dissenter
+    tells the truth, and nothing should — that is the "replace emergence" move the
+    tier refuses.
+  - **Second format break in two slices**, and the first against a *committed*
+    format: `BoundarySource` changes shape and the attestation gains readings. Still
+    pre-release and genesis is a singleton, so no long-lived logs — but the honest
+    tally is now D20 (envelope v2), D21, D22.
+  - Nothing new crosses to KC. D4 holds; the border stays at four artifacts.
+
+- **D23 — the ground a polity stands on (locked 2026-07-28, resolving Q4).**
+  Non-ultimacy is the tier's whole reason for having a substrate, and nothing checked
+  it. **`substrate.anchor` was read by no rule anywhere** — the only consumers were a
+  pyo3 constructor and a getter, and nothing in the corpus had ever set it to `Some`.
+  Measured before the slice, four foundings passed both verification passes: a polity
+  whose entire ground was two empty strings; a fresh cluster of three machines with
+  nobody behind any of them; a polity naming **itself** as its anchor; and one naming
+  a member of its own roll. The last two matter most, because Q4 was framed as an
+  *absence* problem and they are a **closure** problem: a rule demanding only presence
+  is defeated by one assignment. The asymmetry that made the case is in the corpus
+  already — the guardian rule refuses an edge that "closes into a loop", and the
+  substrate anchor that comment is *about* could point at the polity itself.
+
+  **Four authority rules at genesis, all additive.**
+  1. **Articulated** — name and statement both non-empty, for every polity.
+  2. **Non-closure** — an anchor may be neither the polity nor anyone on its roll.
+     A ground inside what it grounds is no ground.
+  3. **Grounded** — a roll of nothing but derived parties, not one of them guarded,
+     must name an anchor. The trigger is deliberately *not* machine-majority: the
+     statement is the anchor for a human roll, unkeyed on purpose, and a guarded
+     machine already has a consenting human above it, which is D15's model of
+     legitimate machine participation. The key is demanded exactly where nobody
+     present could hold a tradition and nobody stands above one.
+  4. **Consent** — a present anchor **co-signs the founding**, joining the ratifiers
+     and the named guardians. Answerability is accepted, never assigned; you may not
+     conscript what you claim to stand under. This reached the Python surface as a new
+     `anchor=` parameter on `ratify_charter`, since the founding path had no way to
+     supply the ground's consent at all.
+
+  **Graded, not only gated.** `founding_legitimacy` gains `grounding`:
+  `Anchored` (a keyed party outside the roll consented — the only grounding anybody
+  signed), `Guarded` (guardian edges doing the work), `Held` (no derived party at all:
+  a human community holding an unkeyed tradition) and `Bare` (articulated and nothing
+  else — unguarded machines on a mixed roll). Descriptive and unordered, like
+  `FoundingBasis`. `Bare` is permitted; it is reported so that *permitted* is not
+  mistaken for *grounded*. It belongs on that read-model rather than a new one on
+  exactly the test D22 applied to dissent: the substrate is genesis-immutable and sits
+  on the genesis charter, so grounding cannot accrue and the answer is the same
+  forever.
+
+  **And the ground may answer back.** Once an anchor consents it can change its mind,
+  which is the question D15 answered for guardians with `GuardianChange`. A twelfth
+  entry, `SubstrateDisavowed`, is the ground's own signed withdrawal — and it gets a
+  deliberately weaker answer than a guardian's: it **asserts and cannot un-charter**.
+  Nothing rewrites the substrate, reconstructs any authority state, or dissolves
+  anything, because a withdrawal with that power would be a unilateral kill switch in
+  every anchor's hands — a worse hole than the one this slice closed. A disowned
+  polity keeps governing itself, on a ground that disowns it, legibly. The read-model
+  is `GroundStanding` (separate, because *this* does accrue), and `en-cohesion` reads
+  it as a twelfth erosion component that reaches **Concern** alone: unlike every other
+  measure there it grades a single signed act rather than a drift, so it takes no
+  threshold — event-triggered, like kith-covenant's `contraction_detected`.
+
+  Rules the disavowal shares with D22's dissent, for D22's reasons: signed by exactly
+  its filer, **permitted after dissolution** (the second and only other such class —
+  otherwise founders silence their ground by winding up), and **unprunable for free**,
+  since `is_prunable` matches only observations. Where it is *stricter*: a dissent must
+  admit any filer, because an omitted party is by definition absent from the record,
+  whereas the ground is named on the charter — so only that key may withdraw.
+
+  **The honest limits.**
+  - **Presence, never content.** No rule can read a tradition, and this one does not
+    pretend to. What it refuses is the blank, which is not a tradition anyone could
+    have been mistaken about. A polity may still articulate a ground it does not mean.
+  - **A consenting anchor is not a *trustworthy* anchor.** The rule buys that somebody
+    holding a key agreed to stand there and can be named for it — the D22 stance
+    exactly: accountability, not prevention.
+  - **A disavowal asserts.** Nothing adjudicates whether the ground is right to
+    withdraw, and a ground that withdrew cannot un-say it; there is no amendment record
+    for a substrate and this slice does not invent one. Such a polity's honest option
+    is the one every polity has: to re-charter, deliberately, as the different polity
+    it now is.
+  - Nothing new crosses to KC. D4 holds; the border stays at four artifacts — the
+    Concern travels on the existing one.
+
 
 ## Open questions (round 2)
 
@@ -1034,14 +1212,33 @@ KC cannot see on its own and AT cannot decide on its own.
   charter, and every later conferral/revocation is likewise a roll-majority act.
   Deliberate (a signed `OfficeChange`, holder consenting), never a reputation
   readout.
-- **Q4 — substrate for a purely emergent group.** A group with no articulated
-  tradition (a fresh AT cluster of machines) has behaviour but no ground. Can it
-  charter at all, or must it first anchor to a guardian substrate? (Leaning:
-  yes-it-must — a polity with nothing above itself is exactly the failure KC's
-  non-ultimacy feature guards against.)
-- **Q5 — provider trust.** What stops a captured substrate provider from feeding a
-  gerrymandered boundary into a founding? (Mirrors the KC integration's Q3 on the
-  enforcement seam.)
+- **Q4 — substrate for a purely emergent group. RESOLVED 2026-07-28 → it must
+  anchor, and the anchor must consent (see D23).** The leaning held: a polity with
+  nothing above itself is exactly the failure KC's non-ultimacy feature guards
+  against, and it charters no longer. A roll of nothing but machines answering to
+  nobody must name a substrate anchor outside itself, and that key co-signs the
+  founding. A human roll needs no key — its statement *is* the anchor, unkeyed on
+  purpose — but every polity must articulate one, and none may name itself or one of
+  its own members as its ground. What the tier grades on top of what it gates is
+  `grounding`, so a bare-but-legal ground is visible rather than merely permitted;
+  and if the ground later withdraws, it says so on the record and the monitor reads a
+  Concern. **With this the round-2 ledger is empty: every open question Q1–Q9 is
+  resolved.**
+- **Q5 — provider trust. RESOLVED 2026-07-28 → attribute the reading, grade the
+  agreement, and let the excluded answer (see D22).** Nothing *stops* a captured
+  provider, and D22 does not pretend to: what it removes is anonymity. A boundary
+  claiming a substrate reading must carry that reading, signed by the reader it
+  names and bound to this founding, and the roll plus its exclusions must match what
+  that signature shows — identity, where D21 had only arithmetic against the
+  proposer's own report. A gerrymandered boundary is therefore attributable to a
+  named key, permanently; `founding_legitimacy` reports which readers *agree* with
+  what was ratified and which contradict it; and an eleventh entry lets the excluded
+  say, unprunably and even after dissolution, that the accounting omitted them —
+  the one claim the archive could never check for itself, since it holds no
+  provider. Accountability, not prevention. The residue is **sockpuppet
+  corroboration** (`did:key` is free), left as a stated limit on a lens rather than
+  an authority rule, exactly as kith-covenant left capture move 1; independence
+  attestation is the named successor.
 - **Q6 — `ethne-at` coupling mode. RESOLVED 2026-07-24 → support both (see D6).**
   Both *embed* (`at_node_init`/`at_node_start`, owning the daemon lifecycle) and
   *attach* (`messaging_recv_on` on an existing `q_out`) are supported from day one,
@@ -1067,7 +1264,7 @@ relation KC governs) and from the anonymous nodes AT knows. Rust crate prefix
 
 ## Status & next steps
 
-Decisions D1–D21 locked; Q1/Q2/Q3/Q6/Q7/Q8/Q9 resolved. Build order (steps 1–5
+Decisions D1–D23 locked; **every open question Q1–Q9 resolved**. Build order (steps 1–5
 **built**):
 
 1. ✅ Scaffold the `ethne` workspace (D2) with `en-core` deps on `kc-core`, and a

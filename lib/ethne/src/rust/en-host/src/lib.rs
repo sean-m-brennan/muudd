@@ -46,7 +46,7 @@
 use en_archive::Archive;
 use en_charter::{
     affirmation_state, charter_state, decay_trends, guardian_state, observation_window,
-    prune_recommendation, CharterEntry, PruneRecommendation, RetentionPolicy,
+    prune_recommendation, substrate_disavowal, CharterEntry, PruneRecommendation, RetentionPolicy,
 };
 use en_cohesion::{cohesion_report, CohesionInputs, CohesionReport, ErosionLevel, Thresholds};
 use en_core::{DidKey, Timestamp};
@@ -221,6 +221,7 @@ impl HostCycle {
         )
         .unwrap_or(as_of);
         let window = observation_window(archive, polity, since, as_of);
+        let ground = substrate_disavowal(archive, polity, as_of);
 
         cohesion_report(
             &state.members,
@@ -231,6 +232,7 @@ impl HostCycle {
                 affirmations: Some(&affirmations),
                 trends: Some(&trends),
                 window: Some(&window),
+                ground: Some(&ground),
             },
             as_of,
             &self.config.thresholds,
