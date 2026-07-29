@@ -21,7 +21,7 @@ Three artifacts cross the boundary, and nothing else:
 2. **The Concern** — `coherence_concern` emits KC's existing pre-indictment flag,
    and only at `Concern`-level erosion. Below that, the strain is the polity's own
    business. The monitor never decides a split.
-3. **A lifecycle change** — `fission` (one polity ratifies a split into two) and
+3. **A lifecycle change** — `fission` (one polity ratifies a split into N) and
    `fusion` (N polities ratify a merger into one). KC sees new communities seeking
    recognition and old ones going quiet; it learns no new vocabulary.
 
@@ -94,20 +94,26 @@ def coherence_concern(
 def fission(
     archive,
     polity_did: str,
-    successor_a_json: str,
-    successor_b_json: str,
+    successor_jsons: Sequence[str],
     root_priv: bytes,
     deciders: Sequence[Signer] = (),
     rationale: str = "",
     at: Optional[int] = None,
 ) -> FissionOutcome:
-    """Emit a ratified split. The community has already chartered two successors
-    (pass their identities as JSON); this signs, under the predecessor's root, a
-    successor link to each plus the predecessor's dissolution naming both."""
+    """Emit a ratified split into N (>= 2) successors. The community has already
+    chartered them (pass their identities as JSON); this signs, under the
+    predecessor's root, a successor link to each plus the predecessor's dissolution
+    naming them all.
+
+    N-ary since D25, mirroring `fusion` — a three-way split is one act, where before
+    it took two chained fissions and recorded an intermediate polity nobody lived in.
+    The guards are fusion's in the other direction: at least two successors, none
+    named twice, none that is the predecessor itself, and every successor's own
+    self-signature verified (without which the predecessor's root would sign a link to
+    whatever it was handed)."""
     return archive.fission(
         polity_did,
-        successor_a_json,
-        successor_b_json,
+        list(successor_jsons),
         root_priv,
         [s.did for s in deciders],
         rationale,

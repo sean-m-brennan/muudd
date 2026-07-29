@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import json
 import os
+import time
 
 import ethne as e
 from ethne.authoring import (
     Signer,
+    attest_reader_independence,
     disavow_substrate,
     dissent_boundary,
     dissolve_charter,
@@ -46,9 +48,11 @@ from ethne.monitor import (
     cohesion_report,
     founding_candidate,
     manual_founding,
+    propose_from_candidate,
     select_from_candidate,
 )
 from ethne.uplift import (
+    fission,
     coherence_concern,
     community_identity,
     concern_dict,
@@ -188,6 +192,69 @@ def main() -> None:
     else:
         print(f"Concern filed: {concern['payload']['bearing']} "
               f"({concern['payload']['reporter_perspective']})")
+
+
+def ratified_split() -> None:
+    """A split into N successors, in one act (D25).
+
+    The monitor never decides this — the community ratifies the successor foundings and
+    this only emits the records. What D25 changed is arity and guards: a three-way split
+    took two chained fissions before, which recorded an intermediate polity nobody ever
+    lived in, and fission carried none of the guards its mirror image `fusion` had.
+    """
+    print("\n--- a ratified split, N ways at once (D25) -----------------------")
+    t0 = e.now_seconds() - 5 * DAY
+    now = t0 + DAY
+
+    def polity(name: str):
+        """Charter a polity and return (did, priv, its CommunityIdentity JSON)."""
+        founders = [Signer.generate() for _ in range(3)]
+        priv, pub, did = e.generate_keypair()
+        arch = e.Archive()
+        ratify_charter(
+            arch,
+            e.propose_charter(did, "tradition", "answers to what it did not author",
+                              [s.did for s in founders], proposed_at=t0),
+            founders[:2],
+            founded_at=t0,
+        )
+        return did, priv, founders, community_identity(
+            arch, did, name, priv, pub, created_at=t0
+        ), arch
+
+    did, priv, founders, identity, arch = polity("Ourania")
+    heirs = [polity(n)[3] for n in ("Ourania-North", "Ourania-South", "Ourania-Deep")]
+
+    split = fission(
+        arch, did, heirs, priv,
+        deciders=founders[:2], rationale="three readings, three peoples", at=now,
+    )
+    named = json.loads(split.dissolution)["payload"]["successors"]
+    print(f"three ways in one act: {len(split.successors)} successors, "
+          f"{len(split.links)} links, a dissolution naming {len(named)}")
+    print("  (before D25 this was two chained fissions, and the intermediate polity "
+          "was a step nobody lived in)")
+
+    # The guards fission had none of. Each of these passed before D25.
+    for label, args in (
+        ("a split into one", [heirs[0]]),
+        ("one successor named twice", [heirs[0], heirs[0]]),
+        ("the polity as its own heir", [identity, heirs[0]]),
+    ):
+        try:
+            fission(arch, did, args, priv, deciders=founders[:2], at=now)
+            print(f"  UNREACHED: {label}")
+        except Exception as ex:
+            print(f"  {label}: {str(ex).split('ethne: ')[-1]}")
+
+    # And the archive half, which is where it actually bites: en-uplift only EMITS,
+    # while `check_authority` is what a consumer verifies. Before D25 nothing looked at
+    # a dissolution's successors at all.
+    probe = e.Archive.load_json(arch.dump_json())
+    dissolve_charter(probe, did, founders[:2], rationale="into myself",
+                     successors=[did], dissolved_at=now)
+    print(f"  a hand-built dissolution naming itself: "
+          f"{probe.authority_violations()[0][1]}")
 
 
 def founding_boundary() -> None:
@@ -731,6 +798,118 @@ def retention():
     _ = polity_priv, polity_pub
 
 
+def independent_readers() -> None:
+    """Whether a founding's readers were their own principals (D24, closing the residue
+    D22 named as its own successor).
+
+    D22 made a boundary's reading attributable: signed by the reader it names, bound to
+    that founding. What it could not do is tell one reader from five faces of the same
+    actor — and `did:key` costs nothing, so the count of distinct signing readers cannot
+    mean what it appears to mean.
+    """
+    print("\n--- were the readers their own principals? (D24) -----------------")
+    t0 = e.now_seconds() - 10 * DAY
+    now = t0 + 3 * DAY
+
+    nodes = [Signer.generate() for _ in range(4)]
+    _p, _q, did = e.generate_keypair()
+    candidate = founding_candidate(
+        [(s.did, 0.9, None, None, False) for s in nodes],
+        substrate_name="tradition",
+        substrate_statement="answers to what it did not author",
+    )
+
+    # One actor, a chorus of minted readers — and what it costs them.
+    start = time.perf_counter()
+    chorus = [Signer.generate() for _ in range(100)]
+    readings = [
+        e.sign_reading(candidate, did, r.did, r.priv, read_at=t0) for r in chorus
+    ]
+    minted = time.perf_counter() - start
+    print(f"one actor minted {len(chorus)} readers and signed {len(readings)} identical "
+          f"readings in {minted * 1000:.1f}ms ({minted / len(chorus) * 1e6:.0f}µs each)")
+
+    arch = e.Archive()
+    ratify_charter(
+        arch,
+        propose_from_candidate(candidate, did, readings=readings, proposed_at=t0),
+        nodes[: e.majority(4)],
+        founded_at=t0 + DAY,
+    )
+    arch.verify_all()
+    arch.check_authority()
+
+    leg = arch.founding_legitimacy(did)
+    ic = arch.independent_corroboration(did, now)
+    print(f"D22 reads: basis={leg.basis}, corroborating_readers="
+          f"{len(leg.corroborating_readers)} — the highest grade the tier awards")
+    print(f"D24 reads: independently corroborated by {len(ic)}")
+
+    # A founding member vouching for the founding's own reader: the sockpuppet move one
+    # step out. Recorded, because somebody signed their name to it — and not credited.
+    attest_reader_independence(
+        arch, did, chorus[0].did, nodes[0], basis="I know them", attested_at=t0 + 2 * DAY
+    )
+    ri = arch.reader_independence(did, now)
+    print(f"a founder vouches: interested_attesters={len(ri.interested_attesters)}, "
+          f"counted={len(ri.independent_readers)}, "
+          f"independently corroborated={len(arch.independent_corroboration(did, now))}")
+
+    # One outsider willing to be named for the claim.
+    outsider = Signer.generate()
+    attest_reader_independence(
+        arch,
+        did,
+        chorus[0].did,
+        outsider,
+        basis="distinct operator, separate funding",
+        attested_at=t0 + 2 * DAY,
+    )
+    arch.check_authority()
+    ic = arch.independent_corroboration(did, now)
+    print(f"one outsider vouches: independently corroborated={len(ic)} "
+          f"(of {len(leg.corroborating_readers)} who agree)")
+
+    # And somebody who thinks the lens is being fooled says so. Reported as contested,
+    # never as disqualified — nothing here adjudicates.
+    sceptic = Signer.generate()
+    attest_reader_independence(
+        arch,
+        did,
+        chorus[0].did,
+        sceptic,
+        kind="Controlled",
+        basis="same hosting, same billing address",
+        attested_at=t0 + 2 * DAY + 3600,
+    )
+    arch.check_authority()
+    ic = arch.independent_corroboration(did, now)
+    print(f"a sceptic contests it: counted={len(ic)}, contested={len(ic.contested)}, "
+          f"uncontested={len(ic.uncontested)}")
+
+    # A founder may contest even though it may not vouch: interest disqualifies praise,
+    # not warning.
+    attest_reader_independence(
+        arch, did, chorus[1].did, nodes[1], kind="Controlled",
+        basis="that one is ours", attested_at=t0 + 2 * DAY + 7200,
+    )
+    arch.check_authority()
+    print("  a founder's WARNING counts where its praise did not: "
+          f"contested readers={len(arch.reader_independence(did, now).contested)}")
+
+    # Evidence about a founding outlives the polity — the third such class, and by now a
+    # category rather than an exception.
+    dissolve_charter(arch, did, nodes[:3], rationale="wound up", dissolved_at=now)
+    late = Signer.generate()
+    attest_reader_independence(
+        arch, did, chorus[2].did, late, basis="filed afterwards", attested_at=now + DAY
+    )
+    arch.verify_all()
+    arch.check_authority()
+    print(f"filed after dissolution and still authorized: "
+          f"{len(arch.reader_independence(did, now + 2 * DAY).attesters)} readers vouched for")
+
+
 def standing_ground() -> None:
     """What the polity stands on (D23, resolving Q4).
 
@@ -859,9 +1038,11 @@ def standing_ground() -> None:
 
 if __name__ == "__main__":
     main()
+    ratified_split()
     founding_boundary()
     attributable_boundary()
     standing_ground()
+    independent_readers()
     machine_polity()
     pruning(*watched_absence())
     retention()

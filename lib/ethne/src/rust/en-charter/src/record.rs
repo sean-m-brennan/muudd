@@ -880,3 +880,64 @@ pub struct SubstrateDisavowal {
     pub rationale: String,
     pub disavowed_at: Timestamp,
 }
+
+/// Whether an attestation vouches for a reader's independence or denies it (design
+/// **D24**).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IndependenceKind {
+    /// "This reader is its own principal." The vouching that answers D22's residue.
+    Independent,
+    /// "This reader is not independent of the founders." The counter-claim, so the
+    /// lens can be contradicted by somebody who thinks it is being fooled.
+    Controlled,
+}
+
+/// A third party's account of whether a named reader of a founding is an
+/// *independent* principal (design **D24**, closing the residue **D22** named as its
+/// own successor).
+///
+/// **Why this exists.** D22 made a boundary's reading attributable: signed by the
+/// reader it names, bound to that founding. What it could not do is tell one reader
+/// from five faces of the same actor. Measured: one party minted five `did:key`s,
+/// signed five identical readings, and the charter graded `Corroborated` — the
+/// highest basis the tier awards — with both verification passes green. The whole
+/// chorus cost **32 µs a voice**. `did:key` being free is not a figure of speech, so
+/// a count of distinct signing readers cannot mean what it appears to mean.
+///
+/// kith-covenant hit this exactly, for capture move 1, and its
+/// `InterpreterIndependenceAttestation` is the shape borrowed here: an outside party
+/// vouches, and the lens counts the vouching rather than the self-declaration.
+///
+/// **What it does and does not buy.** It does not prove independence, and nothing
+/// here adjudicates the claim. It moves the cost of faking corroboration from one key
+/// to a second party willing to be **named** for the claim, permanently. That is
+/// strictly more than nothing and strictly less than proof, and the counting stays a
+/// **lens, never a gate** — a young honest founding has no attestations at all, and
+/// refusing it would be refusing newness.
+///
+/// Like a [`BoundaryDissent`] and a [`SubstrateDisavowal`], this may be filed **after
+/// dissolution** and cannot be pruned. Those three now form a category rather than a
+/// list of exceptions: records that are **evidence about the founding** outlive the
+/// polity, because the founding's legitimacy does — kith-covenant holds a
+/// `CommunityIdentity` derived from that charter — where **governing acts** die with
+/// it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReaderIndependenceAttestation {
+    /// The founding whose reader is being vouched for or challenged.
+    pub polity: DidKey,
+    /// The reader in question. Must actually appear among the founding's readings —
+    /// an attestation about a reader the charter never carried is incoherent with the
+    /// record it claims to be about, and is refused.
+    pub reader: DidKey,
+    /// Who is speaking. Must be the sole signer. Counts toward independence only when
+    /// it is neither the polity, nor the reader itself, nor anyone on the founding
+    /// roll — the founders being precisely the interested party. An interested
+    /// attestation is still **recorded**, and reported separately: refusing it would
+    /// destroy a fact somebody asserted, while crediting it would be the sockpuppet
+    /// move one step out.
+    pub attesting_party: DidKey,
+    pub kind: IndependenceKind,
+    /// The basis for the claim (free text, legible to whoever audits it).
+    pub basis: String,
+    pub attested_at: Timestamp,
+}

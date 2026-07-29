@@ -21,6 +21,7 @@ import pytest
 import ethne as e
 from ethne.authoring import (
     Signer,
+    attest_reader_independence,
     disavow_substrate,
     dissent_boundary,
     admit_member,
@@ -1073,3 +1074,167 @@ def test_an_unsupplied_ground_reading_says_nothing():
     r = cohesion_report(roll, candidate, as_of=600)
     assert not r.ground_disavowed
     assert r.erosion == "None"
+
+
+# ---- D24: independence attestation for readers -------------------------------
+
+
+def _chorus(candidate, polity, n=5):
+    """`n` readings of the same boundary, each by a freshly minted reader — a sockpuppet
+    chorus if one actor holds all `n` keys, which costs it 32 microseconds a voice."""
+    pairs = [_read(candidate, polity) for _ in range(n)]
+    return [r for r, _ in pairs], [s for _, s in pairs]
+
+
+def _chorus_charter(n=5, roll=3):
+    """A founding corroborated by `n` readers, all agreeing."""
+    nodes, did, candidate = _cluster(roll)
+    readings, readers = _chorus(candidate, did, n)
+    proposal = propose_from_candidate(
+        candidate, did, readings=readings, proposed_at=PROPOSED_AT
+    )
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, nodes[: e.majority(roll)], founded_at=FOUNDED_AT
+    )
+    return archive, did, nodes, readers
+
+
+def test_a_sockpuppet_chorus_corroborates_nothing_independently():
+    # The D24 regression, measured before the slice: five minted keys, five identical
+    # readings, and the charter graded `Corroborated` with both passes green.
+    archive, did, _nodes, readers = _chorus_charter(5)
+    archive.verify_all()
+    archive.check_authority()
+
+    # D22's reading is unchanged and still says what it always said.
+    leg = archive.founding_legitimacy(did)
+    assert len(leg.corroborating_readers) == 5
+    assert leg.basis == "Corroborated"
+
+    # D24's reading is the one 16 milliseconds cannot buy.
+    ic = archive.independent_corroboration(did, 600)
+    assert len(ic) == 0
+    assert not ic.any
+    assert archive.reader_independence(did, 600).independent_readers == []
+    assert len(readers) == 5
+
+
+def test_one_outsider_willing_to_be_named_turns_it():
+    archive, did, _nodes, readers = _chorus_charter(5)
+    outsider = Signer.generate()
+    attest_reader_independence(
+        archive, did, readers[0].did, outsider, basis="separate operator", attested_at=500
+    )
+    archive.verify_all()
+    archive.check_authority()
+
+    ic = archive.independent_corroboration(did, 600)
+    assert len(ic) == 1
+    assert ic.any
+    assert ic.readers == [readers[0].did]
+    assert ic.uncontested == [readers[0].did]
+    # And not before it was filed.
+    assert len(archive.independent_corroboration(did, 400)) == 0
+
+
+def test_a_founder_vouching_for_the_foundings_own_reader_does_not_count():
+    # The sockpuppet move one step out: recorded, reported, not credited.
+    archive, did, nodes, readers = _chorus_charter(3)
+    attest_reader_independence(archive, did, readers[0].did, nodes[0], attested_at=500)
+    archive.check_authority()
+
+    ri = archive.reader_independence(did, 600)
+    assert ri.independent_readers == []
+    assert dict(ri.interested_attesters) == {readers[0].did: [nodes[0].did]}
+    assert len(archive.independent_corroboration(did, 600)) == 0
+
+
+def test_a_reader_cannot_vouch_for_itself():
+    archive, did, _nodes, readers = _chorus_charter(3)
+    attest_reader_independence(archive, did, readers[0].did, readers[0], attested_at=500)
+    archive.verify_all()
+    archive.check_authority()
+    ri = archive.reader_independence(did, 600)
+    assert ri.independent_readers == []
+    assert dict(ri.interested_attesters) == {readers[0].did: [readers[0].did]}
+
+
+def test_there_is_nothing_to_attest_about_a_reader_the_founding_never_carried():
+    # Coherence with the record spoken about — never its truth.
+    archive, did, _nodes, _readers = _chorus_charter(3)
+    stranger = Signer.generate()
+    outsider = Signer.generate()
+    attest_reader_independence(archive, did, stranger.did, outsider, attested_at=500)
+    assert "is not a reader of" in archive.authority_violations()[0][1]
+
+
+def test_independence_may_be_contested():
+    # The counter-claim. A contested reader is reported as contested, never as
+    # disqualified: nothing here adjudicates.
+    archive, did, _nodes, readers = _chorus_charter(3)
+    outsider = Signer.generate()
+    sceptic = Signer.generate()
+    attest_reader_independence(archive, did, readers[0].did, outsider, attested_at=500)
+    attest_reader_independence(
+        archive, did, readers[0].did, sceptic, kind="Controlled", attested_at=600
+    )
+    archive.check_authority()
+
+    ri = archive.reader_independence(did, 700)
+    assert ri.is_attested(readers[0].did)
+    assert ri.is_contested(readers[0].did)
+
+    ic = archive.independent_corroboration(did, 700)
+    assert len(ic) == 1  # still counted...
+    assert ic.contested == [readers[0].did]  # ...and the objection travels with it
+    assert ic.uncontested == []
+
+
+def test_a_founder_may_contest_even_though_it_may_not_vouch():
+    # Deliberately asymmetric: interest disqualifies praise, not warning. A founder
+    # breaking ranks is the most informative possible source for the claim.
+    archive, did, nodes, readers = _chorus_charter(3)
+    attest_reader_independence(
+        archive, did, readers[0].did, nodes[1], kind="Controlled", attested_at=500
+    )
+    archive.check_authority()
+    assert archive.reader_independence(did, 600).is_contested(readers[0].did)
+
+
+def test_an_attestation_outlives_the_polity():
+    # The THIRD entry class a dissolution does not close — a category now, not an
+    # exception: evidence about a founding outlives the polity.
+    archive, did, nodes, readers = _chorus_charter(3)
+    outsider = Signer.generate()
+    dissolve_charter(archive, did, nodes[:2], rationale="done", dissolved_at=400)
+    attest_reader_independence(archive, did, readers[0].did, outsider, attested_at=500)
+    archive.verify_all()
+    archive.check_authority()
+    assert len(archive.independent_corroboration(did, 600)) == 1
+
+
+def test_two_vouchers_for_one_reader_are_still_one_reader():
+    archive, did, _nodes, readers = _chorus_charter(3)
+    x, y = Signer.generate(), Signer.generate()
+    attest_reader_independence(archive, did, readers[0].did, x, attested_at=500)
+    attest_reader_independence(archive, did, readers[0].did, y, attested_at=600)
+    attest_reader_independence(archive, did, readers[0].did, x, attested_at=700)
+    archive.check_authority()
+    assert len(dict(archive.reader_independence(did, 800).attesters)[readers[0].did]) == 2
+    assert len(archive.independent_corroboration(did, 800)) == 1
+
+
+def test_an_unknown_independence_kind_is_a_value_error():
+    archive, did, _nodes, readers = _chorus_charter(3)
+    outsider = Signer.generate()
+    with pytest.raises(ValueError, match="independence kind"):
+        attest_reader_independence(
+            archive, did, readers[0].did, outsider, kind="Probably", attested_at=500
+        )
+
+
+def test_a_convener_asserted_founding_has_no_readers_to_attest(polity):
+    assert dict(polity.archive.reader_independence(polity.did, 500).attesters) == {}
+    assert len(polity.archive.independent_corroboration(polity.did, 500)) == 0
+    assert "Independent" in e.INDEPENDENCE_KINDS

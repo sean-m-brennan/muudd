@@ -18,7 +18,7 @@
 //! holdings, guardian edges, and envoy standings of a polity as of a point in time,
 //! plus the decay trends visible across its whole log.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use en_archive::Archive;
 use en_core::{Cid, DidKey, KcResult, PubKey, Timestamp};
@@ -26,6 +26,7 @@ use en_core::{Cid, DidKey, KcResult, PubKey, Timestamp};
 use crate::entry::CharterEntry;
 use crate::record::{
     AffirmationKind, AmendmentKind, BoundarySource, Commitment, Derivation, DissentKind, EnvoyKind,
+    IndependenceKind,
     Exclusion, GuardianKind,
     MemberReading, MembershipKind, Office, OfficeKind, Substrate,
 };
@@ -1565,4 +1566,186 @@ pub fn substrate_disavowal(
         })
         .collect();
     GroundStanding { entries }
+}
+
+// ---------------------------------------------------------------------------
+// D24 — whether a founding's readers were their own principals.
+// ---------------------------------------------------------------------------
+
+/// Who has vouched for (or challenged) a founding's readers, and whose vouching
+/// counts (design **D24**, closing the residue **D22** named as its successor).
+///
+/// Kept **separate from [`founding_legitimacy`]** on the test D22 stated and D23
+/// reused: that read-model derives from the genesis charter alone, so anyone holding
+/// the charter re-derives it forever. Attestations arrive afterwards and accrue, so
+/// they cannot live there without destroying the property.
+///
+/// **A lens, never a gate.** Nothing refuses a founding for having no attestations,
+/// and a young honest founding has none — refusing it would be refusing newness. This
+/// is exactly where kith-covenant left the same problem for capture move 1.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReaderIndependence {
+    /// reader → the distinct disinterested parties who vouched for it. These are the
+    /// ones that **count**: neither the polity, nor the reader itself, nor anyone on
+    /// the founding roll.
+    pub attesters: BTreeMap<String, BTreeSet<String>>,
+    /// reader → parties who vouched but have a stake: the polity, the reader itself,
+    /// or a founding member.
+    ///
+    /// Recorded rather than discarded, and reported rather than quietly folded in. A
+    /// founder vouching for the founding's own reader is the sockpuppet move one step
+    /// out, so it cannot count; but it is still a claim somebody signed their name to,
+    /// and destroying it would serve nobody.
+    pub interested_attesters: BTreeMap<String, BTreeSet<String>>,
+    /// reader → parties asserting it is **not** independent. The counter-claim, so the
+    /// lens can be contradicted by somebody who thinks it is being fooled. Never
+    /// adjudicated: a contested reader is reported as contested, not as disqualified.
+    pub contested: BTreeMap<String, BTreeSet<String>>,
+}
+
+impl ReaderIndependence {
+    /// Readers with at least one disinterested voucher.
+    pub fn independent_readers(&self) -> Vec<&str> {
+        self.attesters
+            .iter()
+            .filter(|(_, a)| !a.is_empty())
+            .map(|(r, _)| r.as_str())
+            .collect()
+    }
+
+    /// Whether `reader` has any disinterested voucher.
+    pub fn is_attested(&self, reader: &str) -> bool {
+        self.attesters.get(reader).is_some_and(|a| !a.is_empty())
+    }
+
+    /// Whether anyone has claimed `reader` is controlled.
+    pub fn is_contested(&self, reader: &str) -> bool {
+        self.contested.get(reader).is_some_and(|a| !a.is_empty())
+    }
+}
+
+/// What a founding's corroboration is worth once independence is taken into account
+/// (design **D24**) — the reading that answers D22's residue.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct IndependentCorroboration {
+    /// Readers who **both** agree with the ratified boundary and carry a
+    /// disinterested voucher. **The number D22 could not produce**: a chorus of five
+    /// hundred minted readers scores `0` here, because none of them has an outsider
+    /// willing to be named for it.
+    pub readers: Vec<DidKey>,
+    /// Of those, the ones somebody has also claimed are controlled. Reported so that
+    /// "independently corroborated" cannot quietly mean "and nobody objected".
+    pub contested: Vec<DidKey>,
+}
+
+impl IndependentCorroboration {
+    /// Whether any independently-vouched reader agrees with what was ratified.
+    pub fn any(&self) -> bool {
+        !self.readers.is_empty()
+    }
+
+    /// How many.
+    pub fn count(&self) -> usize {
+        self.readers.len()
+    }
+
+    /// The uncontested ones — those with a voucher and no counter-claim.
+    pub fn uncontested(&self) -> Vec<&DidKey> {
+        self.readers.iter().filter(|r| !self.contested.contains(r)).collect()
+    }
+}
+
+/// Read back who has vouched for `polity`'s founding readers, up to `as_of`.
+///
+/// Attesters are sorted into three buckets by *stake*, which is the whole point: an
+/// attestation from the polity, from the reader itself, or from a founding member
+/// cannot count toward independence, because those are precisely the parties a
+/// sockpuppet chorus would be serving. The founding roll is used rather than the live
+/// one — a member admitted years later had no hand in the boundary being vouched for.
+///
+/// Reports attestations for a **dissolved** polity too: the third entry class a
+/// dissolution does not close, and by now a category rather than an exception —
+/// evidence about a founding outlives the polity, because the founding's legitimacy
+/// does.
+pub fn reader_independence(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> ReaderIndependence {
+    let mut out = ReaderIndependence::default();
+    let charter = archive.iter().find_map(|(_, e)| match e {
+        CharterEntry::PolityChartered(s) if &s.payload.polity == polity => Some(&s.payload),
+        _ => None,
+    });
+    let Some(charter) = charter else {
+        return out;
+    };
+    let roll: BTreeSet<&str> = charter.members.iter().map(DidKey::as_str).collect();
+
+    for (_, e) in archive.iter() {
+        let CharterEntry::ReaderIndependenceAttested(s) = e else {
+            continue;
+        };
+        let a = &s.payload;
+        if &a.polity != polity || a.attested_at > as_of {
+            continue;
+        }
+        let reader = a.reader.as_str().to_string();
+        let attester = a.attesting_party.as_str().to_string();
+        match a.kind {
+            IndependenceKind::Controlled => {
+                // A counter-claim counts however interested its author is. Somebody
+                // saying "that reader is one of them" is worth recording from anyone
+                // — including a founder breaking ranks, who is the most informative
+                // possible source for it.
+                out.contested.entry(reader).or_default().insert(attester);
+            }
+            IndependenceKind::Independent => {
+                let interested = attester == polity.as_str()
+                    || attester == a.reader.as_str()
+                    || roll.contains(attester.as_str());
+                if interested {
+                    out.interested_attesters.entry(reader).or_default().insert(attester);
+                } else {
+                    out.attesters.entry(reader).or_default().insert(attester);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Which of `polity`'s corroborating readers are independently vouched for, up to
+/// `as_of` — **the upgrade of D22's corroboration count** (design **D24**).
+///
+/// Agreement and independence are two different questions and this is the conjunction
+/// of them: a reader who agrees with the ratified boundary but has no outside voucher
+/// might be five faces of the convener, and a vouched-for reader who read a *different*
+/// boundary corroborates nothing. Only both together mean what "corroborated" appears
+/// to mean.
+pub fn independent_corroboration(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> IndependentCorroboration {
+    let charter = archive.iter().find_map(|(_, e)| match e {
+        CharterEntry::PolityChartered(s) if &s.payload.polity == polity => Some(&s.payload),
+        _ => None,
+    });
+    let Some(charter) = charter else {
+        return IndependentCorroboration::default();
+    };
+    let independence = reader_independence(archive, polity, as_of);
+    let readers: Vec<DidKey> = charter
+        .attestation
+        .corroborating_readers(&charter.members)
+        .into_iter()
+        .filter(|r| independence.is_attested(r.as_str()))
+        .collect();
+    let contested = readers
+        .iter()
+        .filter(|r| independence.is_contested(r.as_str()))
+        .cloned()
+        .collect();
+    IndependentCorroboration { readers, contested }
 }

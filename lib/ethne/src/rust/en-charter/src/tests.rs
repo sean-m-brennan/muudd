@@ -40,12 +40,18 @@ fn substrate() -> Substrate {
 /// charter and amendment entries by member index.
 struct Polity {
     polity: DidKey,
+    /// The polity's own signing key. Nothing in the charter path uses it — the roll
+    /// signs, not the polity — but `en-uplift` signs a `CommunityIdentity` under the
+    /// polity root, so the key exists, and D24 needs it to test that the polity
+    /// vouching for its own reader does not count.
+    polity_key: PrivKey,
     ids: Vec<(PrivKey, DidKey)>,
 }
 
 impl Polity {
     fn new(n: usize) -> Self {
-        Polity { polity: id().1, ids: (0..n).map(|_| id()).collect() }
+        let (polity_key, polity) = id();
+        Polity { polity, polity_key, ids: (0..n).map(|_| id()).collect() }
     }
 
     fn roll(&self) -> Vec<DidKey> {
@@ -3850,4 +3856,485 @@ fn the_polity_still_governs_itself_after_its_ground_withdraws() {
     a.append(p.admit(&joiner, &[0, 1], 600)).unwrap();
     check_authority(&a).unwrap();
     assert_eq!(charter_state(&a, &p.polity, t(700)).members.len(), 4);
+}
+
+// ---------------------------------------------------------------------------
+// D24 — independence attestation for readers (closing D22's named residue).
+// ---------------------------------------------------------------------------
+
+/// `n` readings of the polity's whole roll, each signed by a freshly minted reader —
+/// a sockpuppet chorus, if one actor holds all `n` keys. The keypairs come back so a
+/// reader can also act for itself.
+fn chorus(p: &Polity, n: usize) -> (Vec<Signed<SubstrateReading>>, Vec<(PrivKey, DidKey)>) {
+    let mut readings = Vec::new();
+    let mut readers = Vec::new();
+    for _ in 0..n {
+        let (sk, reader) = id();
+        let r = SubstrateReading {
+            polity: p.polity.clone(),
+            reader: reader.clone(),
+            read_at: t(40),
+            members: p.roll(),
+            opaque_boundary: false,
+        };
+        readings.push(Signed::build(r, &[(reader.as_str(), &sk)]).unwrap());
+        readers.push((sk, reader));
+    }
+    (readings, readers)
+}
+
+/// A founding corroborated by `n` readers, all agreeing with the whole roll.
+fn charter_read_by(p: &Polity, n: usize) -> (Archive<CharterEntry>, Vec<(PrivKey, DidKey)>) {
+    let (readings, readers) = chorus(p, n);
+    let att = BoundaryAttestation {
+        candidate_size: p.ids.len(),
+        source: BoundarySource::Substrate { readings },
+        exclusions: vec![],
+    };
+    (archive_of(p.charter_attested(&[0, 1, 2], att)), readers)
+}
+
+fn attest(
+    polity: &DidKey,
+    reader: &DidKey,
+    attester: &(PrivKey, DidKey),
+    signer: &(PrivKey, DidKey),
+    kind: IndependenceKind,
+    at: i64,
+) -> CharterEntry {
+    let a = ReaderIndependenceAttestation {
+        polity: polity.clone(),
+        reader: reader.clone(),
+        attesting_party: attester.1.clone(),
+        kind,
+        basis: "distinct operator, separate funding".into(),
+        attested_at: t(at),
+    };
+    CharterEntry::ReaderIndependenceAttested(
+        Signed::build(a, &[(signer.1.as_str(), &signer.0)]).unwrap(),
+    )
+}
+
+#[test]
+fn a_sockpuppet_chorus_corroborates_nothing_independently() {
+    // **The D24 regression, measured before the slice.** One actor, five minted
+    // did:keys, five identical readings: the charter graded `Corroborated`, the highest
+    // basis the tier awards, with both passes green and zero dissent. The chorus cost
+    // 32 microseconds a voice.
+    let p = Polity::new(3);
+    let (a, readers) = charter_read_by(&p, 5);
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+
+    // D22's reading is unchanged and still says what it always said.
+    let leg = founding_legitimacy(&a, &p.polity).unwrap();
+    assert_eq!(leg.corroborating_readers.len(), 5);
+    assert!(leg.corroborated());
+    assert_eq!(leg.basis, FoundingBasis::Corroborated);
+
+    // D24's reading is the one that cannot be bought with 16 milliseconds.
+    let ic = independent_corroboration(&a, &p.polity, t(500));
+    assert_eq!(ic.count(), 0);
+    assert!(!ic.any());
+    assert!(reader_independence(&a, &p.polity, t(500)).independent_readers().is_empty());
+    assert_eq!(readers.len(), 5);
+}
+
+#[test]
+fn one_outsider_willing_to_be_named_turns_it() {
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 5);
+    let outsider = id();
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+
+    let ic = independent_corroboration(&a, &p.polity, t(600));
+    assert_eq!(ic.count(), 1);
+    assert!(ic.any());
+    assert_eq!(ic.readers[0], readers[0].1);
+    assert_eq!(ic.uncontested().len(), 1);
+    // And not before it was filed.
+    assert_eq!(independent_corroboration(&a, &p.polity, t(400)).count(), 0);
+}
+
+#[test]
+fn a_founder_vouching_for_the_foundings_own_reader_does_not_count() {
+    // The sockpuppet move one step out. Recorded — somebody signed their name to it —
+    // and reported, but not credited.
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 3);
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &p.ids[0],
+        &p.ids[0],
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+
+    let ri = reader_independence(&a, &p.polity, t(600));
+    assert!(ri.independent_readers().is_empty());
+    assert_eq!(ri.interested_attesters[readers[0].1.as_str()].len(), 1);
+    assert_eq!(independent_corroboration(&a, &p.polity, t(600)).count(), 0);
+}
+
+#[test]
+fn a_reader_cannot_vouch_for_itself() {
+    // A perfectly valid record, and worth nothing as independence: the whole point is
+    // that the claim comes from somebody other than the party it flatters.
+    let p = Polity::new(3);
+    let (a, readers) = charter_read_by(&p, 3);
+    let mut a = a;
+    let itself = &readers[0];
+    a.append(attest(
+        &p.polity,
+        &itself.1,
+        itself,
+        itself,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    let ri = reader_independence(&a, &p.polity, t(600));
+    assert!(ri.independent_readers().is_empty());
+    assert_eq!(ri.interested_attesters[itself.1.as_str()].len(), 1);
+    assert_eq!(independent_corroboration(&a, &p.polity, t(600)).count(), 0);
+}
+
+#[test]
+fn a_polity_cannot_vouch_for_its_own_reader() {
+    // The most direct form of the interested attestation: the polity itself. Recorded,
+    // like a founder's, and credited no more than one.
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 3);
+    let itself = (p.polity_key.clone(), p.polity.clone());
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &itself,
+        &itself,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    let ri = reader_independence(&a, &p.polity, t(600));
+    assert!(ri.independent_readers().is_empty());
+    assert_eq!(ri.interested_attesters[readers[0].1.as_str()].len(), 1);
+    assert_eq!(independent_corroboration(&a, &p.polity, t(600)).count(), 0);
+}
+
+#[test]
+fn nobody_vouches_in_somebody_elses_name() {
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 3);
+    let outsider = id();
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &outsider,
+        &p.ids[0],
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    assert!(sole_violation(&a).contains("signed by exactly its attesting party"));
+}
+
+#[test]
+fn there_is_nothing_to_attest_about_a_reader_the_founding_never_carried() {
+    // Coherence with the record spoken about — never its truth, the same line D22's
+    // dissent arm draws.
+    let p = Polity::new(3);
+    let (mut a, _readers) = charter_read_by(&p, 3);
+    let stranger = id();
+    let outsider = id();
+    a.append(attest(
+        &p.polity,
+        &stranger.1,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    assert!(sole_violation(&a).contains("is not a reader of"));
+}
+
+#[test]
+fn an_attestation_precedes_nothing() {
+    let p = Polity::new(3);
+    let reader = id();
+    let outsider = id();
+    let mut a = Archive::new();
+    a.append(attest(
+        &p.polity,
+        &reader.1,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        10,
+    ))
+    .unwrap();
+    assert!(sole_violation(&a).contains("precedes its founding"));
+}
+
+#[test]
+fn independence_may_be_contested() {
+    // The counter-claim, from anyone — including a founder breaking ranks, who is the
+    // most informative possible source for it. A contested reader is reported as
+    // contested, never as disqualified: nothing here adjudicates.
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 3);
+    let outsider = id();
+    let sceptic = id();
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &sceptic,
+        &sceptic,
+        IndependenceKind::Controlled,
+        600,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+
+    let ri = reader_independence(&a, &p.polity, t(700));
+    assert!(ri.is_attested(readers[0].1.as_str()));
+    assert!(ri.is_contested(readers[0].1.as_str()));
+
+    let ic = independent_corroboration(&a, &p.polity, t(700));
+    // Still counted — and the objection travels with it.
+    assert_eq!(ic.count(), 1);
+    assert_eq!(ic.contested.len(), 1);
+    assert!(ic.uncontested().is_empty());
+}
+
+#[test]
+fn a_founder_may_contest_even_though_it_may_not_vouch() {
+    // The asymmetry is deliberate: interest disqualifies *praise* and not *warning*.
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 3);
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &p.ids[1],
+        &p.ids[1],
+        IndependenceKind::Controlled,
+        500,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+    assert!(reader_independence(&a, &p.polity, t(600)).is_contested(readers[0].1.as_str()));
+}
+
+#[test]
+fn a_vouched_reader_who_read_a_different_boundary_corroborates_nothing() {
+    // Agreement and independence are two different questions, and the reading is the
+    // CONJUNCTION of them. An impeccably vouched-for reader who saw a different cluster
+    // is not corroboration of *this* boundary — it is a reader contradicting it.
+    //
+    // Note the shape this test is forced into, which is itself worth knowing: D22
+    // already refuses a founding that NO reader supports, so a disagreeing reader can
+    // only ever appear alongside an agreeing one. The vouching goes to the disagreeing
+    // one, and the count stays at zero.
+    let p = Polity::new(3);
+    let (agrees, _) = chorus(&p, 1);
+    let (sk, dissenter) = id();
+    // Same CARDINALITY, different membership — which is the only shape a disagreement
+    // can take once D22 is in force: it also pins every reading's member count to
+    // `candidate_size`. So the disagreement is over *who*, never how many.
+    let mut seen = p.roll();
+    seen.pop();
+    seen.push(id().1); // somebody this reader saw in place of the third member
+    let disagrees = Signed::build(
+        SubstrateReading {
+            polity: p.polity.clone(),
+            reader: dissenter.clone(),
+            read_at: t(40),
+            members: seen,
+            opaque_boundary: false,
+        },
+        &[(dissenter.as_str(), &sk)],
+    )
+    .unwrap();
+    let att = BoundaryAttestation {
+        candidate_size: 3,
+        source: BoundarySource::Substrate {
+            readings: vec![agrees[0].clone(), disagrees],
+        },
+        exclusions: vec![],
+    };
+    let mut a = archive_of(p.charter_attested(&[0, 1, 2], att));
+    let outsider = id();
+    a.append(attest(
+        &p.polity,
+        &dissenter,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+
+    // Vouched for, and corroborating nothing — it is on the charter as a reader who
+    // saw something else.
+    let ri = reader_independence(&a, &p.polity, t(600));
+    assert!(ri.is_attested(dissenter.as_str()));
+    assert_eq!(independent_corroboration(&a, &p.polity, t(600)).count(), 0);
+    let leg = founding_legitimacy(&a, &p.polity).unwrap();
+    assert_eq!(leg.dissenting_readers(), vec![&dissenter]);
+}
+
+#[test]
+fn an_attestation_outlives_the_polity() {
+    // The THIRD entry class a dissolution does not close — and by now a category
+    // rather than an exception: evidence about a founding outlives the polity, because
+    // the founding's legitimacy does.
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 3);
+    a.append(p.dissolve(&[], &[0, 1, 2], 400)).unwrap();
+    let outsider = id();
+    a.append(attest(
+        &p.polity,
+        &readers[0].1,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(independent_corroboration(&a, &p.polity, t(600)).count(), 1);
+}
+
+#[test]
+fn an_attestation_is_not_prunable() {
+    let p = Polity::new(3);
+    let reader = id();
+    let outsider = id();
+    let entry = attest(
+        &p.polity,
+        &reader.1,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        100,
+    );
+    assert!(!is_prunable(&entry, &p.polity, t(10_000)));
+}
+
+#[test]
+fn two_vouchers_for_one_reader_are_one_reader() {
+    // Distinctness is keyed on the pair, so a prolific attester cannot inflate the
+    // count and one reader with two vouchers is still one corroborating reader.
+    let p = Polity::new(3);
+    let (mut a, readers) = charter_read_by(&p, 3);
+    let x = id();
+    let y = id();
+    a.append(attest(&p.polity, &readers[0].1, &x, &x, IndependenceKind::Independent, 500)).unwrap();
+    a.append(attest(&p.polity, &readers[0].1, &y, &y, IndependenceKind::Independent, 600)).unwrap();
+    a.append(attest(&p.polity, &readers[0].1, &x, &x, IndependenceKind::Independent, 700)).unwrap();
+    check_authority(&a).unwrap();
+    let ri = reader_independence(&a, &p.polity, t(800));
+    assert_eq!(ri.attesters[readers[0].1.as_str()].len(), 2);
+    assert_eq!(independent_corroboration(&a, &p.polity, t(800)).count(), 1);
+}
+
+#[test]
+fn a_convener_asserted_founding_has_no_readers_to_attest() {
+    let p = Polity::new(3);
+    let a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    assert!(reader_independence(&a, &p.polity, t(500)).attesters.is_empty());
+    assert_eq!(independent_corroboration(&a, &p.polity, t(500)).count(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// D25 — the successors a dissolution names.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_polity_may_not_name_itself_as_its_own_successor() {
+    // Measured before the slice: green under `check_authority`, and `charter_state`
+    // then reported a dissolved polity whose line of descent pointed back at itself.
+    // Terminal dissolution forbids any later act, so that continuation is one the
+    // archive can never honour.
+    let p = Polity::new(3);
+    let mut a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    a.append(p.dissolve(&[p.polity.clone()], &[0, 1, 2], 400)).unwrap();
+    verify_all(&a).unwrap();
+    assert!(sole_violation(&a).contains("cannot succeed itself"));
+}
+
+#[test]
+fn a_successor_may_not_be_named_twice() {
+    // Measured: `successors.len() == 2` for one real successor. After D21, a count
+    // nobody checks is a count that misleads — the fan-out of a fission is a number.
+    let p = Polity::new(3);
+    let heir = id().1;
+    let mut a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    a.append(p.dissolve(&[heir.clone(), heir], &[0, 1, 2], 400)).unwrap();
+    assert!(sole_violation(&a).contains("named twice as a successor"));
+}
+
+#[test]
+fn a_successor_may_not_be_one_of_the_polity_s_own_members() {
+    // The third of the closure family: a machine cannot guard a machine (D15), a ground
+    // may not sit inside what it grounds (D23), and a successor is a polity rather than
+    // somebody on the roll.
+    let p = Polity::new(3);
+    let mut a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    a.append(p.dissolve(&[p.ids[0].1.clone()], &[0, 1, 2], 400)).unwrap();
+    assert!(sole_violation(&a).contains("not a polity"));
+}
+
+#[test]
+fn a_dissolution_naming_distinct_outside_successors_is_fine() {
+    // The control: an honest N-way split still passes, and the state reports the line
+    // of descent.
+    let p = Polity::new(3);
+    let heirs = vec![id().1, id().1, id().1];
+    let mut a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    a.append(p.dissolve(&heirs, &[0, 1, 2], 400)).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    let st = charter_state(&a, &p.polity, t(500));
+    assert!(st.dissolved);
+    assert_eq!(st.successors, heirs);
+}
+
+#[test]
+fn a_dissolution_naming_nobody_is_still_fine() {
+    // A polity may simply end. Naming no successor is not an error — it is the
+    // difference between a fission and a death, and the tier records both.
+    let p = Polity::new(3);
+    let mut a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    a.append(p.dissolve(&[], &[0, 1, 2], 400)).unwrap();
+    check_authority(&a).unwrap();
+    assert!(charter_state(&a, &p.polity, t(500)).successors.is_empty());
 }

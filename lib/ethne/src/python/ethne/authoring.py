@@ -302,6 +302,44 @@ def disavow_substrate(
     )
 
 
+# ---- Reader independence ----------------------------------------------------
+
+
+def attest_reader_independence(
+    archive,
+    polity_did: str,
+    reader_did: str,
+    attester: Signer,
+    kind: str = "Independent",
+    basis: str = "",
+    attested_at: Optional[int] = None,
+) -> str:
+    """File a third party's account of whether a reader of a founding is an independent
+    principal (D24).
+
+    `kind` is `"Independent"` (vouching) or `"Controlled"` — the counter-claim, so the
+    lens can be contradicted by somebody who thinks it is being fooled.
+
+    **Why this record exists.** D22 made a boundary's reading attributable: signed by
+    the reader it names, bound to that founding. What it could not do is tell one reader
+    from five faces of the same actor — measured, one party minted five keys, signed five
+    identical readings, and the charter graded `Corroborated`, at 32 microseconds a
+    voice. A count of distinct signing readers therefore cannot mean what it appears to.
+
+    The attester signs alone, and `reader_did` must actually be a reader of that
+    founding. Whether the attester is *disinterested* is the lens' concern, not this
+    call's: an attestation from the polity, the reader itself, or a founding member is
+    accepted and reported separately rather than refused.
+
+    **What it buys, plainly:** not proof of independence, and nothing adjudicates the
+    claim. It moves the cost of faking corroboration from one key to a second party
+    willing to be named for it, permanently. Like a dissent and a disavowal it survives
+    dissolution and cannot be pruned."""
+    return archive.attest_reader_independence(
+        polity_did, reader_did, attester.did, attester.priv, kind, basis, attested_at
+    )
+
+
 # ---- Observation ------------------------------------------------------------
 
 

@@ -23,7 +23,8 @@
 //! parties and the human each answers to, who the polity authorizes to speak for
 //! it beyond itself, what its monitors observed, the pruning of that observation
 //! record, members' induction / re-affirmation of the substrate, dissent from the
-//! founding boundary, and dissolution. That is every act the tier records, so this **is** the
+//! founding boundary, the substrate anchor's withdrawal, third-party accounts of
+//! whether a reader of the founding was independent, and dissolution. That is every act the tier records, so this **is** the
 //! ethne-wide entry enum — earlier drafts of this note promised a later slice
 //! would fold a founding-slice type together with the rest, and there is nothing
 //! left to fold. Cohesion is not among them and never will be: a `CohesionReport`
@@ -42,7 +43,7 @@ use serde::{Deserialize, Serialize};
 use crate::record::{
     Affirmation, BoundaryDissent, CharterDissolution, CommitmentAmendment, EnvoyAuthorization,
     GuardianChange, MembershipChange, Observation, ObservationPruning, OfficeChange, PolityCharter,
-    SubstrateDisavowal,
+    ReaderIndependenceAttestation, SubstrateDisavowal,
 };
 
 /// An entry in a polity's charter log.
@@ -81,6 +82,11 @@ pub enum CharterEntry {
     /// asserts rather than decides, survives dissolution, and changes no
     /// reconstructed state: the substrate is genesis-immutable.
     SubstrateDisavowed(Signed<SubstrateDisavowal>),
+    /// A third party's account of whether a named reader of the founding is an
+    /// independent principal (design **D24**). Evidence about the founding, like
+    /// `BoundaryDissented` and `SubstrateDisavowed`: it changes no state, survives
+    /// dissolution, and is counted by a lens rather than enforced by a rule.
+    ReaderIndependenceAttested(Signed<ReaderIndependenceAttestation>),
     /// The deliberate winding-up of the polity (terminal; may name successors).
     CharterDissolved(Signed<CharterDissolution>),
 }
@@ -99,6 +105,7 @@ impl CharterEntry {
             CharterEntry::Observed(s) => &s.signatures,
             CharterEntry::BoundaryDissented(s) => &s.signatures,
             CharterEntry::SubstrateDisavowed(s) => &s.signatures,
+            CharterEntry::ReaderIndependenceAttested(s) => &s.signatures,
             CharterEntry::ObservationsPruned(s) => &s.signatures,
             CharterEntry::CharterDissolved(s) => &s.signatures,
         };
@@ -118,6 +125,7 @@ impl CharterEntry {
             CharterEntry::Observed(s) => &s.payload.polity,
             CharterEntry::BoundaryDissented(s) => &s.payload.polity,
             CharterEntry::SubstrateDisavowed(s) => &s.payload.polity,
+            CharterEntry::ReaderIndependenceAttested(s) => &s.payload.polity,
             CharterEntry::ObservationsPruned(s) => &s.payload.polity,
             CharterEntry::CharterDissolved(s) => &s.payload.polity,
         }
@@ -137,6 +145,7 @@ impl Entry for CharterEntry {
             CharterEntry::Observed(_) => "Observed",
             CharterEntry::BoundaryDissented(_) => "BoundaryDissented",
             CharterEntry::SubstrateDisavowed(_) => "SubstrateDisavowed",
+            CharterEntry::ReaderIndependenceAttested(_) => "ReaderIndependenceAttested",
             CharterEntry::ObservationsPruned(_) => "ObservationsPruned",
             CharterEntry::CharterDissolved(_) => "CharterDissolved",
         }
@@ -162,6 +171,7 @@ pub fn verify_entry(entry: &CharterEntry) -> KcResult<()> {
         CharterEntry::Observed(s) => s.verify(didkey_resolver),
         CharterEntry::BoundaryDissented(s) => s.verify(didkey_resolver),
         CharterEntry::SubstrateDisavowed(s) => s.verify(didkey_resolver),
+        CharterEntry::ReaderIndependenceAttested(s) => s.verify(didkey_resolver),
         CharterEntry::ObservationsPruned(s) => s.verify(didkey_resolver),
         CharterEntry::CharterDissolved(s) => s.verify(didkey_resolver),
     }

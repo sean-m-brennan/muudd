@@ -43,7 +43,8 @@ use en_charter::{
     affirmation_state, apply_prunings, authority_violations, charter_state, check_authority,
     decay_trends, envoy_state, guardian_state, observation_window, office_state,
     founding_dissent as founding_dissent_rs, founding_legitimacy as founding_legitimacy_rs, prunable_observations,
-    substrate_disavowal as substrate_disavowal_rs,
+    independent_corroboration as independent_corroboration_rs,
+    reader_independence as reader_independence_rs, substrate_disavowal as substrate_disavowal_rs,
     prune_recommendation as prune_recommendation_rs, pruning_digest,
     verify_all, Affirmation,
     AffirmationKind, AffirmationState, AmendmentKind, CharterDissolution, CharterEntry, Commitment,
@@ -55,8 +56,9 @@ use en_charter::{
 };
 use en_charter::{
     BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion, FoundingBasis,
-    FoundingDissent, FoundingLegitimacy, GroundStanding, SubstrateDisavowal, SubstrateGrounding,
-    SubstrateReading,
+    FoundingDissent, FoundingLegitimacy, GroundStanding, IndependenceKind,
+    IndependentCorroboration, ReaderIndependence, ReaderIndependenceAttestation,
+    SubstrateDisavowal, SubstrateGrounding, SubstrateReading,
 };
 use en_store::{ArchiveStore, FileStore, SaveOutcome};
 use en_cohesion::{
@@ -907,14 +909,15 @@ fn cohesion_report(
 // ---- Uplift: the interface to kith-covenant ---------------------------------
 
 /// The bundle a fission emits, each artifact as JSON a KC-side consumer appends
-/// verbatim.
+/// verbatim: the successor identities, one successor link per successor
+/// (index-aligned with them), and the predecessor's dissolution naming them all.
+///
+/// **N-ary since design D25**, so this is the exact mirror of `FusionOutcome`.
 #[pyclass(name = "FissionOutcome", get_all)]
 #[derive(Clone)]
 struct PyFissionOutcome {
-    successor_a: String,
-    successor_b: String,
-    link_a: String,
-    link_b: String,
+    successors: Vec<String>,
+    links: Vec<String>,
     dissolution: String,
 }
 
@@ -2001,6 +2004,100 @@ impl PyArchive {
         self.append(CharterEntry::SubstrateDisavowed(signed))
     }
 
+    /// Who has vouched for (or challenged) `polity_did`'s founding readers, as of
+    /// `as_of` (design **D24**).
+    ///
+    /// D22 made a boundary's reading *attributable* but could not tell one reader from
+    /// five faces of the same actor: measured, one party minted five `did:key`s, signed
+    /// five identical readings, and the charter graded `Corroborated` — 32 µs a voice.
+    /// So the count of distinct signing readers cannot mean what it appears to mean,
+    /// and this is where the vouching for it lives.
+    ///
+    /// Attesters are sorted by **stake**: `attesters` counts, while the polity itself,
+    /// the reader itself, and anyone on the founding roll land in
+    /// `interested_attesters` — recorded, because somebody signed their name to it, and
+    /// not credited, because a founder vouching for the founding's own reader is the
+    /// sockpuppet move one step out.
+    ///
+    /// A **lens, never a gate**: a young honest founding has no attestations, and
+    /// nothing here refuses one for it.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn reader_independence(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyReaderIndependence> {
+        let r = reader_independence_rs(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyReaderIndependence { inner: r })
+    }
+
+    /// Which of `polity_did`'s corroborating readers are independently vouched for, as
+    /// of `as_of` — **the upgrade of D22's corroboration count** (design **D24**).
+    ///
+    /// The conjunction of two different questions: a reader who agrees with the ratified
+    /// boundary but has no outside voucher might be five faces of the convener, and a
+    /// vouched-for reader who read a *different* boundary corroborates nothing. Only
+    /// both together mean what "corroborated" appears to mean, so a chorus of five
+    /// hundred minted readers scores `0` here.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn independent_corroboration(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyIndependentCorroboration> {
+        let c =
+            independent_corroboration_rs(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyIndependentCorroboration { inner: c })
+    }
+
+    /// File a third party's account of whether `reader_did` — a reader of
+    /// `polity_did`'s founding — is an independent principal (design **D24**).
+    ///
+    /// `kind` is `"Independent"` (vouching) or `"Controlled"` (the counter-claim, so the
+    /// lens can be contradicted by somebody who thinks it is being fooled).
+    ///
+    /// The attester signs alone, and `reader_did` must actually appear among the
+    /// founding's readings — coherence with the record spoken about, never its truth.
+    /// Whether the attester is disinterested is the *lens'* concern, not this call's: an
+    /// interested attestation is accepted and reported separately rather than refused.
+    ///
+    /// **What this buys, stated plainly:** it does not prove independence and nothing
+    /// adjudicates the claim. It moves the cost of faking corroboration from one key to
+    /// a second party willing to be *named* for it, permanently.
+    #[pyo3(signature = (polity_did, reader_did, attester_did, attester_priv, kind="Independent", basis="", attested_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn attest_reader_independence(
+        &mut self,
+        polity_did: &str,
+        reader_did: &str,
+        attester_did: &str,
+        attester_priv: &[u8],
+        kind: &str,
+        basis: &str,
+        attested_at: Option<i64>,
+    ) -> PyResult<String> {
+        let signers = Signers::only(attester_did, attester_priv)?;
+        let kind = match kind {
+            "Independent" => IndependenceKind::Independent,
+            "Controlled" => IndependenceKind::Controlled,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown independence kind {other:?} (expected Independent or Controlled)"
+                )))
+            }
+        };
+        let record = ReaderIndependenceAttestation {
+            polity: parse_did(polity_did)?,
+            reader: parse_did(reader_did)?,
+            attesting_party: parse_did(attester_did)?,
+            kind,
+            basis: basis.to_string(),
+            attested_at: ts_or_now(attested_at)?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::ReaderIndependenceAttested(signed))
+    }
+
     /// The polity's decay trends as of `as_of` — the affirmation series and its
     /// gaps, induction witness counts, and roll changes. Read from the polity's own
     /// signed records, never from a provider.
@@ -2115,32 +2212,39 @@ impl PyArchive {
         serde_json::to_string(&signed).map_err(json_err_to_py)
     }
 
-    /// Emit a **ratified** split: the community has already chartered two
-    /// successors (pass their identities as JSON); this signs, under the
-    /// predecessor's root, a successor link to each plus the predecessor's
-    /// dissolution naming both. Nothing is appended here — to put the dissolution
-    /// in this log and have it pass the authority rules, the deciders must
-    /// co-sign it through `dissolve_charter`.
+    /// Emit a **ratified** split into N (≥ 2) successors: the community has already
+    /// chartered them (pass their identities as a list of JSON strings); this signs,
+    /// under the predecessor's root, a successor link to each plus the predecessor's
+    /// dissolution naming them all. Nothing is appended here — to put the dissolution
+    /// in this log and have it pass the authority rules, the deciders must co-sign it
+    /// through `dissolve_charter`.
+    ///
+    /// **N-ary since design D25**, mirroring `fusion`. The guards are fusion's in the
+    /// other direction: at least two successors, no successor named twice, no successor
+    /// that is the predecessor itself, and every successor's own self-signature
+    /// verified — without which the predecessor's root key would sign a link to
+    /// whatever it was handed.
     #[pyo3(signature = (
-        polity_did, successor_a_json, successor_b_json, root_priv,
+        polity_did, successor_jsons, root_priv,
         decider_dids=Vec::new(), rationale=String::new(), at=None,
     ))]
-    #[allow(clippy::too_many_arguments)]
     fn fission(
         &self,
         polity_did: &str,
-        successor_a_json: &str,
-        successor_b_json: &str,
+        successor_jsons: Vec<String>,
         root_priv: &[u8],
         decider_dids: Vec<String>,
         rationale: String,
         at: Option<i64>,
     ) -> PyResult<PyFissionOutcome> {
         let charter = self.charter_of(&parse_did(polity_did)?)?;
+        let successors = successor_jsons
+            .iter()
+            .map(|j| parse_identity(j))
+            .collect::<PyResult<Vec<_>>>()?;
         let outcome = en_uplift::fission(
             &charter,
-            parse_identity(successor_a_json)?,
-            parse_identity(successor_b_json)?,
+            successors,
             parse_dids(&decider_dids)?,
             &priv_from_bytes(root_priv),
             rationale,
@@ -2148,10 +2252,12 @@ impl PyArchive {
         )
         .map_err(en_err_to_py)?;
         Ok(PyFissionOutcome {
-            successor_a: to_json(&outcome.successor_a)?,
-            successor_b: to_json(&outcome.successor_b)?,
-            link_a: to_json(&outcome.links[0])?,
-            link_b: to_json(&outcome.links[1])?,
+            successors: outcome
+                .successors
+                .iter()
+                .map(to_json)
+                .collect::<PyResult<Vec<_>>>()?,
+            links: outcome.links.iter().map(to_json).collect::<PyResult<Vec<_>>>()?,
             dissolution: to_json(&outcome.dissolution)?,
         })
     }
@@ -2941,6 +3047,113 @@ impl PyGroundStanding {
     }
 }
 
+#[pyclass(name = "ReaderIndependence")]
+#[derive(Clone)]
+struct PyReaderIndependence {
+    inner: ReaderIndependence,
+}
+
+fn map_out(m: &std::collections::BTreeMap<String, std::collections::BTreeSet<String>>)
+    -> Vec<(String, Vec<String>)> {
+    m.iter().map(|(k, v)| (k.clone(), v.iter().cloned().collect())).collect()
+}
+
+#[pymethods]
+impl PyReaderIndependence {
+    /// reader → the distinct **disinterested** parties who vouched for it. The ones
+    /// that count.
+    #[getter]
+    fn attesters(&self) -> Vec<(String, Vec<String>)> {
+        map_out(&self.inner.attesters)
+    }
+
+    /// reader → parties who vouched but have a stake: the polity, the reader itself, or
+    /// a founding member. Recorded rather than discarded, and reported rather than
+    /// quietly folded in.
+    #[getter]
+    fn interested_attesters(&self) -> Vec<(String, Vec<String>)> {
+        map_out(&self.inner.interested_attesters)
+    }
+
+    /// reader → parties asserting it is **not** independent. Counted from anyone,
+    /// deliberately: interest disqualifies praise, not warning, and a founder breaking
+    /// ranks is the most informative possible source for the claim.
+    #[getter]
+    fn contested(&self) -> Vec<(String, Vec<String>)> {
+        map_out(&self.inner.contested)
+    }
+
+    /// Readers with at least one disinterested voucher.
+    #[getter]
+    fn independent_readers(&self) -> Vec<String> {
+        self.inner.independent_readers().iter().map(|r| (*r).to_string()).collect()
+    }
+
+    fn is_attested(&self, reader_did: &str) -> bool {
+        self.inner.is_attested(reader_did)
+    }
+
+    fn is_contested(&self, reader_did: &str) -> bool {
+        self.inner.is_contested(reader_did)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ReaderIndependence(independent={}, interested={}, contested={})",
+            self.inner.independent_readers().len(),
+            self.inner.interested_attesters.len(),
+            self.inner.contested.len()
+        )
+    }
+}
+
+#[pyclass(name = "IndependentCorroboration")]
+#[derive(Clone)]
+struct PyIndependentCorroboration {
+    inner: IndependentCorroboration,
+}
+
+#[pymethods]
+impl PyIndependentCorroboration {
+    /// Readers who **both** agree with the ratified boundary and carry a disinterested
+    /// voucher — the number D22 could not produce.
+    #[getter]
+    fn readers(&self) -> Vec<String> {
+        self.inner.readers.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// Of those, the ones somebody has also claimed are controlled — so "independently
+    /// corroborated" cannot quietly mean "and nobody objected".
+    #[getter]
+    fn contested(&self) -> Vec<String> {
+        self.inner.contested.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// Those with a voucher and no counter-claim.
+    #[getter]
+    fn uncontested(&self) -> Vec<String> {
+        self.inner.uncontested().iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// Whether any independently-vouched reader agrees with what was ratified.
+    #[getter]
+    fn any(&self) -> bool {
+        self.inner.any()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.count()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "IndependentCorroboration(readers={}, contested={})",
+            self.inner.count(),
+            self.inner.contested.len()
+        )
+    }
+}
+
 fn grounding_name(g: SubstrateGrounding) -> &'static str {
     match g {
         SubstrateGrounding::Anchored => "Anchored",
@@ -3168,6 +3381,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPruneRecommendation>()?;
     m.add_class::<PyFoundingLegitimacy>()?;
     m.add_class::<PyGroundStanding>()?;
+    m.add_class::<PyReaderIndependence>()?;
+    m.add_class::<PyIndependentCorroboration>()?;
     m.add_class::<PyCursor>()?;
     m.add_class::<PySaveOutcome>()?;
     m.add_class::<PyFileStore>()?;

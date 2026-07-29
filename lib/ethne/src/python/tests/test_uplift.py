@@ -90,17 +90,18 @@ def test_a_concern_crosses_only_at_concern_level(polity):
     assert payload["ladder_rung"] is None
 
 
-def test_fission_emits_two_links_and_a_dissolution(polity, found):
+def test_fission_emits_a_link_per_successor_and_a_dissolution(polity, found):
     _a, alpha = _identity(found, "Alpha")
     _b, beta = _identity(found, "Beta")
 
     outcome = fission(
-        polity.archive, polity.did, alpha, beta, polity.priv,
+        polity.archive, polity.did, [alpha, beta], polity.priv,
         deciders=polity.founders[:2], rationale="irreconcilable readings", at=800,
     )
 
     successor_dids = [identity_dict(s)["payload"]["did"] for s in (alpha, beta)]
-    for link_json, successor in zip((outcome.link_a, outcome.link_b), successor_dids):
+    assert len(outcome.links) == len(outcome.successors) == 2
+    for link_json, successor in zip(outcome.links, successor_dids):
         link = json.loads(link_json)["payload"]
         assert link["previous_did"] == polity.did
         assert link["new_did"] == successor
@@ -110,6 +111,42 @@ def test_fission_emits_two_links_and_a_dissolution(polity, found):
     assert dissolution["rationale"] == "irreconcilable readings"
     # Emission, not appending: the log still holds only the charter.
     assert len(polity.archive) == 1
+
+
+def test_a_three_way_split_is_one_act(polity, found):
+    # The D25 point: before this, three successors took two chained fissions, which
+    # recorded an intermediate polity nobody lived in.
+    idents = [_identity(found, n)[1] for n in ("A", "B", "C")]
+    outcome = fission(
+        polity.archive, polity.did, idents, polity.priv,
+        deciders=polity.founders[:2], rationale="three ways", at=800,
+    )
+    assert len(outcome.successors) == 3
+    assert len(outcome.links) == 3
+    dids = [identity_dict(i)["payload"]["did"] for i in idents]
+    assert json.loads(outcome.dissolution)["payload"]["successors"] == dids
+
+
+def test_a_split_into_one_is_not_a_split(polity, found):
+    _a, alpha = _identity(found, "Alpha")
+    with pytest.raises(RuntimeError, match="at least two"):
+        fission(polity.archive, polity.did, [alpha], polity.priv, at=800)
+
+
+def test_fission_rejects_one_successor_named_twice(polity, found):
+    _a, alpha = _identity(found, "Alpha")
+    with pytest.raises(RuntimeError, match="twice"):
+        fission(polity.archive, polity.did, [alpha, alpha], polity.priv, at=800)
+
+
+def test_a_polity_cannot_succeed_itself(polity, found):
+    # The predecessor's own identity offered as one of its successors.
+    itself = community_identity(
+        polity.archive, polity.did, "Self", polity.priv, polity.pub, created_at=700
+    )
+    _b, beta = _identity(found, "Beta")
+    with pytest.raises(RuntimeError, match="cannot succeed itself"):
+        fission(polity.archive, polity.did, [itself, beta], polity.priv, at=800)
 
 
 def test_fusion_merges_predecessors_from_one_log(found):
@@ -167,7 +204,7 @@ def test_fusion_refuses_a_repeated_predecessor(polity, found):
 def test_fission_rejects_a_non_identity_payload(polity, found):
     _a, alpha = _identity(found, "Alpha")
     with pytest.raises(ValueError, match="signed community identity"):
-        fission(polity.archive, polity.did, alpha, "{}", polity.priv, at=800)
+        fission(polity.archive, polity.did, [alpha, "{}"], polity.priv, at=800)
 
 # --- the envoy artifact (D14) ------------------------------------------------
 

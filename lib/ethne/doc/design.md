@@ -1049,7 +1049,7 @@ KC cannot see on its own and AT cannot decide on its own.
     following kith-covenant's capture-move-1 precedent exactly, where a declared
     `interpreter_did` was likewise "just a name the community minted" and the
     plurality count was kept a lens with independence attested separately.
-    **Independence attestation is the named successor to D22.**
+    **Independence attestation was the named successor to D22, and is built as D24.**
   - A dissent asserts; it does not adjudicate. Nothing decides whether a dissenter
     tells the truth, and nothing should — that is the "replace emergence" move the
     tier refuses.
@@ -1133,6 +1133,124 @@ KC cannot see on its own and AT cannot decide on its own.
     it now is.
   - Nothing new crosses to KC. D4 holds; the border stays at four artifacts — the
     Concern travels on the existing one.
+
+- **D24 — whether a founding's readers were their own principals (locked 2026-07-29,
+  closing the residue D22 named as its own successor).** D22 made a reading
+  *attributable*; it could not tell one reader from five faces of the same actor.
+  Measured: one party minted five `did:key`s, signed five identical readings of the same
+  boundary, and the charter graded **`Corroborated`** — the highest basis the tier awards
+  — with both verification passes green and no dissent anywhere. And the chorus is
+  cheap in a way worth stating numerically: **500 readers minted and signed in 16.2 ms,
+  32 µs a voice.** "`did:key` costs nothing" is not a figure of speech, so a count of
+  distinct signing readers cannot mean what it appears to mean.
+
+  kith-covenant reached the identical problem for capture move 1 and answered it with
+  `InterpreterIndependenceAttestation` plus a lens that counts *vouching* rather than
+  self-declaration. The shape transfers directly.
+
+  **The record.** A thirteenth entry, `ReaderIndependenceAttested`, over
+  `IndependenceKind { Independent, Controlled }`: a third party's account of a named
+  reader of a named founding. Three authority rules — signed by **exactly** the attesting
+  party (nobody vouches in another's name), it must postdate the charter, and the reader
+  must **actually appear among the founding's readings**. That last is a *gate* where KC
+  keeps it a lens, on the line D22's dissent arm already draws: coherence with the record
+  spoken about is checkable, the truth of the claim never is. It needed `Reconstructed`
+  to carry the founding's readers, exactly as D23 needed it to carry the anchor — the
+  subject of the claim is *in* the record even though the claim is not.
+
+  **Who counts, and who is merely recorded.** An attestation from the polity, from the
+  reader itself, or from **anyone on the founding roll** does not count toward
+  independence: the founders are precisely the interested party, so a founder vouching
+  for the founding's own reader is the sockpuppet move one step out. This is stricter
+  than KC, which excludes only the community and the interpreter, and it is affordable
+  for the same reason D23's rules were — the roll is on the charter. But the record is
+  **accepted and reported separately** as an interested attestation rather than refused:
+  destroying a claim somebody signed their name to serves nobody, where merely not
+  crediting it costs nothing. Gate the signature; grade the counting.
+
+  **The number D22 could not produce.** `independent_corroboration` is the conjunction of
+  two different questions: readers who *both* agree with the ratified boundary *and*
+  carry a disinterested voucher. A chorus of five hundred minted readers scores `0`. It
+  is a separate, accruing read-model rather than a field on `founding_legitimacy`, on the
+  test D22 stated and D23 reused: that read-model derives from the genesis charter alone
+  and must give the same answer forever, and attestations arrive afterwards.
+
+  **And the lens can be told it is being fooled.** The `Controlled` arm lets a party
+  assert a named reader is *not* independent — one enum on the same record rather than a
+  new entry class, following D22's dissent and D23's disavowal in letting whoever is
+  contradicted speak. It counts **from anyone**, deliberately: interest disqualifies
+  *praise*, not *warning*, and a founder breaking ranks to say "that reader is one of
+  ours" is the most informative possible source for the claim. A contested reader is
+  reported as contested, never as disqualified; nothing here adjudicates.
+
+  **A category, not a third exception.** Permitting this after dissolution makes three
+  such classes, and three is enough to name the rule: records that are **evidence about
+  the founding** — dissent (D22), disavowal (D23), independence (D24) — outlive the
+  polity, because the founding's legitimacy does (kith-covenant holds a
+  `CommunityIdentity` derived from that charter), where **governing acts** die with it.
+  All three are likewise unprunable for free, since `is_prunable` matches only
+  observations.
+
+  **The honest limits.**
+  - **An attestation is itself unverifiable, and this does not pretend otherwise.** It
+    does not prove independence. It moves the cost of faking corroboration from one key
+    (32 µs) to a second party willing to be **named** for the claim, permanently. That is
+    strictly more than nothing and strictly less than proof.
+  - **A lens, never a gate.** Nothing refuses a founding for having no attestations,
+    because a young honest founding has none and refusing it would be refusing newness.
+    This is precisely where kith-covenant left move 1.
+  - **No `en-cohesion` component, deliberately.** Independence is a founding-time
+    *evidentiary* property, not strain in a living polity; D23's disavowal earned a
+    component because a ground withdrawing is an ongoing condition. Recording the
+    omission as a decision rather than leaving it to look like an oversight.
+  - **The sockpuppet can recurse**, and nothing here stops it: an actor with two
+    identities can have one vouch for the other, and only the *roll* filter and the
+    absence of a further attester make that visible. What the tier now has is a named
+    party to point at when it turns out badly, which is the whole of what it claimed.
+  - Nothing new crosses to KC. D4 holds; the border stays at four artifacts.
+
+- **D25 — N-ary fission, and the successor rules nothing enforced (locked 2026-07-29).**
+  The last item on the tier's own still-open list was arity: `fusion` takes N ≥ 2
+  predecessors while `fission` was pinned at two by its types (`successor_a` /
+  `successor_b`, `links: [_; 2]`). A three-way split therefore had to be two chained
+  fissions, which recorded a history nobody lived — an intermediate polity that existed
+  only to be dissolved again.
+
+  **The measured hole was larger than the arity.** Fusion carries four guards; **fission
+  carried none.** Measured, all three passing before this slice: a "split" naming the
+  **same successor twice**; a split naming the **predecessor itself** as its own
+  successor; and — the serious one — a successor whose **own self-signature does not
+  verify**, for which fission signed a `SuccessorLink` under the predecessor's root
+  anyway. That last had the polity's root key vouching for a forgery.
+
+  **And the archive half was open too**, which matters more: `authority.rs` never
+  mentioned `successors` at all, so a hand-built `CharterDissolution` could name its own
+  polity, or one successor twice, and pass `check_authority`. `en-uplift` only *emits*
+  records; the authority pass is what a consumer verifies, so guards that live only in
+  the emitter are guards a hand-built record walks around.
+
+  So: `fission` becomes N-ary and inherits fusion's four guards in the other direction
+  (arity ≥ 2, pairwise-distinct successors, no collision with the predecessor,
+  `verify_self_signed` on **every** successor), and the `CharterDissolved` arm gains
+  three rules of its own — no duplicate successor, no self-successor, and no successor
+  that is on the dissolving polity's own roll. That last is the **third** of a family
+  now: *a machine cannot guard a machine* (D15), *a ground inside what it grounds is no
+  ground* (D23), and a successor is a polity rather than somebody on the roll. Naming
+  **no** successor stays valid — that is the difference between a fission and a death,
+  and the tier records both.
+
+  **The honest limits.**
+  - **These guards are structural, and that is all they are.** Nothing here can tell a
+    legitimate split from a faction dividing the spoils. That judgement is not the
+    tier's: the split is a *ratified* act (D4/Q2 — the monitor never decides one), and
+    this records it rather than approving it.
+  - **The successor DIDs are not checked for being chartered polities**, because at
+    fission time they need not be in this archive at all — the successors' own foundings
+    are their business, and a KC-side consumer holds their identities. What is checked is
+    everything the record can answer for itself.
+  - An API break, and the second this month: `FissionOutcome`'s fields change shape.
+    `links` was `[_; 2]`, so it could not have survived the generalization in any case.
+    Tally is now D20 (envelope v2), D21, D22, D25.
 
 
 ## Open questions (round 2)
@@ -1264,7 +1382,7 @@ relation KC governs) and from the anonymous nodes AT knows. Rust crate prefix
 
 ## Status & next steps
 
-Decisions D1–D23 locked; **every open question Q1–Q9 resolved**. Build order (steps 1–5
+Decisions D1–D25 locked; **every open question Q1–Q9 resolved**. Build order (steps 1–5
 **built**):
 
 1. ✅ Scaffold the `ethne` workspace (D2) with `en-core` deps on `kc-core`, and a

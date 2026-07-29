@@ -168,6 +168,11 @@ struct Reconstructed {
     /// a disavowal must be: the ground is *in* the record, unlike an omitted party,
     /// so unlike a dissent the filer is checkable.
     anchor: Option<DidKey>,
+    /// Every reader that signed a reading behind the founding boundary, set once at
+    /// genesis (design **D24**). An independence attestation must name one of these:
+    /// like the anchor, a reader is *in* the record, so the subject of the claim is
+    /// checkable even though the claim itself never can be.
+    founding_readers: BTreeSet<String>,
 }
 
 /// Reconstruct a polity's charter state from entries strictly before `upto`.
@@ -186,6 +191,7 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
         envoys: Vec::new(),
         founding_exclusions: BTreeSet::new(),
         anchor: None,
+        founding_readers: BTreeSet::new(),
     };
     for (idx, (_cid, e)) in archive.iter().enumerate() {
         if idx >= upto {
@@ -207,6 +213,9 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                     r.founding_exclusions.insert(x.member.as_str().to_string());
                 }
                 r.anchor = s.payload.substrate.anchor.clone();
+                for rd in s.payload.attestation.source.readings() {
+                    r.founding_readers.insert(rd.payload.reader.as_str().to_string());
+                }
             }
             CharterEntry::CommitmentAmended(s) if &s.payload.polity == polity => match s.payload.kind {
                 AmendmentKind::Add => {
@@ -299,9 +308,16 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
             // genesis-immutable substrate — a withdrawal that voided a charter would
             // hand any anchor a unilateral kill switch over a polity, which is a
             // worse hole than the one D23 closed.
+            // None of these four changes reconstructed state. They are **evidence
+            // about the founding** rather than governing acts: an observation records
+            // what someone saw; a dissent is an excluded party's assertion; a
+            // disavowal is the ground's, which cannot rewrite a genesis-immutable
+            // substrate; and an independence attestation is a third party's account of
+            // a reader, counted by a lens and enforced by no rule.
             CharterEntry::Observed(_)
             | CharterEntry::BoundaryDissented(_)
-            | CharterEntry::SubstrateDisavowed(_) => {}
+            | CharterEntry::SubstrateDisavowed(_)
+            | CharterEntry::ReaderIndependenceAttested(_) => {}
             CharterEntry::ObservationsPruned(s) if &s.payload.polity == polity => {
                 let h = s.payload.horizon;
                 if r.prune_horizon.is_none_or(|prev| h > prev) {
@@ -1524,6 +1540,52 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     Some(_) => {}
                 }
             }
+            CharterEntry::ReaderIndependenceAttested(s) => {
+                let a = &s.payload;
+                let prior = reconstruct(archive, &a.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!(
+                        "an attestation about {}'s readers precedes its founding", a.polity
+                    )));
+                    continue;
+                }
+                // DELIBERATELY no dissolution guard — the THIRD such class, and at
+                // this point it is a category rather than a list of exceptions.
+                // Dissent, disavowal and this are all *evidence about the founding*,
+                // and a founding's legitimacy outlives its polity (kith-covenant holds
+                // a CommunityIdentity derived from that charter). Governing acts die
+                // with the polity; accounts of how it came to be do not.
+                //
+                // Nobody vouches in somebody else's name.
+                let signers = e.signer_dids();
+                let sole: BTreeSet<String> =
+                    std::iter::once(a.attesting_party.as_str().to_string()).collect();
+                if signers != sole {
+                    out.push((
+                        *cid,
+                        "an attestation must be signed by exactly its attesting party"
+                            .to_string(),
+                    ));
+                    continue;
+                }
+                // Coherence with the record it speaks about — never its truth, which
+                // is the same line D22's dissent arm draws. A reader the founding never
+                // carried cannot be vouched for or challenged *as a reader of this
+                // founding*: there is no such party in the record.
+                //
+                // Note what is NOT checked here. Whether the attester is disinterested
+                // is a matter for the LENS (`reader_independence`), not for this pass:
+                // an interested attestation is a real fact somebody signed, and
+                // refusing it would destroy information, where merely not crediting it
+                // costs nothing. Gate the signature, grade the counting.
+                if !prior.founding_readers.contains(a.reader.as_str()) {
+                    out.push((*cid, format!(
+                        "{} is not a reader of {}'s founding; there is nothing to attest",
+                        a.reader, a.polity
+                    )));
+                    continue;
+                }
+            }
             CharterEntry::CharterDissolved(s) => {
                 let d = &s.payload;
                 let prior = reconstruct(archive, &d.polity, idx);
@@ -1559,6 +1621,51 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                         "dissolution needs a majority of the roll (>= {need}), got {}",
                         d.deciders.len()
                     )));
+                    continue;
+                }
+                // D25 — the successors a dissolution names must be coherent.
+                //
+                // Until this, `successors` was checked by NOTHING: the emitter
+                // (`en_uplift::fission`) carried no guards either, so a dissolution
+                // could name its own polity, or one successor twice, and pass. That
+                // matters more here than in the emitter, because en-uplift only
+                // *emits* records while this pass is what a consumer verifies.
+                let mut named: BTreeSet<&str> = BTreeSet::new();
+                let mut bad_successor = false;
+                for succ in &d.successors {
+                    if !named.insert(succ.as_str()) {
+                        out.push((*cid, format!(
+                            "{succ} is named twice as a successor"
+                        )));
+                        bad_successor = true;
+                        break;
+                    }
+                    // A polity that survives its own dissolution has not dissolved.
+                    // Terminal dissolution forbids any later act, so a self-successor
+                    // records a continuation the archive can never honour.
+                    if succ == &d.polity {
+                        out.push((*cid, format!(
+                            "{succ} names itself as its own successor; a polity cannot succeed itself"
+                        )));
+                        bad_successor = true;
+                        break;
+                    }
+                    // The closure gate, third of its family in this tier: a machine
+                    // cannot guard a machine, a ground may not sit inside what it
+                    // grounds, and a polity's successor may not be one of its own
+                    // members. A member is a person or a machine; a successor is a
+                    // polity, and confusing the two makes the line of descent point at
+                    // somebody's keyring.
+                    if members.contains(succ.as_str()) {
+                        out.push((*cid, format!(
+                            "successor {succ} is a member of {}, not a polity",
+                            d.polity
+                        )));
+                        bad_successor = true;
+                        break;
+                    }
+                }
+                if bad_successor {
                     continue;
                 }
             }

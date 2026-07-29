@@ -240,67 +240,99 @@ pub fn coherence_concern(
     Ok(Some(signed))
 }
 
-/// The bundle a fission emits: the two successor identities, a signed
-/// [`SuccessorLink`] from the predecessor to each, and the predecessor's
-/// [`CharterDissolution`]. A KC-side consumer appends the identities and links to
-/// its recognition log; the dissolution is appended to the ethne charter log.
+/// The bundle a fission emits: the successor identities, a signed
+/// [`SuccessorLink`] from the predecessor to each — **index-aligned** with
+/// `successors` — and the predecessor's [`CharterDissolution`] naming them all. A
+/// KC-side consumer appends the identities and links to its recognition log; the
+/// dissolution is appended to the ethne charter log.
+///
+/// **N-ary since design D25**, so this is the exact mirror of [`FusionOutcome`]:
+/// several successors out of one predecessor, where fusion takes one out of
+/// several. A three-way split needed two chained fissions before, which recorded a
+/// history nobody lived — an intermediate polity that existed only to be dissolved.
 #[derive(Debug, Clone)]
 pub struct FissionOutcome {
-    pub successor_a: Signed<CommunityIdentity>,
-    pub successor_b: Signed<CommunityIdentity>,
-    pub links: [Signed<SuccessorLink>; 2],
+    pub successors: Vec<Signed<CommunityIdentity>>,
+    /// One per successor, in the same order.
+    pub links: Vec<Signed<SuccessorLink>>,
     pub dissolution: Signed<CharterDissolution>,
 }
 
-/// The fission: a **ratified** split (the monitor never decides this — see
-/// [`en_cohesion`](../en_cohesion/index.html)). The community has already
-/// ratified two successor foundings, handed off as `successor_a` / `successor_b`;
-/// this emits, from the predecessor root's authority, a successor link to each
-/// and the predecessor's dissolution naming both. `deciders` records who ratified
-/// the split; the emitted records are signed by the predecessor root — the
-/// polity's authorized key holder speaking for the ratified decision.
+/// The fission: a **ratified** split into N (≥ 2) successors (the monitor never
+/// decides this — see [`en_cohesion`](../en_cohesion/index.html)). The community has
+/// already ratified the successor foundings; this emits, from the predecessor root's
+/// authority, a successor link to each and the predecessor's dissolution naming them
+/// all. `deciders` records who ratified the split; the emitted records are signed by
+/// the predecessor root — the polity's authorized key holder speaking for the
+/// ratified decision.
 ///
-/// Fusion (several polities merging into one) is the mirror image — see
-/// [`fusion`].
-#[allow(clippy::too_many_arguments)]
+/// The guards are [`fusion`]'s, in the other direction (design **D25**). Fission had
+/// none, which is worth stating plainly because the omission was not benign: before
+/// this it would emit a "split" naming **one** successor twice, or naming the
+/// predecessor **itself** as its own successor, or — worst — sign a `SuccessorLink`
+/// under the predecessor's root to an identity whose own self-signature does not
+/// verify. That last one had the predecessor's key vouching for a forgery.
+///
+/// What none of this can do is tell a legitimate split from a faction dividing the
+/// spoils. That judgement is not the tier's, and is not meant to be: the split is a
+/// ratified act, and this records it.
+///
+/// Fusion (several polities merging into one) is the mirror image — see [`fusion`].
 pub fn fission(
     predecessor: &PolityCharter,
-    successor_a: Signed<CommunityIdentity>,
-    successor_b: Signed<CommunityIdentity>,
+    successors: Vec<Signed<CommunityIdentity>>,
     deciders: Vec<DidKey>,
     predecessor_root_priv: &PrivKey,
     rationale: String,
     at: Timestamp,
 ) -> KcResult<FissionOutcome> {
-    let root_did = predecessor.polity.as_str();
+    if successors.len() < 2 {
+        return Err(KcError::Authority(
+            "fission needs at least two successors".into(),
+        ));
+    }
+    let predecessor_did = &predecessor.polity;
+    let mut seen = std::collections::BTreeSet::new();
+    for succ in &successors {
+        let did = &succ.payload.did;
+        if !seen.insert(did.as_str()) {
+            return Err(KcError::Authority(format!(
+                "successor {did} appears twice in the fission"
+            )));
+        }
+        if did == predecessor_did {
+            return Err(KcError::InvalidDid(format!(
+                "successor {did} is the predecessor itself; a polity cannot succeed itself"
+            )));
+        }
+        // Fusion verifies the merged identity; the mirror is verifying every
+        // successor. Without it the predecessor root signs a link to whatever it is
+        // handed.
+        CommunityIdentity::verify_self_signed(succ)?;
+    }
 
-    let link = |succ: &Signed<CommunityIdentity>| -> KcResult<Signed<SuccessorLink>> {
+    let root_did = predecessor.polity.as_str();
+    let mut links = Vec::with_capacity(successors.len());
+    for succ in &successors {
         let payload = SuccessorLink {
             previous_did: predecessor.polity.clone(),
             new_did: succ.payload.did.clone(),
             new_pubkey: succ.payload.root_pubkey.clone(),
             rotated_at: at,
         };
-        Signed::build(payload, &[(root_did, predecessor_root_priv)])
-    };
-    let link_a = link(&successor_a)?;
-    let link_b = link(&successor_b)?;
+        links.push(Signed::build(payload, &[(root_did, predecessor_root_priv)])?);
+    }
 
     let dissolution_payload = CharterDissolution {
         polity: predecessor.polity.clone(),
-        successors: vec![successor_a.payload.did.clone(), successor_b.payload.did.clone()],
+        successors: successors.iter().map(|s| s.payload.did.clone()).collect(),
         rationale,
         deciders,
         dissolved_at: at,
     };
     let dissolution = Signed::build(dissolution_payload, &[(root_did, predecessor_root_priv)])?;
 
-    Ok(FissionOutcome {
-        successor_a,
-        successor_b,
-        links: [link_a, link_b],
-        dissolution,
-    })
+    Ok(FissionOutcome { successors, links, dissolution })
 }
 
 /// One party to a fusion: a predecessor polity's charter, the root key that
@@ -685,21 +717,22 @@ mod tests {
         assert!(out.is_none());
     }
 
+    /// A self-signed successor identity, plus the key that signs for it.
+    fn successor(name: &str) -> Signed<CommunityIdentity> {
+        let (sk, pk) = keypair();
+        CommunityIdentity::new_self_signed(name.into(), &sk, pk, time::now()).unwrap()
+    }
+
     #[test]
-    fn fission_emits_two_successors_links_and_a_dissolution() {
+    fn fission_emits_a_link_per_successor_and_a_dissolution() {
         let (predecessor, root_sk, _root_pk) = chartered_polity();
-
-        // Two ratified successor identities, each self-signed by its own root.
-        let (a_sk, a_pk) = keypair();
-        let succ_a = CommunityIdentity::new_self_signed("Alpha-1".into(), &a_sk, a_pk, time::now()).unwrap();
-        let (b_sk, b_pk) = keypair();
-        let succ_b = CommunityIdentity::new_self_signed("Alpha-2".into(), &b_sk, b_pk, time::now()).unwrap();
-
+        let succ_a = successor("Alpha-1");
+        let succ_b = successor("Alpha-2");
         let deciders = predecessor.members.clone();
+
         let outcome = fission(
             &predecessor,
-            succ_a.clone(),
-            succ_b.clone(),
+            vec![succ_a.clone(), succ_b.clone()],
             deciders,
             &root_sk,
             "irreconcilable substrate reading".into(),
@@ -707,12 +740,13 @@ mod tests {
         )
         .unwrap();
 
-        // Both successors verify as self-signed identities.
-        CommunityIdentity::verify_self_signed(&outcome.successor_a).unwrap();
-        CommunityIdentity::verify_self_signed(&outcome.successor_b).unwrap();
+        // Every successor verifies as a self-signed identity.
+        for succ in &outcome.successors {
+            CommunityIdentity::verify_self_signed(succ).unwrap();
+        }
 
-        // Both links point back to the predecessor and forward to a successor,
-        // and verify under the predecessor root's did:key.
+        // Every link points back to the predecessor and forward to its successor, in
+        // order, and verifies under the predecessor root's did:key.
         let resolver = |did: &str| {
             if did == predecessor.polity.as_str() {
                 predecessor.polity.to_pubkey().ok()
@@ -720,19 +754,122 @@ mod tests {
                 None
             }
         };
-        for (link, succ) in outcome.links.iter().zip([&succ_a, &succ_b]) {
+        assert_eq!(outcome.links.len(), outcome.successors.len());
+        for (link, succ) in outcome.links.iter().zip(&outcome.successors) {
             assert_eq!(link.payload.previous_did, predecessor.polity);
             assert_eq!(link.payload.new_did, succ.payload.did);
             link.verify(resolver).expect("successor link verifies");
         }
 
-        // The dissolution names both successors and verifies.
+        // The dissolution names every successor, in order, and verifies.
         assert_eq!(outcome.dissolution.payload.polity, predecessor.polity);
         assert_eq!(
             outcome.dissolution.payload.successors,
             vec![succ_a.payload.did.clone(), succ_b.payload.did.clone()]
         );
         outcome.dissolution.verify(resolver).expect("dissolution verifies");
+    }
+
+    #[test]
+    fn a_three_way_split_is_one_act() {
+        // **The D25 point.** Before this, a three-way split had to be two chained
+        // fissions, which recorded a history nobody lived: an intermediate polity that
+        // existed only to be dissolved again.
+        let (predecessor, root_sk, _root_pk) = chartered_polity();
+        let successors = vec![successor("A"), successor("B"), successor("C")];
+        let dids: Vec<DidKey> = successors.iter().map(|s| s.payload.did.clone()).collect();
+
+        let outcome = fission(
+            &predecessor,
+            successors,
+            predecessor.members.clone(),
+            &root_sk,
+            "three ways".into(),
+            time::now(),
+        )
+        .unwrap();
+        assert_eq!(outcome.successors.len(), 3);
+        assert_eq!(outcome.links.len(), 3);
+        assert_eq!(outcome.dissolution.payload.successors, dids);
+    }
+
+    #[test]
+    fn a_split_into_one_is_not_a_split() {
+        let (predecessor, root_sk, _root_pk) = chartered_polity();
+        let err = fission(
+            &predecessor,
+            vec![successor("Only")],
+            predecessor.members.clone(),
+            &root_sk,
+            "r".into(),
+            time::now(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, KcError::Authority(ref m) if m.contains("at least two")), "{err:?}");
+    }
+
+    #[test]
+    fn one_successor_named_twice_is_refused() {
+        // Measured before the slice: this produced a "split" whose dissolution named
+        // one polity twice, with two links to the same successor.
+        let (predecessor, root_sk, _root_pk) = chartered_polity();
+        let twice = successor("Alpha-1");
+        let err = fission(
+            &predecessor,
+            vec![twice.clone(), twice],
+            predecessor.members.clone(),
+            &root_sk,
+            "r".into(),
+            time::now(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, KcError::Authority(ref m) if m.contains("appears twice")), "{err:?}");
+    }
+
+    #[test]
+    fn a_polity_cannot_succeed_itself() {
+        // Measured before the slice: the polity dissolved into ITSELF, its own DID
+        // named as a successor of its own winding-up.
+        let (predecessor, root_sk, root_pk) = chartered_polity();
+        let itself =
+            CommunityIdentity::new_self_signed("Self".into(), &root_sk, root_pk, time::now())
+                .unwrap();
+        let err = fission(
+            &predecessor,
+            vec![itself, successor("Other")],
+            predecessor.members.clone(),
+            &root_sk,
+            "r".into(),
+            time::now(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, KcError::InvalidDid(ref m) if m.contains("cannot succeed itself")),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn a_successor_whose_signature_does_not_verify_is_refused() {
+        // **The worst of the three, measured.** `verify_self_signed` returns false for
+        // this identity and fission signed a link to it anyway — the predecessor's root
+        // key vouching for a forgery.
+        let (predecessor, root_sk, _root_pk) = chartered_polity();
+        let mut forged = successor("Forged");
+        forged.payload.name = "Tampered".into();
+        assert!(CommunityIdentity::verify_self_signed(&forged).is_err());
+
+        let err = fission(
+            &predecessor,
+            vec![forged, successor("Honest")],
+            predecessor.members.clone(),
+            &root_sk,
+            "r".into(),
+            time::now(),
+        )
+        .unwrap_err();
+        // Whatever the crypto layer calls it, the point is that it does not pass.
+        assert!(!matches!(err, KcError::Authority(_)), "{err:?}");
     }
 
     #[test]

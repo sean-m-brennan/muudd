@@ -52,6 +52,8 @@ GuardianState = _core.GuardianState
 DecayTrends = _core.DecayTrends
 ObservationWindow = _core.ObservationWindow
 GroundStanding = _core.GroundStanding
+ReaderIndependence = _core.ReaderIndependence
+IndependentCorroboration = _core.IndependentCorroboration
 AffirmationState = _core.AffirmationState
 PruneRecommendation = _core.PruneRecommendation
 FoundingLegitimacy = _core.FoundingLegitimacy
@@ -79,6 +81,8 @@ BOUNDARY_SOURCES = ("Substrate", "ConvenerAsserted")
 #: ground, not degrees of one. `"Bare"` is permitted, and named so that "permitted"
 #: is not mistaken for "grounded".
 SUBSTRATE_GROUNDINGS = ("Anchored", "Guarded", "Held", "Bare")
+#: Whether an attestation vouches for a reader's independence or denies it (D24).
+INDEPENDENCE_KINDS = ("Independent", "Controlled")
 
 
 #: `en-charter`'s own retention defaults, read from the Rust core so there is only
@@ -154,6 +158,7 @@ __all__ = [
     "BOUNDARY_SOURCES",
     "FOUNDING_BASES",
     "SUBSTRATE_GROUNDINGS",
+    "INDEPENDENCE_KINDS",
     "EROSION_LEVELS",
     "OFFICES",
     "AffirmationState",
@@ -169,6 +174,8 @@ __all__ = [
     "FileStore",
     "FoundingLegitimacy",
     "GroundStanding",
+    "IndependentCorroboration",
+    "ReaderIndependence",
     "PruneRecommendation",
     "RetentionPolicy",
     "SaveOutcome",
