@@ -25,3 +25,6 @@ kc-archive = { workspace = true }
 kc-reputation = { workspace = true }
 pyo3 = { workspace = true }
 jiff = { workspace = true }
+# The §8 whistleblower flow hands an out-of-band packet (ring attestation + source
+# preimage) from the source to the reception panel; JSON is how it crosses the binding.
+serde_json = { workspace = true }

@@ -347,6 +347,18 @@ KC cannot see on its own and AT cannot decide on its own.
   arbitrary depth). The top gateway is the boundary; a private boundary is an
   intentional opaque edge, not an incomplete roll. This reuses the capability
   landed 2026-07-23 rather than inventing a new boundary notion.
+  **CORRECTION (2026-07-29, on building the AT carrier):** the subtree roster
+  cannot supply a *key-identified* member. Its entries are
+  `{uuid, nickname, address}` (`_roster_add_member`) — no signing key — so it
+  cannot feed `AtPeer.signing_pubkey`, and a member with no key has no
+  `did:key` and cannot be charted. The live feed's boundary is therefore this
+  node's **admitted peers** (`protocol.peers[]`, which are `public_identity_t`
+  and do carry `signature.public`). D7's subtree remains the right boundary
+  *notion* and is still reachable offline via a synthesized/captured view
+  (`MockEventSource`), but a live roll is one-hop-scoped until the roster
+  carries keys — which is an AT wire change, not an adapter change. The
+  opaque-edge signal (`BoundaryPrivate`) is consequently not emitted live
+  either: it is only meaningful alongside the subtree view.
 - **D8 — the guardian edge is the `Operator` identity (resolves Q8).** A derived
   (machine) member's guardian is its human `Operator`, carried on the AT event
   stream. This is the human-above-machine anchor the substrate's guardian ground

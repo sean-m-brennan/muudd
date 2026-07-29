@@ -159,10 +159,11 @@ carried here directly: see §10 and "Open design questions" below.
 > `file_whistleblower`, `reveal_source`, `observer_dashboard`);
 > `src/python/examples/observer_demo.py` walks a report with response, a
 > whistleblower with a for-cause reveal, the dashboard, and the moves the
-> protocol refuses. **Deferred to later slices (MVP crypto is Ed25519-only):**
-> ring-signature source *anonymity* (prove insider membership without revealing
-> which member), threshold-*encrypted* source records, and secure out-of-band
-> whistleblower transport. See `src/rust/kc-observer/`.
+> protocol refuses. **Deferred at v1 (MVP crypto is Ed25519-only):** ring-signature
+> source *anonymity* (prove insider membership without revealing which member),
+> threshold-*encrypted* source records — both now built, see the v4 note below — and
+> secure out-of-band whistleblower transport, which is deployment-gated. See
+> `src/rust/kc-observer/`.
 >
 > **§8 observer-corps caps + dashboard completion (v2, 2026-07-21).** The
 > capture-resistance limits the v1 slice deferred are now **enforced** by the
@@ -198,6 +199,38 @@ carried here directly: see §10 and "Open design questions" below.
 > The remaining deferred items are the crypto and transport ones above. See
 > `src/rust/kc-observer/`, `kc-archive/src/authority.rs`,
 > `kc-reputation/src/analytics.rs`.
+>
+> **§8 source anonymity + threshold custody now built (v4, 2026-07-29).** The two
+> cryptographic obligations the v1 slice deferred are built, and the hole they left
+> was larger than "an analyst could narrow the source set". Measured on the tree
+> beforehand: `source_commitment` was read by **no rule anywhere**, so a panel could
+> append any name at all as a filing's source; and the source signed **nothing**, so
+> a non-party reception panel could manufacture insider complaints against a rival.
+> Both were asserted as correct by green tests. Now a `WhistleblowerReport` carries
+> an `InsiderClaim` **ring-signed** (linkable, LSAG over the existing Ed25519
+> identity keys — `kc-core/src/ring.rs`) by a member of the accused community's own
+> resolvable key set, bound to that exact accused, commitment, instant, and a digest
+> of the claim text, so an attestation cannot be moved to another accusation; and a
+> `ThresholdCustody` (Feldman VSS — `kc-core/src/custody.rs`) holding the source
+> identity so that a **majority** of the reception panel, and no minority, can
+> recover it. A `SourceReveal` now carries opened shares and must actually **open the
+> filing's commitment**, with `disclosed_source` equal to what the shares recover and
+> that identity an insider of the accused — bounding framing to the ring. A new
+> `SourceExculpated` entry lets a member wrongly named publish a Chaum–Pedersen proof
+> that the filing's key image is not theirs; it requires **no panel and no quorum**,
+> because the remedy for being wrongly named must not route through the body that
+> named them, and an "exculpation" reproducing the filing's own image is refused as a
+> confession. `kc-reputation` adds `source_tag` (the key image — the one publishable
+> fact about a source) and `exculpations` per filing, plus
+> `distinct_sources_by_accused` on the dashboard, which separates a community many
+> insiders are reporting from one insider filing many times. Python gains
+> `insider_ring` / `attest_insider` (the source's own step, performed without handing
+> over its key) / `file_whistleblower` / `open_source_share` / `reveal_source` /
+> `exculpate_source`. The honest limits — hand-rolled unaudited crypto, a ring of
+> *speakers* rather than members, globally linkable source tags, signing-key reuse for
+> key agreement, and framing made answerable rather than impossible — are set out in
+> [whistleblower-crypto.md](whistleblower-crypto.md). **Item 8.3 (out-of-band
+> transport) remains, and remains deployment-gated.**
 >
 > **§9 Substrate-deference test (v1, 2026-07-21).** The `kc-constitution` crate
 > operationalizes non-ultimacy as a versioned, signed constitutional layer (the
@@ -288,6 +321,51 @@ carried here directly: see §10 and "Open design questions" below.
 > configuration and the live-`autonomous_trust` integration harness (both need a
 > real deployment, not a simulator); continuous/background scenario execution;
 > and the three unsupported scenarios, which unblock as their detectors are built.
+>
+> **§10 continuous scenario execution now built (v4, 2026-07-29).** §10 asks that the
+> scenarios be "run continuously in the simulation environment, with detection latency
+> and damage bounds as the primary metrics". Measurement first: **`run_harness()` is a
+> constant function** — 200 consecutive runs returned byte-identical latency and damage
+> for all eight scenarios — so a scheduler wrapped around it would recompute the same
+> eight numbers forever. Continuous execution is informative only if the runs *differ*,
+> which makes the missing piece parameter variation, not iteration. (The same
+> measurement establishes something worth keeping, since fresh Ed25519 keys are drawn
+> every run and several lenses tiebreak on DID ordering: the detectors are
+> key-order-independent. It is now a regression test.) Every scenario is therefore
+> parameterized (`HarnessParams`, with `canonical()` reproducing the hand-authored case
+> byte-for-byte as a fixed point), and three drivers explore the space around it:
+> `run_continuous` draws parameters from a seeded RNG each round and accumulates
+> worst-observed latency and damage per scenario **with the seed that produced each**;
+> `sweep` / `sweep_all` walk one parameter through its whole declared range so the
+> value at which a bound moves is a reported number rather than an inference; and
+> `shrink_failure` minimizes a failing set toward canonical, so a failure arrives as
+> its smallest reproduction. There is deliberately **no daemon and no scheduler**: the
+> calls are bounded by a round count and/or a wall-clock budget and return, because the
+> cadence belongs to the caller — the same conclusion the polity tier reached about its
+> own tick.
+>
+> **The finding parameterization forced.** Several falsification "criteria" were not
+> properties of a detector at all; they silently encoded their fixture.
+> `MAX_DAMAGE_CEREMONY = 1` held only because `witness_by_cycle = [5, 4, 3]` declines on
+> the first comparable cycle — a flat prefix (`[5, 5, 4]`) scores 2 with **no detector at
+> fault**, because there was nothing to compare at cycle 1. `MAX_DAMAGE_ADMISSIONS` was
+> literally `ADMISSIONS_CONCENTRATION_THRESHOLD`, and `MAX_DAMAGE_INTERPRETATION` was
+> `INTERPRETATION_MONOPOLY_THRESHOLD`. Randomizing without fixing this would have
+> manufactured failures. So §10's requirement that criteria be stated in advance becomes:
+> state the **formula** in advance (`max_damage_*`), with the constants retained as their
+> canonical-case values. A regression test pins the finding by restoring the old constant
+> and confirming it fails at a flat prefix. Move 2's criterion came out *stronger* rather
+> than merely generalized: the scenario now re-reads the report after each of several
+> attempted contractions, so the claim is that the **first** rollback is flagged rather
+> than that a single rollback happens to be.
+>
+> **Result.** 400 randomized rounds and a full sweep of every declared parameter range
+> found **no failures** — reported as a result, and meaningful only because the machinery
+> demonstrably can fail: the suite breaks a criterion on purpose and checks the failure is
+> caught, shrunk, and replayable from its seed. The demo and the test suite use a fixed
+> seed so a search can never redden the build. Honest limit: a seed reproduces the
+> *parameters*, not the key material (Ed25519 keys come from the OS CSPRNG), which is why
+> key-order-independence is a test rather than an assumption.
 >
 > **§10 detectors for moves 1, 4, 6 (v2, 2026-07-21).** The three deferred
 > detectors are now built, and their scenarios are scored PASS on fresh,
@@ -973,27 +1051,41 @@ cryptographic decision-class enforcement, attestation cadence
 tuned to capture-detection windows). Each layer presupposes
 the others; capture-resistance only works as a layered system.
 
-**What this section adds to the implementation backlog.** The
-following items become first-class implementation work,
-priorities calibrated to the capture-resistance test harness:
+**What this section adds to the implementation backlog.** These
+items became first-class implementation work, priorities calibrated
+to the capture-resistance test harness. Status as of **2026-07-29**,
+reconciled against the code rather than against the per-component
+notes above:
 
-- Cross-community principal-witness attestation channel (§1).
-- Ceremony-cost proxy tracking and surfacing (§2, §3, §6).
-- Substantive-re-engagement state machine rung (§5).
-- Manufactured-event provenance tagging in archive (§3).
-- Decision-class metadata and cryptographic enforcement (§3, §7).
-- Structured-skepticism protocol invocation in mediation (§4).
-- Substrate-deference dashboard maintained by observer corps (§8).
-- Compact-incapable list as constitutional artifact (§9).
-- Structured-fast cadence as protocol-enforced operating mode (§9).
-- Credentialing-panel rotation, sponsor-stake tracking, and
-  probationary-status enforcement (§2).
-- Composition-drift dashboard maintained by observer corps (§8).
-- Capture-resistance scenario simulation in test harness (§10).
+| Item | Component(s) | Status | Where |
+|---|---|---|---|
+| Cross-community principal-witness attestation channel | §1 | **Built** | `kc-principal` (`PrincipalWitnessAttestation`); `distinct_cross_witnesses` excludes self and home |
+| Ceremony-cost proxy tracking and surfacing | §2, §3, §6 | **Built** | `kc-reputation` (`ceremony_cost_decay`) |
+| Substantive-re-engagement state machine rung | §5 | **Built** | `kc-escalation` (`SubstantiveReEngagement`, the ladder's terminal rung) |
+| Manufactured-event provenance tagging in archive | §3 | **Built** | `kc-provenance` (`EventReport` carries declared incentives, information history, disclosed interests) |
+| Decision-class metadata and cryptographic enforcement | §3, §7 | **Built** | `DecisionClass` on the record; enforced in `kc-archive::authority` by counting *distinct communities' verified signatures*, so a faction cannot supply a quorum by asserting one |
+| Structured-skepticism protocol invocation | §4 | **Built** | `structured_skepticism` lens plus the intake hold on `EventActionInvoked` — an action premised on an under-corroborated qualifying event is refused, not merely flagged |
+| Substrate-deference dashboard maintained by observer corps | §8 | **Built** | `substrate_deference` + `erosion_alert`, bundled on `observer_dashboard` |
+| Compact-incapable list as constitutional artifact | §9 | **Built** | `kc-constitution` (`ConstitutionGenesis`; genesis-immutable matters, asymmetric amendment) |
+| Structured-fast cadence as protocol-enforced operating mode | §9 | **Built** | `FastPeriod` + `in_structured_fast`; hard refusal *during* a fast is a documented non-goal (a fast is a disposition, not a compliance regime) |
+| Composition-drift dashboard maintained by observer corps | §8 | **Built** | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
+| Capture-resistance scenario simulation in test harness | §10 | **Built** | `harness.py`: eight scenarios scored against criteria stated in advance, run continuously over a parameterized space |
+| Sponsor-stake tracking | §2 | **Built** | `SponsorshipRecord` + sponsor concentration in `composition_graph` |
+| Probationary-status enforcement | §2 | **Partial** | `Probationary` standing is *derived* (`kc-reputation`), and nothing gates on it: `RecognitionStanding` is read by no authority rule. The status is reported, not enforced |
+| Credentialing-panel rotation | §2 | **Not built** | Rotation and pool-share caps exist for the §8 observer corps only. The inter-community credentialing runner requires two or more participants and imposes no rotation or composition limit on examiners |
 
-None of these is implemented in the current MVP. Their addition
-does not invalidate the existing three-component stack but does
-materially extend the eventual scope.
+So the §11 backlog is closed apart from the last two rows, both in
+§2 and both about the *gate* rather than the detectors: a
+probationary status that is computed but not enforced, and an
+examining panel that cannot be packed only because nothing yet
+counts who sits on it. Item 7 of the seven moves — admissions
+integrity — is the one whose component home is therefore
+incompletely realized; its *detection* half (the composition-drift
+dashboard, sponsor concentration, the rejection pattern) is built,
+and its *enforcement* half is not.
+
+The live backlog for the two components that still carry unbuilt
+scope is [`TODO.md`](../../TODO.md).
 
 ## Architectural decisions
 

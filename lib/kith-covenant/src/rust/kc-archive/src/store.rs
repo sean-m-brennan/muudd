@@ -266,6 +266,10 @@ impl Archive for InMemoryArchive {
                 let at = s.payload.revealed_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
+            ArchiveEntry::SourceExculpated(s) => {
+                let at = s.payload.exculpated_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
             ArchiveEntry::ConstitutionRatified(s) => {
                 let at = s.payload.genesis_at;
                 s.verify(|did: &str| self.resolve_did(did, at))

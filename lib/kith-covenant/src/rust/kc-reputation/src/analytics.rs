@@ -1520,6 +1520,16 @@ pub struct ObserverDashboard {
     /// Accused community DID → whistleblower reports against it, descending. The
     /// source is never counted or exposed.
     pub whistleblowers_by_accused: Vec<(String, usize)>,
+    /// Accused community DID → how many **distinct** insider sources have filed
+    /// against it, descending.
+    ///
+    /// Read alongside `whistleblowers_by_accused`, this separates a community many
+    /// insiders are reporting from one insider reporting many times. Ten filings and
+    /// ten sources is a pattern; ten filings and one source is a single voice, and
+    /// possibly a channel being flooded to drown a real report. Distinctness comes
+    /// from the ring signatures' key images, so counting sources never means learning
+    /// who they are.
+    pub distinct_sources_by_accused: Vec<(String, usize)>,
     /// The observer corps's active composition by nominating community and the
     /// current rotation horizon (the pool-share lens).
     pub pool: ObserverPoolConcentration,
@@ -1542,22 +1552,28 @@ pub fn observer_dashboard(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
     let as_of = as_of.unwrap_or_else(time::now);
     let mut reports: BTreeMap<String, usize> = BTreeMap::new();
     let mut whistles: BTreeMap<String, usize> = BTreeMap::new();
+    let mut tags: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for (_, entry) in archive.iter() {
         match entry {
             ArchiveEntry::ObserverReportPublished(s) if s.payload.reported_at <= as_of => {
                 *reports.entry(s.payload.subject_community.as_str().to_string()).or_insert(0) += 1;
             }
             ArchiveEntry::WhistleblowerFiled(s) if s.payload.filed_at <= as_of => {
-                *whistles.entry(s.payload.accused_community.as_str().to_string()).or_insert(0) += 1;
+                let accused = s.payload.accused_community.as_str().to_string();
+                *whistles.entry(accused.clone()).or_insert(0) += 1;
+                tags.entry(accused).or_default().insert(s.payload.source_tag().to_hex());
             }
             _ => {}
         }
     }
+    let distinct: BTreeMap<String, usize> =
+        tags.into_iter().map(|(k, v)| (k, v.len())).collect();
     ObserverDashboard {
         composition: composition_graph(archive, Some(as_of)),
         rejections: rejection_pattern(archive, Some(as_of)),
         observer_reports_by_subject: descending(reports),
         whistleblowers_by_accused: descending(whistles),
+        distinct_sources_by_accused: descending(distinct),
         pool: observer_pool_concentration(archive, Some(as_of)),
         substrate: substrate_deference(archive, Some(as_of)),
         erosion: erosion_alert(archive, Some(as_of)),

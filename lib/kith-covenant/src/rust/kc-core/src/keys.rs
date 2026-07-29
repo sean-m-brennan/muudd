@@ -80,6 +80,26 @@ pub fn generate(alg: Alg) -> KcResult<(PrivKey, PubKey)> {
     }
 }
 
+/// The public key belonging to a private key.
+///
+/// Needed wherever a holder must find *itself* in a published list of keys — a ring
+/// member locating its own position, a share holder matching its sealed share —
+/// without the caller having to carry the public half alongside the private one.
+pub fn public_of(priv_key: &PrivKey) -> KcResult<PubKey> {
+    match priv_key.alg {
+        Alg::Ed25519 => {
+            let sk_bytes: [u8; 32] = priv_key.bytes.as_slice().try_into().map_err(|_| {
+                KcError::Key(format!(
+                    "ed25519 secret key must be 32 bytes, got {}",
+                    priv_key.bytes.len()
+                ))
+            })?;
+            let sk = SigningKey::from_bytes(&sk_bytes);
+            Ok(PubKey { alg: Alg::Ed25519, bytes: sk.verifying_key().to_bytes().to_vec() })
+        }
+    }
+}
+
 pub fn sign(priv_key: &PrivKey, message: &[u8]) -> KcResult<Signature> {
     match priv_key.alg {
         Alg::Ed25519 => {
@@ -164,6 +184,14 @@ mod tests {
         let dbg = format!("{sk:?}");
         assert!(dbg.contains("redacted"));
         assert!(!dbg.contains(&format!("{:?}", sk.bytes)));
+    }
+
+    #[test]
+    fn public_of_recovers_the_generated_public_key() {
+        let (sk, pk) = generate(Alg::Ed25519).unwrap();
+        assert_eq!(public_of(&sk).unwrap(), pk);
+        let (other_sk, _) = generate(Alg::Ed25519).unwrap();
+        assert_ne!(public_of(&other_sk).unwrap(), pk);
     }
 
     #[test]

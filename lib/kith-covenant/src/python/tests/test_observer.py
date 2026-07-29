@@ -21,8 +21,9 @@ import pytest
 from kith_covenant import (
     Archive, new_identity, new_mediator, new_observer, register_mediators,
     register_observers, publish_observer_report, respond_to_report,
-    file_whistleblower, reveal_source, reputation_of, observer_dashboard,
-    observer_pool_concentration, cid_of, now_seconds,
+    delegate_speaker, insider_ring, attest_insider, file_whistleblower,
+    open_source_share, reveal_source, exculpate_source, reputation_of,
+    observer_dashboard, observer_pool_concentration, now_seconds,
 )
 
 _DAY = 86400
@@ -48,6 +49,13 @@ def _fixture():
     register_observers(arch, home, [(obs, "labor-rights")],
                        valid_from=t0 - 10, valid_until=t0 + 100 * 86400)
     return arch, t0, subject, obs
+
+
+def _with_insiders(arch, subject, t0, n=2):
+    """Give the accused community `n` delegated speakers, so its resolvable key set
+    is wide enough to hide a whistleblower in."""
+    return [delegate_speaker(arch, subject, "Reciter", issued_at=t0 - 10)
+            for _ in range(n)]
 
 
 def test_observer_report_and_response_project_onto_subject():
@@ -88,10 +96,11 @@ def test_only_subject_may_respond():
 
 def test_whistleblower_projects_without_source_and_reveal_flips_flag():
     arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
     panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
-    commitment = cid_of(b"source||nonce")
-    wb = file_whistleblower(arch, subject.did, commitment, claim="coerced labor",
-                            reception_panel=panel, filed_at=t0 + 100)
+    wb = file_whistleblower(arch, subject.did, "coerced labor",
+                            reception_panel=panel, source=crew[0],
+                            threshold=2, filed_at=t0 + 100)
     arch.verify_all()
     arch.check_authority()
     v = reputation_of(arch, subject.did, as_of=t0 + 500)
@@ -99,33 +108,139 @@ def test_whistleblower_projects_without_source_and_reveal_flips_flag():
     assert v.whistleblower_reports_against[0].source_revealed is False
     # No source field is exposed anywhere on the summary.
     assert not hasattr(v.whistleblower_reports_against[0], "disclosed_source")
+    # An anonymous tag, though: the same source filing twice is countable as one.
+    assert v.whistleblower_reports_against[0].source_tag
 
     reveal_source(arch, wb, panel, cause="recanted",
-                  disclosed_source="did:key:zMember", revealed_at=t0 + 200)
+                  disclosed_source=crew[0].did, revealed_at=t0 + 200)
     arch.verify_all()
     arch.check_authority()
     v = reputation_of(arch, subject.did, as_of=t0 + 500)
     assert v.whistleblower_reports_against[0].source_revealed is True
 
 
+def test_a_filing_needs_a_real_insider_behind_it():
+    # The manufactured filing: a reception panel cannot ring-sign as an insider of
+    # the community it is accusing, so it cannot invent a source.
+    arch, t0, subject, _obs = _fixture()
+    _with_insiders(arch, subject, t0)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    with pytest.raises(ValueError, match="not an insider"):
+        attest_insider(arch, subject.did, panel[0], "invented", filed_at=t0 + 100)
+
+
+def test_a_community_with_one_key_has_no_anonymous_channel():
+    # A ring of one names its signer; the API refuses rather than pretend.
+    arch, t0, subject, _obs = _fixture()
+    assert len(insider_ring(arch, subject.did, at=t0 + 100)) == 1
+    with pytest.raises(ValueError):
+        attest_insider(arch, subject.did, subject, "claim", filed_at=t0 + 100)
+
+
+def test_insider_ring_widens_with_delegations():
+    arch, t0, subject, _obs = _fixture()
+    _with_insiders(arch, subject, t0, n=3)
+    ring = insider_ring(arch, subject.did, at=t0 + 100)
+    # Root plus three delegated speakers.
+    assert len(ring) == 4
+
+
+def test_a_reveal_cannot_name_someone_the_shares_do_not_recover():
+    arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    wb = file_whistleblower(arch, subject.did, "coerced labor",
+                            reception_panel=panel, source=crew[0],
+                            threshold=2, filed_at=t0 + 100)
+    # A real quorum, a real cause — and the wrong crew member.
+    reveal_source(arch, wb, panel, cause="for cause",
+                  disclosed_source=crew[1].did, revealed_at=t0 + 200)
+    assert any("recover" in r or "commitment" in r
+               for _cid, r in arch.authority_violations())
+
+
+def test_a_reveal_below_the_custody_threshold_is_unauthorized():
+    arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    wb = file_whistleblower(arch, subject.did, "coerced labor",
+                            reception_panel=panel, source=crew[0],
+                            threshold=3, filed_at=t0 + 100)
+    two = [open_source_share(arch, wb, panel[0]), open_source_share(arch, wb, panel[1])]
+    reveal_source(arch, wb, panel, cause="for cause",
+                  disclosed_source=crew[0].did, shares=two, revealed_at=t0 + 200)
+    assert arch.authority_violations()
+
+
+def test_a_wrongly_named_member_can_clear_itself_and_the_source_cannot():
+    arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    wb = file_whistleblower(arch, subject.did, "coerced labor",
+                            reception_panel=panel, source=crew[0],
+                            threshold=2, filed_at=t0 + 100)
+    # The innocent delegate clears itself, with no panel involved.
+    exculpate_source(arch, wb, crew[1], exculpated_at=t0 + 300)
+    arch.verify_all()
+    arch.check_authority()
+    v = reputation_of(arch, subject.did, as_of=t0 + 500)
+    assert v.whistleblower_reports_against[0].exculpations == 1
+
+    # The true source's honest proof reproduces the filing's image: a confession.
+    exculpate_source(arch, wb, crew[0], exculpated_at=t0 + 400)
+    assert any("confession" in r for _cid, r in arch.authority_violations())
+
+
+def test_the_dashboard_separates_one_source_from_many():
+    arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0, n=3)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    # One insider files three times.
+    for i in range(3):
+        file_whistleblower(arch, subject.did, f"claim {i}",
+                           reception_panel=panel, source=crew[0],
+                           threshold=2, filed_at=t0 + 100 + i)
+    arch.verify_all()
+    arch.check_authority()
+    dash = observer_dashboard(arch, as_of=t0 + 500)
+    assert dict(dash.whistleblowers_by_accused)[subject.did] == 3
+    assert dict(dash.distinct_sources_by_accused)[subject.did] == 1
+
+
 def test_whistleblower_reception_panel_from_accused_is_unauthorized():
     arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
     panel = _mediator_pool(arch, ("Med-A", "Med-B"), t0)
     own = new_mediator()
     register_mediators(arch, subject, [own], valid_from=t0 - 10)
-    file_whistleblower(arch, subject.did, cid_of(b"s"), claim="c",
-                       reception_panel=[panel[0], panel[1], own], filed_at=t0 + 100)
+    file_whistleblower(arch, subject.did, "c",
+                       reception_panel=[panel[0], panel[1], own], source=crew[0],
+                       threshold=2, filed_at=t0 + 100)
     assert any("non-overlap" in r or "accused" in r
                for _cid, r in arch.authority_violations())
 
 
 def test_reveal_without_cause_rejected_at_facade():
     arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
     panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
-    wb = file_whistleblower(arch, subject.did, cid_of(b"s"), claim="c",
-                            reception_panel=panel, filed_at=t0 + 100)
+    wb = file_whistleblower(arch, subject.did, "c", reception_panel=panel,
+                            source=crew[0], threshold=2, filed_at=t0 + 100)
     with pytest.raises(ValueError):
         reveal_source(arch, wb, panel, cause="   ", disclosed_source="x")
+
+
+def test_filing_needs_exactly_one_of_attestation_or_source():
+    arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    with pytest.raises(ValueError, match="exactly one"):
+        file_whistleblower(arch, subject.did, "c", reception_panel=panel,
+                           filed_at=t0 + 100)
+    packet = attest_insider(arch, subject.did, crew[0], "c", filed_at=t0 + 100)
+    with pytest.raises(ValueError, match="exactly one"):
+        file_whistleblower(arch, subject.did, "c", reception_panel=panel,
+                           attestation=packet, source=crew[0])
 
 
 def test_observer_dashboard_tallies():

@@ -51,7 +51,10 @@ use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
 use kc_provenance::{
     EventActionInvoked, EventCorroboration, EventReport, RetroactiveInterestFinding,
 };
-use kc_core::{keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, Signed, Timestamp};
+use kc_core::{
+    keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, RevealedShare, RingSigned, Signed,
+    SourcePreimage, ThresholdCustody, Timestamp,
+};
 use kc_identity::{
     CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessEntry, WitnessRegistry,
     WitnessRole,
@@ -63,8 +66,8 @@ use kc_commons::{
     CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, UsageRecord,
 };
 use kc_observer::{
-    ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
-    WhistleblowerReport,
+    InsiderClaim, ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse,
+    SourceExculpation, SourceReveal, WhistleblowerReport,
 };
 use kc_constitution::{
     AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
@@ -914,31 +917,130 @@ impl PyArchive {
             .map_err(kc_err_to_py)
     }
 
-    /// File a whistleblower report against `accused_did` (§8), co-signed by a
-    /// mediator reception panel. `source_commitment` is a CID committing to the
-    /// source; the identity itself is never passed in or stored. The authority
-    /// pass requires a non-party reception panel. Returns the report CID.
-    #[pyo3(signature = (panel_privs, panel_dids, accused_did, source_commitment, claim, references=Vec::new(), filed_at=None))]
+    /// The keys the archive resolves as insiders of `community_did` at `at`: its root
+    /// key plus every live speaker delegation. This is the ring a whistleblower proves
+    /// membership in; returned as `(did, pubkey_bytes)` so a caller can find its own
+    /// position. Exposed because the source assembles its attestation against exactly
+    /// the set the authority pass will check.
+    #[pyo3(signature = (community_did, at=None))]
+    fn insider_ring(&self, community_did: &str, at: Option<i64>) -> PyResult<Vec<(String, Vec<u8>)>> {
+        let when = parse_as_of(at)?.unwrap_or_else(time::now);
+        Ok(kc_archive::insider_keys(&self.inner, &parse_did(community_did)?, when)
+            .into_iter()
+            .map(|(did, pk)| (did.into_string(), pk.bytes))
+            .collect())
+    }
+
+    /// **The source's step.** Ring-sign an insider attestation for a filing against
+    /// `accused_did`, and commit to the source's identity.
+    ///
+    /// Returns the out-of-band packet the source hands the reception panel: the
+    /// anonymous attestation plus the commitment preimage. The panel cannot forge the
+    /// attestation, and the source never hands over its key. Fails if the source's key
+    /// is not in the accused community's insider set, or if that set is too small to
+    /// hide anyone.
+    #[pyo3(signature = (source_priv, accused_did, claim, filed_at=None))]
+    fn attest_insider(
+        &self,
+        source_priv: Vec<u8>,
+        accused_did: &str,
+        claim: &str,
+        filed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let at = parse_as_of(filed_at)?.unwrap_or_else(time::now);
+        let accused = parse_did(accused_did)?;
+        let sk = priv_from_bytes(&source_priv);
+        let ring_pairs = kc_archive::insider_keys(&self.inner, &accused, at);
+        if ring_pairs.len() < 2 {
+            return Err(PyValueError::new_err(format!(
+                "{accused_did} has {} resolvable key(s): a ring of one names its signer, so it has no anonymous whistleblower channel. Delegate a speaker first.",
+                ring_pairs.len()
+            )));
+        }
+        let ring: Vec<PubKey> = ring_pairs.iter().map(|(_, pk)| pk.clone()).collect();
+        // Find the source's own position from its private key alone, so the caller
+        // never has to state which ring member it is.
+        let own_pub = keys::public_of(&sk).map_err(kc_err_to_py)?;
+        let (index, source_did) = ring_pairs
+            .iter()
+            .enumerate()
+            .find(|(_, (_, pk))| pk.bytes == own_pub.bytes)
+            .map(|(i, (did, _))| (i, did.clone()))
+            .ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "this key is not an insider of {accused_did}: only a community's root key or a live speaker delegation can file"
+                ))
+            })?;
+        let preimage = SourcePreimage::new(source_did.as_str());
+        let commitment = preimage.commitment().map_err(kc_err_to_py)?;
+        let insider =
+            WhistleblowerReport::attest(accused, commitment, claim, at, ring, index, &sk)
+                .map_err(kc_err_to_py)?;
+        let packet = serde_json::json!({
+            "insider": insider,
+            "preimage": preimage,
+            "filed_at": at.as_second(),
+            "claim": claim,
+        });
+        serde_json::to_string(&packet).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// **The panel's step.** File a whistleblower report against `accused_did` (§8),
+    /// co-signed by a mediator reception panel, from the source's `attestation` packet.
+    ///
+    /// The panel seals the source identity under k-of-n custody keyed to its own
+    /// members (`threshold` defaults to a majority of the panel), so no minority of the
+    /// panel can name the source later. The authority pass requires a non-party
+    /// reception panel, an attestation from a real insider bound to this exact claim,
+    /// and custody held by exactly this panel. Returns the report CID.
+    #[pyo3(signature = (panel_privs, panel_dids, panel_pubs, accused_did, claim, attestation, threshold=None, references=Vec::new()))]
     #[allow(clippy::too_many_arguments)]
     fn file_whistleblower(
         &mut self,
         panel_privs: Vec<Vec<u8>>,
         panel_dids: Vec<String>,
+        panel_pubs: Vec<Vec<u8>>,
         accused_did: &str,
-        source_commitment: &str,
         claim: String,
+        attestation: &str,
+        threshold: Option<usize>,
         references: Vec<String>,
-        filed_at: Option<i64>,
     ) -> PyResult<String> {
         let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        if panel_pubs.len() != ids.len() {
+            return Err(PyValueError::new_err(
+                "panel_pubs must have one public key per panelist",
+            ));
+        }
         let refs: Vec<Cid> = references.iter().map(|s| parse_cid(s)).collect::<PyResult<_>>()?;
+        let packet: serde_json::Value = serde_json::from_str(attestation)
+            .map_err(|e| PyValueError::new_err(format!("attestation packet: {e}")))?;
+        let insider: RingSigned<InsiderClaim> =
+            serde_json::from_value(packet["insider"].clone())
+                .map_err(|e| PyValueError::new_err(format!("attestation: {e}")))?;
+        let preimage: SourcePreimage = serde_json::from_value(packet["preimage"].clone())
+            .map_err(|e| PyValueError::new_err(format!("attestation preimage: {e}")))?;
+        let filed_at = insider.payload.filed_at;
+
+        let holders: Vec<(DidKey, PubKey)> = ids
+            .iter()
+            .cloned()
+            .zip(panel_pubs.iter().map(|b| pub_from_bytes(b)))
+            .collect();
+        // A majority by default: the smallest quorum that cannot be met by a minority.
+        let k = threshold.unwrap_or(holders.len() / 2 + 1);
+        let bytes = kc_core::canonical::to_canonical_cbor(&preimage).map_err(kc_err_to_py)?;
+        let custody = ThresholdCustody::seal(&bytes, &holders, k).map_err(kc_err_to_py)?;
+
         let wb = WhistleblowerReport {
             accused_community: parse_did(accused_did)?,
-            source_commitment: parse_cid(source_commitment)?,
+            source_commitment: preimage.commitment().map_err(kc_err_to_py)?,
             claim,
             references: refs,
             reception_panel: ids,
-            filed_at: parse_as_of(filed_at)?.unwrap_or_else(time::now),
+            filed_at,
+            insider,
+            custody,
         };
         let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
         let signed = Signed::build(wb, &pairs).map_err(kc_err_to_py)?;
@@ -948,9 +1050,36 @@ impl PyArchive {
             .map_err(kc_err_to_py)
     }
 
-    /// Disclose a whistleblower's source (§8), co-signed by a mediator panel and
-    /// citing a non-empty cause. Returns the CID.
-    #[pyo3(signature = (panel_privs, panel_dids, report_cid, cause, disclosed_source, revealed_at=None))]
+    /// One panelist opens its own custody share of a filed report's source (§8),
+    /// returning it as JSON to be gathered into a [`reveal_source`] call. A share is
+    /// useless alone: it takes the filing's threshold of them to name anybody.
+    fn open_source_share(
+        &self,
+        report_cid: &str,
+        holder_priv: Vec<u8>,
+        holder_did: &str,
+    ) -> PyResult<String> {
+        let cid = parse_cid(report_cid)?;
+        let wb = match self.inner.get(&cid) {
+            Some(ArchiveEntry::WhistleblowerFiled(s)) => &s.payload,
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "{report_cid} is not a whistleblower report"
+                )))
+            }
+        };
+        let share = wb
+            .custody
+            .open_share(&parse_did(holder_did)?, &priv_from_bytes(&holder_priv))
+            .map_err(kc_err_to_py)?;
+        serde_json::to_string(&share).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Disclose a whistleblower's source (§8), co-signed by a mediator panel, citing a
+    /// non-empty cause, and carrying enough opened custody `shares` to actually
+    /// recover the identity. The authority pass checks that they do: a reveal cannot
+    /// name someone the shares do not produce. Returns the CID.
+    #[pyo3(signature = (panel_privs, panel_dids, report_cid, cause, disclosed_source, shares, revealed_at=None))]
     #[allow(clippy::too_many_arguments)]
     fn reveal_source(
         &mut self,
@@ -959,20 +1088,60 @@ impl PyArchive {
         report_cid: &str,
         cause: String,
         disclosed_source: String,
+        shares: Vec<String>,
         revealed_at: Option<i64>,
     ) -> PyResult<String> {
         let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        let shares: Vec<RevealedShare> = shares
+            .iter()
+            .map(|s| {
+                serde_json::from_str(s)
+                    .map_err(|e| PyValueError::new_err(format!("custody share: {e}")))
+            })
+            .collect::<PyResult<_>>()?;
         let rev = SourceReveal {
             report_cid: parse_cid(report_cid)?,
             panel: ids,
             cause,
             disclosed_source,
+            shares,
             revealed_at: parse_as_of(revealed_at)?.unwrap_or_else(time::now),
         };
         let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
         let signed = Signed::build(rev, &pairs).map_err(kc_err_to_py)?;
         self.inner
             .append(ArchiveEntry::SourceRevealed(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Publish a proof that a whistleblower filing's key image is **not** the
+    /// claimant's (§8) — the answer available to a member a reveal named wrongly.
+    ///
+    /// Needs nothing but the claimant's own key: no panel, no quorum, no permission.
+    /// The archive refuses it if the proof is bad, if the claimant was never in the
+    /// filing's ring, or if the claimed image *matches* the filing (which would make
+    /// the record a confession rather than a denial).
+    #[pyo3(signature = (claimant_priv, claimant_did, report_cid, exculpated_at=None))]
+    fn exculpate_source(
+        &mut self,
+        claimant_priv: Vec<u8>,
+        claimant_did: &str,
+        report_cid: &str,
+        exculpated_at: Option<i64>,
+    ) -> PyResult<String> {
+        let sk = priv_from_bytes(&claimant_priv);
+        let did = parse_did(claimant_did)?;
+        let exc = SourceExculpation::prove(
+            parse_cid(report_cid)?,
+            did.clone(),
+            &sk,
+            parse_as_of(exculpated_at)?.unwrap_or_else(time::now),
+        )
+        .map_err(kc_err_to_py)?;
+        let signed = Signed::build(exc, &[(did.as_str(), &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::SourceExculpated(signed))
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
@@ -3117,6 +3286,10 @@ struct PyWhistleblowerSummary {
     claim: String,
     filed_at: i64,
     source_revealed: bool,
+    /// The filing's anonymous source tag (ring-signature key image, hex).
+    source_tag: String,
+    /// Published proofs that this filing's key image is not the claimant's.
+    exculpations: usize,
 }
 
 impl From<&rep::WhistleblowerSummary> for PyWhistleblowerSummary {
@@ -3125,6 +3298,8 @@ impl From<&rep::WhistleblowerSummary> for PyWhistleblowerSummary {
             record_cid: s.record_cid.to_string(),
             claim: s.claim.clone(),
             filed_at: s.filed_at.as_second(),
+            source_tag: s.source_tag.clone(),
+            exculpations: s.exculpations,
             source_revealed: s.source_revealed,
         }
     }
@@ -3389,6 +3564,9 @@ struct PyObserverDashboard {
     observer_reports_by_subject: Vec<(String, usize)>,
     /// (accused_did, whistleblower_count), descending. Never the source.
     whistleblowers_by_accused: Vec<(String, usize)>,
+    /// (accused_did, distinct_source_count), descending — how many separate insiders
+    /// filed, never who. One source filing ten times reads as one.
+    distinct_sources_by_accused: Vec<(String, usize)>,
     /// The observer-corps composition (pool-share / rotation view).
     pool: PyObserverPoolConcentration,
     /// The substrate-deference / erosion report (§9 half of the board).
@@ -3404,6 +3582,7 @@ impl From<&rep::ObserverDashboard> for PyObserverDashboard {
             rejections: PyRejectionPattern::from(&d.rejections),
             observer_reports_by_subject: d.observer_reports_by_subject.clone(),
             whistleblowers_by_accused: d.whistleblowers_by_accused.clone(),
+            distinct_sources_by_accused: d.distinct_sources_by_accused.clone(),
             pool: PyObserverPoolConcentration::from(&d.pool),
             substrate: PySubstrateDeferenceReport::from(&d.substrate),
             erosion: PyErosionAlert::from(&d.erosion),

@@ -37,14 +37,19 @@ pub struct AtPeer {
     /// is not normalized within the peer population, so the number crosses the seam
     /// as-is.
     ///
-    /// **`None` is not yet reachable from a live node, and that is an AT-side gap
-    /// rather than a decoder one.** AT returns `PREREP_NEUTRAL` both for a peer it
-    /// has no history for and as a score a peer can genuinely earn, so it collapses
-    /// "unrated" into a number at its own API boundary; "exactly 0.2" is not a safe
-    /// inference. Exposing the distinction (a "has bilateral history" signal
-    /// alongside the score) is a named AT-side prerequisite, sequenced the way Q9
-    /// sequenced the operator signal: build the AT half first. Until then the
-    /// at-ffi decoder reports `Some(score)` for every peer.
+    /// **RESOLVED 2026-07-29 (AT side built).** AT's `PEER_REPUTATION` carrier
+    /// message carries an explicit `rated` flag beside the score, so `None` is
+    /// now reachable from a live node: the decoder maps `rated == false` to
+    /// `None`. The distinction existed inside AT all along
+    /// (`reputations_get` returns `EREP_NOPEER`, `reputations_contains`); what
+    /// was missing was a boundary that carried it.
+    ///
+    /// One consequence to respect: `rated == false` can only arrive on a
+    /// **roster pull**. Every change-driven emission is by construction rated,
+    /// because the reputation process had just committed a score. An adapter
+    /// that never pulls will therefore never observe an unrated peer — it will
+    /// simply not hear about peers AT has no opinion on.
+    /// See `autonomous_trust/doc/architecture/app-peer-carrier.md`.
     pub reputation: Option<f64>,
     /// AT topology rank (one-hop reachability via gateways); informational for
     /// v1, carried so a later cohesion slice can read it.
@@ -57,6 +62,19 @@ pub struct AtPeer {
     /// The guardian operator's ed25519 signing key, present iff `operator_bound`.
     /// Becomes the member's guardian `did:key` — the human-above-machine anchor
     /// the substrate's guardian ground requires.
+    ///
+    /// **Not reachable from a live node, and not a decoder gap (measured
+    /// 2026-07-29).** AT has no guardian *identity* at all: `operator_bound`
+    /// says a human exists and `operator_attested_at` says when one was last
+    /// verified present, but nothing carries *which* human. The credential is a
+    /// PIV/CAC X.509, so there is no ed25519 key in it to become a `did:key`.
+    /// This matters more than an absent field usually would, because **D15
+    /// requires a guardian to co-sign `GuardianChange` records** — a guardian
+    /// that cannot sign is unusable, so D15's chartered node→guardian edge has
+    /// no live source and remains `MockEventSource`-only. Closing it means
+    /// binding an operator ed25519 key with the PIV credential and advertising
+    /// it (an `identity.proto` change, C+Python parity, conformance): the
+    /// named next slice.
     pub guardian_pubkey: Option<Vec<u8>>,
     /// When a human guardian was last verified *present* at this node's console —
     /// AT's live **attended-now** signal, the counterpart to the durable
@@ -120,6 +138,16 @@ impl AtPeer {
 
 /// A decoded event teed from the AT→app stream. The adapter folds a sequence of
 /// these into its live view of the observed subtree.
+///
+/// **Only `PeerObserved` has a live source (measured 2026-07-29).** Nothing in
+/// AT ever removes an entry from `protocol.peers[]`, so the live feed is
+/// upsert-only; and `BoundaryPrivate` needs the subtree view D7's correction
+/// records as unavailable live. The other two variants are kept because they
+/// are exactly what offline founding replays through [`MockEventSource`] — a
+/// captured or synthesized view *can* express a departure and an opaque edge.
+/// A live adapter grades absence by staleness against its own clock, which is
+/// what the cohesion monitor already does (D16 spans), rather than waiting for
+/// a departure that will not arrive.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AtEvent {
     /// A peer is present in the observed subtree (upsert its reading).

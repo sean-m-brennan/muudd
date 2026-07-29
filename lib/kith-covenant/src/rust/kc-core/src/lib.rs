@@ -17,16 +17,20 @@
 pub mod canonical;
 pub mod cid;
 pub mod community;
+pub mod custody;
 pub mod did;
 pub mod error;
 pub mod keys;
+pub mod ring;
 pub mod signature;
 pub mod time;
 
 pub use cid::Cid;
 pub use community::{CommunityIdentity, SuccessorLink};
+pub use custody::{RevealedShare, SealedShare, SourcePreimage, ThresholdCustody};
 pub use did::DidKey;
 pub use error::{KcError, KcResult};
 pub use keys::{Alg, PrivKey, PubKey, Signature};
+pub use ring::{Bytes32, DlEqProof, KeyImage, RingSignature, RingSigned};
 pub use signature::{SignatureEntry, Signed};
 pub use time::Timestamp;

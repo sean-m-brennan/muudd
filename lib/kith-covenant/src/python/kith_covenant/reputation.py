@@ -199,6 +199,14 @@ class WhistleblowerSummary:
     # True once a for-cause reveal has disclosed the source; the source itself
     # is never projected.
     source_revealed: bool
+    # The filing's anonymous source tag: its ring-signature key image, in hex. The
+    # one publishable fact about a source — equal across every filing by the same
+    # insider, and tied to no identity.
+    source_tag: str
+    # How many members have published a proof that this filing's key image is not
+    # theirs. Non-zero after a reveal means the disclosure is contested by
+    # arithmetic, not merely denied.
+    exculpations: int
 
 
 @dataclass(frozen=True)
@@ -359,7 +367,8 @@ def _to_frozen(v) -> ReputationView:
             for s in v.observer_reports
         ),
         whistleblower_reports_against=tuple(
-            WhistleblowerSummary(s.record_cid, s.claim, s.filed_at, s.source_revealed)
+            WhistleblowerSummary(s.record_cid, s.claim, s.filed_at, s.source_revealed,
+                                 s.source_tag, s.exculpations)
             for s in v.whistleblower_reports_against
         ),
     )
@@ -1173,6 +1182,9 @@ class ObserverDashboard:
     observer_reports_by_subject: tuple[tuple[str, int], ...]
     # (accused_did, whistleblower_count), descending; never the source
     whistleblowers_by_accused: tuple[tuple[str, int], ...]
+    # (accused_did, distinct_source_count), descending. How many separate insiders
+    # filed, never who: one voice repeating itself does not read as many.
+    distinct_sources_by_accused: tuple[tuple[str, int], ...]
     # the observer-corps composition (pool-share / rotation view)
     pool: ObserverPoolConcentration
     # the substrate-deference / erosion report (§9 half of the board)
@@ -1204,6 +1216,9 @@ def observer_dashboard(archive, as_of: Optional[int] = None) -> ObserverDashboar
         ),
         observer_reports_by_subject=tuple(tuple(x) for x in d.observer_reports_by_subject),
         whistleblowers_by_accused=tuple(tuple(x) for x in d.whistleblowers_by_accused),
+        distinct_sources_by_accused=tuple(
+            tuple(x) for x in d.distinct_sources_by_accused
+        ),
         pool=_pool_from(d.pool),
         substrate=_substrate_from(d.substrate),
         erosion=_erosion_from(d.erosion),

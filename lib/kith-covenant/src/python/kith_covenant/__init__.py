@@ -65,6 +65,9 @@ try:
     )
     from kith_covenant.harness import (
         ScenarioResult, HarnessReport, run_harness,
+        HarnessParams, PARAM_RANGES, run_continuous, ContinuousReport,
+        ScenarioStats, ScenarioFailure, replay, params_for_seed, shrink_failure,
+        sweep, sweep_all, SweepPoint,
     )
     from kith_covenant.authoring import (
         Signer, new_identity, delegate_speaker, revoke_delegation, vouch,
@@ -80,7 +83,8 @@ try:
         issue_injunction, confirm_injunction, challenge_injunction,
         register_commons, record_usage, apply_sanction,
         new_observer, register_observers, publish_observer_report,
-        respond_to_report, file_whistleblower, reveal_source,
+        respond_to_report, insider_ring, attest_insider, file_whistleblower,
+        open_source_share, reveal_source, exculpate_source,
         ratify_constitution, amend_compact_incapable, amend_fast_cadence,
         now_seconds, DELEGATION_SCOPES, DECISION_OUTCOMES,
         DESIGNATION_TIERS, DESIGNATION_URGENCIES, CAPABILITIES,
@@ -116,6 +120,9 @@ try:
         'ErosionAlert', 'erosion_alert', 'OverdueReaffirmation',
         'OverdueReexamination', 'overdue_reexaminations',
         'ScenarioResult', 'HarnessReport', 'run_harness',
+    'HarnessParams', 'PARAM_RANGES', 'run_continuous', 'ContinuousReport',
+    'ScenarioStats', 'ScenarioFailure', 'replay', 'params_for_seed',
+    'shrink_failure', 'sweep', 'sweep_all', 'SweepPoint',
         'Signer', 'new_identity', 'delegate_speaker', 'revoke_delegation',
         'vouch', 'attest_interpretation', 'attest_interpreter_independence',
         'report_event', 'corroborate_event',
@@ -129,7 +136,8 @@ try:
         'issue_injunction', 'confirm_injunction', 'challenge_injunction',
         'register_commons', 'record_usage', 'apply_sanction',
         'new_observer', 'register_observers', 'publish_observer_report',
-        'respond_to_report', 'file_whistleblower', 'reveal_source',
+        'respond_to_report', 'insider_ring', 'attest_insider', 'file_whistleblower',
+    'open_source_share', 'reveal_source', 'exculpate_source',
         'ratify_constitution', 'amend_compact_incapable', 'amend_fast_cadence',
         'now_seconds', 'DELEGATION_SCOPES', 'DECISION_OUTCOMES',
         'DESIGNATION_TIERS', 'DESIGNATION_URGENCIES', 'CAPABILITIES',

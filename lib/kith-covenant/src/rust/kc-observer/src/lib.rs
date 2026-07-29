@@ -30,24 +30,35 @@
 //! The whistleblower channel (jester_and_dissent.md "Whistleblower protection")
 //! is the harder case: an insider reports a suspected virtue violation across the
 //! AT/kith-covenant boundary. A mediator **reception panel** vouches that it
-//! received a credible insider report; the [`WhistleblowerReport`] stores only a
-//! `source_commitment` (a hash the panel holds the preimage of out-of-band), so
-//! the archive never carries the source identity in the clear. A
-//! [`SourceReveal`] discloses it only on a mediator-panel quorum citing named
-//! cause.
+//! received a credible insider report, and the source is protected
+//! cryptographically at both ends of its life:
+//!
+//! - an [`InsiderClaim`] ring-signed over the accused community's own resolvable
+//!   keys proves an insider filed, without saying which one (`kc_core::ring`);
+//! - the identity itself is held under k-of-n threshold custody keyed to the
+//!   reception panel (`kc_core::custody`), so a minority cannot recover it early;
+//! - a [`SourceReveal`] must open the filing's commitment with real shares, and a
+//!   member wrongly named can answer with a [`SourceExculpation`] proving the
+//!   filing's key image is not theirs.
+//!
+//! The v1 slice stored only a `source_commitment` and left both halves to a later
+//! pass. That protected the source by omission, which turned out to prove nothing:
+//! nothing in the archive read the commitment, so a reveal could name anyone, and
+//! nothing bound a source to a filing at all, so a panel could manufacture insider
+//! complaints against a rival. Both are closed here.
 //!
 //! This crate carries only the *record* shapes. The structural rules — an
 //! observer is a registered, non-party member of the corps; a response comes from
 //! the report's subject; a whistleblower reception (and any reveal) is a
-//! non-party mediator panel — are enforced at the archive's authority layer
-//! (`kc_archive::authority`), because they range over the whole archive (the
+//! non-party mediator panel; the ring is the accused community's key set; a reveal
+//! recovers what the filing committed to — are enforced at the archive's authority
+//! layer (`kc_archive::authority`), because they range over the whole archive (the
 //! registries, the referenced report).
 //!
-//! Deferred to later slices (MVP crypto is Ed25519-only): ring-signature source
-//! *anonymity* (prove insider membership without revealing which member),
-//! threshold-*encrypted* source records, the substrate-deference dashboard (which
-//! needs §9's compact-incapable list and structured-fast state), observer
-//! pool-share and rotation caps, and secure out-of-band whistleblower transport.
+//! Deferred: secure out-of-band whistleblower transport (how a source reaches a
+//! panel unobserved is operational infrastructure, not a record shape), and a
+//! separate encryption key per mediator so custody sealing stops reusing the
+//! signing key.
 
 mod record;
 
@@ -55,6 +66,6 @@ mod record;
 mod tests;
 
 pub use record::{
-    ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
-    WhistleblowerReport,
+    exculpation_context, InsiderClaim, ObserverEntry, ObserverRegistry, ObserverReport,
+    ReportResponse, SourceExculpation, SourceReveal, WhistleblowerReport,
 };

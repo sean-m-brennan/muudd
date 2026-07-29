@@ -26,7 +26,8 @@ use kc_conduct::ConductRecord;
 use kc_constitution::{CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment};
 use kc_core::{Cid, KcResult, Signed};
 use kc_observer::{
-    ObserverRegistry, ObserverReport, ReportResponse, SourceReveal, WhistleblowerReport,
+    ObserverRegistry, ObserverReport, ReportResponse, SourceExculpation, SourceReveal,
+    WhistleblowerReport,
 };
 use kc_escalation::{
     Designation, InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition,
@@ -99,8 +100,12 @@ pub enum ArchiveEntry {
     /// An insider whistleblower report (§8), co-signed by a mediator reception
     /// panel; carries only a commitment to the source, never the source itself.
     WhistleblowerFiled(Signed<WhistleblowerReport>),
-    /// A quorum-gated, for-cause disclosure of a whistleblower's source (§8).
+    /// A quorum-gated, for-cause disclosure of a whistleblower's source (§8). The
+    /// disclosure must open the filing's commitment with real custody shares.
     SourceRevealed(Signed<SourceReveal>),
+    /// A member's proof that a whistleblower filing's key image is not theirs (§8) —
+    /// the one §8 remedy a member can exercise without a panel's leave.
+    SourceExculpated(Signed<SourceExculpation>),
     /// The founding constitutional artifact (§9): the initial compact-incapable
     /// list and structured-fast cadence, quorum-ratified. Singleton per archive.
     ConstitutionRatified(Signed<ConstitutionGenesis>),
@@ -174,6 +179,7 @@ impl ArchiveEntry {
             Self::ReportResponsePublished(_) => "ReportResponsePublished",
             Self::WhistleblowerFiled(_) => "WhistleblowerFiled",
             Self::SourceRevealed(_) => "SourceRevealed",
+            Self::SourceExculpated(_) => "SourceExculpated",
             Self::ConstitutionRatified(_) => "ConstitutionRatified",
             Self::CompactIncapableAmended(_) => "CompactIncapableAmended",
             Self::FastCadenceAmended(_) => "FastCadenceAmended",

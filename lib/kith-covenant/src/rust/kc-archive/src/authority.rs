@@ -172,7 +172,8 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         ArchiveEntry::ObserverRegistryUpdated(_)
         | ArchiveEntry::ObserverReportPublished(_)
         | ArchiveEntry::WhistleblowerFiled(_)
-        | ArchiveEntry::SourceRevealed(_) => &[],
+        | ArchiveEntry::SourceRevealed(_)
+        | ArchiveEntry::SourceExculpated(_) => &[],
         // §5 escalation acts an envoy may sign on the community's behalf.
         ArchiveEntry::LadderAdvanced(_)
         | ArchiveEntry::DesignationDecided(_)
@@ -302,7 +303,8 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         // observer / reception-panel rules, not principal binding.
         ArchiveEntry::ObserverReportPublished(_)
         | ArchiveEntry::WhistleblowerFiled(_)
-        | ArchiveEntry::SourceRevealed(_) => None,
+        | ArchiveEntry::SourceRevealed(_)
+        | ArchiveEntry::SourceExculpated(_) => None,
         // §9. Genesis ratification and constitutional amendments are compact-level
         // second-class acts: the ratifiers / deciders get the distinct-community
         // quorum for free; the higher contraction bar is checked structurally.
@@ -399,6 +401,7 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::ReportResponsePublished(s) => dids(s),
         ArchiveEntry::WhistleblowerFiled(s) => dids(s),
         ArchiveEntry::SourceRevealed(s) => dids(s),
+        ArchiveEntry::SourceExculpated(s) => dids(s),
         ArchiveEntry::ConstitutionRatified(s) => dids(s),
         ArchiveEntry::CompactIncapableAmended(s) => dids(s),
         ArchiveEntry::FastCadenceAmended(s) => dids(s),
@@ -1305,9 +1308,72 @@ fn authorize_reception_panel(
     Ok(())
 }
 
+/// The keys the archive can resolve as **insiders** of `community` at `at`: its root
+/// key plus every active speaker delegation it has issued.
+///
+/// Public because a source assembling a filing must use the *same* definition the
+/// authority pass will check it against; two implementations of "the insider set"
+/// would refuse every honest filing.
+///
+/// This is the ring a whistleblower proves membership in. It is the accused
+/// community's *resolvable* key set, which is a real limit: kith-covenant models
+/// communities and their delegated speakers, not individual members, so an insider
+/// with no delegation cannot file. The named future feed is a member roll from the
+/// polity tier. Delegations follow the same supersession rule as `resolve_did` — the
+/// record with the greatest `issued_at <= at` wins, so an appended revocation removes
+/// a key from the ring.
+pub fn insider_keys(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    at: Timestamp,
+) -> Vec<(DidKey, kc_core::PubKey)> {
+    let mut out: Vec<(DidKey, kc_core::PubKey)> = Vec::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::CommunityIdentityPublished(s) = e {
+            if &s.payload.did == community {
+                out.push((s.payload.did.clone(), s.payload.root_pubkey.clone()));
+            }
+        }
+    }
+    // Latest delegation per speaker, then keep the ones live at `at`.
+    let mut latest: BTreeMap<String, &kc_identity::SpeakerDelegation> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::SpeakerDelegated(s) = e {
+            let d = &s.payload;
+            if &d.community_did != community || d.issued_at > at {
+                continue;
+            }
+            let key = d.speaker_did.as_str().to_string();
+            match latest.get(&key) {
+                Some(prev)
+                    if (prev.issued_at, prev.revoked_at.is_some())
+                        >= (d.issued_at, d.revoked_at.is_some()) => {}
+                _ => {
+                    latest.insert(key, d);
+                }
+            }
+        }
+    }
+    for d in latest.values() {
+        if d.active_at(at) {
+            out.push((d.speaker_did.clone(), d.speaker_pubkey.clone()));
+        }
+    }
+    out
+}
+
 /// §8 whistleblower rule: a non-party mediator reception panel of at least
-/// `panel_min` vouches the report. The source is a commitment, not recorded here,
-/// so there is nothing further to check about it at the archive layer.
+/// `panel_min` vouches the report, **and** the filing carries a source of its own.
+///
+/// The second half is the one that matters. Without it the archive holds no evidence
+/// an insider exists at all — the signers are the panel, so a panel could file
+/// manufactured insider complaints against a rival community and both integrity
+/// passes would pass them. Here the source's ring signature must verify against the
+/// accused community's own resolvable keys, and the attestation must be bound to
+/// *this* accusation: same accused, same commitment, same instant, and a digest of the
+/// claim text, so an attestation cannot be lifted off one claim and stapled to
+/// another. The custody is checked for shape at the same time, because a sharing that
+/// could never be recovered is a source protected by loss rather than by threshold.
 fn authorize_whistleblower(
     archive: &InMemoryArchive,
     wb: &WhistleblowerReport,
@@ -1321,12 +1387,103 @@ fn authorize_whistleblower(
         wb.filed_at,
         panel_min,
         "whistleblower reception",
-    )
+    )?;
+
+    // The attestation is internally valid and closes over the ring it names.
+    wb.insider
+        .verify()
+        .map_err(|e| KcError::Authority(format!("whistleblower insider attestation: {e}")))?;
+
+    // The ring is exactly the accused community's insider key set.
+    let insiders = insider_keys(archive, &wb.accused_community, wb.filed_at);
+    if insiders.len() < 2 {
+        return Err(KcError::Authority(format!(
+            "community {} has {} resolvable keys, too few for an anonymous filing (a ring of one names its signer)",
+            wb.accused_community,
+            insiders.len()
+        )));
+    }
+    let expected: BTreeSet<Vec<u8>> = insiders.iter().map(|(_, pk)| pk.bytes.clone()).collect();
+    let offered: BTreeSet<Vec<u8>> = wb.insider.ring.iter().map(|pk| pk.bytes.clone()).collect();
+    if offered != expected {
+        return Err(KcError::Authority(format!(
+            "whistleblower ring is not {}'s insider key set ({} offered, {} resolvable)",
+            wb.accused_community,
+            offered.len(),
+            expected.len()
+        )));
+    }
+
+    // The attestation is bound to this filing, not merely to some filing.
+    let claim = &wb.insider.payload;
+    if claim.accused_community != wb.accused_community {
+        return Err(KcError::Authority(
+            "whistleblower attestation names a different accused community".into(),
+        ));
+    }
+    if claim.source_commitment != wb.source_commitment {
+        return Err(KcError::Authority(
+            "whistleblower attestation commits to a different source".into(),
+        ));
+    }
+    if claim.filed_at != wb.filed_at {
+        return Err(KcError::Authority(
+            "whistleblower attestation was made for a different filing instant".into(),
+        ));
+    }
+    let digest = WhistleblowerReport::claim_digest(&wb.claim)
+        .map_err(|e| KcError::Authority(format!("claim digest: {e}")))?;
+    if claim.claim_digest != digest {
+        return Err(KcError::Authority(
+            "whistleblower attestation was made for a different claim".into(),
+        ));
+    }
+
+    // Custody: recoverable in principle, and held by exactly the panel that vouched.
+    wb.custody
+        .check_shape()
+        .map_err(|e| KcError::Authority(format!("whistleblower source custody: {e}")))?;
+    let holders: BTreeSet<String> =
+        wb.custody.holders().iter().map(|d| d.as_str().to_string()).collect();
+    let panel: BTreeSet<String> =
+        wb.reception_panel.iter().map(|d| d.as_str().to_string()).collect();
+    if holders != panel {
+        return Err(KcError::Authority(format!(
+            "source custody is held by {} keys but the reception panel is {}",
+            holders.len(),
+            panel.len()
+        )));
+    }
+    // The threshold must be a **majority** of the custodians, which is the precise
+    // reading of "structurally stronger than individual mediator integrity": no
+    // minority of the panel can reconstruct the source, whatever it agrees among
+    // itself. Requiring `panel_min` instead would be wrong — for a panel of exactly
+    // `panel_min` that is unanimity, so one unavailable panelist would make the source
+    // permanently unnameable. The separate rule that a reveal be co-signed by
+    // `panel_min` non-party mediators still applies, so both gates hold at once.
+    let k = usize::from(wb.custody.threshold_k);
+    if 2 * k <= panel.len() {
+        return Err(KcError::Authority(format!(
+            "source custody threshold {k} is not a majority of the {} custodians, so a minority could name the source",
+            panel.len()
+        )));
+    }
+    Ok(())
 }
 
 /// §8 source-reveal rule: references a filed whistleblower report, cites a
-/// non-empty cause, and is authorized by a non-party mediator panel of at least
-/// `panel_min` (the source is disclosed only for cause, by quorum).
+/// non-empty cause, is authorized by a non-party mediator panel of at least
+/// `panel_min` — and **actually opens the filing's commitment**.
+///
+/// The last clause is what makes the quorum gate mean anything. Before it, `cause` and
+/// the panel were checked and `disclosed_source` was not: the commitment on the filing
+/// was read by no rule anywhere, so a panel could append any name it liked and the
+/// archive would carry it as a disclosure. Now the reveal must present enough opened
+/// custody shares to reconstruct the identity, every share is checked against the
+/// filing's published commitments, the recovered preimage must hash to the filing's
+/// `source_commitment`, and `disclosed_source` must be what was recovered. Naming
+/// someone therefore requires the shares — and the someone can only be a member of the
+/// ring the source proved membership in.
 fn authorize_source_reveal(
     archive: &InMemoryArchive,
     rev: &SourceReveal,
@@ -1352,7 +1509,88 @@ fn authorize_source_reveal(
         rev.revealed_at,
         panel_min,
         "source reveal",
-    )
+    )?;
+
+    let preimage = wb
+        .custody
+        .recover_preimage(&rev.shares, &wb.source_commitment)
+        .map_err(|e| {
+            KcError::Authority(format!(
+                "source reveal does not open the filing's commitment: {e}"
+            ))
+        })?;
+    if rev.disclosed_source != preimage.identity {
+        return Err(KcError::Authority(
+            "source reveal discloses a name the custody shares do not recover".into(),
+        ));
+    }
+    // The disclosed source must be someone the source could have been.
+    let ring_dids: BTreeSet<String> = insider_keys(archive, &wb.accused_community, wb.filed_at)
+        .iter()
+        .map(|(did, _)| did.as_str().to_string())
+        .collect();
+    if !ring_dids.contains(&preimage.identity) {
+        return Err(KcError::Authority(format!(
+            "source reveal names {}, who is not an insider of {}",
+            preimage.identity, wb.accused_community
+        )));
+    }
+    Ok(())
+}
+
+/// §8 exculpation rule: a member proves a filing's key image is not theirs.
+///
+/// Unlike every other §8 record this needs no panel — that is the point. A colluding
+/// quorum can still name the wrong ring member, and the wronged member's remedy must
+/// not run through the body that wronged them. What the archive checks is only that
+/// the claim is honest arithmetic: the claimant's key resolves, the proof ties that key
+/// to the image being claimed, and the image differs from the one on the filing. An
+/// "exculpation" whose image *matches* the filing is a confession, and is refused
+/// rather than recorded as a denial.
+fn authorize_source_exculpation(
+    archive: &InMemoryArchive,
+    exc: &kc_observer::SourceExculpation,
+    signers: &[&str],
+) -> KcResult<()> {
+    let wb = match archive.get(&exc.report_cid) {
+        Some(ArchiveEntry::WhistleblowerFiled(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "source exculpation references {} which is not a whistleblower report",
+                exc.report_cid
+            )))
+        }
+    };
+    if !signers.contains(&exc.claimant_did.as_str()) {
+        return Err(KcError::Authority(format!(
+            "source exculpation must be signed by its claimant {}",
+            exc.claimant_did
+        )));
+    }
+    // Resolve the claimant among the filing's own insider set: being in the ring is
+    // both what makes the claimant implicated and where their key comes from.
+    let insiders = insider_keys(archive, &wb.accused_community, wb.filed_at);
+    let pubkey = insiders
+        .iter()
+        .find(|(did, pk)| {
+            did == &exc.claimant_did && wb.insider.ring.iter().any(|r| r.bytes == pk.bytes)
+        })
+        .map(|(_, pk)| pk.clone())
+        .ok_or_else(|| {
+            KcError::Authority(format!(
+                "source exculpation claimant {} is not in the filing's ring, so the filing never implicated them",
+                exc.claimant_did
+            ))
+        })?;
+    exc.verify_proof(&pubkey)
+        .map_err(|e| KcError::Authority(format!("source exculpation proof: {e}")))?;
+    if &exc.claimed_key_image == wb.source_tag() {
+        return Err(KcError::Authority(format!(
+            "source exculpation by {} reproduces the filing's own key image: it is a confession, not a denial",
+            exc.claimant_did
+        )));
+    }
+    Ok(())
 }
 
 /// The genesis-original compact-incapable keys (from the singleton
@@ -1777,6 +2015,12 @@ pub fn authorize_with_caps(
     if let ArchiveEntry::SourceRevealed(s) = entry {
         let signers = signer_dids(entry);
         return authorize_source_reveal(archive, &s.payload, &signers, panel_min);
+    }
+    // An exculpation is authorized by its own arithmetic, not by any panel: the
+    // remedy for being wrongly named must not depend on the body that named you.
+    if let ArchiveEntry::SourceExculpated(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_source_exculpation(archive, &s.payload, &signers);
     }
 
     let auth = match record_authority(entry) {

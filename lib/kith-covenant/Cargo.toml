@@ -29,8 +29,17 @@ rust-version = "1.75"
 # Crypto. Ed25519-only for MVP per trustworthiness grounds (no known backdoors,
 # battle-tested). Alg enum preserved as a one-variant structure to allow a future
 # non-lattice PQC scheme (e.g. SLH-DSA/SPHINCS+) if/when one is accepted.
-ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core", "serde", "hazmat"] }
 rand = "0.8"
+# §8 whistleblower anonymity + threshold custody. curve25519-dalek is already in the
+# tree beneath ed25519-dalek; naming it directly gives the ring signatures and the
+# Feldman sharing access to the same curve the identity keys live on, so an anonymous
+# filing needs no second keypair. `hazmat` above is what exposes an Ed25519 key's
+# secret scalar, which is the whole reason those two can share one identity key.
+curve25519-dalek = "4.1"
+# AEAD for the threshold-held source record and its per-panelist sealed shares.
+# Pinned at 0.10: 0.11 raises the MSRV above this workspace's rust-version.
+chacha20poly1305 = "0.10"
 
 # Hashing / content-addressing
 blake3 = "1.5"

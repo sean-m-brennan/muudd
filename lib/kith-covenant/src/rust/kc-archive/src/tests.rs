@@ -2115,9 +2115,10 @@ mod commons {
 mod observer {
     use super::*;
     use kc_core::PubKey;
+    use kc_core::{KeyImage, RevealedShare, SourcePreimage, ThresholdCustody};
     use kc_observer::{
-        ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
-        WhistleblowerReport,
+        ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceExculpation,
+        SourceReveal, WhistleblowerReport,
     };
 
     const Q: usize = DEFAULT_QUORUM_THRESHOLD;
@@ -2248,34 +2249,133 @@ mod observer {
         a.append(ArchiveEntry::ReportResponsePublished(r)).unwrap()
     }
 
-    fn whistleblow(
+    /// Give `community` `n` delegated speakers, so it has a resolvable insider set
+    /// wide enough to hide a whistleblower in. Returns (did, priv, pub) per speaker.
+    #[allow(clippy::type_complexity)]
+    fn add_insiders(
         a: &mut InMemoryArchive,
-        accused: &DidKey,
-        panel: &[(&DidKey, &PrivKey)],
+        community: &DidKey,
+        root_priv: &PrivKey,
+        n: usize,
         at: Timestamp,
-    ) -> Cid {
-        let ids: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
-        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
-        let wb = Signed::build(
-            WhistleblowerReport {
-                accused_community: accused.clone(),
-                source_commitment: Cid::of_bytes(b"commit"),
-                claim: "coerced labor".into(),
-                references: vec![],
-                reception_panel: ids,
-                filed_at: at,
-            },
-            &pairs,
-        )
-        .unwrap();
-        a.append(ArchiveEntry::WhistleblowerFiled(wb)).unwrap()
+    ) -> Vec<(DidKey, PrivKey, PubKey)> {
+        let mut out = vec![];
+        for _ in 0..n {
+            let (sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+            let did = DidKey::from_pubkey(&pk).unwrap();
+            a.append(ArchiveEntry::SpeakerDelegated(grant(
+                community, root_priv, &did, &pk, at, None,
+            )))
+            .unwrap();
+            out.push((did, sk, pk));
+        }
+        out
     }
 
-    fn reveal(
+    /// The ring the authority pass will expect for `accused` at `at`: its root key
+    /// plus every live delegation. Built here from the same archive the rule reads,
+    /// so a test that gets this wrong is testing the rule and not the helper.
+    fn expected_ring(a: &InMemoryArchive, accused: &DidKey, at: Timestamp) -> Vec<PubKey> {
+        let mut ring = vec![];
+        for (_, e) in a.iter() {
+            if let ArchiveEntry::CommunityIdentityPublished(s) = e {
+                if &s.payload.did == accused {
+                    ring.push(s.payload.root_pubkey.clone());
+                }
+            }
+        }
+        for (_, e) in a.iter() {
+            if let ArchiveEntry::SpeakerDelegated(s) = e {
+                if &s.payload.community_did == accused && s.payload.active_at(at) {
+                    ring.push(s.payload.speaker_pubkey.clone());
+                }
+            }
+        }
+        ring
+    }
+
+    /// The parts of a filing a test may want to vary.
+    struct Filing {
+        wb: WhistleblowerReport,
+        /// The source's own DID, as committed to in custody.
+        source_did: DidKey,
+    }
+
+    /// Build a well-formed filing: a real ring attestation over `accused`'s insider
+    /// set, signed by `source_index` of that ring, with the source identity held
+    /// k-of-n by the reception panel.
+    fn build_filing(
+        a: &InMemoryArchive,
+        accused: &DidKey,
+        source_priv: &PrivKey,
+        source_pub: &PubKey,
+        panel: &[(&DidKey, &PrivKey)],
+        claim: &str,
+        threshold: usize,
+        at: Timestamp,
+    ) -> Filing {
+        let ring = expected_ring(a, accused, at);
+        let source_index = ring
+            .iter()
+            .position(|pk| pk.bytes == source_pub.bytes)
+            .expect("the source must be in its community's insider set");
+        let source_did = DidKey::from_pubkey(source_pub).unwrap();
+        let preimage = SourcePreimage::new(source_did.as_str());
+        let commitment = preimage.commitment().unwrap();
+        // A mediator's DID is derived from its key, so the sealing key comes straight
+        // back out of the DID the panel is named by.
+        let holders: Vec<(DidKey, PubKey)> = panel
+            .iter()
+            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
+            .collect();
+        let custody = ThresholdCustody::seal(
+            &kc_core::canonical::to_canonical_cbor(&preimage).unwrap(),
+            &holders,
+            threshold,
+        )
+        .unwrap();
+        let insider = WhistleblowerReport::attest(
+            accused.clone(),
+            commitment,
+            claim,
+            at,
+            ring,
+            source_index,
+            source_priv,
+        )
+        .unwrap();
+        Filing {
+            wb: WhistleblowerReport {
+                accused_community: accused.clone(),
+                source_commitment: commitment,
+                claim: claim.into(),
+                references: vec![],
+                reception_panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+                filed_at: at,
+                insider,
+                custody,
+            },
+            source_did,
+        }
+    }
+
+    fn append_filing(
+        a: &mut InMemoryArchive,
+        wb: WhistleblowerReport,
+        panel: &[(&DidKey, &PrivKey)],
+    ) -> Cid {
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let signed = Signed::build(wb, &pairs).unwrap();
+        a.append(ArchiveEntry::WhistleblowerFiled(signed)).unwrap()
+    }
+
+    fn reveal_with(
         a: &mut InMemoryArchive,
         report_cid: Cid,
         panel: &[(&DidKey, &PrivKey)],
         cause: &str,
+        disclosed_source: &str,
+        shares: Vec<RevealedShare>,
         at: Timestamp,
     ) -> Cid {
         let ids: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
@@ -2285,13 +2385,25 @@ mod observer {
                 report_cid,
                 panel: ids,
                 cause: cause.into(),
-                disclosed_source: "did:key:zMember".into(),
+                disclosed_source: disclosed_source.into(),
+                shares,
                 revealed_at: at,
             },
             &pairs,
         )
         .unwrap();
         a.append(ArchiveEntry::SourceRevealed(rev)).unwrap()
+    }
+
+    /// Open every panelist's custody share.
+    fn open_shares(
+        wb: &WhistleblowerReport,
+        panel: &[(&DidKey, &PrivKey)],
+    ) -> Vec<RevealedShare> {
+        panel
+            .iter()
+            .map(|(d, p)| wb.custody.open_share(d, p).unwrap())
+            .collect()
     }
 
     /// Subject S, a reporting community R with one observer, plus a three-mediator
@@ -2355,48 +2467,511 @@ mod observer {
         bad(&a, &resp);
     }
 
+    /// The whistleblower fixture: accused S with two delegated insiders (so its
+    /// resolvable key set is three deep), plus the non-party mediator pool.
+    #[allow(clippy::type_complexity)]
+    fn wb_fixture(
+        a: &mut InMemoryArchive,
+    ) -> (DidKey, PrivKey, Vec<(DidKey, PrivKey, PubKey)>, Vec<(DidKey, PrivKey)>) {
+        let (s, s_priv, _obs, pool) = fixture(a);
+        let insiders = add_insiders(a, &s, &s_priv, 2, ts(10));
+        (s, s_priv, insiders, pool)
+    }
+
     #[test]
-    fn whistleblower_non_party_panel_authorized() {
+    fn whistleblower_with_insider_attestation_and_custody_authorized() {
         let mut a = InMemoryArchive::new();
-        let (s, _s_priv, _obs, pool) = fixture(&mut a);
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
         let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
-        let wb = whistleblow(&mut a, &s, &panel, ts(100));
-        ok(&a, &wb);
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
     }
 
     #[test]
     fn whistleblower_panel_from_accused_is_rejected() {
         let mut a = InMemoryArchive::new();
-        let (s, s_priv, _obs, pool) = fixture(&mut a);
+        let (s, s_priv, insiders, pool) = wb_fixture(&mut a);
         // The accused S also nominates a mediator and seats it on the reception panel.
         let s_meds = add_mediators(&mut a, &s, &s_priv, 1, ts(10));
         let mut panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
         panel.push((&s_meds[0].0, &s_meds[0].1));
-        let wb = whistleblow(&mut a, &s, &panel, ts(100));
-        bad(&a, &wb);
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        bad(&a, &cid);
     }
 
     #[test]
     fn whistleblower_panel_below_minimum_is_rejected() {
         let mut a = InMemoryArchive::new();
-        let (s, _s_priv, _obs, pool) = fixture(&mut a);
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
         let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
-        let wb = whistleblow(&mut a, &s, &panel, ts(100));
-        bad(&a, &wb);
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", 2, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        bad(&a, &cid);
+    }
+
+    /// **The manufactured filing.** Before this slice a reception panel could file a
+    /// whistleblower report with a made-up `source_commitment` and no source
+    /// involvement whatsoever, and it passed. The archive held no evidence an insider
+    /// existed, so a non-party panel could invent insider complaints against a rival.
+    #[test]
+    fn a_panel_cannot_manufacture_a_filing_without_a_source() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        // A ring the panel assembles from its own keys, signed by a panelist: the
+        // shape of a filing with no insider behind it.
+        let ring: Vec<PubKey> = panel.iter().map(|(d, _)| d.to_pubkey().unwrap()).collect();
+        let insider = WhistleblowerReport::attest(
+            s.clone(),
+            Cid::of_bytes(b"commit"),
+            "coerced labor",
+            ts(100),
+            ring,
+            0,
+            panel[0].1,
+        )
+        .unwrap();
+        let holders: Vec<(DidKey, PubKey)> = panel
+            .iter()
+            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
+            .collect();
+        let custody = ThresholdCustody::seal(b"whatever", &holders, P).unwrap();
+        let wb = WhistleblowerReport {
+            accused_community: s,
+            source_commitment: Cid::of_bytes(b"commit"),
+            claim: "coerced labor".into(),
+            references: vec![],
+            reception_panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+            filed_at: ts(100),
+            insider,
+            custody,
+        };
+        let cid = append_filing(&mut a, wb, &panel);
+        bad(&a, &cid);
+        let _ = insiders;
+    }
+
+    #[test]
+    fn a_ring_missing_an_insider_key_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        // Narrow the ring by dropping a member who is not the signer. A smaller ring
+        // is a narrower suspect set — with the source still validly hidden inside it —
+        // so the rule insists on the community's whole resolvable key set.
+        let signer = insiders[0].2.clone();
+        let mut ring = f.wb.insider.ring.clone();
+        let drop_at = ring.iter().position(|pk| pk.bytes != signer.bytes).unwrap();
+        ring.remove(drop_at);
+        assert!(ring.len() >= 2, "the narrowed ring must still be signable");
+        let index = ring.iter().position(|pk| pk.bytes == signer.bytes).unwrap();
+        let insider = WhistleblowerReport::attest(
+            s.clone(),
+            f.wb.source_commitment,
+            &f.wb.claim,
+            ts(100),
+            ring,
+            index,
+            &insiders[0].1,
+        )
+        .unwrap();
+        // The narrowed attestation is internally valid; only the ring-set rule catches it.
+        insider.verify().unwrap();
+        let wb = WhistleblowerReport { insider, ..f.wb };
+        let cid = append_filing(&mut a, wb, &panel);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_ring_padded_with_an_outsider_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let (_, outsider_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let mut ring = f.wb.insider.ring.clone();
+        ring.push(outsider_pub);
+        let index = ring
+            .iter()
+            .position(|pk| pk.bytes == insiders[0].2.bytes)
+            .unwrap();
+        let insider = WhistleblowerReport::attest(
+            s.clone(),
+            f.wb.source_commitment,
+            &f.wb.claim,
+            ts(100),
+            ring,
+            index,
+            &insiders[0].1,
+        )
+        .unwrap();
+        let wb = WhistleblowerReport { insider, ..f.wb };
+        let cid = append_filing(&mut a, wb, &panel);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_community_with_one_key_has_no_anonymous_channel() {
+        // A ring of one names its signer. Rather than hand a source a signed
+        // confession while telling them they are anonymous, the filing is refused.
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, _obs, pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        // S has only its root key: a ring of one, which `attest` will not even build.
+        let ring = expected_ring(&a, &s, ts(100));
+        assert_eq!(ring.len(), 1);
+        assert!(WhistleblowerReport::attest(
+            s.clone(),
+            Cid::of_bytes(b"c"),
+            "claim",
+            ts(100),
+            ring,
+            0,
+            &s_priv,
+        )
+        .is_err());
+        // And a filing that pads the ring to two with a foreign key is refused by
+        // the ring-set rule, so there is no way around it.
+        let (_, foreign) = keys::generate(Alg::Ed25519).unwrap();
+        let mut ring = expected_ring(&a, &s, ts(100));
+        ring.push(foreign);
+        let insider = WhistleblowerReport::attest(
+            s.clone(),
+            Cid::of_bytes(b"c"),
+            "claim",
+            ts(100),
+            ring,
+            0,
+            &s_priv,
+        )
+        .unwrap();
+        let holders: Vec<(DidKey, PubKey)> = panel
+            .iter()
+            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
+            .collect();
+        let wb = WhistleblowerReport {
+            accused_community: s,
+            source_commitment: Cid::of_bytes(b"c"),
+            claim: "claim".into(),
+            references: vec![],
+            reception_panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+            filed_at: ts(100),
+            insider,
+            custody: ThresholdCustody::seal(b"x", &holders, P).unwrap(),
+        };
+        let cid = append_filing(&mut a, wb, &panel);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn an_attestation_cannot_be_moved_to_another_claim() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "the rota is coerced", P, ts(100),
+        );
+        // The panel keeps the source's attestation but files a graver accusation.
+        let swapped =
+            WhistleblowerReport { claim: "they are poisoning the water".into(), ..f.wb };
+        let cid = append_filing(&mut a, swapped, &panel);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_custody_threshold_a_minority_could_meet_is_rejected() {
+        // 2-of-4 lets any two panelists name the source between them. The rule wants a
+        // majority — the smallest threshold no minority can reach.
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, mut pool) = wb_fixture(&mut a);
+        let (cf, cf_priv) = community(&mut a, "F", ts(10));
+        pool.extend(add_mediators(&mut a, &cf, &cf_priv, 1, ts(10)));
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        assert_eq!(panel.len(), 4);
+        let minority = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", 2, ts(100),
+        );
+        let cid = append_filing(&mut a, minority.wb, &panel);
+        bad(&a, &cid);
+        // Three of four is a majority, and passes.
+        let majority = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", 3, ts(100),
+        );
+        let cid = append_filing(&mut a, majority.wb, &panel);
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn custody_held_by_someone_other_than_the_panel_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        // Seal the shares to a fourth party instead of the third panelist: the record
+        // would claim a quorum gate that the actual key holders do not match.
+        let (_, stranger_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let stranger_did = DidKey::from_pubkey(&stranger_pub).unwrap();
+        let mut holders: Vec<(DidKey, PubKey)> = panel
+            .iter()
+            .take(2)
+            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
+            .collect();
+        holders.push((stranger_did, stranger_pub));
+        let custody = ThresholdCustody::seal(b"x", &holders, P).unwrap();
+        let wb = WhistleblowerReport { custody, ..f.wb };
+        let cid = append_filing(&mut a, wb, &panel);
+        bad(&a, &cid);
     }
 
     #[test]
     fn source_reveal_requires_cause_and_valid_panel() {
         let mut a = InMemoryArchive::new();
-        let (s, _s_priv, _obs, pool) = fixture(&mut a);
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
         let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
-        let wb = whistleblow(&mut a, &s, &panel, ts(100));
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let shares = open_shares(&f.wb, &panel);
+        let source = f.source_did.as_str().to_string();
+        let wb = append_filing(&mut a, f.wb, &panel);
         // Empty cause: rejected.
-        let no_cause = reveal(&mut a, wb, &panel, "", ts(200));
+        let no_cause =
+            reveal_with(&mut a, wb, &panel, "", &source, shares.clone(), ts(200));
         bad(&a, &no_cause);
-        // For cause, by a non-party panel: authorized.
-        let good = reveal(&mut a, wb, &panel, "source recanted; claim contested", ts(300));
+        // For cause, by a non-party panel, opening the commitment: authorized.
+        let good = reveal_with(
+            &mut a,
+            wb,
+            &panel,
+            "source recanted; claim contested",
+            &source,
+            shares,
+            ts(300),
+        );
         ok(&a, &good);
+    }
+
+    /// **The invented disclosure.** Before this slice `source_commitment` was read by
+    /// no rule anywhere: `authorize_source_reveal` checked the reference, the cause,
+    /// and the panel, and never hashed `disclosed_source`. A panel could name anyone.
+    #[test]
+    fn a_reveal_cannot_name_someone_the_shares_do_not_recover() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let shares = open_shares(&f.wb, &panel);
+        // The other insider, who had nothing to do with the filing.
+        let framed = insiders[1].0.as_str().to_string();
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let framing = reveal_with(&mut a, wb, &panel, "for cause", &framed, shares, ts(200));
+        bad(&a, &framing);
+    }
+
+    #[test]
+    fn a_reveal_naming_an_arbitrary_string_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let shares = open_shares(&f.wb, &panel);
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let invented = reveal_with(
+            &mut a,
+            wb,
+            &panel,
+            "for cause",
+            "did:key:zSomeoneWeDislike",
+            shares,
+            ts(200),
+        );
+        bad(&a, &invented);
+    }
+
+    #[test]
+    fn a_reveal_one_share_short_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        // Threshold 3 of 3, so two shares must not suffice.
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", 3, ts(100),
+        );
+        let shares = open_shares(&f.wb, &panel);
+        let source = f.source_did.as_str().to_string();
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let short = reveal_with(
+            &mut a,
+            wb,
+            &panel,
+            "for cause",
+            &source,
+            shares[..2].to_vec(),
+            ts(200),
+        );
+        bad(&a, &short);
+        // All three: authorized.
+        let full =
+            reveal_with(&mut a, wb, &panel, "for cause", &source, shares, ts(300));
+        ok(&a, &full);
+    }
+
+    #[test]
+    fn a_reveal_with_a_tampered_share_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let mut shares = open_shares(&f.wb, &panel);
+        shares[1].value.0[0] ^= 0x01;
+        let source = f.source_did.as_str().to_string();
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let cid = reveal_with(&mut a, wb, &panel, "for cause", &source, shares, ts(200));
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_reveal_repeating_one_share_is_rejected() {
+        // Otherwise a single panelist reaches the threshold alone.
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let shares = open_shares(&f.wb, &panel);
+        let doubled = vec![shares[0], shares[0], shares[0]];
+        let source = f.source_did.as_str().to_string();
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let cid = reveal_with(&mut a, wb, &panel, "for cause", &source, doubled, ts(200));
+        bad(&a, &cid);
+    }
+
+    // --- §8 exculpation: answering a reveal without a panel's leave ---------
+
+    fn exculpate(
+        a: &mut InMemoryArchive,
+        report_cid: Cid,
+        claimant: (&DidKey, &PrivKey),
+        at: Timestamp,
+    ) -> Cid {
+        let exc =
+            SourceExculpation::prove(report_cid, claimant.0.clone(), claimant.1, at).unwrap();
+        let signed = Signed::build(exc, &[(claimant.0.as_str(), claimant.1)]).unwrap();
+        a.append(ArchiveEntry::SourceExculpated(signed)).unwrap()
+    }
+
+    #[test]
+    fn a_wrongly_named_member_can_clear_itself() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let wb = append_filing(&mut a, f.wb, &panel);
+        // insiders[1] did not file; its key image differs from the filing's.
+        let cid = exculpate(&mut a, wb, (&insiders[1].0, &insiders[1].1), ts(400));
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn the_true_source_cannot_disown_its_own_filing() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let wb = append_filing(&mut a, f.wb, &panel);
+        // An honest proof from the source reproduces the filing's key image, so the
+        // record is a confession and is refused as an exculpation.
+        let cid = exculpate(&mut a, wb, (&insiders[0].0, &insiders[0].1), ts(400));
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn an_exculpation_with_a_forged_proof_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let mut exc = SourceExculpation::prove(
+            wb,
+            insiders[1].0.clone(),
+            &insiders[1].1,
+            ts(400),
+        )
+        .unwrap();
+        exc.proof.response.0[0] ^= 0x01;
+        let signed =
+            Signed::build(exc, &[(insiders[1].0.as_str(), &insiders[1].1)]).unwrap();
+        let cid = a.append(ArchiveEntry::SourceExculpated(signed)).unwrap();
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn an_exculpation_borrowing_another_members_image_is_rejected() {
+        // Claiming an image you cannot prove is yours would let the true source point
+        // at a bystander's image and walk away.
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let mut exc = SourceExculpation::prove(
+            wb,
+            insiders[0].0.clone(),
+            &insiders[0].1,
+            ts(400),
+        )
+        .unwrap();
+        // The source swaps in the innocent member's key image.
+        exc.claimed_key_image = KeyImage::of(&insiders[1].1).unwrap();
+        let signed =
+            Signed::build(exc, &[(insiders[0].0.as_str(), &insiders[0].1)]).unwrap();
+        let cid = a.append(ArchiveEntry::SourceExculpated(signed)).unwrap();
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn an_exculpation_by_a_non_ring_member_is_rejected() {
+        // Nobody outside the ring was ever implicated, so there is nothing to clear.
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let wb = append_filing(&mut a, f.wb, &panel);
+        let cid = exculpate(&mut a, wb, (&pool[0].0, &pool[0].1), ts(400));
+        bad(&a, &cid);
     }
 
     // --- §8 observer-corps caps (pool-share + term + rotation) -------------

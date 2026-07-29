@@ -1057,27 +1057,76 @@ def respond_to_report(
     )
 
 
+def insider_ring(archive, community_did: str, *, at: Optional[int] = None):
+    """The keys the archive resolves as insiders of `community_did` — its root key
+    plus every live speaker delegation — as `(did, pubkey_bytes)` pairs. This is the
+    ring a whistleblower hides in; a community with fewer than two resolvable keys has
+    no anonymous channel, because a ring of one names its signer."""
+    return archive.insider_ring(community_did, at)
+
+
+def attest_insider(
+    archive,
+    accused_did: str,
+    source: Signer,
+    claim: str,
+    *,
+    filed_at: Optional[int] = None,
+) -> str:
+    """The **source's** step of a whistleblower filing (§8): ring-sign an insider
+    attestation against `accused_did` and commit to the source's identity.
+
+    Returns the out-of-band packet the source hands the reception panel. The panel
+    cannot forge it, and the source never surrenders its key. `source` must be one of
+    the accused community's insiders (its root key or a live speaker delegate) — see
+    `insider_ring`."""
+    return archive.attest_insider(source.priv, accused_did, claim, filed_at)
+
+
 def file_whistleblower(
     archive,
     accused_did: str,
-    source_commitment: str,
     claim: str,
     reception_panel: Sequence[Signer],
     *,
+    attestation: Optional[str] = None,
+    source: Optional[Signer] = None,
+    threshold: Optional[int] = None,
     references: Optional[Sequence[str]] = None,
     filed_at: Optional[int] = None,
 ) -> str:
-    """File an insider whistleblower report against `accused_did` (§8), co-signed
-    by a mediator `reception_panel`. `source_commitment` is a CID committing to
-    the source (e.g. `cid_of` of identity+nonce); the source identity is never
-    passed in or stored. The authority pass requires a non-party reception panel.
-    Returns the report CID."""
+    """The **panel's** step: file an insider whistleblower report against
+    `accused_did` (§8), co-signed by a mediator `reception_panel`.
+
+    Pass either `attestation` (the packet from `attest_insider`, which is how a real
+    filing works — the source produces it separately and hands it over) or `source`
+    as a convenience that performs both steps here. The panel seals the source
+    identity under k-of-n custody keyed to its own members, `threshold` defaulting to
+    a majority, so no minority of the panel can name the source later.
+
+    The authority pass requires a non-party reception panel, an attestation from a
+    real insider of the accused community bound to this exact claim, and custody held
+    by exactly this panel. Returns the report CID."""
     if not reception_panel:
         raise ValueError("a reception panel needs at least one mediator")
+    if (attestation is None) == (source is None):
+        raise ValueError("pass exactly one of `attestation` or `source`")
+    if attestation is None:
+        attestation = attest_insider(
+            archive, accused_did, source, claim, filed_at=filed_at,
+        )
     return archive.file_whistleblower(
         [s.priv for s in reception_panel], [s.did for s in reception_panel],
-        accused_did, source_commitment, claim, list(references or []), filed_at,
+        [s.pub for s in reception_panel],
+        accused_did, claim, attestation, threshold, list(references or []),
     )
+
+
+def open_source_share(archive, report_cid: str, holder: Signer) -> str:
+    """One panelist opens its own custody share of a filed report's source (§8).
+    A share is useless alone; it takes the filing's threshold of them to name
+    anybody. Gather them and pass the list to `reveal_source`."""
+    return archive.open_source_share(report_cid, holder.priv, holder.did)
 
 
 def reveal_source(
@@ -1087,18 +1136,45 @@ def reveal_source(
     cause: str,
     disclosed_source: str,
     *,
+    shares: Optional[Sequence[str]] = None,
     revealed_at: Optional[int] = None,
 ) -> str:
-    """Disclose a whistleblower's source (§8), co-signed by a mediator `panel` and
-    citing a non-empty `cause`. The disclosure is gated on the panel quorum; use
-    only for named cause. Returns the CID."""
+    """Disclose a whistleblower's source (§8), co-signed by a mediator `panel`,
+    citing a non-empty `cause`, and carrying enough opened custody `shares` to
+    actually recover the identity.
+
+    If `shares` is omitted, every panelist in `panel` opens its own. The disclosure is
+    gated twice over: the panel must be a non-party quorum, and the shares must
+    genuinely reconstruct the identity that the filing committed to — a reveal cannot
+    name someone the shares do not produce. Returns the CID."""
     if not panel:
         raise ValueError("a reveal needs at least one panelist")
     if not cause.strip():
         raise ValueError("a source reveal must cite a cause")
+    if shares is None:
+        shares = [open_source_share(archive, report_cid, s) for s in panel]
     return archive.reveal_source(
         [s.priv for s in panel], [s.did for s in panel],
-        report_cid, cause, disclosed_source, revealed_at,
+        report_cid, cause, disclosed_source, list(shares), revealed_at,
+    )
+
+
+def exculpate_source(
+    archive,
+    report_cid: str,
+    claimant: Signer,
+    *,
+    exculpated_at: Optional[int] = None,
+) -> str:
+    """Publish a proof that a whistleblower filing's key image is **not**
+    `claimant`'s (§8) — the answer available to a member a reveal named wrongly.
+
+    Needs nothing but the claimant's own key: no panel, no quorum, no permission. The
+    archive refuses it if the proof is bad, if the claimant was never in the filing's
+    ring, or if the claimed image matches the filing's (which would make the record a
+    confession rather than a denial). Returns the CID."""
+    return archive.exculpate_source(
+        claimant.priv, claimant.did, report_cid, exculpated_at,
     )
 
 
@@ -1211,7 +1287,8 @@ __all__ = [
     "issue_injunction", "confirm_injunction", "challenge_injunction",
     "register_commons", "record_usage", "apply_sanction",
     "new_observer", "register_observers", "publish_observer_report",
-    "respond_to_report", "file_whistleblower", "reveal_source",
+    "respond_to_report", "insider_ring", "attest_insider", "file_whistleblower",
+    "open_source_share", "reveal_source", "exculpate_source",
     "ratify_constitution", "amend_compact_incapable", "amend_fast_cadence",
     "AMENDMENT_KINDS", "FAST_CHANGES",
     "now_seconds",

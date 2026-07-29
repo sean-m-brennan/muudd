@@ -27,7 +27,7 @@ To run the pieces individually:
 
 ```bash
 # Rust core
-cargo test --workspace --exclude kc-pyo3     # 85 unit and property tests
+cargo test --workspace --exclude kc-pyo3     # 379 unit and property tests
 cargo run -p two_communities_demo            # end-to-end ceremony with audit trail
 
 # Python bindings (conda env active)
@@ -58,21 +58,25 @@ Machines participate only as delegates. A machine never originates substrate; it
 
 ## Implementation status
 
-The research set is mature and the software is an MVP. The Rust implementation covers **Components 1-4 and 6** of [`doc/architecture/protocol-components.md`](doc/architecture/protocol-components.md), the ten-component decomposition of the protocol:
+The research set is mature and the software is an MVP. The Rust implementation covers **all ten components** of [`doc/architecture/protocol-components.md`](doc/architecture/protocol-components.md), the ten-component decomposition of the protocol. Every component has a working slice; what remains per component is listed in [`TODO.md`](TODO.md), and the per-slice detail (v1, v2, …) is in the component sections of the spec. Status below reconciled against the code on 2026-07-29:
 
 
 | #          | Component                                                         | Status                                                                                               |
 | ---------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | 1          | Identity and standing                                             | Implemented: Ed25519 self-certifying`did:key`, delegations, witnesses                                |
-| 2          | Recognition ceremony                                              | Implemented: two-layer split (intra rite plus inter credentialing with 5-feature anti-spiral claims) |
+| 2          | Recognition ceremony                                              | Implemented: two-layer split (intra rite plus inter credentialing with 5-feature anti-spiral claims). Open: the *enforcement* half of admissions integrity — probationary standing is computed but gates nothing, and credentialing panels have no rotation or composition cap (see [`TODO.md`](TODO.md) §2) |
 | 3          | Archive / commons                                                 | Implemented: in-memory, content-addressed, JSON dump/load, cryptographic verification                |
-| 4          | Mediation                                                         | Implemented (v1): mediator pool (per-community registries; union = pool), dispute intake, and paneled decisions, with the research's structural rules enforced through the §5 authority pass — every panelist an active registered mediator, at least a configurable minimum (default 3) per panel, and non-overlap with either party's community (`kc-mediation`). Deferred: deliberation/argument records, interim injunction (§9), the capture-resistance pool-share threshold, and the full escalation-ladder state machine (§5) |
-| 6          | Reputation bridges                                                | Lookup plus standing (Unknown/Identified/InCompact/Probationary/Denied/Anathema), capture-signal detectors, and v0 read-only jester lenses (rejection-pattern, ceremony-cost-decay) (`kc-reputation`); conduct/sponsorship/non-admission/intra-rite records authorable from Python, with append-only delegation revocation and §5 authority enforcement (principal-binding + scope + quorum, `check_authority`) (`kc-conduct`, `kc-ceremony`, `kc-identity`); dispute records project onto both parties with their mediation outcome |
-| 5, 7-10    | Escalation, commons, jester, enforcement, test harness            | Post-MVP (§5 escalation and §8 jester have their archived record types seeded by `kc-conduct`)       |
+| 4          | Mediation                                                         | Implemented: mediator pool (per-community registries; union = pool), dispute intake, and paneled decisions, with the structural rules enforced through the authority pass — every panelist an active registered mediator, a configurable minimum per panel (default 3), and non-overlap with either party's community (`kc-mediation`). Deferred: deliberation/argument records |
+| 5          | Escalation and designation                                        | Implemented: the ladder state machine through to expulsion and the substantive-re-engagement rung, the four-condition anathema test, restitution obligation and verification, and re-entry (`kc-escalation`) |
+| 6          | Reputation bridges                                                | Implemented: lookup plus standing (Unknown/Identified/InCompact/Probationary/Denied/Anathema), the capture-signal detectors and jester lenses (rejection pattern, ceremony-cost decay, composition graph, interpretive plurality, structured skepticism, adversarial principal, erosion alert) (`kc-reputation`); records authorable from Python with append-only delegation revocation and authority enforcement (principal binding + scope + quorum, `check_authority`) |
+| 7          | Commons governance                                                | Implemented: the five compact-level commons, usage accounting, and the graduated-sanction ladder Monitoring→Exclusion with the heavier levels quorum-gated (`kc-commons`) |
+| 8          | Jester and observer function                                      | Implemented: observer-corps registry with enforced term, rotation and pool-share caps; attributed cross-community reports with an irrevocable right of response; and a whistleblower channel whose source proves insider standing by ring signature and whose identity is held k-of-n by the reception panel, with a no-panel exculpation for anyone wrongly named (`kc-observer`, see [`doc/architecture/whistleblower-crypto.md`](doc/architecture/whistleblower-crypto.md)). Deferred: out-of-band source transport, which needs a real deployment |
+| 9          | Enforcement and non-ultimacy                                      | Implemented: the compact-incapable list as a genesis-immutable constitutional artifact with asymmetric amendment (expansion easy, contraction harder), the structured-fast cadence, interim injunctions with capability gating, and graded erosion alerting (`kc-constitution`, `kc-escalation`) |
+| 10         | Bootstrapping and test harness                                    | Implemented: the capture-resistance harness scores eight scenarios — the seven strengthening moves plus the quiet polity — against falsification criteria stated in advance, run continuously over a parameterized space with seeded search, directed sweeps, and shrinking (`harness.py`). Deferred: the Earth-pilot deployment mode, live `autonomous_trust` integration, and the whole-compact retention criterion, all of which need real communities |
 
 Three things the MVP deliberately is not:
 
-- **Not replicated, not transported.** The archive is single-host and in-memory. Threshold-sealing, libp2p transport, live re-affirmation scheduling, and adversarial-test harnesses are post-MVP.
+- **Not replicated, not transported.** The archive is single-host and in-memory. libp2p transport and live re-affirmation scheduling are post-MVP. Threshold-sealing and the adversarial-test harness are built: the §8 whistleblower source is held k-of-n by its reception panel, and the §10 harness scores all seven strengthening moves.
 - **Not in-person.** The intra-rite data model is software-only. The research corpus commits to bodily co-presence for the actual rite; the MVP encodes the protocol's shape, not the embodied practice.
 - **Ed25519-only.** The `Alg` enum is a single-variant structure kept open for a future non-lattice PQC addition (such as SLH-DSA/SPHINCS+) if one is accepted. NIST lattice PQC (ML-DSA/Dilithium) is deferred pending community confidence in its provenance.
 

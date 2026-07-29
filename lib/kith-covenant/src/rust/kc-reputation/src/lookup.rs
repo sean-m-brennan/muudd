@@ -542,11 +542,22 @@ pub fn lookup(
                     }
                     _ => false,
                 });
+                let exculpations = archive
+                    .iter()
+                    .filter(|(_, e)| match e {
+                        ArchiveEntry::SourceExculpated(x) => {
+                            x.payload.report_cid == *cid && x.payload.exculpated_at <= as_of
+                        }
+                        _ => false,
+                    })
+                    .count();
                 view.whistleblower_reports_against.push(WhistleblowerSummary {
                     record_cid: cid.clone(),
                     claim: wb.claim.clone(),
                     filed_at: wb.filed_at,
                     source_revealed: revealed,
+                    source_tag: wb.source_tag().to_hex(),
+                    exculpations,
                 });
             }
         }

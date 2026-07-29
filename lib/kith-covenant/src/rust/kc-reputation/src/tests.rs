@@ -1658,9 +1658,10 @@ mod commons_projection {
 mod observer_projection {
     use super::*;
     use crate::analytics::observer_dashboard;
+    use kc_core::{KeyImage, SourcePreimage, ThresholdCustody};
     use kc_observer::{
-        ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceReveal,
-        WhistleblowerReport,
+        ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse, SourceExculpation,
+        SourceReveal, WhistleblowerReport,
     };
 
     fn register_observer(a: &mut InMemoryArchive, community: &DidKey, at: Timestamp) -> (DidKey, PrivKey) {
@@ -1715,14 +1716,54 @@ mod observer_projection {
         a.append(ArchiveEntry::ReportResponsePublished(signed)).unwrap()
     }
 
+    /// A filing by a fresh anonymous source. Projection reads do not run the
+    /// authority pass, so the ring here is a plausible two-key set rather than the
+    /// accused community's real one; what matters to the projection is that the
+    /// attestation carries a genuine key image.
     fn whistleblow(a: &mut InMemoryArchive, accused: &DidKey, panel: &DidKey, panel_priv: &PrivKey, at: Timestamp) -> Cid {
+        let (source_priv, source_pub) = keys::generate(Alg::Ed25519).unwrap();
+        whistleblow_from(a, accused, panel, panel_priv, &source_priv, &source_pub, at)
+    }
+
+    /// A filing by a *named* source key, so a test can file twice from one source.
+    fn whistleblow_from(
+        a: &mut InMemoryArchive,
+        accused: &DidKey,
+        panel: &DidKey,
+        panel_priv: &PrivKey,
+        source_priv: &PrivKey,
+        source_pub: &PubKey,
+        at: Timestamp,
+    ) -> Cid {
+        let (_, decoy) = keys::generate(Alg::Ed25519).unwrap();
+        let ring = vec![source_pub.clone(), decoy];
+        let preimage = SourcePreimage::new(DidKey::from_pubkey(source_pub).unwrap().as_str());
+        let commitment = preimage.commitment().unwrap();
+        let custody = ThresholdCustody::seal(
+            &kc_core::canonical::to_canonical_cbor(&preimage).unwrap(),
+            &[(panel.clone(), panel.to_pubkey().unwrap()), (panel.clone(), panel.to_pubkey().unwrap())],
+            2,
+        )
+        .unwrap();
+        let insider = WhistleblowerReport::attest(
+            accused.clone(),
+            commitment,
+            "coerced labor",
+            at,
+            ring,
+            0,
+            source_priv,
+        )
+        .unwrap();
         let wb = WhistleblowerReport {
             accused_community: accused.clone(),
-            source_commitment: Cid::of_bytes(b"commit"),
+            source_commitment: commitment,
             claim: "coerced labor".into(),
             references: vec![],
             reception_panel: vec![panel.clone()],
             filed_at: at,
+            insider,
+            custody,
         };
         let signed = Signed::build(wb, &[(panel.as_str(), panel_priv)]).unwrap();
         a.append(ArchiveEntry::WhistleblowerFiled(signed)).unwrap()
@@ -1771,6 +1812,7 @@ mod observer_projection {
             panel: vec![panel.clone()],
             cause: "recanted".into(),
             disclosed_source: "did:key:zMember".into(),
+            shares: vec![],
             revealed_at: t(600),
         };
         let signed = Signed::build(rev, &[(panel.as_str(), &p_priv)]).unwrap();
@@ -1795,6 +1837,58 @@ mod observer_projection {
         // s1 has 2 reports, s2 has 1; ranking descending.
         assert_eq!(dash.observer_reports_by_subject[0], (s1.as_str().to_string(), 2));
         assert_eq!(dash.whistleblowers_by_accused, vec![(s2.as_str().to_string(), 1)]);
+        assert_eq!(dash.distinct_sources_by_accused, vec![(s2.as_str().to_string(), 1)]);
+    }
+
+    #[test]
+    fn the_dashboard_separates_many_sources_from_one_source_filing_often() {
+        // The flood case: without distinct-source counting, three filings look the
+        // same whether they come from three insiders or from one voice repeated.
+        let (_, _, many) = fresh_id();
+        let (_, _, flooded) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let (p_priv, _, panel) = fresh_id();
+        for i in 0..3 {
+            whistleblow(&mut arc, &many, &panel, &p_priv, t(100 + i));
+        }
+        let (one_priv, one_pub) = keys::generate(Alg::Ed25519).unwrap();
+        for i in 0..3 {
+            whistleblow_from(&mut arc, &flooded, &panel, &p_priv, &one_priv, &one_pub, t(200 + i));
+        }
+        let dash = observer_dashboard(&arc, Some(t(1000)));
+        let count = |v: &Vec<(String, usize)>, d: &DidKey| {
+            v.iter().find(|(k, _)| k == d.as_str()).map(|(_, n)| *n).unwrap_or(0)
+        };
+        // Same filing count either way...
+        assert_eq!(count(&dash.whistleblowers_by_accused, &many), 3);
+        assert_eq!(count(&dash.whistleblowers_by_accused, &flooded), 3);
+        // ...but three voices against one.
+        assert_eq!(count(&dash.distinct_sources_by_accused, &many), 3);
+        assert_eq!(count(&dash.distinct_sources_by_accused, &flooded), 1);
+    }
+
+    #[test]
+    fn a_filings_source_tag_projects_and_exculpations_are_counted() {
+        let (p_priv, _, panel) = fresh_id();
+        let (_, _, accused) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let (source_priv, source_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let wb =
+            whistleblow_from(&mut arc, &accused, &panel, &p_priv, &source_priv, &source_pub, t(100));
+        let v = lookup(&arc, &accused, Some(t(500)));
+        let summary = &v.whistleblower_reports_against[0];
+        // The tag is the source's key image — an anonymous handle, not an identity.
+        assert_eq!(summary.source_tag, KeyImage::of(&source_priv).unwrap().to_hex());
+        assert_eq!(summary.exculpations, 0);
+
+        // A member's published denial is counted, so a contested disclosure is legible.
+        let (claim_priv, claim_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let claimant = DidKey::from_pubkey(&claim_pub).unwrap();
+        let exc = SourceExculpation::prove(wb, claimant.clone(), &claim_priv, t(600)).unwrap();
+        let signed = Signed::build(exc, &[(claimant.as_str(), &claim_priv)]).unwrap();
+        arc.append(ArchiveEntry::SourceExculpated(signed)).unwrap();
+        let after = lookup(&arc, &accused, Some(t(700)));
+        assert_eq!(after.whistleblower_reports_against[0].exculpations, 1);
     }
 
     /// Register `n` observers for `community` on a bounded window from `at`,

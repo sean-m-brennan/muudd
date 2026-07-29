@@ -260,6 +260,16 @@ pub struct WhistleblowerSummary {
     pub filed_at: Timestamp,
     /// `true` once a `SourceRevealed` for-cause disclosure references this report.
     pub source_revealed: bool,
+    /// The filing's anonymous source tag (its ring-signature key image, hex).
+    ///
+    /// This is the one thing about a source that *can* be published without exposing
+    /// them: equal across every filing by the same insider, and tied to no identity.
+    /// It is what makes a flood of pseudonymous filings countable as one source.
+    pub source_tag: String,
+    /// How many members have published a proof that this filing's key image is not
+    /// theirs. Non-zero after a reveal means the disclosure is contested by
+    /// arithmetic, not merely denied.
+    pub exculpations: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
