@@ -606,6 +606,25 @@ KC cannot see on its own and AT cannot decide on its own.
     *guarded* machines and the unguarded state had to be designated deliberately
     after founding. `MemberCandidate::derived` now carries the substrate's reading of
     *kind* independently of the edge, and `propose` filters on it.
+  - **The edge now has a live source (2026-07-30).** D15 was built against
+    `MockEventSource` and could not have run against a daemon: AT carried *that*
+    a human exists and *when* one was last present, never *which* human, so
+    `en-at`'s decoder hard-coded `guardian_pubkey: None` — a chartered rule with
+    no feed, which is the dead-field shape D23 and KC's `source_commitment` both
+    turned out to be. AT's operator-key slice closes it. A node may bind an
+    ed25519 operator key with its PIV credential (the signed pre-image names the
+    node, so a harvested pair cannot transfer) and AT verifies that binding
+    before ever putting the key on its carrier. `en-at` decodes it under a fifth
+    join rule — *an all-zero key, or any key on an unbound node, becomes `None`*
+    — and an opted-in peer now reaches `MemberCandidate.guardian` off a real
+    socket. **What this does not give us:** the binding is opt-in on AT's side
+    and deliberately free to decline, so most peers will read `guardian: None`
+    and that is a correct reading of an unguarded machine, not a gap. And a
+    guardian who can be *named* still cannot yet *co-sign* a `GuardianChange` —
+    that needs the operator's private key at the ethne authoring site, a
+    different seam. Distinct guardian keys remain not-distinct-humans (**D24**);
+    counting them as such would want an independence attestation, and nothing
+    here supplies one.
 
 - **D16 — what was seen is recorded, so that duration can be judged (locked
   2026-07-27).** Every measure before this one read a *snapshot*, which is why the

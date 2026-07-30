@@ -54,6 +54,15 @@ pub struct ObservedReading {
     /// Epoch seconds; AT sends `0.0` for "nobody attending, or could not
     /// confirm", and zeroes it whenever `operator_bound` is false.
     pub operator_attested_at: f64,
+    /// The guardian operator's ed25519 public key, all-zero for "this node did
+    /// not name a guardian". AT zeroes it whenever `operator_bound` is false,
+    /// and only ever sends a key whose PIV binding *it* verified — a peer's own
+    /// claim is neutralized at admission.
+    ///
+    /// **All-zero is the ordinary case.** Naming a guardian is opt-in on AT's
+    /// side and links that operator's nodes to each other, so most peers will
+    /// decline. Absence means "unguarded machine", never an error (rule 5).
+    pub operator_pubkey: [u8; AT_SIGNING_KEY_LEN],
 }
 
 /// One `AT_APP_EVENT_PEER_REPUTATION` payload, in Rust.
@@ -72,6 +81,10 @@ struct Identity {
     rank: i32,
     operator_bound: bool,
     attested_at: Option<Timestamp>,
+    /// `None` when the node named no guardian — held as an Option rather than
+    /// the raw all-zero array so the "declined" case cannot be mistaken for a
+    /// key of zeroes anywhere downstream.
+    guardian_pubkey: Option<[u8; AT_SIGNING_KEY_LEN]>,
 }
 
 /// Joins AT's two carrier streams into [`AtEvent::PeerObserved`].
@@ -94,6 +107,13 @@ struct Identity {
 /// 4. **A stamp of `0.0`, or any stamp on an unbound node, becomes `None`.**
 ///    Gated twice, here and at the emitter, because an attendance stamp on a node
 ///    whose operator credential never verified attests to nothing.
+/// 5. **An all-zero guardian key, or any key on an unbound node, becomes
+///    `None`** — the same double gate for the same reason, and the reason it is
+///    a *rule* rather than an implementation detail is that D15 charters an
+///    authority on this edge. A guardian a node merely asserted would be an
+///    authority nobody granted. Declining to name one is the ordinary case and
+///    carries no penalty here: ethne's own rules decide what an unguarded node
+///    may do, which is a question this decoder does not answer.
 #[derive(Debug, Default)]
 pub struct PeerJoin {
     identities: BTreeMap<AtUuid, Identity>,
@@ -134,6 +154,7 @@ impl PeerJoin {
                 rank: r.rank,
                 operator_bound: r.operator_bound,
                 attested_at,
+                guardian_pubkey: guardian_key(r.operator_bound, &r.operator_pubkey),
             },
         );
         // Rule 2: the score slot is untouched, so a re-observation keeps a score
@@ -159,13 +180,28 @@ impl PeerJoin {
             reputation: self.scores.get(uuid).copied().flatten(),
             rank: id.rank,
             operator_bound: id.operator_bound,
-            // No live source: AT has no guardian *identity*, only the fact that
-            // one exists. D15's chartered node->guardian edge waits on the
-            // operator-key slice; see AtPeer::guardian_pubkey.
-            guardian_pubkey: None,
+            // Rule 5. Live as of the operator-key slice: a node that opted in
+            // carries the ed25519 key its operator's PIV signed for, and AT
+            // verified that binding before ever putting it on the carrier. This
+            // is D15's source; `None` here means the node declined, which is
+            // the common case and not a fault.
+            guardian_pubkey: id.guardian_pubkey.map(|k| k.to_vec()),
             operator_attested_at: id.attested_at,
         }))
     }
+}
+
+/// An all-zero key means "no guardian named"; a key on an unbound node means
+/// nothing at all (rule 5). A valid ed25519 public key is a curve point encoding
+/// and is never all-zero, so the sentinel cannot collide with a real key.
+fn guardian_key(
+    operator_bound: bool,
+    key: &[u8; AT_SIGNING_KEY_LEN],
+) -> Option<[u8; AT_SIGNING_KEY_LEN]> {
+    if !operator_bound || key.iter().all(|b| *b == 0) {
+        return None;
+    }
+    Some(*key)
 }
 
 /// AT's `0.0` means "nobody attending, or could not confirm"; an unbound node's
@@ -198,6 +234,9 @@ mod tests {
             rank: 3,
             operator_bound: false,
             operator_attested_at: 0.0,
+            // The default is the opt-out, because that is the default in the
+            // field: naming a guardian is something a node has to choose.
+            operator_pubkey: [0; AT_SIGNING_KEY_LEN],
         }
     }
 
@@ -347,6 +386,70 @@ mod tests {
         // Bound but unattended is a normal steady state, not an error.
         assert!(p.operator_bound);
         assert_eq!(p.operator_attested_at, None);
+    }
+
+    /// Rule 5, the case D15 has been waiting for: an opted-in node produces a
+    /// guardian a charter can actually name.
+    #[test]
+    fn an_opted_in_node_yields_a_guardian_did() {
+        let mut j = PeerJoin::new();
+        let mut o = observed(1);
+        o.operator_bound = true;
+        o.operator_pubkey = key(0xA1);
+        let out = j.apply_observed(&o);
+        let p = peer(&out);
+        assert_eq!(p.guardian_pubkey.as_deref(), Some(&key(0xA1)[..]));
+        let g = p.guardian_did().expect("derivable").expect("present");
+        // And it is a DIFFERENT did from the node's own: the whole point of the
+        // edge is that the human is not the machine.
+        assert_ne!(g, p.did().expect("node did"));
+    }
+
+    /// **The control that matters.** A node that declined still decodes
+    /// completely — bound, attended, scored — and only the guardian is absent.
+    /// If opting out ever costs a peer anything else, this fails.
+    #[test]
+    fn an_opted_out_node_is_bound_and_attended_with_no_guardian() {
+        let mut j = PeerJoin::new();
+        let mut o = observed(1);
+        o.operator_bound = true;
+        o.operator_attested_at = 1_721_800_000.0;
+        // operator_pubkey left all-zero: the node named no guardian.
+        let out = j.apply_observed(&o);
+        let p = peer(&out);
+        assert!(p.operator_bound);
+        assert!(p.operator_attested_at.is_some());
+        assert_eq!(p.guardian_pubkey, None);
+        assert_eq!(p.guardian_did().expect("no error"), None);
+        assert_eq!(p.rank, 3);
+    }
+
+    /// Rule 5's other half: a key on a node whose operator never verified is
+    /// refused here as well as at the emitter. An unverified guardian would be
+    /// an authority nobody granted.
+    #[test]
+    fn a_guardian_key_without_the_operator_bound_is_dropped() {
+        let mut j = PeerJoin::new();
+        let mut o = observed(1);
+        o.operator_bound = false;
+        o.operator_pubkey = key(0xA1); // an emitter bug, or a liar
+        let out = j.apply_observed(&o);
+        assert_eq!(peer(&out).guardian_pubkey, None);
+    }
+
+    /// A reputation must not disturb the guardian either — rule 2 covers the
+    /// new field for the same reason it covers the old ones.
+    #[test]
+    fn a_reputation_does_not_erase_the_guardian() {
+        let mut j = PeerJoin::new();
+        let mut o = observed(1);
+        o.operator_bound = true;
+        o.operator_pubkey = key(0xA1);
+        j.apply_observed(&o);
+        let out = j.apply_reputation(&rated(1, 0.7));
+        let p = peer(&out);
+        assert_eq!(p.guardian_pubkey.as_deref(), Some(&key(0xA1)[..]));
+        assert_eq!(p.reputation, Some(0.7));
     }
 
     #[test]

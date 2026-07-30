@@ -120,6 +120,12 @@ pub mod ffi {
         rank: i32,
         operator_bound: bool,
         operator_attested_at: f64,
+        /// Appended by AT's operator-key slice. It landed in the struct's
+        /// existing tail padding, so every offset above is unchanged and only
+        /// the SIZE moved (64 -> 96) — which is exactly why the assertions
+        /// below check both, and why they are measured with a compiler rather
+        /// than reasoned about.
+        operator_pubkey: [u8; AT_SIGNING_KEY_LEN],
     }
 
     #[repr(C)]
@@ -211,6 +217,10 @@ pub mod ffi {
             rank: i32,
             operator_bound: bool,
             operator_attested_at: f64,
+            // May be NULL for the ordinary "no guardian named" case; passed
+            // through verbatim, so a test can emit a key with
+            // `operator_bound` false and prove the consumer refuses it.
+            operator_pubkey: *const u8,
         ) -> c_int;
         fn at_app_test_emit_reputation(
             q_name: *const c_char,
@@ -337,6 +347,7 @@ pub mod ffi {
                         rank: 0,
                         operator_bound: false,
                         operator_attested_at: 0.0,
+                        operator_pubkey: [0; AT_SIGNING_KEY_LEN],
                     },
                 },
             }; BATCH];
@@ -361,6 +372,7 @@ pub mod ffi {
                             rank: p.rank,
                             operator_bound: p.operator_bound,
                             operator_attested_at: p.operator_attested_at,
+                            operator_pubkey: p.operator_pubkey,
                         }));
                     }
                     KIND_PEER_REPUTATION => {
@@ -520,11 +532,11 @@ pub mod ffi {
         /// being exactly the kind of detail that is wrong when guessed.
         #[test]
         fn the_flat_abi_layout_matches_what_c_reports() {
-            assert_eq!(std::mem::size_of::<AtAppPeer>(), 64);
+            assert_eq!(std::mem::size_of::<AtAppPeer>(), 96);
             assert_eq!(std::mem::align_of::<AtAppPeer>(), 8);
             assert_eq!(std::mem::size_of::<AtAppReputation>(), 32);
             assert_eq!(std::mem::align_of::<AtAppReputation>(), 8);
-            assert_eq!(std::mem::size_of::<AtAppEvent>(), 72);
+            assert_eq!(std::mem::size_of::<AtAppEvent>(), 104);
             assert_eq!(std::mem::align_of::<AtAppEvent>(), 8);
             assert_eq!(std::mem::offset_of!(AtAppEvent, kind), 0);
             assert_eq!(std::mem::offset_of!(AtAppEvent, data), 8);
@@ -534,6 +546,7 @@ pub mod ffi {
             assert_eq!(std::mem::offset_of!(AtAppPeer, rank), 48);
             assert_eq!(std::mem::offset_of!(AtAppPeer, operator_bound), 52);
             assert_eq!(std::mem::offset_of!(AtAppPeer, operator_attested_at), 56);
+            assert_eq!(std::mem::offset_of!(AtAppPeer, operator_pubkey), 64);
             assert_eq!(std::mem::offset_of!(AtAppReputation, peer_uuid), 0);
             assert_eq!(std::mem::offset_of!(AtAppReputation, score), 16);
             assert_eq!(std::mem::offset_of!(AtAppReputation, rated), 24);
@@ -597,10 +610,35 @@ pub mod ffi {
         }
 
         fn emit_peer(q: &CString, uuid: &[u8; 16], key: &[u8; 32], rank: i32, bound_op: bool, at: f64) {
+            emit_peer_guarded(q, uuid, key, rank, bound_op, at, None)
+        }
+
+        /// As [`emit_peer`], naming a guardian. Split out so the ordinary
+        /// no-guardian call — the one every pre-existing test makes — stays
+        /// exactly as short as it was: opting out has to be the easy path in
+        /// the tests too, or the tests stop resembling the deployment.
+        fn emit_peer_guarded(
+            q: &CString,
+            uuid: &[u8; 16],
+            key: &[u8; 32],
+            rank: i32,
+            bound_op: bool,
+            at: f64,
+            guardian: Option<&[u8; 32]>,
+        ) {
             // SAFETY: pointers are to live arrays of the lengths the C side
-            // documents, and the queue name outlives the call.
+            // documents, and the queue name outlives the call. A null guardian
+            // pointer is the documented "no key" case.
             let rc = unsafe {
-                at_app_test_emit_peer(q.as_ptr(), uuid.as_ptr(), key.as_ptr(), rank, bound_op, at)
+                at_app_test_emit_peer(
+                    q.as_ptr(),
+                    uuid.as_ptr(),
+                    key.as_ptr(),
+                    rank,
+                    bound_op,
+                    at,
+                    guardian.map_or(std::ptr::null(), |g| g.as_ptr()),
+                )
             };
             assert_eq!(rc, 0, "emit_peer failed");
         }
@@ -780,6 +818,102 @@ pub mod ffi {
                 p.attended_at(),
                 Some(en_core::Timestamp::from_second(1_721_800_000).unwrap())
             );
+        }
+
+        /// D15's source, end to end over the real socket: an opted-in node's
+        /// guardian key survives AT's emitter, the flat ABI and this decoder,
+        /// and derives a `did:key` a charter can name. Until AT's operator-key
+        /// slice this was unreachable and the field was hard-coded `None`.
+        #[test]
+        fn a_guardian_key_survives_the_trip() {
+            let (mut src, q, _guard) = bound("guardian-ok");
+            emit_peer_guarded(
+                &q,
+                &[0x31; 16],
+                &[0x32; 32],
+                0,
+                true,
+                1_721_800_000.0,
+                Some(&[0xA1; 32]),
+            );
+            let events = src.poll().expect("poll");
+            let p = only_peer(&events);
+            assert_eq!(p.guardian_pubkey.as_deref(), Some(&[0xA1u8; 32][..]));
+            let g = p.guardian_did().expect("derivable").expect("present");
+            assert_ne!(g, p.did().expect("node did"));
+        }
+
+        /// **The control.** A node that declined crosses the same wire with
+        /// everything else intact and only the guardian absent. This is the one
+        /// that would catch opting out becoming expensive.
+        #[test]
+        fn an_opted_out_node_crosses_intact_without_a_guardian() {
+            let (mut src, q, _guard) = bound("guardian-optout");
+            emit_peer(&q, &[0x41; 16], &[0x42; 32], 7, true, 1_721_800_000.0);
+            let events = src.poll().expect("poll");
+            let p = only_peer(&events);
+            assert!(p.operator_bound);
+            assert!(p.attended_at().is_some());
+            assert_eq!(p.rank, 7);
+            assert_eq!(p.guardian_pubkey, None);
+            assert_eq!(p.guardian_did().expect("no error"), None);
+        }
+
+        /// **The whole slice, in one assertion.** A live AT daemon's opted-in
+        /// peer becomes a `MemberCandidate` carrying a guardian DID — which is
+        /// what D15 charters an authority on, and what has had no live source
+        /// since the tier was built. The provider-level guardian test beside
+        /// this one drives a hand-built `AtPeer` through `MockEventSource`; the
+        /// point here is that the same thing now arrives off the socket.
+        #[test]
+        fn an_opted_in_peer_reaches_a_member_candidate_as_a_guardian_edge() {
+            let (src, q, _guard) = bound("guardian-candidate");
+            emit_peer_guarded(
+                &q,
+                &[0x61; 16],
+                &[0x62; 32],
+                0,
+                true,
+                1_721_800_000.0,
+                Some(&[0xA1; 32]),
+            );
+            // A plain unguarded machine alongside it, so the assertion is that
+            // the guardian edge VARIES with the opt-in rather than being set
+            // for everyone.
+            emit_peer(&q, &[0x63; 16], &[0x64; 32], 0, false, 0.0);
+            emit_rep(&q, &[0x61; 16], 0.8, true);
+            emit_rep(&q, &[0x63; 16], 0.8, true);
+
+            // `founding_candidate` is the SubstrateProvider trait's, not an
+            // inherent method — the tier's whole point is that ethne consumes
+            // AT through that trait and nothing narrower.
+            use en_substrate::SubstrateProvider;
+
+            let mut provider = crate::AtSubstrateProvider::new(src);
+            provider.refresh().expect("refresh");
+            let fc = provider.founding_candidate().expect("candidate");
+
+            let node_did = crate::event::signing_key_did(&[0x62; 32]).unwrap();
+            let guardian_did = crate::event::signing_key_did(&[0xA1; 32]).unwrap();
+            let opted_in = fc.members.iter().find(|m| m.did == node_did).unwrap();
+            assert_eq!(opted_in.guardian.as_ref(), Some(&guardian_did));
+
+            let plain_did = crate::event::signing_key_did(&[0x64; 32]).unwrap();
+            let plain = fc.members.iter().find(|m| m.did == plain_did).unwrap();
+            assert!(plain.guardian.is_none());
+        }
+
+        /// The far end of the double gate: AT already refuses this, and so does
+        /// this decoder, so the guarantee holds even if the two are ever built
+        /// from different revisions.
+        #[test]
+        fn a_guardian_key_on_an_unbound_node_is_dropped_at_this_end() {
+            let (mut src, q, _guard) = bound("guardian-unbound");
+            emit_peer_guarded(&q, &[0x51; 16], &[0x52; 32], 0, false, 0.0, Some(&[0xA1; 32]));
+            let events = src.poll().expect("poll");
+            let p = only_peer(&events);
+            assert!(!p.operator_bound);
+            assert_eq!(p.guardian_pubkey, None);
         }
     }
 }
