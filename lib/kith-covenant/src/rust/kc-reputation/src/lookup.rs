@@ -73,11 +73,12 @@ pub fn lookup(
         match entry {
             ArchiveEntry::CommunityIdentityPublished(signed) => {
                 let ci = &signed.payload;
-                if &ci.did == community_did && ci.created_at <= as_of {
-                    if best_identity_at.map_or(true, |prev| ci.created_at >= prev) {
-                        view.identity_cid = Some(cid.clone());
-                        best_identity_at = Some(ci.created_at);
-                    }
+                if &ci.did == community_did
+                    && ci.created_at <= as_of
+                    && best_identity_at.map_or(true, |prev| ci.created_at >= prev)
+                {
+                    view.identity_cid = Some(*cid);
+                    best_identity_at = Some(ci.created_at);
                 }
             }
             ArchiveEntry::IntraCommunityRite(signed) => {
@@ -85,7 +86,7 @@ pub fn lookup(
                 let recitation = &rec.recitation.payload;
                 if &recitation.community_did == community_did && rec.sealed_at <= as_of {
                     view.intra_rites.push(IntraRiteSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         sealed_at: rec.sealed_at,
                         speaker_did: recitation.speaker_did.clone(),
                         witness_count: rec.internal_witnesses.len(),
@@ -104,7 +105,7 @@ pub fn lookup(
                         .cloned()
                         .collect();
                     view.inter_admissions.push(InterAdmissionSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         witnessed_at: rec.witnessed_at,
                         counterparties,
                     });
@@ -131,12 +132,12 @@ pub fn lookup(
                         .map(|r| RejectionSummary {
                             rejecting_community: r.rejecting_community.clone(),
                             presenting_community: r.presenting_community.clone(),
-                            feature: r.feature.clone(),
+                            feature: r.feature,
                             rationale: r.rationale.clone(),
                         })
                         .collect();
                     view.inter_nonadmissions.push(InterNonAdmissionSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         decided_at: rec.decided_at,
                         counterparties,
                         rejections,
@@ -149,10 +150,10 @@ pub fn lookup(
                 let s = &signed.payload;
                 if s.sponsored_at <= as_of {
                     let summary = SponsorshipSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         sponsor_community: s.sponsor_community.clone(),
                         entrant_community: s.entrant_community.clone(),
-                        admission_cid: s.admission_cid.clone(),
+                        admission_cid: s.admission_cid,
                         probation_until: s.probation_until,
                         sponsored_at: s.sponsored_at,
                     };
@@ -168,7 +169,7 @@ pub fn lookup(
                 let c = &signed.payload;
                 if &c.subject_community == community_did && c.recorded_at <= as_of {
                     view.conduct.push(ConductSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         kind: c.kind,
                         bearing: c.bearing.clone(),
                         severity: c.severity,
@@ -185,7 +186,7 @@ pub fn lookup(
                 let d = &signed.payload;
                 if &d.subject_community == community_did && d.designated_at <= as_of {
                     view.designations.push(DesignationSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         tier: d.tier.as_str().to_string(),
                         urgency: d.urgency.as_str().to_string(),
                         criteria: d.criteria.clone(),
@@ -200,8 +201,8 @@ pub fn lookup(
                 let r = &signed.payload;
                 if &r.petitioner == community_did && r.completed_at <= as_of {
                     view.reentries.push(ReEntrySummary {
-                        record_cid: cid.clone(),
-                        designation_cid: r.designation_cid.clone(),
+                        record_cid: *cid,
+                        designation_cid: r.designation_cid,
                         probation_until: r.probation_until,
                         completed_at: r.completed_at,
                     });
@@ -211,7 +212,7 @@ pub fn lookup(
                 let o = &signed.payload;
                 if &o.subject_community == community_did && o.imposed_at <= as_of {
                     view.restitutions.push(RestitutionSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         beneficiary: o.beneficiary.clone(),
                         terms: o.terms.clone(),
                         satisfied: None, // set by the verification join below
@@ -223,7 +224,7 @@ pub fn lookup(
                 let s = &signed.payload;
                 if &s.subject_community == community_did && s.invoked_at <= as_of {
                     view.substantive_reengagements.push(SubstantiveReEngagementSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         required_reaffirmation_by: s.required_reaffirmation_by,
                         invoked_at: s.invoked_at,
                     });
@@ -233,7 +234,7 @@ pub fn lookup(
                 let inj = &signed.payload;
                 if &inj.subject_community == community_did && inj.issued_at <= as_of {
                     view.injunctions.push(InjunctionSummary {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         harm: inj.harm.clone(),
                         protective_measures: inj.protective_measures.clone(),
                         revoked_capabilities: inj
@@ -272,7 +273,7 @@ pub fn lookup(
                 && e.valid_until.map_or(true, |end| as_of < end);
             if valid_now {
                 view.active_witnesses.push(WitnessSummary {
-                    record_cid: reg_cid.clone(),
+                    record_cid: *reg_cid,
                     member_did: e.witness_did.clone(),
                     role: e.role,
                     active_from: e.valid_from,
@@ -308,7 +309,7 @@ pub fn lookup(
     for (_, (cid, d)) in latest_deleg {
         if d.active_at(as_of) {
             view.active_delegations.push(DelegationSummary {
-                record_cid: cid.clone(),
+                record_cid: *cid,
                 subject_did: d.speaker_did.clone(),
                 scope: d.scope,
                 active_from: d.issued_at,
@@ -357,7 +358,7 @@ pub fn lookup(
                     .get(&cid.to_string())
                     .map_or(d.rung, |(_, r)| *r);
                 let summary = DisputeSummary {
-                    record_cid: cid.clone(),
+                    record_cid: *cid,
                     complainant: d.complainant.clone(),
                     respondent: d.respondent.clone(),
                     rung: d.rung,
@@ -483,8 +484,8 @@ pub fn lookup(
             continue;
         }
         view.commons_sanctions.push(CommonsSanctionSummary {
-            record_cid: cid.clone(),
-            commons_cid: p.commons_cid.clone(),
+            record_cid: *cid,
+            commons_cid: p.commons_cid,
             kind: commons_kind.get(&commons_key).cloned().unwrap_or_else(|| "Unknown".into()),
             current_level: p.to_level.as_str().to_string(),
             basis: p.basis.clone(),
@@ -502,7 +503,7 @@ pub fn lookup(
             let r = &s.payload;
             if r.responded_at <= as_of {
                 responses.entry(r.report_cid.to_string()).or_default().push(ReportResponseSummary {
-                    record_cid: cid.clone(),
+                    record_cid: *cid,
                     response: r.response.clone(),
                     responded_at: r.responded_at,
                 });
@@ -517,7 +518,7 @@ pub fn lookup(
                     responses.get(&cid.to_string()).cloned().unwrap_or_default();
                 resp.sort_by_key(|r| r.responded_at);
                 view.observer_reports.push(ObserverReportSummary {
-                    record_cid: cid.clone(),
+                    record_cid: *cid,
                     observer_did: rep.observer_did.clone(),
                     declared_perspective: rep.declared_perspective.clone(),
                     summary: rep.summary.clone(),
@@ -552,7 +553,7 @@ pub fn lookup(
                     })
                     .count();
                 view.whistleblower_reports_against.push(WhistleblowerSummary {
-                    record_cid: cid.clone(),
+                    record_cid: *cid,
                     claim: wb.claim.clone(),
                     filed_at: wb.filed_at,
                     source_revealed: revealed,

@@ -95,7 +95,7 @@ fn saves_append_and_a_reload_matches_the_live_log() {
         // The first save lays down the base line; every one after it appends, since
         // no compaction has happened.
         assert_eq!(out.rewrote, i == 0, "at i={i}");
-        assert_eq!(out.appended, if i == 0 { 1 } else { 1 });
+        assert_eq!(out.appended, 1, "at i={i}");
         total_appended += out.appended;
     }
     assert_eq!(total_appended, 10);

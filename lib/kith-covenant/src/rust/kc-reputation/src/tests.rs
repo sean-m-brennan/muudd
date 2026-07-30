@@ -1574,11 +1574,11 @@ mod commons_projection {
         let (_, _, cb) = fresh_id();
         let mut arc = InMemoryArchive::new();
         let commons = register(&mut arc, CommonsKind::Communication, &[&ca, &cb], &a_priv, t(50));
-        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+        sanction(&mut arc, commons, &cb, &ca, &a_priv,
             SanctionLevel::None, SanctionLevel::Monitoring, DecisionClass::FirstClass, t(100));
-        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+        sanction(&mut arc, commons, &cb, &ca, &a_priv,
             SanctionLevel::Monitoring, SanctionLevel::Warning, DecisionClass::FirstClass, t(200));
-        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+        sanction(&mut arc, commons, &cb, &ca, &a_priv,
             SanctionLevel::Warning, SanctionLevel::Restriction, DecisionClass::SecondClass, t(300));
 
         // The projection carries the latest (current) level, joined with the kind.
@@ -1601,9 +1601,9 @@ mod commons_projection {
         let (_, _, cb) = fresh_id();
         let mut arc = InMemoryArchive::new();
         let commons = register(&mut arc, CommonsKind::Rescue, &[&ca, &cb], &a_priv, t(50));
-        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+        sanction(&mut arc, commons, &cb, &ca, &a_priv,
             SanctionLevel::None, SanctionLevel::Monitoring, DecisionClass::FirstClass, t(100));
-        sanction(&mut arc, commons.clone(), &cb, &ca, &a_priv,
+        sanction(&mut arc, commons, &cb, &ca, &a_priv,
             SanctionLevel::Monitoring, SanctionLevel::None, DecisionClass::FirstClass, t(200));
         // Back at rest: not surfaced, gate reports None.
         let view = lookup(&arc, &cb, Some(t(1000)));
@@ -1619,9 +1619,9 @@ mod commons_projection {
         let mut arc = InMemoryArchive::new();
         let commons = register(&mut arc, CommonsKind::Navigation, &[&ca, &cb, &cc], &a_priv, t(50));
         // B draws heavily and returns little; C contributes more than it draws.
-        usage(&mut arc, commons.clone(), &cb, &b_priv, 800, 100, t(100));
-        usage(&mut arc, commons.clone(), &cb, &b_priv, 400, 100, t(200));
-        usage(&mut arc, commons.clone(), &cc, &c_priv, 100, 500, t(100));
+        usage(&mut arc, commons, &cb, &b_priv, 800, 100, t(100));
+        usage(&mut arc, commons, &cb, &b_priv, 400, 100, t(200));
+        usage(&mut arc, commons, &cc, &c_priv, 100, 500, t(100));
 
         let report = free_rider_signals(&arc, &commons, Some(t(1000)));
         assert_eq!(report.total_consumed(), 1300);
@@ -1644,7 +1644,7 @@ mod commons_projection {
         let (b_priv, _, cb) = fresh_id();
         let mut arc = InMemoryArchive::new();
         let commons = register(&mut arc, CommonsKind::KnowledgeArchive, &[&ca, &cb], &a_priv, t(50));
-        usage(&mut arc, commons.clone(), &cb, &b_priv, 100, 0, t(500));
+        usage(&mut arc, commons, &cb, &b_priv, 100, 0, t(500));
         // Before the usage record: nothing tallied.
         let early = free_rider_signals(&arc, &commons, Some(t(100)));
         assert_eq!(early.total_consumed(), 0);
@@ -1775,7 +1775,7 @@ mod observer_projection {
         let mut arc = InMemoryArchive::new();
         let (obs, obs_priv) = register_observer(&mut arc, &subject, t(10));  // registry only
         let rep = publish_report(&mut arc, &subject, &obs, &obs_priv, t(100));
-        respond(&mut arc, rep.clone(), &subject, &a_priv, t(200));
+        respond(&mut arc, rep, &subject, &a_priv, t(200));
 
         let v = lookup(&arc, &subject, Some(t(1000)));
         assert_eq!(v.observer_reports.len(), 1);
@@ -2879,7 +2879,7 @@ mod structured_skepticism_lens {
         let (c_priv, _, c) = fresh_id();
         let mut a = InMemoryArchive::new();
         let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
-        corroborate(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate(&mut a, ev, &b, &b_priv, t(200));
         corroborate(&mut a, ev, &c, &c_priv, t(300));
 
         let r = structured_skepticism(&a, Some(t(1000)));
@@ -2894,9 +2894,9 @@ mod structured_skepticism_lens {
         let mut a = InMemoryArchive::new();
         let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
         // The originator corroborating itself: excluded.
-        corroborate(&mut a, ev.clone(), &originator, &o_priv, t(150));
+        corroborate(&mut a, ev, &originator, &o_priv, t(150));
         // One ally corroborating twice: still one distinct community.
-        corroborate(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate(&mut a, ev, &b, &b_priv, t(200));
         corroborate(&mut a, ev, &b, &b_priv, t(250));
 
         let r = structured_skepticism(&a, Some(t(1000)));
@@ -2934,7 +2934,7 @@ mod structured_skepticism_lens {
         let mut a = InMemoryArchive::new();
         let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
         // Corroborations arrive later — invisible before their time.
-        corroborate(&mut a, ev.clone(), &b, &b_priv, t(5000));
+        corroborate(&mut a, ev, &b, &b_priv, t(5000));
         corroborate(&mut a, ev, &c, &c_priv, t(6000));
 
         // Before the corroborations: still under-corroborated.
@@ -2961,7 +2961,7 @@ mod structured_skepticism_lens {
         let (c_priv, _, c) = fresh_id();
         let mut a = InMemoryArchive::new();
         let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
-        corroborate_native(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate_native(&mut a, ev, &b, &b_priv, t(200));
         corroborate_native(&mut a, ev, &c, &c_priv, t(300));
 
         let r = structured_skepticism(&a, Some(t(1000)));
@@ -2979,7 +2979,7 @@ mod structured_skepticism_lens {
         let (c_priv, _, c) = fresh_id();
         let mut a = InMemoryArchive::new();
         let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
-        corroborate(&mut a, ev.clone(), &b, &b_priv, t(200));
+        corroborate(&mut a, ev, &b, &b_priv, t(200));
         corroborate(&mut a, ev, &c, &c_priv, t(300));
 
         let r = structured_skepticism(&a, Some(t(1000)));
@@ -3027,7 +3027,7 @@ mod structured_skepticism_lens {
         let (b_priv, _, b) = fresh_id();
         let mut a = InMemoryArchive::new();
         let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
-        find_interest(&mut a, ev.clone(), &b, &b_priv, "owns the disputed claim", t(500));
+        find_interest(&mut a, ev, &b, &b_priv, "owns the disputed claim", t(500));
 
         let r = structured_skepticism(&a, Some(t(1000)));
         assert_eq!(r.events[0].undisclosed_interests_found.len(), 1);

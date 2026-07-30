@@ -83,7 +83,7 @@ pub fn composition_graph(archive: &InMemoryArchive, as_of: Option<Timestamp>) ->
                 continue;
             }
             graph.edges.push(SponsorEdge {
-                record_cid: cid.clone(),
+                record_cid: *cid,
                 sponsor: s.sponsor_community.clone(),
                 entrant: s.entrant_community.clone(),
                 sponsored_at: s.sponsored_at,
@@ -95,7 +95,7 @@ pub fn composition_graph(archive: &InMemoryArchive, as_of: Option<Timestamp>) ->
                 .or_insert(0) += 1;
         }
     }
-    graph.edges.sort_by(|a, b| a.sponsored_at.cmp(&b.sponsored_at));
+    graph.edges.sort_by_key(|e| e.sponsored_at);
     graph
 }
 
@@ -192,10 +192,10 @@ pub fn interpretive_plurality(
                 continue;
             }
             report.interpretations.push(LineagePoint {
-                record_cid: cid.clone(),
+                record_cid: *cid,
                 lineage_id: s.lineage_id.clone(),
                 interpreter: s.interpreter_did.clone(),
-                interprets_cid: s.interprets_cid.clone(),
+                interprets_cid: s.interprets_cid,
                 recorded_at: s.recorded_at,
             });
             *report.lineages.entry(s.lineage_id.clone()).or_insert(0) += 1;
@@ -230,9 +230,7 @@ pub fn interpretive_plurality(
                 .insert(attester.to_string());
         }
     }
-    report
-        .interpretations
-        .sort_by(|a, b| a.recorded_at.cmp(&b.recorded_at));
+    report.interpretations.sort_by_key(|i| i.recorded_at);
     report
 }
 
@@ -296,7 +294,7 @@ impl SkepticismReport {
         self.events
             .iter()
             .filter(|e| e.qualifies && e.corroborators.len() < min)
-            .map(|e| e.event_cid.clone())
+            .map(|e| e.event_cid)
             .collect()
     }
     /// The CIDs of qualifying events with fewer than `min` distinct corroborators
@@ -309,7 +307,7 @@ impl SkepticismReport {
         self.events
             .iter()
             .filter(|e| e.qualifies && e.translated_corroborators.len() < min)
-            .map(|e| e.event_cid.clone())
+            .map(|e| e.event_cid)
             .collect()
     }
     /// The CIDs of qualifying events for which a third party has retroactively
@@ -321,7 +319,7 @@ impl SkepticismReport {
         self.events
             .iter()
             .filter(|e| e.qualifies && !e.undisclosed_interests_found.is_empty())
-            .map(|e| e.event_cid.clone())
+            .map(|e| e.event_cid)
             .collect()
     }
 }
@@ -349,7 +347,7 @@ pub fn structured_skepticism(
                 if e.reported_at > as_of {
                     continue;
                 }
-                events.push((cid.clone(), e));
+                events.push((*cid, e));
             }
             ArchiveEntry::EventCorroborated(signed) => {
                 let c = &signed.payload;
@@ -435,7 +433,7 @@ pub fn structured_skepticism(
             aligned_faction: e.aligned_faction.clone(),
         });
     }
-    report.events.sort_by(|a, b| a.reported_at.cmp(&b.reported_at));
+    report.events.sort_by_key(|e| e.reported_at);
     report
 }
 
@@ -551,7 +549,7 @@ pub fn adversarial_principal(
                     && a.witness_community.as_str() != a.principal_home.as_str()
                 {
                     report.cross_witnesses.push(CrossWitness {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         witness_community: a.witness_community.clone(),
                         attested_at: a.attested_at,
                     });
@@ -564,7 +562,7 @@ pub fn adversarial_principal(
                 }
                 if &o.principal_did == principal {
                     own.push((
-                        cid.clone(),
+                        *cid,
                         o.cohort.clone(),
                         o.matter.clone(),
                         o.decision.clone(),
@@ -596,7 +594,7 @@ pub fn adversarial_principal(
         // diverged) — the denominator for the continuous-behavior rate.
         report.outputs_triangulated += 1;
         let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-        for (_, (d, _)) in peer_map.iter() {
+        for (d, _) in peer_map.values() {
             *counts.entry(d.clone()).or_insert(0) += 1;
         }
         // Highest count; ties broken by the lexically smallest decision.
@@ -618,7 +616,7 @@ pub fn adversarial_principal(
         }
     }
 
-    report.cross_witnesses.sort_by(|a, b| a.attested_at.cmp(&b.attested_at));
+    report.cross_witnesses.sort_by_key(|w| w.attested_at);
     report.divergences.sort_by(|a, b| a.matter.cmp(&b.matter));
     report
 }
@@ -714,7 +712,7 @@ pub fn collusive_cohorts(
             let total = principals.len();
             let mut counts: BTreeMap<String, usize> = BTreeMap::new();
             let mut fav_counts: BTreeMap<String, usize> = BTreeMap::new();
-            for (_, (decision, favors_home, _)) in principals {
+            for (decision, favors_home, _) in principals.values() {
                 *counts.entry(decision.clone()).or_insert(0) += 1;
                 if *favors_home {
                     *fav_counts.entry(decision.clone()).or_insert(0) += 1;
@@ -726,7 +724,7 @@ pub fn collusive_cohorts(
         }
         // Cross-cohort consensus: the majority among the cohort majorities.
         let mut consensus_counts: BTreeMap<String, usize> = BTreeMap::new();
-        for (_, (maj, _)) in &cohort_major {
+        for (maj, _) in cohort_major.values() {
             *consensus_counts.entry(maj.clone()).or_insert(0) += 1;
         }
         let Some(consensus) = plurality(&consensus_counts) else { continue };
@@ -842,7 +840,7 @@ pub fn principal_witness_chain(
         if let ArchiveEntry::PrincipalWitnessed(signed) = entry {
             let a = &signed.payload;
             if a.attested_at <= as_of && &a.principal_did == principal {
-                raw.push((cid.clone(), a.clone()));
+                raw.push((*cid, a.clone()));
             }
         }
     }
@@ -932,7 +930,7 @@ pub fn sponsor_stake(
             if &s.sponsor_community == sponsor && s.sponsored_at <= as_of {
                 sponsees.push(SponseeOutcome {
                     entrant: s.entrant_community.clone(),
-                    sponsorship_cid: cid.clone(),
+                    sponsorship_cid: *cid,
                     sponsored_at: s.sponsored_at,
                     probation_until: s.probation_until,
                     adverse_conduct: vec![],
@@ -951,7 +949,7 @@ pub fn sponsor_stake(
                     && c.recorded_at >= outcome.sponsored_at
                     && c.recorded_at < outcome.probation_until;
                 if c.subject_community == outcome.entrant && c.kind.is_adverse() && in_window {
-                    outcome.adverse_conduct.push(cid.clone());
+                    outcome.adverse_conduct.push(*cid);
                 }
             }
         }
@@ -1012,7 +1010,7 @@ pub fn feature_concern_profile(
                 }
                 _ => profile.non_feature_adverse += 1,
             }
-            profile.evidence.push(cid.clone());
+            profile.evidence.push(*cid);
             if let Some(p) = &c.reporter_perspective {
                 perspectives.insert(p.clone());
             }
@@ -1091,10 +1089,10 @@ pub fn rejection_pattern(
             }
             for r in &rec.rejections {
                 pattern.events.push(RejectionEvent {
-                    non_admission_cid: cid.clone(),
+                    non_admission_cid: *cid,
                     rejecting: r.rejecting_community.clone(),
                     presenting: r.presenting_community.clone(),
-                    feature: r.feature.clone(),
+                    feature: r.feature,
                     decided_at: rec.decided_at,
                 });
                 *pattern
@@ -1113,7 +1111,7 @@ pub fn rejection_pattern(
             }
         }
     }
-    pattern.events.sort_by(|a, b| a.decided_at.cmp(&b.decided_at));
+    pattern.events.sort_by_key(|e| e.decided_at);
     pattern.perspectives = perspectives.into_iter().collect();
     pattern
 }
@@ -1243,7 +1241,7 @@ pub fn ceremony_cost_decay(
             let recitation = &rec.recitation.payload;
             if &recitation.community_did == community && rec.sealed_at <= as_of {
                 decay.rites.push(RitePoint {
-                    record_cid: cid.clone(),
+                    record_cid: *cid,
                     sealed_at: rec.sealed_at,
                     witness_count: rec.internal_witnesses.len(),
                 });
@@ -1279,7 +1277,7 @@ pub fn ceremony_cost_decay_all(
                     .or_default()
                     .rites
                     .push(RitePoint {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         sealed_at: rec.sealed_at,
                         witness_count: rec.internal_witnesses.len(),
                     });
@@ -1385,7 +1383,7 @@ pub fn free_rider_signals(
             t.consumed = t.consumed.saturating_add(u.consumed);
             t.contributed = t.contributed.saturating_add(u.contributed);
             t.record_count += 1;
-            t.evidence.push(cid.clone());
+            t.evidence.push(*cid);
         }
     }
     FreeRiderReport { tallies: tallies.into_values().collect() }
@@ -1751,10 +1749,10 @@ pub fn substrate_deference(
                     AmendmentKind::Remove => removed += 1,
                 }
             }
-            ArchiveEntry::FastCadenceAmended(s) if s.payload.decided_at <= as_of => {
-                if s.payload.change.is_contraction() {
-                    fast_contractions += 1;
-                }
+            ArchiveEntry::FastCadenceAmended(s)
+                if s.payload.decided_at <= as_of && s.payload.change.is_contraction() =>
+            {
+                fast_contractions += 1;
             }
             _ => {}
         }
@@ -1766,7 +1764,7 @@ pub fn substrate_deference(
             if at <= as_of {
                 if let Some(label) = state.fast_periods.iter().find(|p| p.contains(at)) {
                     deviations.push(FastDeviation {
-                        record_cid: cid.clone(),
+                        record_cid: *cid,
                         kind: kind.to_string(),
                         at,
                         fast_label: label.label.clone(),
@@ -1934,7 +1932,7 @@ pub fn overdue_reexaminations(
                 continue;
             }
             overdue.push(OverdueReexamination {
-                designation_cid: cid.clone(),
+                designation_cid: *cid,
                 subject: d.subject_community.as_str().to_string(),
                 tier: format!("{:?}", d.tier),
                 reexamine_after: due,
@@ -2036,7 +2034,7 @@ pub fn erosion_alert_with(
             if since > thresholds.rite_cadence_seconds {
                 overdue_reaffirmations.push(OverdueReaffirmation {
                     community_did: did.clone(),
-                    last_rite_cid: last.record_cid.clone(),
+                    last_rite_cid: last.record_cid,
                     seconds_since_last: since,
                     cadence_seconds: thresholds.rite_cadence_seconds,
                 });

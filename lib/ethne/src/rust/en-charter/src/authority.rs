@@ -123,6 +123,11 @@ pub fn majority(n: usize) -> usize {
 /// A departure or expulsion that would drop the roll below this is refused, so a
 /// polity can never shrink itself into a state where it cannot act on its own
 /// contraction rules (a roll can only shed a member from size ≥ 4).
+// `majority(n) + 1 <= n` rather than the equivalent `majority(n) < n` that
+// clippy::int_plus_one prefers: "majority + 1" is a named threshold across this
+// tier (D14's roll override, the contraction rules above), and the arithmetically
+// identical form no longer says which rule this enforces.
+#[allow(clippy::int_plus_one)]
 fn can_self_govern(n: usize) -> bool {
     majority(n) + 1 <= n
 }
@@ -243,7 +248,7 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                 let held = |h: &(Office, DidKey)| h.0 == o.office && h.1 == o.holder;
                 match o.kind {
                     OfficeKind::Confer => {
-                        if !r.offices.iter().any(|h| held(h)) {
+                        if !r.offices.iter().any(held) {
                             r.offices.push((o.office.clone(), o.holder.clone()));
                         }
                     }

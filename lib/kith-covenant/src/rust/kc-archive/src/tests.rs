@@ -3356,7 +3356,7 @@ mod event_action {
         at: Timestamp,
     ) -> Cid {
         let rec = EventCorroboration {
-            event_cid: event_cid.clone(),
+            event_cid: *event_cid,
             corroborating_community: community.clone(),
             translation: None,
             corroborated_at: at,
@@ -3373,7 +3373,7 @@ mod event_action {
         at: Timestamp,
     ) -> Cid {
         let rec = EventActionInvoked {
-            event_cid: event_cid.clone(),
+            event_cid: *event_cid,
             acting_community: acting.clone(),
             action: "escalate to the mediator pool".into(),
             invoked_at: at,

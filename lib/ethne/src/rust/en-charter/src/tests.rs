@@ -293,7 +293,7 @@ impl Polity {
                 .map(|(m, g, stamp)| MemberReading {
                     member: self.ids[*m].1.clone(),
                     reputation: 0.9,
-                    guardian: g.map(|g| g.clone()),
+                    guardian: g.cloned(),
                     attested_at: stamp.map(t),
                 })
                 .collect(),
@@ -4286,7 +4286,8 @@ fn a_polity_may_not_name_itself_as_its_own_successor() {
     // archive can never honour.
     let p = Polity::new(3);
     let mut a = archive_of(p.charter(&[0, 1, 2], vec![]));
-    a.append(p.dissolve(&[p.polity.clone()], &[0, 1, 2], 400)).unwrap();
+    a.append(p.dissolve(std::slice::from_ref(&p.polity), &[0, 1, 2], 400))
+        .unwrap();
     verify_all(&a).unwrap();
     assert!(sole_violation(&a).contains("cannot succeed itself"));
 }

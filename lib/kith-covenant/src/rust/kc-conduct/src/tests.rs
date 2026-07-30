@@ -140,7 +140,7 @@ fn reference_chain_links_by_cid() {
     let designation_cid = Cid::of(&designation).expect("cid");
     let lifted = ConductRecord {
         kind: ConductKind::DesignationLifted,
-        references: vec![designation_cid.clone()],
+        references: vec![designation_cid],
         observed_at: t(1_000),
         recorded_at: t(1_001),
         ..designation

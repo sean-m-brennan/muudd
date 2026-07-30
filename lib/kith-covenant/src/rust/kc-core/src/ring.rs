@@ -393,9 +393,11 @@ impl<T: Serialize> RingSigned<T> {
 
         let mut c = scalar_from_canonical(&self.signature.c0)?;
         let c0 = c;
-        for i in 0..n {
-            let s = scalar_from_canonical(&self.signature.responses[i])?;
-            let l = EdwardsPoint::mul_base(&s) + c * points[i];
+        // Zipped rather than indexed: both lengths were checked equal to `n`
+        // above, so this is the same walk without two bounds checks per step.
+        for (response, point) in self.signature.responses.iter().zip(points.iter()) {
+            let s = scalar_from_canonical(response)?;
+            let l = EdwardsPoint::mul_base(&s) + c * point;
             let r = s * h + c * image_point;
             c = ring_challenge(
                 &self.payload_cid,
@@ -558,9 +560,9 @@ mod tests {
     fn every_ring_position_can_sign_and_verify() {
         for n in 2..=8usize {
             let (privs, pubs) = ring_of(n);
-            for i in 0..n {
+            for (i, priv_key) in privs.iter().enumerate() {
                 let signed =
-                    RingSigned::build(claim("insider"), pubs.clone(), i, &privs[i]).unwrap();
+                    RingSigned::build(claim("insider"), pubs.clone(), i, priv_key).unwrap();
                 signed
                     .verify()
                     .unwrap_or_else(|e| panic!("ring {n} position {i} failed: {e}"));
