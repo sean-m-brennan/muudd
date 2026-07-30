@@ -606,7 +606,7 @@ fn authorize_designation(
     // Condition 4: reversal conditions present iff the tier is Anathema.
     match d.tier {
         DesignationTier::Anathema => {
-            if d.reversal_conditions.as_ref().map_or(true, |s| s.trim().is_empty()) {
+            if d.reversal_conditions.as_ref().is_none_or(|s| s.trim().is_empty()) {
                 return Err(KcError::Authority(
                     "anathema designation must state reversal conditions (condition 4)".into(),
                 ));
@@ -1051,7 +1051,7 @@ fn active_observer_counts(
         if let ArchiveEntry::ObserverRegistryUpdated(s) = e {
             if s.payload.issued_at.as_second() <= at.as_second() {
                 let key = s.payload.nominating_community.as_str().to_string();
-                let supersede = latest.get(&key).map_or(true, |cur| {
+                let supersede = latest.get(&key).is_none_or(|cur| {
                     s.payload.issued_at.as_second() >= cur.issued_at.as_second()
                 });
                 if supersede {

@@ -91,8 +91,8 @@ fn generate_ed25519_keypair(
     let (sk, pk) = keys::generate(Alg::Ed25519).map_err(kc_err_to_py)?;
     let did = DidKey::from_pubkey(&pk).map_err(kc_err_to_py)?;
     Ok((
-        PyBytes::new_bound(py, &sk.bytes),
-        PyBytes::new_bound(py, &pk.bytes),
+        PyBytes::new(py, &sk.bytes),
+        PyBytes::new(py, &pk.bytes),
         did.into_string(),
     ))
 }

@@ -354,8 +354,8 @@ fn generate_ed25519_keypair(
     let (sk, pk) = keys::generate(Alg::Ed25519).map_err(en_err_to_py)?;
     let did = DidKey::from_pubkey(&pk).map_err(en_err_to_py)?;
     Ok((
-        PyBytes::new_bound(py, &sk.bytes),
-        PyBytes::new_bound(py, &pk.bytes),
+        PyBytes::new(py, &sk.bytes),
+        PyBytes::new(py, &pk.bytes),
         did.into_string(),
     ))
 }
@@ -3331,7 +3331,7 @@ impl PyFoundingLegitimacy {
 /// copy of them.
 fn default_retention(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     let d = RetentionPolicy::default();
-    let out = PyDict::new_bound(py);
+    let out = PyDict::new(py);
     out.set_item("retain_seconds", d.retain_seconds)?;
     out.set_item("min_dropped", d.min_dropped)?;
     out.set_item("live_measure_seconds", d.live_measure_seconds)?;
@@ -3343,7 +3343,7 @@ fn default_retention(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
 /// second copy of them.
 fn default_thresholds(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     let d = Thresholds::default();
-    let out = PyDict::new_bound(py);
+    let out = PyDict::new(py);
     out.set_item("reputation_floor", d.reputation_floor)?;
     out.set_item("attrition_notice", d.attrition_notice)?;
     out.set_item("attrition_concern", d.attrition_concern)?;

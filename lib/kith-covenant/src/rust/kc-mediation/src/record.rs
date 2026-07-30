@@ -35,7 +35,7 @@ pub struct MediatorEntry {
 impl MediatorEntry {
     /// Is this mediator nomination live at instant `t`?
     pub fn active_at(&self, t: Timestamp) -> bool {
-        self.valid_from <= t && self.valid_until.map_or(true, |end| t < end)
+        self.valid_from <= t && self.valid_until.is_none_or(|end| t < end)
     }
 }
 

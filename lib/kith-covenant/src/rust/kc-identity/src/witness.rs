@@ -52,7 +52,7 @@ impl WitnessRegistry {
             &e.witness_did == did
                 && e.role == role
                 && e.valid_from <= t
-                && e.valid_until.map_or(true, |end| t < end)
+                && e.valid_until.is_none_or(|end| t < end)
         })
     }
 
@@ -63,7 +63,7 @@ impl WitnessRegistry {
             .filter(|e| {
                 e.role == role
                     && e.valid_from <= t
-                    && e.valid_until.map_or(true, |end| t < end)
+                    && e.valid_until.is_none_or(|end| t < end)
             })
             .collect()
     }

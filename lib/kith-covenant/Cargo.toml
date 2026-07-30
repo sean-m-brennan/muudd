@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
     "src/rust/kc-core",
     "src/rust/kc-identity",
@@ -23,7 +23,11 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
-rust-version = "1.75"
+# 1.85 is the floor the dependency GRAPH actually imposes, not an aspiration:
+# constant_time_eq 0.4.2 (via blake3, which every Cid goes through) and
+# cpufeatures 0.3.0 both declare 1.85. This read "1.75" until 2026-07-30,
+# while no member crate inherited it, so nothing ever checked the claim.
+rust-version = "1.85"
 
 [workspace.dependencies]
 # Crypto. Ed25519-only for MVP per trustworthiness grounds (no known backdoors,
@@ -38,7 +42,9 @@ rand = "0.8"
 # secret scalar, which is the whole reason those two can share one identity key.
 curve25519-dalek = "4.1"
 # AEAD for the threshold-held source record and its per-panelist sealed shares.
-# Pinned at 0.10: 0.11 raises the MSRV above this workspace's rust-version.
+# Pinned at 0.10 deliberately, but NO LONGER for MSRV reasons: 0.11 declares
+# exactly 1.85, so the floor above now admits it. It brings a new `aead` major,
+# so lifting the pin is its own slice — it touches the sealed-share path.
 chacha20poly1305 = "0.10"
 
 # Hashing / content-addressing
@@ -63,7 +69,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # PyO3
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 
 # Testing
 proptest = "1.5"

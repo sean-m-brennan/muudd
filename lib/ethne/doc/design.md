@@ -341,6 +341,54 @@ KC cannot see on its own and AT cannot decide on its own.
   *attached* source that reads an already-running daemon's `q_out`
   (`messaging_recv_on`). Both are feature-gated behind the real C binding; the
   in-sandbox mock covers both paths' decoded-event contract.
+  **BUILT — attached first, then embedded once AT grew a lifecycle to bind
+  (2026-07-30).** *Attached* went in over AT's flat `app_events.h` ABI. *Embedded*
+  could not follow, for a structural reason rather than an effort one: the flat ABI
+  covered the event stream but not the lifecycle, and both routes into the
+  lifecycle are unsafe from Rust. `at_node_init`/`at_node_start` take a
+  caller-allocated `at_node_t`, which embeds `logger_t` and `queue_t` **by value** —
+  mirroring it means reproducing two opaque C layouts, exactly the
+  silent-corruption hazard the flat ABI exists to avoid. `run_autonomous_trust`
+  looks flat enough to call directly and is not trustworthy: its header says it
+  "blocks until the daemon exits" and returns 0/non-zero, while `node.c` assigns
+  the return value to `daemon_pid` and carries on, and the header declares
+  `capabilities` as `void *` where the definition takes `capability_t *`. Two
+  disagreements between a declaration and its own use, in the one function
+  embedding needs. So the missing piece was named as an AT-side flat lifecycle ABI
+  rather than faked with a type that always fails — the dead-field pattern D23 and
+  KC's `source_commitment` both turned out to be — and then **built there**:
+  `app_node.h`, an opaque heap handle, `at_app_node_start` /
+  `at_app_node_alive` / `at_app_node_pid` / `at_app_node_stop`.
+
+  `EmbeddedAtNode` composes rather than duplicates: `at_app_node_start` binds and
+  assigns `q_in` itself, so the reader inside it is an `AttachedAtDaemon` built with
+  `open_existing`, and `Drop` closes the reader before stopping the node it borrows
+  from. Three properties of that ABI matter to a Rust caller and are pinned on
+  AT's side, because finishing this found all three broken: the arguments are
+  actually *used* (a config aliasing the node it initialised was being zeroed, so
+  every queue name silently became an AT default and `generate_config` did
+  nothing); the strings are **copied**, so a `CString` temporary may drop while the
+  node lives (`node.h` keeps the caller's pointers and reads `app_name` at
+  shutdown); and a handle means the event stream is *reachable* — a failed inbound
+  bind now fails the start and reaps the daemon instead of logging and continuing.
+  See autonomous_trust's `doc/architecture/app-peer-carrier.md`, "Owning the daemon
+  from another language". **Not** covered in-sandbox: a live start/poll/stop, since
+  no daemon can run here (AT's ISSUES.md §2.1.1); what the 40 `at-ffi` tests cover
+  is the decoded-event contract over real sockets plus every argument guard.
+- **D26 — the two carrier streams are joined here, by uuid, and `None` stays
+  honest (2026-07-30).** AT emits peer identity and peer reputation as *separate*
+  messages (its own decision, to avoid coupling two independent processes), so
+  `en-at` owns the join. Four rules, in `decode::PeerJoin`: the join key is the
+  **uuid** while the ethne identity is the **signing key**, so a reputation for a
+  uuid never yet observed is *held* rather than dropped — AT's two producers have
+  no ordering guarantee; neither message kind may clobber the other's fields;
+  `reputation: None` covers both "AT says unrated" and "not heard yet", which is
+  faithful because **D18** defines `None` as *no reading at all* and its hazard is
+  confusing `None` with *rated low* (AT's 0.2 `PREREP_NEUTRAL`) — that distinction
+  is preserved; and an attendance stamp of `0.0`, or any stamp on a node without
+  the verified operator bound, becomes `None`. The join is **not** feature-gated:
+  the FFI is what needs a C library, the join is where the reasoning lives, so its
+  rules are unit-tested in the default build.
 - **D7 — the AT boundary is the gateway-reputation subtree (resolves Q7).** The
   candidate roll is the enumerated subtree member-roster produced by the AT
   identity process's roster capability (requestor-side BFS, privacy-opt-out-aware,

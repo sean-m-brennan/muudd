@@ -372,8 +372,8 @@ fn measure_append_versus_rewrite() {
     use std::time::Instant;
 
     println!(
-        "\n{:>8} {:>10} {:>12} {:>10} {:>12}   {}",
-        "entries", "append B", "append us", "rewrite B", "rewrite us", "ratio"
+        "\n{:>8} {:>10} {:>12} {:>10} {:>12}   ratio",
+        "entries", "append B", "append us", "rewrite B", "rewrite us"
     );
     for n in [100u64, 1_000, 5_000] {
         let mut a = filled(n);

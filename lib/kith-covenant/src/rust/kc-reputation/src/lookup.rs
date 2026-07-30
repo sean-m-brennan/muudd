@@ -75,7 +75,7 @@ pub fn lookup(
                 let ci = &signed.payload;
                 if &ci.did == community_did
                     && ci.created_at <= as_of
-                    && best_identity_at.map_or(true, |prev| ci.created_at >= prev)
+                    && best_identity_at.is_none_or(|prev| ci.created_at >= prev)
                 {
                     view.identity_cid = Some(*cid);
                     best_identity_at = Some(ci.created_at);
@@ -270,7 +270,7 @@ pub fn lookup(
     if let Some((reg_cid, reg)) = latest_registry {
         for e in &reg.entries {
             let valid_now = e.valid_from <= as_of
-                && e.valid_until.map_or(true, |end| as_of < end);
+                && e.valid_until.is_none_or(|end| as_of < end);
             if valid_now {
                 view.active_witnesses.push(WitnessSummary {
                     record_cid: *reg_cid,
@@ -341,7 +341,7 @@ pub fn lookup(
             let t = &s.payload;
             if t.transitioned_at <= as_of {
                 let key = t.dispute_cid.to_string();
-                let supersede = ladder.get(&key).map_or(true, |(at, _)| t.transitioned_at >= *at);
+                let supersede = ladder.get(&key).is_none_or(|(at, _)| t.transitioned_at >= *at);
                 if supersede {
                     ladder.insert(key, (t.transitioned_at, t.to_rung));
                 }
@@ -472,7 +472,7 @@ pub fn lookup(
             let p = &s.payload;
             if &p.subject_community == community_did && p.decided_at <= as_of {
                 let key = p.commons_cid.to_string();
-                let supersede = latest_sanction.get(&key).map_or(true, |(at, _, _)| p.decided_at >= *at);
+                let supersede = latest_sanction.get(&key).is_none_or(|(at, _, _)| p.decided_at >= *at);
                 if supersede {
                     latest_sanction.insert(key, (p.decided_at, cid, p));
                 }
@@ -616,7 +616,7 @@ pub fn commons_level(
             if &p.subject_community == community_did
                 && &p.commons_cid == commons_cid
                 && p.decided_at <= as_of
-                && best.map_or(true, |b| p.decided_at >= b)
+                && best.is_none_or(|b| p.decided_at >= b)
             {
                 best = Some(p.decided_at);
                 level = p.to_level;

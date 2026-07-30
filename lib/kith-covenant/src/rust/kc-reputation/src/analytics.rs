@@ -1457,7 +1457,7 @@ pub fn observer_pool_concentration(
                 let key = s.payload.nominating_community.as_str().to_string();
                 let supersede = latest
                     .get(&key)
-                    .map_or(true, |cur| s.payload.issued_at >= cur.issued_at);
+                    .is_none_or(|cur| s.payload.issued_at >= cur.issued_at);
                 if supersede {
                     latest.insert(key, &s.payload);
                 }

@@ -40,7 +40,7 @@ pub struct ObserverEntry {
 impl ObserverEntry {
     /// Is this observer nomination live at instant `t`?
     pub fn active_at(&self, t: Timestamp) -> bool {
-        self.valid_from <= t && self.valid_until.map_or(true, |end| t < end)
+        self.valid_from <= t && self.valid_until.is_none_or(|end| t < end)
     }
 }
 

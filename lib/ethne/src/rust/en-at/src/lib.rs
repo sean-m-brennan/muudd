@@ -37,13 +37,17 @@
 //! NOT link autonomous_trust. So `KC ⟂ AT` and `KC ⟂ ethne` are preserved even
 //! with this adapter present — the real AT linkage is opt-in via `at-ffi`.
 
+pub mod decode;
 pub mod event;
 pub mod provider;
 pub mod source;
 
+pub use decode::{ObservedReading, PeerJoin, ReputationReading};
 pub use event::{signing_key_did, AtEvent, AtPeer};
 pub use provider::AtSubstrateProvider;
 pub use source::{AtEventSource, MockEventSource};
+#[cfg(feature = "at-ffi")]
+pub use source::ffi::{AtLogLevel, AttachedAtDaemon, EmbeddedAtNode};
 
 #[cfg(test)]
 mod tests {

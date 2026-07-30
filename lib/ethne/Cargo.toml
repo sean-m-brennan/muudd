@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
     "src/rust/en-core",
     "src/rust/en-archive",
@@ -19,7 +19,11 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
-rust-version = "1.75"
+# 1.85 is the floor the dependency GRAPH actually imposes, not an aspiration:
+# constant_time_eq 0.4.2 (via blake3, which every Cid goes through) and
+# cpufeatures 0.3.0 both declare 1.85. This read "1.75" until 2026-07-30,
+# while no member crate inherited it, so nothing ever checked the claim.
+rust-version = "1.85"
 
 [workspace.dependencies]
 # Serialization / hashing / time — versions match kith-covenant's workspace so a
@@ -41,7 +45,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 
 # PyO3 (decision D2 — the Python surface). Pin matches kith-covenant's workspace so
 # both extension modules build against the same abi3 floor.
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 
 # kith-covenant neutral base. Decision D1: ethne's core + monitor crates depend on
 # kc-core ONLY — not on KC's governance crates — so the tiers stay decoupled and

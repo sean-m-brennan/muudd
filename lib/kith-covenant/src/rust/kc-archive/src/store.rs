@@ -93,7 +93,7 @@ impl InMemoryArchive {
                 for e in &s.payload.entries {
                     if e.witness_did.as_str() == did
                         && e.valid_from <= at
-                        && e.valid_until.map_or(true, |end| at < end)
+                        && e.valid_until.is_none_or(|end| at < end)
                     {
                         return Some(e.witness_pubkey.clone());
                     }
