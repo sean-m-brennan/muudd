@@ -6,544 +6,17 @@ This document decomposes kith-covenant's software scope: what must be
 built to make the social structures described in the research docs
 actually runnable. It is the operational companion to the research set
 and the working answer to the operational gaps the research documents
-flag — enforcement, the mediator training pipeline, in-person recognition
+flag: enforcement, the mediator training pipeline, in-person recognition
 at interplanetary scale, the re-affirmation cadence, and the absence of
-pilots and falsification criteria. Those gaps, with what is already built
-against each and the criteria by which each would be judged to fail, are
-carried here directly: see §10 and "Open design questions" below.
+pilots and falsification criteria. Those gaps, with the design's answer to
+each and the criteria by which each would be judged to fail, are carried here
+directly: see §10 and "Open design questions" below.
 
-> **MVP implementation status (2026-04-22).** Components **§1 Identity and
-> standing**, **§2 Recognition ceremony**, and **§3 Archive / commons of
-> memory** have an MVP Rust implementation in the `src/rust/` workspace
-> (`kc-core`, `kc-identity`, `kc-ceremony`, `kc-archive`) with Python
-> bindings (`kc-pyo3`). The `src/rust/examples/two_communities_demo` binary and
-> `src/python/examples/two_communities_demo.py` both exercise the full
-> three-component stack end-to-end: build two communities with real
-> Ed25519 keys, run each community's intra-rite, run the inter-community
-> credentialing ceremony with mutual acceptance of the five anti-spiral
-> feature claims, archive every record, verify, roundtrip through JSON,
-> and re-verify. See the repo [README](../../README.md) for quickstart.
->
-> **§6 Reputation lookup** also has a minimal slice implemented
-> (2026-04-22): the `kc-reputation` crate provides standing lookup and
-> multi-community aggregation backed by the archive. See `src/rust/kc-reputation/`.
->
-> **Capture-signal record types and detectors** are implemented
-> (2026-07-16): the `kc-conduct` crate carries the `ConductRecord` payload
-> (seeding §§5-6), including the jester's pre-indictment `Concern` kind;
-> `SponsorshipRecord` lives in `kc-ceremony::inter` (§2/§7 vouching). Both
-> are archived record kinds (`ConductAttested`, `SponsorshipVouched`),
-> crypto-verified and projected by `kc-reputation`. Three detectors
-> (`composition_graph`, `sponsor_stake`, `feature_concern_profile`) surface
-> the composition-drift, sponsor-stake, and per-feature-concern capture
-> signals as flags with provenance — no verdicts. Two further v0 read-only
-> jester lenses (2026-07-17) sit alongside them: `rejection_pattern`
-> (compact-wide admissions-integrity tallies over non-admission records) and
-> `ceremony_cost_decay` (per-community witness-count and re-affirmation-gap
-> trend over intra rites). Both are descriptive projections for a future
-> capture-signal dashboard; neither renders a verdict. Quorum /
-> decision-class is *recorded* (`decision_class`, multi-signature envelope)
-> but the distinct-community quorum *check* is deferred to §5. See
-> `src/rust/kc-conduct/` and `kc-reputation/src/analytics.rs`.
->
-> **Standing + authoring primitives (2026-07-17).** `RecognitionStanding`
-> gained `Probationary` (admitted and within an active received-sponsorship
-> probation window) and `Anathema` (an active `DesignationAnathema` not
-> superseded by a later `DesignationLifted`; overrides all other standings).
-> Precedence: Anathema > Probationary > InCompact > Denied > Identified >
-> Unknown. The Python authoring surface can now build the records that were
-> previously constructable only inside the Rust ceremonies:
-> `record_non_admission` (feeds the rejection-pattern lens) and
-> `run_intra_rite` (re-affirmations, feeding ceremony-cost-decay), plus
-> `designate_anathema` / `lift_designation` convenience over `record_conduct`.
->
-> **Delegation revocation (2026-07-17).** Revocation is append-only: a
-> superseding `SpeakerDelegation` tombstone (later `issued_at`, `revoked_at`
-> set). Resolution is now latest-`issued_at`-wins per `speaker_did` in both
-> `resolve_did` (kc-archive, governs signature verification) and the
-> `active_delegations` projection (kc-reputation), so a tombstone overrides an
-> earlier live grant; a re-grant with a still-later `issued_at` reactivates.
-> Non-retroactive (records dated before the tombstone still verify).
-> Authorable via `revoke_delegation`.
->
-> **§5 authority enforcement (2026-07-17).** `check_authority(archive,
-> quorum_threshold=2)` (kc-archive `authority` module) is a pass distinct from
-> the cryptographic `verify_all`. It enforces (1) **principal binding** — every
-> principal a record speaks for must carry a signature from its own root or an
-> active `SpeakerDelegation` whose `community_did` is that principal;
-> (2) **scope-appropriateness** — a delegate's scope must be allowed for the
-> record type (Envoy/CrossBoundaryWitness for inter records, Envoy-or-root for
-> sponsorship/conduct, root-only for intra-rite seal / delegation / registry);
-> (3) **quorum** — a second-class decision (`DecisionClass::SecondClass`, e.g.
-> `DesignationAnathema`) needs >= `quorum_threshold` distinct principal
-> communities. Revocation/expiry are honored. `authority_violations` returns all
-> offending records instead of failing fast. This upgrades the earlier
-> "recorded, enforcement deferred" quorum note above: the count is now enforced
-> by `check_authority` (still a separate pass from crypto verification).
->
-> **§4 Mediation (v1, 2026-07-17).** The `kc-mediation` crate implements a
-> bounded first slice: a **mediator pool** as per-community `MediatorRegistry`
-> records (the pool is the union across the archive; latest `valid_from` per
-> nominating community supersedes, mirroring the witness registry), **dispute
-> intake** (`DisputeRecord`, signed by the complainant, carrying the
-> `LadderRung` it reaches for), and **paneled decisions** (`MediationDecision`,
-> co-signed by the panel). The research's structural rules are enforced through
-> the §5 authority pass rather than a separate mechanism: a mediation decision
-> is authorized only when every co-signer is an active registered mediator, the
-> panel spans at least `panel_min` of them (default 3; a small compact may lower
-> it for an ad-hoc pie-powder panel), and **no panelist comes from either
-> party's community** (non-overlap). `check_authority` and `authority_violations`
-> gained the `panel_min` parameter; `resolve_did` resolves mediator keys from the
-> registry so a panel co-signature verifies without a separately published
-> identity. Disputes project onto both parties in `kc-reputation`
-> (`disputes_filed` / `disputes_against`, joined with the decision outcome).
-> Authorable from Python (`register_mediators`, `file_dispute`,
-> `decide_mediation`); `src/python/examples/mediation_demo.py` walks a valid
-> panel plus the two panels the protocol refuses. **Deferred to later slices:**
-> deliberation / argument-submission records, interim injunction (ties to §9),
-> the structured-skepticism protocol, protecting-powers, recusal-request
-> workflow, mediator training lineage, the capture-resistance pool-share
-> threshold (no single community may dominate the pool), and the full escalation
-> ladder state machine (§5). See `src/rust/kc-mediation/`.
->
-> **§7 Commons governance (v1, 2026-07-21).** The `kc-commons` crate implements
-> a bounded first slice applying Ostrom's design principles to the five space
-> commons: a **commons registry** (`CommonsRegistration` — a `CommonsKind`, the
-> appropriator set that is Ostrom's clear boundary, and a provision rule; a
-> **second-class** act requiring a distinct-community quorum, every registrar an
-> appropriator), **usage accounting** (`UsageRecord` — a community's first-class,
-> self-signed consumed/contributed report), and the **graduated-sanction ledger**
-> (`CommonsSanction` — an append-only `SanctionLevel` ladder Monitoring → Warning
-> → Restriction → Exclusion, mirroring the §5 dispute ladder: a move leaves the
-> pair's current level and either escalates one step or de-escalates to any lower
-> level as the restoration path; the second-class levels Restriction/Exclusion
-> carry the distinct-community quorum). The structural rules are enforced through
-> the §5 authority pass (`authorize_commons_registration`, `authorize_usage`,
-> `authorize_commons_sanction` with a `current_sanction_level` helper), so
-> **light-lag-honest decision-class enforcement** (§3/§7) is realized here as the
-> existing multi-community quorum check. `kc-reputation` projects a community's
-> current per-commons sanction level (`CommonsSanctionSummary`, restored commons
-> dropping out) and a `commons_level` gate, and carries a read-only
-> `free_rider_signals` lens (per-appropriator consumed/contributed tallies and a
-> net-draw ranking — the tragedy-of-the-virtues made countable, no verdict).
-> Authorable from Python (`register_commons`, `record_usage`, `apply_sanction`,
-> `commons_level`, `free_rider_signals`);
-> `src/python/examples/commons_demo.py` walks a registration, usage, a graduated
-> escalation with restoration, and the three moves the protocol refuses.
-> **Deferred to later slices:** the full CRDT/BFT consensus mechanics and the
-> signature-latency window, nested inter-compact enterprises, threshold-sealed
-> usage, ZK selective-disclosure of usage, the commons-specific escalation
-> trigger (the "commons equivalent of the anathema designation" open question),
-> and the constitutional reclassification machinery (a §9 substrate-deference
-> concern). See `src/rust/kc-commons/`.
->
-> **§8 Observer / jester corps (v1, 2026-07-21).** The `kc-observer` crate
-> promotes the read-only capture lenses into a corps with standing. An
-> **observer-corps registry** (`ObserverRegistry` / `ObserverEntry` — nominated
-> observers carrying a **declared perspective**, superseding per community like
-> the mediator/witness registries; `resolve_did` gained an observer arm) backs
-> **attributed public reporting**: an `ObserverReport` is signed by a registered
-> observer whose home community is **not** the subject (cross-community
-> journalism, non-overlap), and the subject answers with an appended
-> `ReportResponse` that never suppresses it (the Type-4-heterodoxy visibility
-> mechanism the escalation ladder cannot reach). The **whistleblower channel**
-> (`WhistleblowerReport`) is filed by a non-party mediator **reception panel** and
-> stores only a `source_commitment` — the source identity is never recorded; a
-> `SourceReveal` discloses it solely on a mediator-panel quorum citing named
-> cause. `kc-reputation` projects a community's `observer_reports` (with
-> responses) and `whistleblower_reports_against` (never the source, only whether a
-> reveal has occurred), and an `observer_dashboard` aggregator bundles the
-> sponsorship-composition and rejection lenses with per-community report tallies
-> — the **composition-drift dashboard**. Authorable from Python
-> (`register_observers`, `publish_observer_report`, `respond_to_report`,
-> `file_whistleblower`, `reveal_source`, `observer_dashboard`);
-> `src/python/examples/observer_demo.py` walks a report with response, a
-> whistleblower with a for-cause reveal, the dashboard, and the moves the
-> protocol refuses. **Deferred at v1 (MVP crypto is Ed25519-only):** ring-signature
-> source *anonymity* (prove insider membership without revealing which member),
-> threshold-*encrypted* source records — both now built, see the v4 note below — and
-> secure out-of-band whistleblower transport, which is deployment-gated. See
-> `src/rust/kc-observer/`.
->
-> **§8 observer-corps caps + dashboard completion (v2, 2026-07-21).** The
-> capture-resistance limits the v1 slice deferred are now **enforced** by the
-> authority pass, and the dashboard's deferred half is wired in. A new
-> `ObserverCaps` (pool-share floor, max term, rotation period; a `Default` carries
-> the `DEFAULT_OBSERVER_*` constants) threads through `check_authority` /
-> `authority_violations` (`authorize` is retained as a default-caps wrapper), and a
-> structural rule on `ObserverRegistryUpdated` refuses three moves: an **open-ended
-> or over-long term** (every observer window must set `valid_until`, ≤ 365 days — no
-> permanent observer standing, jester_and_dissent.md "Rotation and diversity"); a
-> **re-nomination inside the rotation period** (a re-listed observer must sit out ≥
-> 90 days after its prior term ended — the rotation-period exclusion); and
-> **pool-share domination** (once the active corps reaches the floor of 5, no single
-> nominating community may hold a majority of it — liminal_institutions.md "No
-> single community can dominate the pool"; a small compact below the floor may staff
-> freely). The counts respect registry superseding (latest `issued_at` per
-> community). `kc-reputation` adds the read-only `observer_pool_concentration` lens
-> (active corps by nominating community, the rotation horizon of currently-serving
-> observers, `top_active` / `majority_held` — flags with provenance, no verdict),
-> and `observer_dashboard` now bundles **both** that pool view **and** the §9
-> `substrate_deference` erosion report — closing the substrate-deference half the v1
-> dashboard deferred. Authorable/queryable from Python (the `ObserverCaps` fields are
-> keyword args on `check_authority` / `authority_violations` with the same defaults;
-> `observer_pool_concentration`); `observer_demo.py` now walks the enriched dashboard
-> and five refused moves (adding the majority-packing and no-gap-re-nomination
-> cases). **Continuous-service-union accounting is now enforced (v3, 2026-07-22):**
-> the term limit no longer trusts the per-window check alone — each window is merged
-> with every prior window from which it is not separated by a full rotation sit-out
-> (overlap or a sub-`rotation_period` gap counts as one continuous term), and the
-> merged span containing the window is bounded by `max_term_seconds`, closing the
-> overlap-extension evasion the rotation-gap rule (ended-terms only) could not see.
-> No new caps field — it reuses `max_term_seconds` and `rotation_period_seconds`.
-> The remaining deferred items are the crypto and transport ones above. See
-> `src/rust/kc-observer/`, `kc-archive/src/authority.rs`,
-> `kc-reputation/src/analytics.rs`.
->
-> **§8 source anonymity + threshold custody now built (v4, 2026-07-29).** The two
-> cryptographic obligations the v1 slice deferred are built, and the hole they left
-> was larger than "an analyst could narrow the source set". Measured on the tree
-> beforehand: `source_commitment` was read by **no rule anywhere**, so a panel could
-> append any name at all as a filing's source; and the source signed **nothing**, so
-> a non-party reception panel could manufacture insider complaints against a rival.
-> Both were asserted as correct by green tests. Now a `WhistleblowerReport` carries
-> an `InsiderClaim` **ring-signed** (linkable, LSAG over the existing Ed25519
-> identity keys — `kc-core/src/ring.rs`) by a member of the accused community's own
-> resolvable key set, bound to that exact accused, commitment, instant, and a digest
-> of the claim text, so an attestation cannot be moved to another accusation; and a
-> `ThresholdCustody` (Feldman VSS — `kc-core/src/custody.rs`) holding the source
-> identity so that a **majority** of the reception panel, and no minority, can
-> recover it. A `SourceReveal` now carries opened shares and must actually **open the
-> filing's commitment**, with `disclosed_source` equal to what the shares recover and
-> that identity an insider of the accused — bounding framing to the ring. A new
-> `SourceExculpated` entry lets a member wrongly named publish a Chaum–Pedersen proof
-> that the filing's key image is not theirs; it requires **no panel and no quorum**,
-> because the remedy for being wrongly named must not route through the body that
-> named them, and an "exculpation" reproducing the filing's own image is refused as a
-> confession. `kc-reputation` adds `source_tag` (the key image — the one publishable
-> fact about a source) and `exculpations` per filing, plus
-> `distinct_sources_by_accused` on the dashboard, which separates a community many
-> insiders are reporting from one insider filing many times. Python gains
-> `insider_ring` / `attest_insider` (the source's own step, performed without handing
-> over its key) / `file_whistleblower` / `open_source_share` / `reveal_source` /
-> `exculpate_source`. The honest limits — hand-rolled unaudited crypto, globally
-> linkable source tags, signing-key reuse for key agreement, and framing made
-> answerable rather than impossible — are set out in
-> [whistleblower-crypto.md](whistleblower-crypto.md). **Item 8.3 (out-of-band
-> transport) remains, and remains deployment-gated.**
->
-> **Built (v5, 2026-08-03).** The ring was a ring of *speakers*, which the v4 slice
-> recorded as an honest limit and named the polity tier as the feed for. A
-> `MemberRollPublished` record now carries the individual key-holders a community
-> names as its own, `insider_keys` unions them into the ring, and
-> `en-uplift::member_roll` publishes a polity's charter roll as border artifact #6 —
-> so an insider holding no delegation can file, and the corpus's anonymity set went
-> from 3 to the size of a roll. Measuring first found the larger half: the insider set
-> was computed at verification time against the *current* archive tip, so **the
-> accused community could invalidate every filing against it by appending one
-> delegation backdated ahead of `filed_at`, or narrow the suspect set around a source
-> with a backdated revocation.** The ring is now computed over the records preceding
-> the filing in insertion order (`insider_keys_upto`), the principle §5's
-> `current_rung` already stated and §8 did not apply. Rolls are **unioned, never
-> superseded** — once named an insider, always one — because the alternative is a
-> lever for shrinking the suspect set around whoever just left; a departed member
-> keeps their channel, which is the direction to err in. `observer_dashboard` gains
-> `anonymity_set_by_community` (ascending), so a channel that exists in name only is
-> visible as the 1 or 2 it is.
->
-> **Built (v6, 2026-08-03).** Mediators now carry an `encryption_pubkey` distinct from
-> their signing key, so §8 custody stops sealing shares to the key a panelist also signs
-> with (the authority pass refuses a registration where the two are equal). Measuring
-> that item found a live defect underneath it: `ThresholdCustody::seal` took
-> `(DidKey, PubKey)` pairs with **nothing checking that the two corresponded**, so a
-> filing could name exactly the reception panel and seal every share to one outsider's
-> key — structurally valid, fully authorized, `0 of 3` named custodians able to open
-> anything, and the recipient key recorded nowhere. **The lawful reveal path was
-> permanently dead with nothing on the record to show it**, and the majority-threshold
-> rule was defeated by a single actor. The sealing key is now resolved rather than
-> supplied, recorded on each share, and required to be the holder's registered key at
-> `filed_at`; `file_whistleblower` accepts no keys from its caller. This is the same
-> late-detection failure the module rejects plain Shamir for, in the half it had not
-> been applied to.
->
-> **§9 Substrate-deference test (v1, 2026-07-21).** The `kc-constitution` crate
-> operationalizes non-ultimacy as a versioned, signed constitutional layer (the
-> post-hoc enforcement candidates — reputation/directory, capability-based, and
-> transparency — are already realized by the §5 authority pass, the §9 injunction
-> capability-gate, and the append-only archive respectively). `ConstitutionGenesis`
-> founds the **compact-incapable list** (matters the compact will not decide — a
-> member's internal theology, governance, recognition-statement content) and the
-> **structured-fast cadence** (`FastPeriod` windows during which deliberation
-> pauses); it is quorum-ratified and a **singleton** per archive, and its matters
-> are **genesis-immutable**. `CompactIncapableAmendment` and
-> `FastCadenceAmendment` are second-class and **asymmetric**: expansion (Add /
-> Extend) uses the normal quorum, contraction (Remove / Contract) requires the
-> higher bar (`quorum+1`), and a genesis-original matter can never be removed —
-> the asymmetry that reflects the capture risk. `kc-reputation` exposes the
-> `constitution_state` projection, the `compact_incapable` (categorical) and
-> `in_structured_fast` (temporal) **deference gates**, and the
-> `substrate_deference` **erosion report** — the list's size and add/remove drift
-> with a contraction flag, the fast cadence and its contraction count, and
-> deliberative acts initiated during a fast (**fast deviations**). Per the
-> research the fast is honored by practice and made *legible* here, not
-> hard-refused; the erosion report is the substrate-deference half of the §8
-> dashboard the observer slice deferred. Authorable from Python
-> (`ratify_constitution`, `amend_compact_incapable`, `amend_fast_cadence`,
-> `constitution_state`, `compact_incapable`, `in_structured_fast`,
-> `substrate_deference`); `src/python/examples/constitution_demo.py` walks
-> ratification, the gates, an expansion, an erosion report, and the moves the
-> protocol refuses (second genesis, removing a genesis matter, contracting below
-> the higher bar). **Deferred to later slices (both now resolved — see v3
-> below):** automatic escalation on detected erosion, and any hard-refusal of
-> deliberative acts during a fast. See `src/rust/kc-constitution/`.
->
-> **§9 recurring fast schedules now built (v2, 2026-07-22).** The v1 cadence used
-> single explicit windows; a `FastPeriod` now carries an optional `recurrence`
-> cycle (seconds), so a fast repeats on a calendar rhythm — an annual fast, the
-> Iroquois Condolence period — rather than being re-authored each occurrence.
-> `FastPeriod::contains` matches any occurrence (phase within the cycle), with a
-> degenerate cycle shorter than the occurrence falling back to a single window
-> (occurrences may not overlap); `in_structured_fast` and the fast-deviation
-> detector inherit this for free. Recurrence is set at genesis
-> (`ratify_constitution` fast-period tuples gain a 4th element) or via
-> `amend_fast_cadence(..., recurrence=)`; both are back-compatible (absent →
-> one-shot). See `FastPeriod` in `src/rust/kc-constitution/src/record.rs`.
->
-> **§9 erosion alerting built; hard-refusal resolved as a non-goal (v3,
-> 2026-07-23).** The two deferred §9 items are now closed. *Erosion-detection
-> alerting* is realized as `kc_reputation::erosion_alert` (also bundled onto the §8
-> `observer_dashboard` as `erosion`): a graded, derived `ErosionAlert`
-> (`severity` None/Notice/Alert + human-readable `reasons`) that **escalates** as
-> the erosion signals compound — a compact-incapable-list contraction, a
-> structured-fast contraction, or deliberative acts initiated during a fast. Zero
-> eroded dimensions → `None`; one isolated instance → `Notice`; two-or-more
-> dimensions or any dimension eroded more than once → `Alert`. It is purely
-> diagnostic (no archive record, nothing signed, no act refused); a human observer
-> who sees an `Alert` may then publish an attributed `ObserverReport`, and that
-> human step is intentionally not automated. Authorable/queryable from Python
-> (`erosion_alert`). *Hard-refusal of deliberative acts during a fast* is
-> **deliberately not built** — recorded as a non-goal: capture_resistance.md §2
-> frames non-ultimacy as "a **disposition** rather than a **compliance** ...
-> [that] cannot be fully encoded in rules," so an authority-layer refusal would
-> convert the disposition-forming practice into the compliance rule the doc says
-> it must not become, and would cut across the life-critical-commons continuity the
-> fast preserves. Deviations are surfaced, not rejected. See
-> `src/rust/kc-reputation/src/analytics.rs` (`erosion_alert`) and the crate doc in
-> `src/rust/kc-constitution/src/lib.rs`.
->
-> **§10 Capture-resistance test harness (v1, 2026-07-21).** §10 is a *harness*,
-> not a protocol component with records, so it is realized as a Python module
-> (`src/python/kith_covenant/harness.py`) driving the real public API — the honest
-> generalization of the hand-authored refusal cases, which are themselves Python.
-> `run_harness()` runs the **seven capture-resistance scenarios** and scores each
-> against **falsification criteria stated in advance** (module constants for
-> detection latency and damage bounds — the §10 requirement that failure be
-> defined explicitly, not implicitly). The four scenarios whose detectors are
-> built are exercised end-to-end on fresh, time-evolving archives and scored
-> PASS/FAIL: **move 2** compact-incapable erosion (via `substrate_deference`'s
-> contraction flag), **move 3** ceremony hollowing across cycles (via
-> `ceremony_cost_decay`), **move 5** light-lag fait-accompli by forged quorum (a
-> single faction's second-class act, rejected by `check_authority`; `verify_all`
-> is the crypto backstop), and **move 7** admissions capture by patient
-> sponsorship (via `composition_graph` concentration). The three whose detectors
-> are deferred past this MVP — **move 1** faction-monopolized interpretation,
-> **move 4** manufactured-event injection, **move 6** principal capture — are
-> reported as **unsupported**, each naming the missing capability, so coverage
-> gaps are surfaced rather than silently omitted. `detection latency` and `damage`
-> are the primary metrics per scenario. `src/python/examples/capture_harness_demo.py`
-> prints the scoreboard. **Deferred to later slices:** the Earth-pilot deployment
-> configuration and the live-`autonomous_trust` integration harness (both need a
-> real deployment, not a simulator); continuous/background scenario execution;
-> and the three unsupported scenarios, which unblock as their detectors are built.
->
-> **§10 continuous scenario execution now built (v4, 2026-07-29).** §10 asks that the
-> scenarios be "run continuously in the simulation environment, with detection latency
-> and damage bounds as the primary metrics". Measurement first: **`run_harness()` is a
-> constant function** — 200 consecutive runs returned byte-identical latency and damage
-> for all nine scenarios — so a scheduler wrapped around it would recompute the same
-> eight numbers forever. Continuous execution is informative only if the runs *differ*,
-> which makes the missing piece parameter variation, not iteration. (The same
-> measurement establishes something worth keeping, since fresh Ed25519 keys are drawn
-> every run and several lenses tiebreak on DID ordering: the detectors are
-> key-order-independent. It is now a regression test.) Every scenario is therefore
-> parameterized (`HarnessParams`, with `canonical()` reproducing the hand-authored case
-> byte-for-byte as a fixed point), and three drivers explore the space around it:
-> `run_continuous` draws parameters from a seeded RNG each round and accumulates
-> worst-observed latency and damage per scenario **with the seed that produced each**;
-> `sweep` / `sweep_all` walk one parameter through its whole declared range so the
-> value at which a bound moves is a reported number rather than an inference; and
-> `shrink_failure` minimizes a failing set toward canonical, so a failure arrives as
-> its smallest reproduction. There is deliberately **no daemon and no scheduler**: the
-> calls are bounded by a round count and/or a wall-clock budget and return, because the
-> cadence belongs to the caller — the same conclusion the polity tier reached about its
-> own tick.
->
-> **The finding parameterization forced.** Several falsification "criteria" were not
-> properties of a detector at all; they silently encoded their fixture.
-> `MAX_DAMAGE_CEREMONY = 1` held only because `witness_by_cycle = [5, 4, 3]` declines on
-> the first comparable cycle — a flat prefix (`[5, 5, 4]`) scores 2 with **no detector at
-> fault**, because there was nothing to compare at cycle 1. `MAX_DAMAGE_ADMISSIONS` was
-> literally `ADMISSIONS_CONCENTRATION_THRESHOLD`, and `MAX_DAMAGE_INTERPRETATION` was
-> `INTERPRETATION_MONOPOLY_THRESHOLD`. Randomizing without fixing this would have
-> manufactured failures. So §10's requirement that criteria be stated in advance becomes:
-> state the **formula** in advance (`max_damage_*`), with the constants retained as their
-> canonical-case values. A regression test pins the finding by restoring the old constant
-> and confirming it fails at a flat prefix. Move 2's criterion came out *stronger* rather
-> than merely generalized: the scenario now re-reads the report after each of several
-> attempted contractions, so the claim is that the **first** rollback is flagged rather
-> than that a single rollback happens to be.
->
-> **Result.** 400 randomized rounds and a full sweep of every declared parameter range
-> found **no failures** — reported as a result, and meaningful only because the machinery
-> demonstrably can fail: the suite breaks a criterion on purpose and checks the failure is
-> caught, shrunk, and replayable from its seed. The demo and the test suite use a fixed
-> seed so a search can never redden the build. Honest limit: a seed reproduces the
-> *parameters*, not the key material (Ed25519 keys come from the OS CSPRNG), which is why
-> key-order-independence is a test rather than an assumption.
->
-> **§10 detectors for moves 1, 4, 6 (v2, 2026-07-21).** The three deferred
-> detectors are now built, and their scenarios are scored PASS on fresh,
-> time-evolving archives through the same public API — the harness now reports
-> **7 supported, 7/7 passed**. **Move 1** faction-monopolized interpretation: the
-> new `kc_ceremony::lineage::SubstrateInterpretation` record carries a community's
-> attested readings of its own substrate (lineage id + interpreter), and the
-> `interpretive_plurality` lens surfaces a single-interpreter/single-lineage
-> monopoly while clearing a community that demonstrates distinct lineages and
-> interpreters. **Move 4** manufactured-event injection: the new `kc-provenance`
-> crate carries `EventReport` (provenance-tagged at intake — originator, declared
-> incentives, information history, stake disclosure, and the structured-skepticism
-> qualifying triggers) and `EventCorroboration`; the `structured_skepticism` lens
-> flags a qualifying event as under-corroborated the moment it lands (before it
-> can drive action) and clears it once distinct non-originator communities
-> corroborate. **Move 6** principal capture: the new `kc-principal` crate carries
-> `PrincipalWitnessAttestation` (cross-community validity attestation) and
-> `PrincipalOutput` (for triangulation); the `adversarial_principal` lens counts
-> cross-community witnesses (excluding the principal and its home) and flags an
-> output diverging from the cohort majority toward the principal's own benefit.
-> All three follow the established jester-lens contract — flags with provenance,
-> no verdict; thresholds live with the caller. **Moves 1, 4, and 6 are all fully
-> built** (see the v3 notes below): move 6's statistical triangulation, collusive
-> whole-cohort detection, and the cryptographically separable witness chain are
-> all in place — nothing on these three moves remains deferred. Records are
-> Ed25519-signed, first-class, principal-bound.
->
-> **Move 1 anti-sockpuppet independence proof now built (v3, 2026-07-22).** A
-> declared `interpreter_did` was just a name the community minted, so one faction
-> could fake plurality with identities it wholly controls. A new
-> `InterpreterIndependenceAttestation` record (`kc-ceremony::lineage`) lets a third
-> party vouch for an interpreter's independence, and the `interpretive_plurality`
-> lens now carries `independent_attesters` (interpreter → distinct attesters, each
-> ≠ the community and ≠ the interpreter, and only for interpreters that actually
-> authored a reading), with `distinct_independent_interpreters()` and
-> `independent_plurality_demonstrated()` (≥2 lineages AND ≥2 *attested-independent*
-> interpreters). The existing declared-only `plurality_demonstrated()` is retained,
-> so the §10 monopoly scenario is unchanged. Still detector-only — the
-> attester filter is a lens concern, not an authority refusal, keeping move 1's
-> no-verdict stance. Authorable from Python (`attest_interpreter_independence`).
-> A sockpuppet ring must now recruit genuine outsiders to vouch — which is exactly
-> the collusion the move-6 whole-cohort item targets (now built; see the move-6 v3
-> notes below). Move 1's remaining deferred surface is closed by this slice.
->
-> **Move 4 structured delay now enforced (v3, 2026-07-22).** The structured-
-> skepticism protocol acquired teeth: the detector made a qualifying manufactured
-> event *legible*, but nothing stopped a community from acting on it before the
-> compact could develop its own reading. A new `EventActionInvoked` record
-> (`kc-provenance`) is the formal act premised on an event, and the archive's
-> authority pass refuses it while the cited **qualifying** event is still within
-> its structured hold (`DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS`, 7 days) **and**
-> under-corroborated (fewer than `DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS`
-> = 2 distinct non-originator communities as of the action). A non-qualifying
-> event, an elapsed hold, or sufficient independent corroboration each clear the
-> action — corroboration is the early-release valve, depriving the manufacturer of
-> the loudest-interpreter advantage. Authorable from Python
-> (`invoke_event_action`). See `authorize_event_action` in
-> `kc-archive/src/authority.rs`. This closes the "enforced structured delay" item
-> above; move 4's remaining deferred item is the retroactive bad-faith finding.
->
-> **Move 4 cross-substrate translation semantics now built (v3, 2026-07-22).**
-> `EventCorroboration` always carried an optional `translation`, but the lens
-> ignored it — an interpretation corroborated only in the originating framing read
-> as fully cleared. The `structured_skepticism` lens now tracks, per event,
-> `translated_corroborators` (the subset of distinct non-originator corroborators
-> that supplied a cross-substrate translation) and exposes `under_translated(min)`
-> alongside `under_corroborated(min)`. The two signals are independent: an event
-> can be well-corroborated in its native terms yet never translated — a
-> manufactured reading that coheres only in the manufacturer's substrate — and the
-> translation signal flags exactly that. Detector-only, no new record (reuses the
-> existing field); queryable from Python. This closes move 4's cross-substrate
-> translation item.
->
-> **Move 4 retroactive bad-faith finding now built (v3, 2026-07-22) — move 4 is
-> complete.** `EventReport` records the originator's `disclosed_interests` at
-> intake, but an interest concealed then and discovered *later* — after the event
-> may already have driven action — had no home. A new `RetroactiveInterestFinding`
-> record (`kc-provenance`) lets a third party disclose an interest the originator
-> held but omitted; the `structured_skepticism` lens carries per-event
-> `undisclosed_interests_found` (`(finder, interest)`, finders other than the
-> originator only — a self-finding is honest late disclosure) and exposes
-> `retroactively_impugned()`. Detector-only: the record surfaces bad faith and by
-> whom; the *consequence* is the existing conduct machinery's (not duplicated
-> here), and the finding is the re-opening trigger. Authorable from Python
-> (`find_undisclosed_interest`). With this, **all four of move 4's deferred items
-> are closed** — only move 6's crypto/triangulation/collusion items remained (now
-> all built; see the move-6 v3 notes below).
->
-> **Move 6 statistical triangulation of continuous behavior now built (v3,
-> 2026-07-22).** The v1 lens flagged each divergent output discretely; one
-> divergence can be honest disagreement. `PrincipalValidationReport` now also
-> tracks `outputs_triangulated` (own outputs that had a peer cohort) and exposes
-> `self_dealing_rate()` (self-benefiting divergences over that denominator) and
-> `systematic_self_dealing(min_outputs, rate_threshold)` — a *sustained* pattern
-> over a sufficient sample, which a single flag cannot show. Detector-only, no new
-> record (aggregates existing `PrincipalOutput` triangulation); queryable from
-> Python (`self_dealing_rate`, `systematic_self_dealing`).
->
-> **Move 6 collusive whole-cohort capture now built (v3, 2026-07-22).**
-> Per-principal triangulation compares a principal against its *own* cohort's
-> majority, so a cohort colluding wholesale shows no internal divergence and slips
-> through. The new `collusive_cohorts` lens lifts the comparison a level: for each
-> matter decided by two or more cohorts it computes each cohort's majority and the
-> cross-cohort consensus (the majority among cohort-majorities), and surfaces
-> cohorts whose majority diverges — marking `self_benefiting` when a strict
-> majority of that cohort's members favored their own home (the whole-cohort
-> capture signature). `CohortCollusionReport::self_benefiting_cohort_divergences`
-> is the headline count. Detector-only, no new record (a cross-cohort read over
-> existing `PrincipalOutput` records); queryable from Python (`collusive_cohorts`).
->
-> **Move 6 cryptographically separable witness chain now built (v3, 2026-07-22)
-> — move 6 is complete.** `PrincipalWitnessAttestation` gains a `prev:
-> Option<Cid>` link, turning continuous cross-community attestation into a
-> hash-linked, tamper-evident chain: each entry's CID commits its full content
-> (including `prev`), so altering or reordering any link dangles every pointer
-> after it. The new `principal_witness_chain` lens reports the principal's links
-> oldest-first with chain **integrity** (`broken_links` for dangling `prev`,
-> `is_linear`/`is_intact` for fork detection) and **separability**
-> (`separable_links` — the cross-community links, which `Signed::verify_all`
-> proves were signed by the witness's own key, one the principal's home community
-> does not hold and so cannot forge). This is the "separate attestation chain …
-> cryptographically separable from the within-community attestation" of
-> capture_resistance.md move 6, realized: the separability is the cross-community
-> signature, not a heuristic. Honest boundary — it does **not** defeat shared-key
-> sockpuppets (a witness colluding with the home, or a home secretly holding a
-> second key still signs a "cross-community" link); that is move-1
-> third-party-verification territory. The chain proves only that distinct keys
-> attested and the sequence is unbroken. Detector-only (a record-field change plus
-> a lens); authorable from Python (`attest_principal(..., prev=...)`), queryable
-> from Python (`principal_witness_chain`). With this, **all of move 6's deferred
-> items are closed — move 6 is complete, and the crypto witness-chain was its last
-> item.**
->
-> **All ten components now have an MVP v1 slice** (uncommitted on
-> `feature/research`), and all seven capture-resistance scenarios have a built,
-> scored detector. What remains is not whole components but the parts each
-> slice explicitly deferred (catalogued per §-paragraph above and in §11) plus the
-> two deployment-dependent §10 items. MVP crypto is Ed25519-only;
-> `Alg` is an enum whose shape preserves a future non-lattice PQC slot. The
-> capture-resistance responsibilities carried inside §§1-10 and catalogued in §11
-> are realized by the slices above: interpretive-plurality evidence (§1/§2),
-> manufactured-event provenance and structured-skepticism (§3/§4), and
-> adversarial-principal validation (§1/§6) are the detectors the §10 harness now
-> exercises end-to-end.
+The component sections below say what each component is and does. For the
+implementation's coverage of them, see the component table in the
+[README](../../README.md); for scope the protocol describes but the code does not yet
+carry, [`TODO.md`](../../TODO.md); and for the record of how the implementation got
+here, [`CHANGELOG.md`](../../CHANGELOG.md).
 
 Capture resistance is a cross-cutting architectural concern, not a
 component: each component below carries capture-resistance
@@ -596,8 +69,8 @@ requires pre-existing trust, Ostrom's commons cases included. It is a
 standing constraint on the whole decomposition below: the software cannot
 manufacture the character, the substrate, or the trust it depends on, only
 protect and connect what exists. Where a component appears to demand that
-the compact create trust — the mediator pool before there is a cadre, a
-pilot before there is a compact — the constraint is the reason the design
+the compact create trust (the mediator pool before there is a cadre, a
+pilot before there is a compact), the constraint is the reason the design
 reaches for existing communities and existing ties rather than generating
 them from nothing.
 
@@ -667,7 +140,7 @@ must not conflate them.
   in-person confirmation at the nearest practical opportunity.
   *Design state:* the implemented ceremony (`kc-ceremony`) models
   presence as a witness co-signature over a recitation CID plus a
-  timestamp — there is no location, liveness, or bodily-attendance field,
+  timestamp: there is no location, liveness, or bodily-attendance field,
   and a single internal witness satisfies the intra rite. Co-presence is
   therefore not enforced at the code layer; a CID co-signature can be
   produced anywhere. Whether co-presence should be given a code-layer
@@ -714,123 +187,43 @@ must not conflate them.
   are surfaced as capture signatures (§6, §8).
 - **Probationary-status enforcement**: probationary members carry
   no deliberative weight in **any second-class decision** until the
-  period completes — admissions, mediator selection and designation
+  period completes, admissions, mediator selection and designation
   procedures first, and every other compact-wide act on the same
   reasoning. First-class local voice is untouched.
+- **Examiner caps**: examining seats are bounded in term, rotated, and
+  pool-share capped, so no one community can hold a majority of the
+  panel pool (`ExaminerCaps`, one implementation shared with the §8
+  observer caps rather than a restatement of them).
+- **Admission into a standing compact**: distinct from compact
+  formation, and gated on three things at once, an admitting quorum of
+  sitting non-probationary members, a sponsor for every entrant, and an
+  examining panel spanning at least two communities. Sponsor stake is
+  required of every admission, which is what makes probation
+  load-bearing rather than opt-in: without it, a faction that seats
+  examiners and simply never vouches opens no probation window at all.
+- **What probation withholds**: a probationary community may not sponsor
+  an entrant (a refusal rather than a de-weighting, since nothing counts
+  vouches and a weightless vouch would be an inert record), may not seat
+  mediators or examiners, does not count toward `panel_min`, and does
+  not count toward a designation or admitting quorum. The withholding is
+  written against the second-class *class* rather than a list of record
+  types, so a second-class record added later inherits it instead of
+  quietly escaping it. A petitioner is not de-weighted by the very
+  re-entry record it is party to, since a re-entry's `completed_at` is
+  the instant its own probation window opens.
+- **The admitted set is derived, never declared**: a participant counts
+  as sitting only because an earlier record says so, and priors are read
+  in insertion order, so no admission can be retroactively legitimized
+  by one appended afterwards. Compact formation is exempt, its
+  participants being founders rather than entrants.
 
-> **§2 admissions integrity now enforced (2026-08-03).** The four
-> elements above had their *detection* half built — the composition-drift
-> dashboard, sponsorship records with staked standing, and harness
-> scenario 7 — and none of the gate. The compact's answer to admissions
-> capture was to make it legible; it now refuses it.
->
-> Measurement first, and the measurements are kept as the regression
-> tests (`kc-archive/src/tests.rs`, `mod admissions_integrity`):
->
-> - A **faction of one seated 5 of 5** attempted entrants with
->   `verify_all` and `check_authority` both green at a quorum threshold
->   of three. Every admission was procedurally clean, which is what §7
->   says makes this vector hard to see.
-> - A community **inside its own probation window vouched for the next
->   entrant** and was authorized: today's entrant was tomorrow's sponsor.
-> - `RecognitionStanding` was read by **no authority rule anywhere**, and
->   `InterCommunityWitness` had **no structural rule at all** — not even
->   the quorum, because the record is not second-class.
-> - Census: **all 10 admission records in the tree were compact
->   *formations***. The entrant-joins-a-standing-compact path that move 7
->   attacks had never been exercised by a test, which is why the hole
->   survived a status-list reconciliation.
->
-> **What is enforced.** Probation is a *de-weighting* rather than a
-> silencing, in the three domains §7 names. A probationary community may
-> not sponsor an entrant (refusal, not de-weighting: nothing counts
-> vouches, so a weightless vouch would be an inert record) and may not
-> seat mediators or examiners; its panelists do not count toward
-> `panel_min`; and it does not count toward a designation or admitting
-> quorum. An admission into a standing compact must carry an admitting
-> quorum of sitting, non-probationary members, a sponsor for every
-> entrant, and an examining panel of seated examiners spanning at least
-> two communities. Examining seats are bounded, rotated, and pool-share
-> capped by `ExaminerCaps` — which shares one implementation of those
-> rules with the §8 observer caps rather than restating them.
->
-> The admitted set is **derived from the archive, never declared**: a
-> participant counts as sitting only because an earlier record says so,
-> and priors are read in insertion order, so no admission can be
-> retroactively legitimized by one appended afterward. Compact formation
-> is exempt — its participants are founders, not entrants.
->
-> **Two findings.** A re-entry's `completed_at` is the instant its own
-> probation window opens, so the petitioner was being de-weighted by the
-> very record it is party to; the fix is a self-exclusion, and it would
-> have *opened* a hole, because self-sponsorship had been refused only as
-> a side effect of that same self-reference. And the withholding was
-> evadable outright: probation only opens when somebody stakes standing,
-> so three aligned communities that seated examiners and simply never
-> vouched seated 5 of 5 entrants. Sponsor stake is now required of every
-> admission, which is what makes probation load-bearing rather than
-> opt-in.
->
-> **Scope decision (settled 2026-08-04).** The slice above enforced exactly
-> the three domains §7 enumerates and left the wider reading open. It is now
-> the **purposive** one: probationary weight counts toward **no** second-class
-> quorum, because §7's stated reason — *"otherwise each admitted entrant
-> immediately amplifies the faction that admitted it"* — is general, and
-> second-class is precisely the class of acts whose cost is compact-wide. The
-> rule is written as the *class* rather than as a list of record types, so a
-> second-class record added later inherits the withholding instead of quietly
-> escaping it.
->
-> Measured before it was written, and kept as `mod probation_reach`: three
-> communities admitted that year, none of them standing, **chartered and then
-> contracted the compact-incapable list by themselves** — the list of matters
-> that may not be compacted away, upstream of every other protection here.
-> Second-class commons sanctions and second-class escalation rungs went the
-> same way.
->
-> **The finding: extending the generic quorum was not enough.** With the
-> withholding applied to every second-class record and nothing else changed, a
-> faction *at* the quorum still reached the asymmetric **contraction** bars
-> (`quorum + 1`) by topping itself up with entrants, because those bars counted
-> raw distinct signatures. The ordinary quorum was met on standing weight and
-> the higher bar on withheld weight, so the `+1` collapsed to the ordinary
-> quorum. Both contraction bars, the commons second-class floor and the
-> second-class rung floor now count weight through one
-> `deliberative_weight` counter — the same lesson §2 recorded for
-> `probationary_at` (one representation, so a gate and a bar cannot disagree)
-> and ethne's D19 recorded for retention (a floor must preserve what the grade
-> reads).
->
-> The five **mediator panels** were swept at the same time: only the mediation
-> panel filtered probationary homes, so the four others — injunction, injunction
-> challenge, restitution verifier, whistleblower reception — counted seated
-> panelists from probationary communities at full weight. They now share one
-> `check_mediator_panel` implementation, on the reasoning that copying the
-> filter four times leaves the fifth panel to reintroduce the hole.
->
-> **Deliberately not de-weighted:** the structured-skepticism *corroborator*
-> count (§6/move 4). A corroboration is evidence, not deliberative weight, and
-> KC keeps evidentiary plurality a detector signal rather than an authority
-> refusal.
->
-> **The honest consequence**, surfaced by `deliberative_capacity` rather than
-> left to be met as an unaccountable refusal: a compact that admits a cohort
-> all at once can drop below its own quorum and be unable to take *any*
-> second-class decision until a window closes. It can also be able to expand
-> its protections while unable to contract them, which is the direction the
-> asymmetry is meant to run. Both recover by the passage of time alone.
->
-> **Honest limits.** `compact_label` is a self-declared string, so a
-> mislabelled record reads as the formation of some other compact; it
-> cannot forge this compact's roll and a consumer reading by label never
-> sees it, so this is accountability rather than prevention. "Drawn by
-> lot" is **not** enforced: a verifiable lot needs a randomness beacon
-> the compact does not have, so terms, rotation and composition are
-> enforced while selection fairness remains social. Co-presence remains
-> unenforced at the code layer, as §2's own note above says. And the
-> readmission quorum's `ReEntry.decision_class` field is inert — the
-> second-class flag is hard-coded for that record, which is the fail-safe
-> direction but leaves a field nothing reads.
+Two limits are worth stating plainly. "Drawn by lot" is not enforced: a
+verifiable lot needs a randomness beacon the compact does not have, so
+terms, rotation and composition are enforced while selection fairness
+remains social. And `compact_label` is a self-declared string, so a
+mislabelled record reads as the formation of some other compact; it
+cannot forge this compact's roll, and a consumer reading by label never
+sees it, which makes this accountability rather than prevention.
 
 ### 3. Archive / commons of memory
 
@@ -974,8 +367,8 @@ must not conflate them.
 ### 8. Jester and observer function
 
 > **Constitutional standing.** The
-> jester / observer function is **promoted from cultural-dissent
-> affordance to substrate-level capture detector**. Its permission
+> jester / observer function is a **substrate-level capture detector**
+> rather than a cultural-dissent affordance. Its permission
 > to name what others cannot is what makes early-stage capture
 > legible before terminal capture: contraction of substrate-deference,
 > decay of ceremony cost, manufactured-event drift, principal-capture
@@ -983,8 +376,8 @@ must not conflate them.
 > monitoring of capture signatures) as well as the protocol layer
 > (post-hoc reporting). Per
 > [capture_resistance.md "Architectural unification"](../background/capture_resistance.md#architectural-unification),
-> the function's constitutional position is upgraded; its
-> implementation cannot be deferred to "after MVP."
+> the function holds a constitutional position, and its implementation is
+> not separable into a later phase.
 
 - **Observer corps registry**: declared-perspective reporters,
   rotation, cross-community composition requirements to prevent
@@ -1096,8 +489,8 @@ and developed in
 - **Earth-pilot configuration**: small-scale deployment mode that can
   actually run with real communities. Necessary for the test-cases gap.
   First compacts should be among Earth-bound communities with existing
-  ties and cheap exit — denominational networks, diaspora federations,
-  tribal confederations, ecological commons, cooperative-firm networks —
+  ties and cheap exit (denominational networks, diaspora federations,
+  tribal confederations, ecological commons, cooperative-firm networks)
   generalized to space only after Earth has been the harder first test.
 - **Integration harness** against `autonomous_trust` for live-AT
   message traffic observation, per
@@ -1119,7 +512,7 @@ and developed in
 
 **Falsification criteria.** What observable outcomes would count as
 kith-covenant failing must be stated in advance, per component and at the
-whole-compact level — explicit design, not implicit. This is the
+whole-compact level: explicit design, not implicit. This is the
 least-built of the operational gaps and the precondition for any pilot.
 
 The top-level criterion is **retention despite exit** under weak forcing,
@@ -1130,8 +523,8 @@ compact that holds when exit is free has demonstrated that it binds
 voluntarily. Earth is therefore the harder first test, not a rehearsal
 for space.
 
-The standing caveat is that **"the teeth" — sanction and enforcement
-effectiveness — are structurally untestable on Earth**, where a determined
+The standing caveat is that **"the teeth" (sanction and enforcement
+effectiveness) are structurally untestable on Earth**, where a determined
 defector simply leaves. An Earth pilot that fails to demonstrate
 enforcement has not thereby falsified the framework; it has reached the
 edge of what Earth can test, and pilots must not be scored on it.
@@ -1141,15 +534,15 @@ Per-component criteria:
 - **Injunction enforcement (§9).** Success: defiance of an interim
   injunction is published unforgeably and in a form that downstream
   reputation and capability consequences can act on, without a sovereign.
-  Failure: an order that can be ignored with no archived trace — a paper
+  Failure: an order that can be ignored with no archived trace, a paper
   order.
 - **Mediator pool (§4).** Success: panels stay non-overlapping and
   un-captured as the pool rotates through cases, and disputing communities
   keep accepting panel decisions when they could walk. Failure tripwire:
-  the emergence of a permanent mediator class — the inquisitorial caste the
+  the emergence of a permanent mediator class, the inquisitorial caste the
   term limits exist to prevent.
 - **In-person recognition vs. light-lag (§2).** Success: a remote
-  generational re-affirmation still carries real cost — treated as
+  generational re-affirmation still carries real cost, treated as
   consequential, not a formality. Failure: remote rites drift into
   formality while in-person ones stay costly, so the filter does its work
   only where it is least needed.
@@ -1201,49 +594,46 @@ cryptographic decision-class enforcement, attestation cadence
 tuned to capture-detection windows). Each layer presupposes
 the others; capture-resistance only works as a layered system.
 
-**What this section adds to the implementation backlog.** These
-items became first-class implementation work, priorities calibrated
-to the capture-resistance test harness. Status as of **2026-07-29**,
-reconciled against the code rather than against the per-component
-notes above:
+**What this section requires of the implementation.** These items are
+first-class implementation work, with priorities calibrated to the
+capture-resistance test harness. Each is carried by the code named
+beside it:
 
-| Item | Component(s) | Status | Where |
-|---|---|---|---|
-| Cross-community principal-witness attestation channel | §1 | **Built** | `kc-principal` (`PrincipalWitnessAttestation`); `distinct_cross_witnesses` excludes self and home |
-| Ceremony-cost proxy tracking and surfacing | §2, §3, §6 | **Built** | `kc-reputation` (`ceremony_cost_decay`) |
-| Substantive-re-engagement state machine rung | §5 | **Built** | `kc-escalation` (`SubstantiveReEngagement`, the ladder's terminal rung) |
-| Manufactured-event provenance tagging in archive | §3 | **Built** | `kc-provenance` (`EventReport` carries declared incentives, information history, disclosed interests) |
-| Decision-class metadata and cryptographic enforcement | §3, §7 | **Built** | `DecisionClass` on the record; enforced in `kc-archive::authority` by counting *distinct communities' verified signatures*, so a faction cannot supply a quorum by asserting one |
-| Structured-skepticism protocol invocation | §4 | **Built** | `structured_skepticism` lens plus the intake hold on `EventActionInvoked` — an action premised on an under-corroborated qualifying event is refused, not merely flagged |
-| Substrate-deference dashboard maintained by observer corps | §8 | **Built** | `substrate_deference` + `erosion_alert`, bundled on `observer_dashboard` |
-| Compact-incapable list as constitutional artifact | §9 | **Built** | `kc-constitution` (`ConstitutionGenesis`; genesis-immutable matters, asymmetric amendment) |
-| Structured-fast cadence as protocol-enforced operating mode | §9 | **Built** | `FastPeriod` + `in_structured_fast`; hard refusal *during* a fast is a documented non-goal (a fast is a disposition, not a compliance regime) |
-| Composition-drift dashboard maintained by observer corps | §8 | **Built** | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
-| Capture-resistance scenario simulation in test harness | §10 | **Built** | `harness.py`: nine scenarios scored against criteria stated in advance, run continuously over a parameterized space |
-| Sponsor-stake tracking | §2 | **Built** | `SponsorshipRecord` + sponsor concentration in `composition_graph` |
-| Probationary-status enforcement | §2 | **Built (2026-08-03; reach settled 2026-08-04)** | A probationary community may not sponsor an entrant, may not seat mediators or examiners, does not count toward `panel_min` on any of the five panels, and carries no weight toward **any second-class quorum** — including the asymmetric contraction bars, which count weight rather than signatures. `kc_archive::probationary_at` is the one predicate both the gate and `RecognitionStanding` read; `deliberative_weight` is the one counter every bar reads. `deliberative_capacity` reports what the compact can still do |
-| Credentialing-panel rotation | §2 | **Built (2026-08-03)** | `ExaminerRegistry` + `ExaminerCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share — one implementation shared with the §8 observer caps. An admission into a standing compact must be examined by `panel_min` seated examiners spanning two or more communities. Drawing *by lot* is not enforced |
-| Admission as a second-class decision | §2 | **Built (2026-08-03)** | Not previously on this list. An admission into a standing compact needs an admitting quorum of sitting, non-probationary members, so one member plus the entrant's own co-signature no longer seals one |
-| Sponsor stake required of an admission | §2 | **Built (2026-08-03)** | Not previously on this list. Every entrant must arrive vouched for; without it probation is opt-in, since a faction that never vouches opens no window to de-weight |
+| Item | Component(s) | Where |
+|---|---|---|
+| Cross-community principal-witness attestation channel | §1 | `kc-principal` (`PrincipalWitnessAttestation`); `distinct_cross_witnesses` excludes self and home |
+| Ceremony-cost proxy tracking and surfacing | §2, §3, §6 | `kc-reputation` (`ceremony_cost_decay`) |
+| Substantive-re-engagement state machine rung | §5 | `kc-escalation` (`SubstantiveReEngagement`, the ladder's terminal rung) |
+| Manufactured-event provenance tagging in archive | §3 | `kc-provenance` (`EventReport` carries declared incentives, information history, disclosed interests) |
+| Decision-class metadata and cryptographic enforcement | §3, §7 | `DecisionClass` on the record; enforced in `kc-archive::authority` by counting *distinct communities' verified signatures*, so a faction cannot supply a quorum by asserting one |
+| Structured-skepticism protocol invocation | §4 | `structured_skepticism` lens plus the intake hold on `EventActionInvoked`, an action premised on an under-corroborated qualifying event is refused, not merely flagged |
+| Substrate-deference dashboard maintained by observer corps | §8 | `substrate_deference` + `erosion_alert`, bundled on `observer_dashboard` |
+| Compact-incapable list as constitutional artifact | §9 | `kc-constitution` (`ConstitutionGenesis`; genesis-immutable matters, asymmetric amendment) |
+| Structured-fast cadence as protocol-enforced operating mode | §9 | `FastPeriod` + `in_structured_fast`; hard refusal *during* a fast is a documented non-goal (a fast is a disposition, not a compliance regime) |
+| Composition-drift dashboard maintained by observer corps | §8 | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
+| Capture-resistance scenario simulation in test harness | §10 | `harness.py`: nine scenarios scored against criteria stated in advance, run continuously over a parameterized space |
+| Sponsor-stake tracking | §2 | `SponsorshipRecord` + sponsor concentration in `composition_graph` |
+| Probationary-status enforcement | §2 | A probationary community may not sponsor an entrant, may not seat mediators or examiners, does not count toward `panel_min` on any of the five panels, and carries no weight toward **any second-class quorum**, including the asymmetric contraction bars, which count weight rather than signatures. `kc_archive::probationary_at` is the one predicate both the gate and `RecognitionStanding` read; `deliberative_weight` is the one counter every bar reads. `deliberative_capacity` reports what the compact can still do |
+| Credentialing-panel rotation | §2 | `ExaminerRegistry` + `ExaminerCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share, one implementation shared with the §8 observer caps. An admission into a standing compact must be examined by `panel_min` seated examiners spanning two or more communities. Drawing *by lot* is not enforced |
+| Admission as a second-class decision | §2 | An admission into a standing compact needs an admitting quorum of sitting, non-probationary members, so one member plus the entrant's own co-signature no longer seals one |
+| Sponsor stake required of an admission | §2 | Every entrant must arrive vouched for; without it probation is opt-in, since a faction that never vouches opens no window to de-weight |
 
-So the §11 backlog is closed, and closing it surfaced two elements of
-`capture_resistance.md` §7 that this list had not carried at all —
-admission as a second-class decision, and the sponsor stake as a
-*requirement* rather than an available record. Both were needed to make
-the first two rows bite: a probationary community that carries no weight
-in admissions needs an admissions quorum to be excluded from, and a
-probation window has to be opened by somebody before there is anything to
-withhold. That is the hazard of reconciling a status list against other
-status lists — it reproduces their omissions. The gate is now the part
-that is built and the *lot* is the part that is not.
+The last two items come from `capture_resistance.md` §7 rather than from
+the per-component notes above, and they are what make the two probation
+rows bite: a probationary community that carries no weight in admissions
+needs an admissions quorum to be excluded from, and a probation window
+has to be opened by somebody before there is anything to withhold. Hence
+the standing hazard in deriving such a list from other status lists: it
+reproduces their omissions. The one element here the protocol specifies
+and the code does not carry is drawing examiners *by lot*.
 
-Item 7 of the seven moves — admissions integrity — therefore has both
+Item 7 of the seven moves (admissions integrity) therefore has both
 halves: its detection half (the composition-drift dashboard, sponsor
 concentration, the rejection pattern) and its enforcement half. Harness
 scenario 7 scores it on refusal rather than legibility: a faction acting
 alone seats exactly one community, its co-founder at formation.
 
-The live backlog for the components that still carry unbuilt scope is
+Scope this document specifies that the code does not yet carry is listed in
 [`TODO.md`](../../TODO.md).
 
 ## Architectural decisions
@@ -1287,68 +677,53 @@ The live backlog for the components that still carry unbuilt scope is
    target. Distribution of the concern across components is the
    structural defense.
 
-## Suggested incremental build order
+## Component dependencies
 
-The minimum useful slice, in order. **Capture-resistance work is
-woven through, not appended at the end**: items marked (CR) carry
-capture-resistance responsibilities specified inside §§1-10 and
-unified in §11.
+The decomposition has a dependency order, and two of its constraints are
+constitutional rather than merely practical.
 
-1. **Identity + recognition + archive** (components 1, 2, 3). The
-   compact does not exist until recognition is real and verifiable.
-   Testable with two communities in a room. **(CR)** Identity
-   includes the cross-community principal-witness channel (§1);
-   recognition records the interpretive-plurality evidence and
-   carries the admissions-integrity machinery (panel rotation,
-   sponsor stake, probationary status) (§2);
-   archive carries decision-class metadata and provenance tags
-   from the start (§3): adding these later is much harder than
-   designing them in.
-2. **Reputation lookup** (component 6, minimal slice). Once recognition
-   events exist in the archive, downstream reputation claims become
-   meaningful. **(CR)** Reputation surfaces ceremony-cost proxy
-   state from the start; principal-output triangulation is a
-   later layer.
-3. **Integration seam with autonomous_trust** (§5 above). Enables a
-   member community to operate its AT instance with kith-covenant
-   presence.
-4. **Mediation state machine + escalation ladder** (components 4, 5).
-   Needed before disputes are filed. **(CR)** Mediation includes
-   structured-skepticism protocol invocation; escalation ladder
-   includes the substantive-re-engagement rung between ordinary
-   re-affirmation and anathema.
-5. **Enforcement model** (component 9). Should not be deferred
-   further; decisions here shape 1-4 in retrospect. **(CR)**
-   Enforcement includes the substrate-deference test as ongoing
-   constitutional operation: compact-incapable list, structured-fast
-   cadence, erosion-detection alerting. These are constitutional-layer
-   commitments and must be specified before the compact is
-   instantiated, not after.
-6. **Commons registry** (component 7) and **observer function**
-   (component 8). Layerable once the core protocol runs. **(CR)**
-   Commons includes cryptographic decision-class enforcement
-   (multi-party quorum signature for second-class decisions);
-   observer function is promoted to substrate-level capture detector
-   with the substrate-deference dashboard, the composition-drift
-   dashboard, and capture-signature monitoring as standing
-   competencies, not optional features.
-7. **Capture-resistance test harness** (component 10, expanded). The
-   seven adversarial scenarios (faction-monopolizing-interpretation,
-   compact drift toward ultimacy, ceremony hollowing, manufactured-event
-   injection, light-lag fait-accompli, principal-capture, admissions
-   capture) must
-   exercise the implementation continuously from the earliest stages.
-   This is **continuous, not sequenced**: the test harness exists
-   from step 1 and accumulates scenarios as the components are built.
+- **Identity, recognition and archive (components 1, 2, 3) come first.** The compact
+  does not exist until recognition is real and verifiable, and the smallest thing that
+  can be tested is two communities in a room. Identity carries the cross-community
+  principal-witness channel (§1); recognition carries the interpretive-plurality
+  evidence and the admissions-integrity machinery, meaning panel rotation, sponsor
+  stake and probationary status (§2); the archive carries decision-class metadata and
+  provenance tags (§3). All three are far harder to add afterwards than to design in.
+- **Reputation lookup (component 6) depends on recognition events already being in the
+  archive**, which is what makes a downstream reputation claim mean anything.
+  Reputation surfaces ceremony-cost proxy state; principal-output triangulation sits a
+  layer above it.
+- **The autonomous_trust seam (§5) is independent of the governance components.** It is
+  what lets a member community operate its AT instance with kith-covenant presence.
+- **Mediation and escalation (components 4, 5) precede any dispute being filed.**
+  Mediation invokes the structured-skepticism protocol; the escalation ladder carries
+  the substantive-re-engagement rung between ordinary re-affirmation and anathema.
+- **The enforcement model (component 9) shapes components 1-4 in retrospect**, so its
+  decisions belong before them rather than after. Enforcement carries the
+  substrate-deference test as an ongoing constitutional operation: the
+  compact-incapable list, the structured-fast cadence, and erosion-detection alerting.
+  These are constitutional-layer commitments, and they must be settled before a
+  compact is instantiated.
+- **Commons registry (7) and observer function (8) layer on once the core protocol
+  runs.** Commons enforces decision class cryptographically, through a multi-party
+  quorum signature for second-class decisions; the observer function is a
+  substrate-level capture detector, holding the substrate-deference dashboard, the
+  composition-drift dashboard and capture-signature monitoring as standing
+  competencies rather than optional features.
+- **The capture-resistance harness (component 10) is continuous rather than
+  sequenced.** It exercises the implementation from the first component onward and
+  accumulates scenarios as the rest arrive. The seven adversarial scenarios are
+  faction-monopolizing-interpretation, compact drift toward ultimacy, ceremony
+  hollowing, manufactured-event injection, light-lag fait-accompli, principal capture,
+  and admissions capture.
 
-The capture-resistance work cannot be deferred to a "phase 2" because
-several of its responsibilities (decision-class metadata, principal-witness
-channel, audit-commons provenance schema, substrate-deference list as
-genesis-immutable artifact) are constitutional-layer commitments that
-must be present at compact-formation. Adding them later is either
-impossible (genesis-immutability would be violated) or
-operationally fraught (existing records would need migration that
-itself becomes a capture surface).
+Capture resistance is not separable into a later phase. Several of its
+responsibilities (decision-class metadata, the principal-witness channel, the
+audit-commons provenance schema, and the substrate-deference list as a
+genesis-immutable artifact) are constitutional-layer commitments that must be present
+at compact formation. Adding them afterwards is either impossible, since
+genesis-immutability would be violated, or operationally fraught, since existing
+records would need a migration that is itself a capture surface.
 
 ## Open design questions
 
@@ -1359,7 +734,7 @@ than buried in subsystem docs:
   is primary? The research docs prefer transparency-as-teeth;
   capability-based access is the strongest at the code layer.
 - **In-person requirement vs. interplanetary scale.** The hybrid
-  proposal in §2 is working but unvalidated. The 3-20 minute
+  proposal in §2 is unvalidated. The 3-20 minute
   Earth-Mars light-lag may be tolerable; multi-hour delays to outer
   system are not.
 - **Re-affirmation cadence calibration.** The 25-30 year default lacks
@@ -1368,10 +743,10 @@ than buried in subsystem docs:
   `recognition_protocols.md` open questions, which argues for a
   compact-formation parameter with per-community override rather than a
   constant. A second, prior decision: is the cadence *enforced* (an
-  overdue or hollowing re-affirmation does something on its own — expiry,
+  overdue or hollowing re-affirmation does something on its own, expiry,
   escalation) or *observed only* (the `ceremony_cost_decay` lens surfaces
   decay and the jester and mediators act, but nothing triggers
-  automatically)? The lens is built; the consequence is not.
+  automatically)? The protocol as specified observes.
 - **Mediator training pipeline.** Who trains the first generation?
   Is kith-covenant responsible for competence certification, or does
   each member community supply its own mediator candidates to a

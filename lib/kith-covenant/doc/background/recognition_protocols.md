@@ -1441,8 +1441,8 @@ collapse.
 ### The capture attempt via recognition itself
 
 A sophisticated adversary may attempt to capture the compact by
-modifying the recognition statement during a re-affirmation cycle
-: removing Movement 5, weakening Movement 3, etc. This is the worst
+modifying the recognition statement during a re-affirmation cycle:
+removing Movement 5, weakening Movement 3, etc. This is the worst
 failure mode and is foreclosed by the rule that *the five movements
 are not amendable*. New common-virtue items can be added (Movement 4
 is the only movement whose content is in some part open); the

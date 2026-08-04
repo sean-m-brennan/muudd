@@ -2,11 +2,12 @@
 
 # Social Framework for Space Habitats
 
-*Stub document. Topic identified in the project mind map but not yet developed.*
+*Stub. The topic is named in the project mind map and is not developed here; the
+questions below are its scope.*
 
 ## Overview
 
-Sustainable space inhabitation requires social technologies as much as physical ones. This document will cover the construction and maintenance of civilizational commitment ("social will"), the five-role social model, mechanisms for enshrining dissent, and the social structures needed to prevent collapse in isolated communities.
+Sustainable space inhabitation requires social technologies as much as physical ones. This document's scope is the construction and maintenance of civilizational commitment ("social will"), the five-role social model, mechanisms for enshrining dissent, and the social structures needed to prevent collapse in isolated communities.
 
 ## Open questions
 

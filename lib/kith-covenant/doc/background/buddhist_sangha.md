@@ -566,7 +566,7 @@ by Tsongkhapa (1357-1419) as a reform of the Kadampa, and became the
 dominant school from the 17th century forward under the institution
 of the Dalai Lama.
 
-Crucially for the cross-polity analysis, Tibetan Buddhism from the
+For the cross-polity analysis, Tibetan Buddhism from the
 13th century onward developed the *patron-priest relationship*
 (*yön-chö*, "patron-priest") with non-Tibetan rulers: first with the
 Mongol Yuan court (Sakya Pandita's relationship with Godan Khan, 1244;
@@ -952,7 +952,7 @@ than between persons. This is Solzhenitsyn's line ("the line dividing
 good and evil cuts through the heart of every human being") in a
 non-theistic register.
 
-Crucially, Buddhist ethics explicitly rejects the tribal / in-group
+Buddhist ethics explicitly rejects the tribal / in-group
 anthropology that the anti-spiral feature is designed to foreclose.
 The Brahmaviharas (metta, karuna, mudita, upekkha) are trained to
 extend universally to all sentient beings without distinction.

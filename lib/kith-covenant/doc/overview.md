@@ -413,7 +413,7 @@ becomes unavoidable, the grounds for escalating to war, the virtuous
 conduct of it, and the terms of its ending are developed in
 [`background/righteous_war.md`](background/righteous_war.md), which
 also treats the hardest case, the *hostis humani generis* for whom no
-return is possible – or desired.
+return is possible, or desired.
 
 ### 5b. Recognition: two layers
 
@@ -925,15 +925,15 @@ place it is exposed, and says so.
   has an outer boundary: the *hostis humani generis* who cannot be
   given bounded-enemy standing.
   [justus_hostis.md §"Hostis humani generis: limits of the justus hostis frame"](background/justus_hostis.md#hostis-humani-generis-limits-of-the-justus-hostis-frame).
-- **Operational gaps, unbuilt and untested.** Interim-injunction
-  enforcement, the mediator training pipeline, the reconciliation of
-  in-person recognition with interplanetary light-lag, the
-  re-affirmation cadence, and above all the absence of any pilot, test
-  case, or stated falsification criterion, are carried — with what is
-  already built against each and the criteria by which each would fail —
-  in the architecture's operational companion,
-  [protocol-components.md](architecture/protocol-components.md) (§10 and
-  "Open design questions").
+- **Operational gaps.** Code-layer co-presence (reconciling in-person
+  recognition with interplanetary light-lag), the mediator training
+  pipeline, a scheduler that runs the re-affirmation cadence, and above
+  all the absence of any pilot, test case, or stated falsification
+  criterion. Each is carried in [`TODO.md`](../TODO.md), with what is
+  already built against it and the criteria by which it would fail; the
+  criteria themselves are stated in the architecture's operational
+  companion, [protocol-components.md](architecture/protocol-components.md)
+  (§10 and "Open design questions").
 - **Per-document open questions.** Nearly every research document closes
   with its own "Open questions" section; those are the live edges of
   the work. The load-bearing ones are in

@@ -632,8 +632,8 @@ operate together as a single feedback architecture.
 
 Primary Vallée works:
 
-- Vallée, J. (1965). *Anatomy of a Phenomenon: Unidentified Objects in Space —
-  A Scientific Appraisal.* Henry Regnery.
+- Vallée, J. (1965). *Anatomy of a Phenomenon: Unidentified Objects in Space,
+A Scientific Appraisal.* Henry Regnery.
 - Vallée, J. (1969). *Passport to Magonia: From Folklore to Flying Saucers.*
   Henry Regnery.
 - Vallée, J. (1975). *The Invisible College: What a Group of Scientists Has
@@ -646,8 +646,8 @@ Primary Vallée works:
   physics of high strangeness: a 6-layer model for anomalous phenomena."
   Proceedings of the 6th International Symposium on the UFO Phenomenon, San
   Marino. <!-- FIXME: verify proceedings publisher / page numbers -->
-- Vallée, J. (1996, 2008, 2009, 2010, 2014). *Forbidden Science Volumes 1–5*
-  (Journals 1957–2009). Documatica Research / Anomalist Books.
+- Vallée, J. (1996, 2008, 2009, 2010, 2014). *Forbidden Science Volumes 1-5*
+  (Journals 1957-2009). Documatica Research / Anomalist Books.
   <!-- FIXME: verify volume publication dates; the 5-volume set was
   published incrementally between roughly 1996 and 2014 -->
 - Nolan, G.P., Vallée, J.F., Jiang, S. & Lemke, L.G. (2022). "Improved

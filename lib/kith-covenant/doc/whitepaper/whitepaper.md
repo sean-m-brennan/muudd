@@ -1309,16 +1309,16 @@ internal AutonomousTrust instance. It never reaches *into* a member
 community; it operates only between communities and on compact-level
 artifacts.
 
-We enumerate the components up front (the holistic shape of the software)
+We enumerate the components up front (the whole shape of the software)
 before developing each one. The ten components below realize the
 commitments of the preceding sections (§§3 to 8). None is independent of the
 others, but their implementation order is not arbitrary (§9.12).
 
-### 9.2 Component enumeration (holistic view)
+### 9.2 Component enumeration (whole-system view)
 
 
 | #  | Component                             | Realizes                                                                                  |
-| -- | ------------------------------------- | ----------------------------------------------------------------------------------------- |
+|, | ------------------------------------- | ----------------------------------------------------------------------------------------- |
 | 1  | **Identity and standing**             | Community keypairs, designated speakers, witness registries, quantum-resistant primitives |
 | 2  | **Recognition ceremony (two layers)** | Intra-community rite runner + inter-community credentialing runner (§6.3)                |
 | 3  | **Archive / commons of memory**       | Distributed append-only record of compact-level events                                    |
@@ -1678,8 +1678,8 @@ The minimum useful slice:
    meaningful.
 3. **Integration seam with autonomous-trust** (decision 5).
 4. **Mediation state machine + escalation ladder** (components 4, 5).
-5. **Enforcement model** (component 9). Should not be deferred further;
-   decisions here shape 1 to 4 retrospectively.
+5. **Enforcement model** (component 9). Decisions here shape 1 to 4
+   retrospectively, so it cannot come last.
 6. **Commons registry** (component 7) and **observer function**
    (component 8).
 7. **Test harness and adversarial simulation** (component 10):
@@ -2396,7 +2396,7 @@ Ostrom, Elinor. *Governing the Commons: The Evolution of Institutions for Collec
 Otto, Beatrice K. *Fools Are Everywhere: The Court Jester Around the World* (2001).
 Parker, Geoffrey. *The Thirty Years' War* (1984; rev. 1997).
 Pelikan, Jaroslav. *Credo: Historical and Theological Guide to Creeds and Confessions of Faith* (2003).
-Pryor, John H. *Geography, Technology, and War: Studies in the Maritime History of the Mediterranean, 649–1571* (1988).
+Pryor, John H. *Geography, Technology, and War: Studies in the Maritime History of the Mediterranean, 649-1571* (1988).
 Rappaport, Roy A. *Ritual and Religion in the Making of Humanity* (1999).
 Rodríguez, Jarbel. *Captives and Their Saviors in the Medieval Crown of Aragon* (2007).
 Schelling, Thomas C. *The Strategy of Conflict* (1960).
@@ -2417,7 +2417,7 @@ Vattel, Emer de. *Le Droit des Gens* (1758).
 Wallace, Paul A. W. *The White Roots of Peace* (1946).
 Weatherford, Jack. *Genghis Khan and the Making of the Modern World* (2004).
 Yoder, John H. *The Politics of Jesus* (1972).
-Zahavi, Amotz. "Mate Selection — A Selection for a Handicap." *Journal of Theoretical Biology* 53 (1975).
+Zahavi, Amotz. "Mate Selection: A Selection for a Handicap." *Journal of Theoretical Biology* 53 (1975).
 
 ### Primary historical sources
 

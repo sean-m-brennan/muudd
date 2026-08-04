@@ -32,7 +32,7 @@ suppression. If the enemy is treated as a heretic, then war becomes exterminatio
 because coexistence with error is itself the wrong. But if the enemy is granted
 the status of *justus hostis*, a legitimate peer whose self-interest is accepted
 as a fact of the world, then a whole apparatus of limits becomes possible:
-envoys, parley, ransom, protected non-combatants, laws of means, and, crucially,
+envoys, parley, ransom, protected non-combatants, laws of means, and, above all,
 *an end of the war* at which both sides resume ordinary relations.
 
 Bounded war, in other words, is not achieved by moralizing the combatants. It
@@ -79,7 +79,7 @@ were:
   conquests-without-remainder. The post-war order included the defeated as
   participants, not subjects.
 
-Crucially, this order did not require the European states to *like* each
+This order did not require the European states to *like* each
 other, or to share policy preferences, or even to share regime-type. It
 required only that they agree on the procedure by which they disagreed.
 
@@ -1093,7 +1093,7 @@ have been formally cut off. The designation procedure is heavy
 (compact-wide deliberation, four conditions, multiple restoration
 attempts having failed), the differential protocol applies (ordinary
 restoration suspended, engagement guarded, expulsion or active
-opposition permitted within the virtue frame), and, crucially, **a
+opposition permitted within the virtue frame), and, above all, **a
 re-entry path exists.** The anathema is a formal *status imposed by
 the community*, not an ontological judgment about the actor's nature.
 The Church can lift an anathema; excommunication can be reversed

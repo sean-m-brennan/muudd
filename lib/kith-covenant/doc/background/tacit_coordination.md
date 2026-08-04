@@ -464,7 +464,7 @@ Conflict *(1960) and* Arms and Influence *(1966); Axelrod,* The
 Evolution of Cooperation *(1984) and* The Complexity of Cooperation
 *(1997); Aumann, "Agreeing to Disagree,"* Annals of Statistics *4
 (1976); Lewis,* Convention: A Philosophical Study *(1969); Zahavi,
-"Mate Selection — A Selection for a Handicap,"* Journal of Theoretical
+"Mate Selection, A Selection for a Handicap,"* Journal of Theoretical
 Biology *53 (1975); Spence, "Job Market Signaling,"* Quarterly Journal
 of Economics *87 (1973); Nowak & Sigmund on Pavlov / Win-Stay-Lose-Shift
 ("A strategy of win-stay, lose-shift that outperforms tit-for-tat in
