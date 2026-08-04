@@ -111,8 +111,11 @@ def main() -> int:
     # --- Re-entry: the way back -------------------------------------------
     w1 = new_identity(arch, "Witness-1", t0)
     w2 = new_identity(arch, "Witness-2", t0)
+    # The admitting quorum is two communities other than the petitioner: §2 does not
+    # count the returning community toward its own readmission, because "no single
+    # sponsor cluster can admit alone" is emptiest when the cluster is the entrant.
     complete_reentry(
-        arch, designation, subject, [subject, wronged], MOVEMENTS,
+        arch, designation, subject, [wronged, alpha], MOVEMENTS,
         [(w1, True), (w2, True)],
         conduct_accounting="we account for the pattern that led to designation",
         public_acknowledgement="what we did was wrong",

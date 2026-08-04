@@ -26,12 +26,14 @@ pub mod view;
 
 pub use analytics::{
     adversarial_principal, ceremony_cost_decay, ceremony_cost_decay_all, collusive_cohorts,
-    compact_incapable, composition_graph, constitution_state, erosion_alert, erosion_alert_with,
+    compact_incapable, composition_graph, constitution_state, deliberative_capacity,
+    erosion_alert, erosion_alert_with,
     feature_concern_profile, free_rider_signals, in_structured_fast, interpretive_plurality,
     observer_dashboard, observer_pool_concentration, overdue_reexaminations,
     principal_witness_chain, rejection_pattern,
     sponsor_stake, structured_skepticism, substrate_deference, CeremonyCostDecay,
     CohortCollusionReport, CohortDivergence, CompositionGraph, ConstitutionState, CrossWitness,
+    DeliberativeCapacity,
     ErosionAlert, ErosionSeverity, ErosionThresholds, EventProvenance, FastDeviation,
     FeatureConcernProfile, FreeRiderReport, InterpretivePluralityReport, LineagePoint,
     ObserverDashboard, ObserverPoolConcentration, ObserverPoolShare, OutputDivergence,

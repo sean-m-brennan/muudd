@@ -21,7 +21,12 @@ pub mod store;
 pub mod verify;
 
 pub use authority::{
-    authority_violations, authorize, check_authority, insider_keys, ObserverCaps, DEFAULT_OBSERVER_MAX_TERM_SECONDS,
+    authority_violations, authorize, authorize_with_caps, check_authority, insider_keys,
+    insider_keys_upto, mediator_encryption_keys, mediator_encryption_resolver,
+    probationary_at, ExaminerCaps, ObserverCaps,
+    DEFAULT_EXAMINER_MAX_TERM_SECONDS,
+    DEFAULT_EXAMINER_PANEL_MIN, DEFAULT_EXAMINER_POOL_FLOOR,
+    DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS, DEFAULT_OBSERVER_MAX_TERM_SECONDS,
     DEFAULT_OBSERVER_POOL_FLOOR, DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS, DEFAULT_PANEL_MIN,
     DEFAULT_QUORUM_THRESHOLD, DEFAULT_REENTRY_WITNESS_MIN,
     DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS, DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS,

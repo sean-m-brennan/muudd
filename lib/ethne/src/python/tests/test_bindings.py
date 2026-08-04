@@ -136,7 +136,7 @@ def test_default_thresholds_exposes_the_rust_values():
         "churn_notice",
         "churn_concern",
         "sustained_absence_seconds",
-        "sustained_absence_readings",
+        "sustained_absence_watchers",
     }
     # The dataclass defaults are those same values, not a second copy.
     assert e.Thresholds().attrition_concern == e.DEFAULT_THRESHOLDS["attrition_concern"]
@@ -151,7 +151,7 @@ def test_default_retention_exposes_the_rust_values(polity):
         "retain_seconds",
         "min_dropped",
         "live_measure_seconds",
-        "min_witness_readings",
+        "min_witness_watchers",
     }
     # The dataclass defaults are those same values, not a second copy.
     assert e.RetentionPolicy().retain_seconds == e.DEFAULT_RETENTION["retain_seconds"]
@@ -247,3 +247,23 @@ def test_incremental_dump_carries_only_what_is_new(polity):
     assert behind.append_json(polity.archive.dump_json_since(polity.archive.cursor())) == 0
     with pytest.raises(ValueError):
         behind.append_json(segment)
+
+
+def test_the_independence_surface_is_exported():
+    # D24's reader attestation, generalized to observers by D28. One record, two
+    # roles, and both read-models reachable from the package root.
+    assert e.IndependentObservation is _core.IndependentObservation
+    assert e.IndependentGrounding is _core.IndependentGrounding
+    for name in ("attest_independence", "attest_reader_independence",
+                 "attest_observer_independence"):
+        assert name in e.__all__ and callable(getattr(e, name))
+
+
+def test_an_unknown_attested_role_is_refused_at_the_boundary(polity):
+    # The role is a string across the FFI, so a typo must not become a silent
+    # BoundaryReader — which is the arm that would accept the wrong coherence gate.
+    from ethne.authoring import attest_independence
+
+    with pytest.raises(ValueError, match="unknown attested role"):
+        attest_independence(polity.archive, polity.did, polity.founders[0].did,
+                            Signer.generate(), role="Monitor")

@@ -87,14 +87,22 @@ def test_a_departure_that_breaches_the_self_govern_floor_is_refused(polity):
 def test_induction_needs_a_majority_of_the_roll_to_witness(polity):
     joiner = Signer.generate()
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
-    # The roll is four; two witnesses is short of the three required.
-    induct_member(polity.archive, polity.did, joiner, polity.founders[:2], affirmed_at=300)
+    # Three founders hold the substrate and the inductee does not count toward its own
+    # reception (D29), so two must witness and one is short.
+    movements = polity.rite(joiner, polity.founders[:1], 250)
+    induct_member(
+        polity.archive, polity.did, joiner, polity.founders[:1], movements, affirmed_at=300
+    )
     polity.archive.verify_all()
     assert any("witness" in r for r in _reasons(polity.archive))
 
 
 def test_a_founding_member_cannot_be_inducted_again(polity):
-    induct_member(polity.archive, polity.did, polity.founders[2], polity.founders[:2], affirmed_at=200)
+    movements = polity.rite(polity.founders[2], polity.founders[:2], 150)
+    induct_member(
+        polity.archive, polity.did, polity.founders[2], polity.founders[:2], movements,
+        affirmed_at=200,
+    )
     assert any("already-inducted" in r for r in _reasons(polity.archive))
 
 

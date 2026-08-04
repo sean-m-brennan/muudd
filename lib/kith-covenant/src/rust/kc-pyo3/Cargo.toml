@@ -11,7 +11,7 @@ name = "_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-kc-core = { workspace = true }
+kc-core = { workspace = true, features = ["source-protection"] }
 kc-identity = { workspace = true }
 kc-ceremony = { workspace = true }
 kc-conduct = { workspace = true }

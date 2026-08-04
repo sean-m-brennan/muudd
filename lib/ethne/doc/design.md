@@ -223,9 +223,10 @@ gives the guardian edge for a derived (machine) member. That view *is* a
 
 The C linkage is isolated behind an `AtEventSource` seam (a Rust trait yielding
 decoded AT events) so `ethne-at` builds and unit-tests in-sandbox against a
-**mock** event source, with the real `extern "C"` / `-sys` binding to
-`libautonomous_trust` behind a cargo feature (a live daemon cannot be linked in
-the sandbox). AT's reputation subsystem (`src/c/autonomous_trust/reputation/`,
+**mock** event source, with the real `extern "C"` binding to
+`libautonomous_trust` behind the `at-ffi` cargo feature. (The parenthetical here
+used to read "a live daemon cannot be linked in the sandbox"; since 2026-08-04 it
+can, and is — see D6.) AT's reputation subsystem (`src/c/autonomous_trust/reputation/`,
 a Paxos-committed hash-linked history with per-peer reputations and window/
 checkpoint roots) is the reputation source; its Merkle-linked history can later
 become machine-attested *exhibits* for a KC `Concern`, matching the AT↔KC
@@ -301,7 +302,15 @@ KC cannot see on its own and AT cannot decide on its own.
   but `kc-archive` today hardcodes KC's `ArchiveEntry` enum; v1 forks a thin
   `en-archive` over ethne's own entry type. Extracting a generic entry-agnostic
   archive base that both `kc-archive` and `en-archive` build on is the one
-  extraction worth doing *later* — deferred, not v1.
+  extraction worth doing *later* — deferred, not v1. *Note (2026-08-03):* depending
+  on `kc-core` alone still meant linking KC's §8 whistleblower crypto, which the
+  polity tier never calls. `kc-core` now gates its `ring` and `custody` modules behind
+  a default-on `source-protection` feature, and both root manifests here set
+  `default-features = false` on the `kc-core` **workspace** entry — that placement is
+  load-bearing, since cargo ignores the flag when it is written on a member crate that
+  inherits the dependency with `workspace = true`. The closure of `en-core` drops from
+  61 crates to 53. `curve25519-dalek` remains, reached through `ed25519-dalek`, which
+  `kc-core` needs for signatures unconditionally.
 - **D2 — Package shape: mirror KC.** A Rust + PyO3 workspace
   (`ethne/src/rust/en-*`, `ethne/src/python/`), same build/test conventions and
   signed-record rigor, its own `environment.yaml`. **Built** (2026-07-24), both
@@ -372,9 +381,32 @@ KC cannot see on its own and AT cannot decide on its own.
   shutdown); and a handle means the event stream is *reachable* — a failed inbound
   bind now fails the start and reaps the daemon instead of logging and continuing.
   See autonomous_trust's `doc/architecture/app-peer-carrier.md`, "Owning the daemon
-  from another language". **Not** covered in-sandbox: a live start/poll/stop, since
-  no daemon can run here (AT's ISSUES.md §2.1.1); what the 40 `at-ffi` tests cover
-  is the decoded-event contract over real sockets plus every argument guard.
+  from another language".
+- **D6 — the live leg is covered now, and what blocked it was a real bug
+  (2026-08-04).** This said a live start/poll/stop was "not covered in-sandbox,
+  since no daemon can run here (AT's ISSUES.md §2.1.1)". §2.1.1 turned out not to
+  be the sandbox artifact it was filed as: `get_data_dir` told `path_join` its
+  destination held 255 bytes where `unix_addr`'s holds 108, so a long
+  `$AUTONOMOUS_TRUST_ROOT` overflowed the caller's stack and aborted *this*
+  process from inside the FFI call. Short roots hide it, which is exactly why it
+  "did not reproduce" off-sandbox. Fixed on AT's side, and
+  `a_live_daemon_starts_becomes_ready_and_stops` now starts a real daemon, waits
+  for it, reads from it and stops it — 58 `at-ffi` tests.
+
+  Two things the live leg then measured, both of which had been invisible:
+  `at_app_node_start` returns in ~2 ms while the daemon's queue is not bound for
+  another ~170–210 ms, so a host's first sends silently went nowhere — hence
+  `EmbeddedAtNode::ready`/`wait_ready` over AT's new `at_app_node_ready`, and a
+  distinct `AT_APP_NOT_READY` from a roster pull instead of an unclassifiable -1.
+  And `at_app_node_stop` returned while the daemon was still running, because it
+  `waitpid`'d a process that `daemonize`'s double fork had already given to init;
+  a full shutdown takes ~5.3 s. Both fixed in AT.
+
+  The assertions are on the lifecycle, not on event content: a solitary node with
+  no peers emits nothing, so a count would assert nothing. Content is covered by
+  the five end-to-end emitter tests. Still open, and AT's: a stopped daemon leaves
+  8 subsystem processes running (ISSUES.md §2.1.3); the test kills the ones it
+  caused.
 - **D26 — the two carrier streams are joined here, by uuid, and `None` stays
   honest (2026-07-30).** AT emits peer identity and peer reputation as *separate*
   messages (its own decision, to avoid coupling two independent processes), so
@@ -493,9 +525,10 @@ KC cannot see on its own and AT cannot decide on its own.
   roll yet un-inducted. An induction is **witnessed by the roll** — a majority of
   current members co-sign alongside the inductee (the community receives them, and
   they participate) — while a **re-affirmation is self-signed** by an
-  already-inducted member, because renewal is the member's own act. Founding
-  members are inducted by ratifying the charter (dated `founded_at`), so they take
-  no record and cannot be inducted again. Freshness borrows
+  already-inducted member, because renewal is the member's own act. The charter's
+  **ratifiers** are inducted by ratifying it (dated `founded_at`), so they take no record
+  and cannot be inducted again — and only they: **D29** found the seed reading the
+  founding *roll*, which handed the substrate to listed members who had signed nothing. Freshness borrows
   `kc-reputation::ceremony_cost_decay`'s staleness shape: `affirmation_state`
   reports each current member's induction status and last affirmation, and
   `stale_members(cadence_seconds, as_of)` names those who are un-inducted or
@@ -619,12 +652,60 @@ KC cannot see on its own and AT cannot decide on its own.
     — and an opted-in peer now reaches `MemberCandidate.guardian` off a real
     socket. **What this does not give us:** the binding is opt-in on AT's side
     and deliberately free to decline, so most peers will read `guardian: None`
-    and that is a correct reading of an unguarded machine, not a gap. And a
-    guardian who can be *named* still cannot yet *co-sign* a `GuardianChange` —
-    that needs the operator's private key at the ethne authoring site, a
-    different seam. Distinct guardian keys remain not-distinct-humans (**D24**);
-    counting them as such would want an independence attestation, and nothing
-    here supplies one.
+    and that is a correct reading of an unguarded machine, not a gap.
+
+  - **The guardian now co-signs (2026-08-03).** Naming a guardian was
+    only half of D15: the rule demands the named guardian's own signature, and until
+    now nothing could produce one. The key deliberately lives in the operator's
+    keystore rather than on a polity's authoring host, so `Signed::build`'s
+    private-key-per-signer shape left only one route — move the key — which is the
+    arrangement that location exists to prevent. Both custody paths now exist. The
+    **co-located** one (`en_at::operator_signer`) reads AT's keystore where the
+    operator is running the authoring step themselves; it refuses a key file anyone
+    else can read, and checks the derived `did:key` against the guardian the substrate
+    reported so a wrong key is caught at authoring time rather than surfacing later as
+    a signer mismatch. The **detached** one (`en_charter::detached`) sends the payload
+    instead: the archive exports canonical bytes, a CID and a legible description; the
+    operator signs them with their own key (AT's `--sign-file`); and `assemble`
+    verifies each signature before anything is appended. A detached envelope is
+    byte-identical to a built one — same CID, same signatures, since ed25519 is
+    deterministic — so nothing downstream can tell which route was used. The
+    cross-library agreement the whole thing rests on (AT persists a hex 32-byte seed
+    via libsodium; `kc_core` signs from that seed via dalek) is pinned as a test
+    vector rather than assumed. `kc-core` is untouched, so kith-covenant is unaffected.
+
+    **And the edge must now be backed by what the substrate showed.** D15 grades the
+    charter against the provider's reading, so an edge no reading ever showed left the
+    measure comparing a ratified claim to nothing — and five tests moved a guardian
+    edge with no observation anywhere while asserting the result correct, which is
+    `substrate.anchor` (D23) and kith-covenant's `source_commitment` again. A
+    `GuardianChange` that *claims* an edge (a `Designate` naming a guardian, or any
+    `Rotate`) now carries `GuardianEvidence`: either the signed `Observation` whose
+    reading for that member shows that guardian, or an explicit `Unbacked { reason }`.
+    A `Release` carries none — it claims the edge is *gone*, and D16 is explicit that a
+    member absent from the readings was not observed, which is not evidence of absence.
+    Evidence is **carried, not cited**, because D17 lets a polity prune observations by
+    a signed act: a citation would leave a record authorized today and unauthorized
+    after legitimate housekeeping, making authority a property of when you looked
+    rather than of the log. Measured before designing, and kept as
+    `a_cited_observation_would_not_survive_a_legitimate_pruning`. The override is
+    self-declared and safe only through an asymmetry — it can never *strengthen* a
+    record, only disclose that nothing backed it — which is D23's
+    `SubstrateDisavowed` shape, and why the self-declared field D21/D22 found
+    unenforceable elsewhere is sound here.
+
+    **What this still does not give us.** The binding remains opt-in on AT's side and
+    free to decline, so most peers read `guardian: None` and that is a correct reading
+    of an unguarded machine. Evidence is one observer's perspectival reading and never a
+    ratified fact (D16): a colluding observer can sign a reading showing any edge it
+    likes, so the gate raises the cost from *nothing* to *a signed false observation
+    attributable to a named observer* — legibility, not prevention, with independence
+    attestation (**D24**'s shape) the named successor. Founding derivations are not
+    gated by this rule; `propose` filters on the substrate reading at the emitter and
+    D21/D22 gave founding its own carried-evidence discipline, but whether founding
+    should carry per-edge evidence too is an open question rather than an answered one.
+    Distinct guardian keys remain not-distinct-humans (**D24**); counting them as such
+    would want an independence attestation, and nothing here supplies one.
 
 - **D16 — what was seen is recorded, so that duration can be judged (locked
   2026-07-27).** Every measure before this one read a *snapshot*, which is why the
@@ -651,7 +732,8 @@ KC cannot see on its own and AT cannot decide on its own.
     float reputations, and a total equality over those would be a lie.)
   - **Sustained absence, the exception that proves the cap.** A guardian unattended
     across the recorded window for at least `sustained_absence_seconds`, *and* seen by
-    at least `sustained_absence_readings` observations, reaches `Concern`. Two
+    at least `sustained_absence_watchers` distinct observers (**D28**), reaches
+    `Concern`. Two
     conditions doing two different jobs: **the span is the absence; the count is the
     evidence that somebody was watching while it lasted.** One stale reading with a
     long silence behind it says nothing about the polity — only that nobody looked.
@@ -825,8 +907,8 @@ KC cannot see on its own and AT cannot decide on its own.
     one: the span survives, because the window clamps it to the pruned horizon, but
     the **witness count** does not. The same absence, the same 24-hour horizon, graded
     `Concern` at a dense observation cadence and `Notice` at a sparse one — four
-    readings falling to two, one short of `sustained_absence_readings`, with nothing
-    saying that evidence rather than conduct is what changed. So `min_witness_readings`
+    readings falling to two, one short of `sustained_absence_watchers`, with nothing
+    saying that evidence rather than conduct is what changed. So `min_witness_watchers`
     (default 3, mirroring the threshold it protects) holds the horizon back to leave
     that many readings of **every watched member** standing. Per member, because
     `readings_for` is per member: a member the monitors mention rarely has thin
@@ -1331,6 +1413,465 @@ KC cannot see on its own and AT cannot decide on its own.
     `links` was `[_; 2]`, so it could not have survived the generalization in any case.
     Tally is now D20 (envelope v2), D21, D22, D25.
 
+- **D26 — the roll as a border artifact, and the ring as a property of the log (locked
+  2026-08-03).** kith-covenant's §8 whistleblower channel proves a source is an insider
+  with a ring signature over the accused community's key set, and that set was its root
+  key plus its live speaker delegations. KC models communities and speakers and has no
+  member roster — so an insider holding no delegation was not in the ring, and a
+  community that had delegated nobody had no anonymous channel at all. KC recorded this
+  as an honest limit and named **this tier** as the feed, since a polity is exactly the
+  thing that does model membership. `en-uplift::member_roll` is that feed: border
+  artifact **#6**, the polity's `charter_state` roll published under its root key as
+  KC's new `MemberRoll`. Every ethne member is a `did:key`, so each member's verifying
+  key comes out of its own DID and nothing else has to travel.
+
+  **What measuring first found, and it was the larger half.** KC recomputed the insider
+  set at *verification* time against the **current** archive tip, while evaluating it at
+  the filing's `filed_at`, and required exact set equality. So the accused community —
+  the one party with a motive — could append **one** delegation backdated ahead of
+  `filed_at` and every filing against it stopped verifying, or backdate a **revocation**
+  and narrow the suspect set around a source after the fact. Both measured: 3 → 4
+  invalidated a filing, 3 → 2 narrowed one. A member roll bolted onto that would have
+  inherited the defect and added a second lever. KC now computes the ring over the
+  records **preceding the filing in insertion order**, which is the principle its own
+  §5 `current_rung` already stated ("authorizing an earlier transition never sees a
+  later one") and its §8 had not applied. Same failure the guardian-cosign slice
+  (**D15**, hours earlier) named on this side of the boundary: authority must be a
+  property of the log, not of when you looked.
+
+  **Rolls are unioned, never superseded** — KC's rule, and the one that decides what
+  publishing a roll here means. Once named an insider, always an insider, because the
+  alternative hands a polity a way to shrink the suspect set around a member the day
+  after they left. So ethne's roll shrinks on a departure and KC's ring does not; the
+  asymmetry is deliberate and a departed member keeps the channel they had.
+
+  **The honest limits.**
+  - **A roll is the polity speaking about itself.** KC checks that the publisher is the
+    community named and nothing more; it cannot audit a charter it has no dependency on.
+    `as_of` crosses as *provenance*, not authority — the same status `substrate.anchor`
+    was found to have had before D23 gave it rules, and named as such here so it does
+    not drift into looking load-bearing.
+  - **Nothing compels publication.** A polity that never publishes a roll gives its
+    members no channel. Union-only bounds what a *published* roll can be walked back to;
+    it cannot conjure one.
+  - **The tier drops itself from its own roll** (KC refuses a roll naming the community,
+    whose root key is already an insider), so a polity of one member and no delegations
+    still has no anonymous channel. That is a true reading, not a gap.
+
+- **D27 — the founding edge must show what stood behind it (locked 2026-08-03).**
+  **D15** made every *post-founding* `GuardianChange` carry its evidence: a claimed
+  edge presents the signed `Observation` that showed it, or declares
+  `Unbacked{reason}`. Founding derivations in the genesis `PolityCharter` carried
+  nothing, and the guardian-cosign slice left that open as a question rather than an
+  answer. It was a **gate evasion, not a grading gap.**
+
+  **Measured first.** A probe — three machines, nobody behind two of them, **one**
+  asserted guardian edge, **no** anchor:
+
+      verify_all      -> green
+      check_authority -> green
+      founding_legitimacy.grounding -> Guarded     anchor -> None
+
+  **D23**'s grounded rule is `all_derived && none_guarded && anchor.is_none()`, and
+  `none_guarded` goes false the moment a single edge is claimed. So one co-signing
+  confederate exempted an entire machine cluster from the must-name-a-ground rule, on
+  a claim nothing evidenced — while the identical claim, filed one record later in
+  the same log, was refused. Consent was never the hole: founding derivations already
+  require the named guardian's co-signature. Only the backing was missing.
+
+  A second measurement reshaped the design. **The founding attestation cannot supply
+  the evidence:** D22's `SubstrateReading` is guardian-blind (a flat
+  `members: Vec<DidKey>`), while D16's `Observation` carries `MemberReading.guardian`.
+  There was no read-the-field-that-is-already-there outcome as in D23 — the evidence
+  has to be *carried*, so `Derivation` gains `evidence: Option<GuardianEvidence>` and
+  `GuardianState` gets its own `DerivedEdge { member, guardian }`, since the
+  *effective* picture has no business holding per-record evidence. A field present
+  and meaningless is the defect class this corpus keeps finding.
+
+  **The fork, and the call: only backed edges count.** `Unbacked` stays permitted and
+  honest, but it earns nothing — neither the `Guarded` grade nor D23's anchor
+  exemption. `Unbacked` is sound post-founding *only* because it can never strengthen
+  a record; at founding that asymmetry **inverts**, since declaring it would buy the
+  exemption. That is a strengthening self-report, the exact shape D21 and D22 each
+  had to delete. Accepted cost, stated plainly: a bootstrap cluster whose guardians
+  are real but unobserved must name an anchor until a monitor has run.
+
+  **THE FINDING: requiring a signed observation was not enough.** A founder signed a
+  real, verifying observation of its own cluster's edges — and the charter graded
+  `Guarded` with no anchor, both passes green. Evidence closed the *forgery* hole and
+  left the *closure* hole wide open. This is the third member of a family: **D23**
+  refused a polity naming itself as its ground, **D25** refused a dissolution naming
+  a successor already on its own roll, and here the closure reaches the *evidence*
+  rather than the claim. `is_backed` now takes the polity and its roll: the observer
+  may be neither. The refusal says which shortfall it is looking at — edges observed
+  from inside versus edges self-declared — because the remedies differ (have somebody
+  outside look, or write down a ground).
+
+  **A judgment call, flagged.** A named **guardian** observing the edge it is about
+  to accept *does* count. It is not on the roll (a machine cannot guard a machine),
+  it co-signs the founding either way, and what it asserts by observing is its own
+  answerability — a burden taken up, not a credit awarded. In that case the keyed
+  human outside the roll *is* the ground, which is exactly D23's picture of
+  `Guarded`. Interest disqualifies praise, not a warning and not an admission
+  (**D24**).
+
+  **The authoring surface.** Founding evidence is *carried*, not resolved by CID as a
+  post-founding `GuardianChange` resolves its own, because at founding there is no
+  archive yet to hold the observation. Python gains `sign_observation`, the
+  pre-archive counterpart of `Archive.record_observation`, and a founding derivation
+  is written either as the bare `(member, guardian_or_None)` pair — still correct for
+  a machine answering to nobody, which claims nothing — or as
+  `(member, guardian, observation_json, unbacked_reason)`. Passing both is refused at
+  the boundary; naming a guardian with neither builds fine and is refused by
+  `check_authority`, deliberately, so the rule lives in one place and a Python
+  negative control can reach it. On the substrate side `build` takes an optional
+  `Signed<Observation>` so the live AT path can back its edges, and falls back to
+  `Unbacked{reason}` honestly when no monitor has run — the provider does not mint
+  backing the rule will reject.
+
+
+- **D28 — the watcher, not the filing (locked 2026-08-03).** **D15** and **D27** each
+  closed a hole in guardian evidence and each named the same successor for what was
+  left: *"evidence remains one observer's perspectival reading — a colluding observer
+  can sign a reading showing any edge, so the gate is legibility rather than
+  prevention, with D24's independence attestation the named successor."* Measured, the
+  residue was both wrongly located and understated.
+
+  **Three probes.**
+
+      1. THE CONFEDERATE AT FOUNDING
+         one keypair, on nobody's roll, signs an Observation showing any edge
+         verify_all = GREEN   check_authority = GREEN
+         grounding  = Guarded, anchor = None, boundary readers = 0
+         cost: 271 µs a voice — 500 observer voices in 136 ms
+
+      2. THE NAMED SUCCESSOR CANNOT REACH IT
+         filing a reader attestation about that observer:
+         REFUSED — "... is not a reader of ...'s founding; there is nothing to attest"
+
+      3. ONE KEY, THREE FILINGS, no relationship to the polity at all
+         readings_for = 3, span 4d, unattended 10d
+         ⇒ en-cohesion: Concern ⇒ en-uplift emits a kith-covenant conduct record
+
+  So: **the successor did not apply.** D24's coherence gate — deliberately stricter
+  than kith-covenant's, requiring the subject to appear in the record — demanded the
+  subject be a *reader of the boundary*, and an observer is not one. The record named
+  as the fix was about a different party, and its own best feature was what blocked it.
+
+  **A load-bearing sentence was false.** D19 made the witness count a safety floor on
+  the reasoning that it "is evidence that somebody was watching". `readings_for` counts
+  *observations*. One key filing three times read as three witnesses.
+
+  **And the attack points outward.** The residue's wording described a polity
+  flattering itself. The sharper case is a stranger *attacking* one: for the price of
+  one keypair, manufacture the `Concern` that crosses the boundary to kith-covenant as
+  a conduct record against a community you have never met. That is a worse capability
+  than buying your own ground, and nothing in the residue mentioned it.
+
+  **What is a gate, and what is only a lens.** The slice divides exactly there, and
+  the division is the whole design.
+
+  - **Distinct watchers is a gate**, because it is not about independence at all. One
+    actor filing three times is one watcher; that is arithmetic, not a judgement about
+    who anyone is. `ObservationWindow::watchers_for` counts distinct observers,
+    `sustained_absence_readings` becomes `sustained_absence_watchers`, and the wrong
+    name is renamed because the wrong name is what made D19's sentence false.
+  - **D19's floor moves with it** — `min_witness_watchers`, preserving distinct
+    watchers per member. This is D19's own finding recurring one decision later: *the
+    retention floor must preserve whatever the grade reads*, or it protects a number
+    nothing uses. Strictly stronger than before, since a member seen ten times by one
+    monitor now has one watcher and pins the horizon outright — the correct answer, and
+    not a deadlock, because the roll may still prune anything by majority.
+  - **Independence is a lens and never a gate.** Gating an escalation on the monitor
+    being vouched for hands a captured polity the simplest defence there is: vouch for
+    nobody, become unwatchable. And an unvouched monitor is the ordinary state of an
+    honest new one, so refusing it would be refusing newness — D24's line, kept.
+
+  **The record is generalized rather than duplicated.**
+  `ReaderIndependenceAttestation` becomes `IndependenceAttestation { polity, subject,
+  role, attesting_party, kind, basis, attested_at }` over
+  `AttestedRole { BoundaryReader, Observer }`, and the entry becomes
+  `IndependenceAttested`. The two roles are the same claim about the same kind of
+  party and share one set of counting rules — the three stake buckets, the
+  survives-dissolution rule, the unprunable rule. Only the coherence gate differs,
+  because each role is checkable against a different part of the log: a boundary
+  reader is fixed at genesis, while **observers accrue**, so that half reads the log
+  up to the filing. An accepted API break, taken over a fourteenth sibling entry that
+  would have written the bucket logic twice — the copy kith-covenant's §2 slice
+  deliberately avoided by factoring `check_roster_caps`.
+
+  A consequence worth naming: **a monitor must speak before it can be vouched for.**
+  Pre-registering a witness is the sockpuppet move with a longer setup. And a key may
+  hold both roles, where **a voucher for one is not a voucher for the other** —
+  vouching is for a party *in a capacity*, since what an outsider can speak to is a
+  relationship, not an identity in the abstract.
+
+  **The read-models.** `independence(archive, polity, role, as_of)` with
+  `reader_independence` / `observer_independence` as thin wrappers;
+  `independent_observation`, the observer counterpart of D24's
+  `independent_corroboration`, which also reports `unvouched` so that the absence of
+  vouching is visible rather than silently read as its presence; and
+  `independent_grounding`, which says how many of the founding edges that earned
+  `Guarded` rest on a monitor somebody was willing to be named for. That last is a
+  separate accruing model rather than a field on `founding_legitimacy`, on that model's
+  charter-alone property. `CohesionReport` gains `watchers`
+  (`distinct` / `vouched` / `contested`), reported beside the escalation it qualifies
+  and read by no component.
+
+  **Also found:** the tests. Switching the grade to distinct watchers broke **thirteen
+  green tests** — six in Rust (`en-charter`, `en-host`) and seven in Python
+  (`test_monitor`, `test_store`) — every one of which satisfied a floor justified as
+  "somebody was watching" using a single monitor filing repeatedly. The fixtures
+  (`observed_polity`, en-host's `Fixture`, `_observed_log`, `_absent_machine`,
+  `_watched`) each held one `monitor`. This is the shape D27 found and D23 found before
+  it: the tests asserted the hole was correct. All rotate over three now, and the
+  lone-actor case is a test of its own.
+
+  **The honest limit.** Distinct keys are still cheap — five minted monitors are five
+  real watchers and the count says so truthfully. What D28 buys is that a reader of a
+  report can tell three independent monitors from three keys, where before it could not
+  even tell three keys from *one key filing three times*. Beyond that the lens depends
+  on outsiders choosing to write attestations, and nothing compels them.
+
+
+- **D29 — the rite has movements, and the substrate is required of those who govern
+  (locked 2026-08-04).** D13 left one thing owed: *"the multi-movement choreography of
+  the rite (v1 records its completion, not its movements)"*. Measuring it first turned a
+  design item into a design item plus two defects.
+
+  **What the doctrine settles.** `recognition_protocols.md` §"The intra-community layer"
+  places the five-movement rite at exactly this tier — each community performs it *"on
+  its own envoys and representative machines… in the language of the community's own
+  substrate"*, and *"the five movements carry their full content at this layer"*. So the
+  movements belong to the polity's own rite, and KC's `Recitation` (five movement
+  strings, refused when any is empty) is the shape one level up.
+
+  **What v1 recorded.** Measured: an induction carried `{ polity, member, kind,
+  witnesses, affirmed_at }`, so a rite held over a week with an officer presiding and one
+  performed in a second by a majority signing a blank produced **identical record
+  shapes**, both authorized. There was nowhere to put the week, the movements, the
+  presiding, or what the inductee received. The only cost the rite carried was turnout.
+
+  **F1 — induction was decorative for authority.** `prior.inducted` was read at exactly
+  one site: the affirmation rule itself (no double induction, no re-affirmation before
+  induction). No other rule in the tier read it. Measured, a roll of three inducted
+  founders plus six members who never were, **every pass green**: the un-inducted
+  majority conferred `Inductor` on one of its own, amended the polity's commitments,
+  expelled a founder, and presided over a newcomer's induction into a substrate none of
+  them had received. The lens saw it (`stale_members` 6 of 9) — legibility without
+  refusal, which is the line kith-covenant's §2 had just crossed one tier up.
+
+  **F2 — "inducted by ratifying the charter" was not what happened.** D13's own sentence
+  says ratifying is a founding member's induction; the seed read the founding **roll**,
+  so a roll of seven ratified by four reported **seven** inducted, the three non-signers
+  dated `founded_at`. D19's "somebody was watching" shape again — a load-bearing
+  sentence the code did not implement. The two sets are now distinct in the type:
+  `founding_members` is the boundary D21's exclusions and dissents are measured against,
+  `ratifiers` is the induction seed, and a listed founder who never signed is on the roll
+  and un-inducted — an honest state the tier already had a name for.
+
+  **The record.** A fourteenth entry, `RiteMovementRecorded(Signed<RiteMovement>)`, over
+  `Movement { Substrate { names }, Fallenness, Recognition, CommonVirtue { commits_to },
+  NonUltimacy { names_anchor } }` — each variant carrying only what its own movement can
+  be held to, so a rule cannot check the wrong field and a movement that names nothing
+  checkable says so in the type. The inductee recites and signs; everyone attending
+  co-signs, and **attendees must already hold the substrate**, because the substrate is
+  transmitted by those who hold it.
+
+  **Cited, not carried** — deliberately the opposite of D15/D27's rule for guardian
+  evidence, and for the reason that rule exists: a citation is unsafe when what it points
+  at can be *pruned*, and `is_prunable` matches nothing but an observation. A movement
+  cannot vanish, so citing is sound — and citing is what puts the rite in the log *as it
+  happens*, which carrying it inline would hide.
+
+  **Order is semantic; duration is not required.** Movement 1 always opens a rite (and
+  re-opening abandons any attempt in progress, so an unfinished rite cannot deadlock a
+  member forever); every other movement must be the immediate successor of the last, and
+  may not predate it. A rite performed in one sitting is legitimate — the doctrine never
+  demands a span, only that the movements happen — so duration became a **lens**.
+
+  **Coherence with the charter, never content.** Movement 1 must name the chartered
+  substrate; movement 4 must commit to exactly the commitments in force at that instant;
+  movement 5 must name the chartered anchor, and names nothing where the charter is
+  `Bare` (D23's honest state). Movements 2 and 3 are presence-only: no rule can read
+  contrition or recognition, and a gate that pretended to would be the hollowest thing in
+  the tier. This is D24/D28's line — coherence with the record is checkable, the truth of
+  the claim never is. (Writing the demo tripped this rule against a hardcoded substrate
+  name, which is the rule working.)
+
+  **A witness counts only if present for every movement.** The completion cites its
+  rite's five CIDs in order and may name as witnesses only the intersection of the
+  movements' attendance. Otherwise a "week-long rite" is five records with disjoint
+  signers and nobody attended it — **D28's arithmetic one record over**: count the people
+  present, not the signatures collected.
+
+  **F1's fix: the majority is of the members who hold the substrate.** `seasoned_members`
+  and `deciding_weight` are the one representation, read by every deliberative threshold
+  in the tier (amendment, admission, expulsion, conferral, revocation, the three
+  guardian arms, both envoy routes, pruning, dissolution, induction). An un-inducted
+  member may not hold an office — refused at conferral *and* dropped from
+  `effective_holders`, lapsing and reviving exactly as the roll rule does — and may not
+  attend a rite. `is_machine_majority` deliberately still reads the whole roll: it asks
+  what the polity is made of, not who decides.
+
+  **The denominator is the inducted roll, not the whole roll.** If un-inducted members
+  padded the denominator while carrying no weight, admitting people would be a way to
+  freeze a polity — the mirror hazard, and worse than the one being closed. They are
+  simply not counted on either side. The honest consequence is that a polity can expel
+  its way to nobody holding the substrate, at which point it can take no act at all;
+  `en-cohesion` names that state rather than the authority pass inventing a rescue.
+
+  **What the monitor gained.** `rite_state` reports each rite's movements, span,
+  attendance-throughout and attrition, and which rites were begun and never finished.
+  `en-cohesion` grades a **cheapening ceremony** (the latest completed rite shorter than
+  the first — against the first, not the median, because a uniform drift moves its own
+  recent history, which is `gap_widening_since_founding`'s lesson one measure over) and
+  **attrition within a rite**, both capped at `Notice` like the other trends; abandoned
+  rites are reported and not graded, since nothing in the doctrine says how long a
+  catechumenate may take; and `nobody_holds_the_substrate` reaches `Concern` alone,
+  event-style with no threshold, like a ground's withdrawal.
+
+  **A consequence worth naming: D14's inductee clause is now unreachable.** "An
+  `Inductor` other than the inductee" was written against a case that can no longer be
+  constructed, since an office requires the substrate and an inductee by definition lacks
+  it. Kept, with the shadowing stated where the rule lives, on the same reasoning as
+  kith-covenant's self-CID exclusion — it is the rule's own statement of what it means,
+  and a change that allowed re-induction would need it again. Its test now asserts the
+  stronger rule that replaced it.
+
+  **The tests asserted the hole, for the third time in three slices.** 33 Rust tests and
+  23 Python tests failed on the weight rule alone — almost all of them fixtures that
+  meant "a healthy polity" while ratifying two of three, which since D29 leaves a member
+  who carries nothing. `charter_seasoned` (Rust) and an all-ratifying `found` fixture
+  (Python) say it now. Three needed real rewrites, and one is worth keeping: the ripple
+  test asserted that *admission* moves a later quorum. It does not, and should not — what
+  moves it is the point at which the new member acquires the substrate.
+
+  **Honest limits.** Nothing measures whether a rite was *meant*; presence and coherence
+  are all a rule can reach, and a polity determined to hold empty ceremonies can recite
+  five coherent movements in five seconds — the span lens is what makes that legible
+  rather than invisible. Re-affirmation keeps its bare self-signed form: the doctrine's
+  *"periodic re-affirmation includes a full re-recitation of the five movements"* is the
+  compact-tier generational cadence, and extending movements to renewal is named as
+  follow-up rather than taken silently here.
+
+
+- **D30 — one writer, and a way back for a log two writers forked (locked 2026-08-04).**
+  D20 left the item in one clause: *"nothing LOCKS a store (two writers fail loudly but
+  are not prevented)"*, and assigned it to the host. Measuring it overturned both halves
+  of that sentence.
+
+  **The failure is not loud.** Four scenarios, run against the pre-D30 code:
+
+  1. **Two hosts appending.** Both saves returned `Ok`, and storage became
+     **unloadable** — *"segment starts at 5 but this log ends at 7"*. `recover()`
+     reported **0 bytes**, because the file was not *torn* (every line complete) but
+     *forked*. A polity's archive was left permanently unreadable **with no repair path
+     in the crate at all**, which is the worst state in the tier: the log is the
+     evidence.
+  2. **A stale host compacting.** The silent one, and the one that decided the slice.
+     Host A appended two entries and fsynced them; host B, which had never seen them,
+     pruned and therefore rewrote. B's save returned `Ok(rewrote)`, the reload succeeded
+     and was well-formed, `verify_all` and `check_authority` were both green, and A's
+     entries were **gone**. Worse, A's cursor still read generation 0 index 7, so A's
+     next save reported `Nothing` and never re-wrote them. **This is D20's own failure —
+     a compaction quietly losing signed records — reappearing across *writers* instead
+     of across *cursors*.**
+  3. **Two concurrent rewrites.** Both opened the same `<path>.tmp`, wrote into it, and
+     raced the rename. The winner's save returned `Err(rename: ENOENT)` while its 256941
+     bytes were what storage held; the loser's returned `Ok(64941)` for a log that was
+     gone. **Both outcome reports were wrong, in opposite directions**, and the file
+     loaded cleanly so nothing downstream found out.
+  4. **The same two patterns on `SqliteStore`: identical outcomes.** SQLite's own file
+     locking prevented database corruption and prevented **neither** logical failure.
+
+  The root cause is one sentence: **`save` decided from `self.stored`, an in-memory
+  belief about shared storage, and never checked that belief against storage.**
+
+  **Why exclusion moved into the tier, re-litigating D20.** The argument that put the
+  cursor in the store puts this there too: the store owns the cursor *because* a caller
+  keeping one caused the bug, and "am I the only writer of this file" is the same class
+  of belief about shared storage. Scenario 4 is the evidence that it is not an
+  operational concern a careful host can discharge — SQLite had real file locking
+  underneath and lost the entries anyway. What stays the host's is the **policy** on a
+  refusal: retry, back off, or exit. That is the same line D20 drew around the clock —
+  the tier decides *what is safe*, the host decides *what to do about it*.
+
+  **Two mechanisms, because neither reaches the other's case.** A **compare-and-swap**
+  (`check_not_forked`) reads where storage actually ends immediately before writing and
+  refuses if that is not where this store left it — which catches a stale belief even
+  when the two writers never overlap in time, where there is nothing for a lock to
+  contend for. An **exclusive lock** closes the case the CAS cannot reach: two *fresh*
+  stores, neither of which has a belief to check. Both live in `en-store`; the CAS lives
+  beside `plan_save` so the two backends cannot drift into separate ideas of when a write
+  is safe, which is the reason `plan_save` is shared in the first place.
+
+  **Mechanism, and the traps in it.** The lock is `flock(LOCK_EX|LOCK_NB)` on a
+  `<path>.lock` **sidecar, not the store file** — a rewrite's `rename` swaps the inode, so
+  a lock on the store file would end up held on a file with no name while the next writer
+  locked the new one. `flock` releases when the descriptor closes, **including on process
+  death**, so a leftover `.lock` file is not a stale lock and there is nothing to reap.
+  Non-blocking, because a library on the host's loop does not block (`en_at::source`
+  states the rule for event sources). `FileStore::claim` holds it for a store's lifetime
+  so a host discovers a rival at boot rather than at its first save. Storage's end is read
+  from the **tail segment's header alone** (`en_archive::segment_bounds`, entries skipped
+  via `IgnoredAny`) — O(tail), not O(log), the distinction D20 already had to fix once in
+  `iter_from`. `SqliteStore` needs none of the sidecar: its check goes inside the same
+  `IMMEDIATE` transaction as the write, which is a genuine atomic CAS, and that is where
+  that backend earns its place a second time.
+
+  **Reading is never locked**, and this is a decision rather than an omission. `load`'s
+  only hazard is reading mid-append, already a *named* error (the torn tail), while
+  `rename` gives a reader the old log or the new one and never a mixture. Locking reads
+  would let a writer's claim block a reader, and a reader must always be able to read the
+  evidence.
+
+  **A repair, because refusing forward does nothing for a log already forked** — from two
+  writers before this slice, or from a restored backup, or an `rsync`. `reconcile` lifts
+  the orphaned segments' entries out and **re-appends them at the end of the surviving
+  log**, then rewrites storage as one base segment. Nothing is forgotten and **no CID
+  changes**: `Entry::cid` is `Cid::of(self)` — content-only, not chained — so a receipt
+  naming a moved entry still resolves, which is the property that let D17 carry evidence
+  rather than cite it. Duplicates are rejected by CID, so a replayed segment moves
+  nothing and the repair is idempotent. Dropping the orphans was the alternative, and it
+  was refused for the reason `recover` exists: discarding signed, valid records because
+  two writers raced is the failure this crate was written to stop.
+
+  **The judgment call, stated rather than buried.** `reconcile` *decides the append order*
+  between two writers that were genuinely concurrent, putting the orphan's entries after
+  the surviving log's. Neither order is more correct — the writes were concurrent — but a
+  state folded in order can differ between them, so the repair reports exactly which CIDs
+  it moved.
+
+  **The tests asserted the hole, for the fourth slice running — and this one passed for
+  the wrong reason.** Exactly one green test broke:
+  `a_second_store_over_the_same_file_cannot_append_from_a_stale_cursor`, whose comment
+  claimed two writers *"must fail loudly"* while its assertions were `save(..).unwrap()`
+  and `assert!(out.rewrote)` — i.e. it asserted the stale writer's rewrite **succeeding**.
+  It looked harmless only because both writers saved the *same* compacted archive, so the
+  overwrite replaced the log with identical content and nothing was visibly lost. Give
+  them different content, as two live hosts have, and the same code path is scenario 2.
+  This is D28's `the_most_sparsely_watched_member` shape again: one green test isolating
+  nothing.
+
+  **And the reference host caught a defect in the fix**, which is what a reference host is
+  for. `load` on a path that does not exist yet legitimately reports a zero-entry log, and
+  the first version of the CAS read that as *storage having been emptied* — refusing a
+  polity its founding save, against the crate's own promise that a first run needs no
+  special case. Absent storage and an empty generation-0 log are now normalized to the
+  same fact, and the confusion it must *not* be (a store that wrote a real log and comes
+  back to nothing) keeps its own distinct diagnosis.
+
+  **Honest limits.** (1) `flock` is advisory and POSIX-only; on a non-unix target, or a
+  filesystem whose `flock` does not carry across hosts, the CAS carries alone and what is
+  lost is the early clean refusal, not the guarantee. (2) The CAS is a **refusal, not
+  coordination** — two hosts that genuinely both want to write must still be resolved by
+  whoever supervises them; the tier's contribution is that neither can destroy the log
+  while they argue. (3) One control did not fire and is reported as such: moving the
+  SQLite check outside its transaction broke nothing, because the test's writers act
+  sequentially and never contend the window. The `IMMEDIATE` placement rests on reasoning
+  about that window rather than on a test that distinguishes it.
+
 
 ## Open questions (round 2)
 
@@ -1461,7 +2002,7 @@ relation KC governs) and from the anonymous nodes AT knows. Rust crate prefix
 
 ## Status & next steps
 
-Decisions D1–D25 locked; **every open question Q1–Q9 resolved**. Build order (steps 1–5
+Decisions D1–D30 locked; **every open question Q1–Q9 resolved**. Build order (steps 1–5
 **built**):
 
 1. ✅ Scaffold the `ethne` workspace (D2) with `en-core` deps on `kc-core`, and a
@@ -1483,21 +2024,21 @@ Decisions D1–D25 locked; **every open question Q1–Q9 resolved**. Build order
    + `SuccessorLink` extracted to `kc-core` (D9). `en-cohesion` grades coherence
    erosion (`None`/`Notice`/`Concern`) off the chartered-roll vs. current-candidate
    diff, staying `kc-core`-only. `en-uplift` (the crate holding the confined
-   KC-record deps, D10) emits the four border artifacts: the `CommunityIdentity`
+   KC-record deps, D10) emits the border artifacts: the `CommunityIdentity`
    handoff, the `Concern` conduct record on `Concern`-level erosion (neutral
    `Other("coherence-erosion")` bearing), a ratified `fission` bundle (two
    successor identities + two signed `SuccessorLink`s + the predecessor's
-   `CharterDissolution`, a new `en-charter` charter-lifecycle record), and — since
+   `CharterDissolution`, a new `en-charter` charter-lifecycle record), — since
    D14 — the envoy `SpeakerDelegation` for whoever the polity has authorized to
-   speak for it. `cargo tree`
+   speak for it, and — since **D26** — the `MemberRoll`. `cargo tree`
    confirms all core + monitor crates remain `kc-core`-only and that both
    KC-record couplings (`kc-conduct`, and `kc-identity` since D14) stop at
    `en-uplift`.
 
 Deferred (later slices): the full intra/inter ceremony rites for envoy recognition
-(KC's job once it holds the `CommunityIdentity`) and the multi-movement
-choreography of the intra-community rite (v1 records the rite's completion, not its
-movements); the at-ffi decoder that would fill these fields from a live node, and
+(KC's job once it holds the `CommunityIdentity`), and — since **D29** built the rite's
+movements — a *re-recitation* of them at re-affirmation, which the doctrine gives a
+generational cadence one tier up; the at-ffi decoder that would fill these fields from a live node, and
 the AT-side signal it needs before `MemberCandidate::reputation: None` is reachable
 at all (AT collapses "no history" into `PREREP_NEUTRAL` at its own API boundary —
 see D18); formerly-deferred

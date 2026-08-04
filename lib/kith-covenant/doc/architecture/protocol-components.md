@@ -226,11 +226,45 @@ carried here directly: see §10 and "Open design questions" below.
 > insiders are reporting from one insider filing many times. Python gains
 > `insider_ring` / `attest_insider` (the source's own step, performed without handing
 > over its key) / `file_whistleblower` / `open_source_share` / `reveal_source` /
-> `exculpate_source`. The honest limits — hand-rolled unaudited crypto, a ring of
-> *speakers* rather than members, globally linkable source tags, signing-key reuse for
-> key agreement, and framing made answerable rather than impossible — are set out in
+> `exculpate_source`. The honest limits — hand-rolled unaudited crypto, globally
+> linkable source tags, signing-key reuse for key agreement, and framing made
+> answerable rather than impossible — are set out in
 > [whistleblower-crypto.md](whistleblower-crypto.md). **Item 8.3 (out-of-band
 > transport) remains, and remains deployment-gated.**
+>
+> **Built (v5, 2026-08-03).** The ring was a ring of *speakers*, which the v4 slice
+> recorded as an honest limit and named the polity tier as the feed for. A
+> `MemberRollPublished` record now carries the individual key-holders a community
+> names as its own, `insider_keys` unions them into the ring, and
+> `en-uplift::member_roll` publishes a polity's charter roll as border artifact #6 —
+> so an insider holding no delegation can file, and the corpus's anonymity set went
+> from 3 to the size of a roll. Measuring first found the larger half: the insider set
+> was computed at verification time against the *current* archive tip, so **the
+> accused community could invalidate every filing against it by appending one
+> delegation backdated ahead of `filed_at`, or narrow the suspect set around a source
+> with a backdated revocation.** The ring is now computed over the records preceding
+> the filing in insertion order (`insider_keys_upto`), the principle §5's
+> `current_rung` already stated and §8 did not apply. Rolls are **unioned, never
+> superseded** — once named an insider, always one — because the alternative is a
+> lever for shrinking the suspect set around whoever just left; a departed member
+> keeps their channel, which is the direction to err in. `observer_dashboard` gains
+> `anonymity_set_by_community` (ascending), so a channel that exists in name only is
+> visible as the 1 or 2 it is.
+>
+> **Built (v6, 2026-08-03).** Mediators now carry an `encryption_pubkey` distinct from
+> their signing key, so §8 custody stops sealing shares to the key a panelist also signs
+> with (the authority pass refuses a registration where the two are equal). Measuring
+> that item found a live defect underneath it: `ThresholdCustody::seal` took
+> `(DidKey, PubKey)` pairs with **nothing checking that the two corresponded**, so a
+> filing could name exactly the reception panel and seal every share to one outsider's
+> key — structurally valid, fully authorized, `0 of 3` named custodians able to open
+> anything, and the recipient key recorded nowhere. **The lawful reveal path was
+> permanently dead with nothing on the record to show it**, and the majority-threshold
+> rule was defeated by a single actor. The sealing key is now resolved rather than
+> supplied, recorded on each share, and required to be the holder's registered key at
+> `filed_at`; `file_whistleblower` accepts no keys from its caller. This is the same
+> late-detection failure the module rejects plain Shamir for, in the half it had not
+> been applied to.
 >
 > **§9 Substrate-deference test (v1, 2026-07-21).** The `kc-constitution` crate
 > operationalizes non-ultimacy as a versioned, signed constitutional layer (the
@@ -326,7 +360,7 @@ carried here directly: see §10 and "Open design questions" below.
 > scenarios be "run continuously in the simulation environment, with detection latency
 > and damage bounds as the primary metrics". Measurement first: **`run_harness()` is a
 > constant function** — 200 consecutive runs returned byte-identical latency and damage
-> for all eight scenarios — so a scheduler wrapped around it would recompute the same
+> for all nine scenarios — so a scheduler wrapped around it would recompute the same
 > eight numbers forever. Continuous execution is informative only if the runs *differ*,
 > which makes the missing piece parameter variation, not iteration. (The same
 > measurement establishes something worth keeping, since fresh Ed25519 keys are drawn
@@ -679,8 +713,124 @@ must not conflate them.
   period; sponsorship patterns that repeatedly precede misconduct
   are surfaced as capture signatures (§6, §8).
 - **Probationary-status enforcement**: probationary members carry
-  no deliberative weight in admissions, mediator selection, or
-  designation procedures until the period completes.
+  no deliberative weight in **any second-class decision** until the
+  period completes — admissions, mediator selection and designation
+  procedures first, and every other compact-wide act on the same
+  reasoning. First-class local voice is untouched.
+
+> **§2 admissions integrity now enforced (2026-08-03).** The four
+> elements above had their *detection* half built — the composition-drift
+> dashboard, sponsorship records with staked standing, and harness
+> scenario 7 — and none of the gate. The compact's answer to admissions
+> capture was to make it legible; it now refuses it.
+>
+> Measurement first, and the measurements are kept as the regression
+> tests (`kc-archive/src/tests.rs`, `mod admissions_integrity`):
+>
+> - A **faction of one seated 5 of 5** attempted entrants with
+>   `verify_all` and `check_authority` both green at a quorum threshold
+>   of three. Every admission was procedurally clean, which is what §7
+>   says makes this vector hard to see.
+> - A community **inside its own probation window vouched for the next
+>   entrant** and was authorized: today's entrant was tomorrow's sponsor.
+> - `RecognitionStanding` was read by **no authority rule anywhere**, and
+>   `InterCommunityWitness` had **no structural rule at all** — not even
+>   the quorum, because the record is not second-class.
+> - Census: **all 10 admission records in the tree were compact
+>   *formations***. The entrant-joins-a-standing-compact path that move 7
+>   attacks had never been exercised by a test, which is why the hole
+>   survived a status-list reconciliation.
+>
+> **What is enforced.** Probation is a *de-weighting* rather than a
+> silencing, in the three domains §7 names. A probationary community may
+> not sponsor an entrant (refusal, not de-weighting: nothing counts
+> vouches, so a weightless vouch would be an inert record) and may not
+> seat mediators or examiners; its panelists do not count toward
+> `panel_min`; and it does not count toward a designation or admitting
+> quorum. An admission into a standing compact must carry an admitting
+> quorum of sitting, non-probationary members, a sponsor for every
+> entrant, and an examining panel of seated examiners spanning at least
+> two communities. Examining seats are bounded, rotated, and pool-share
+> capped by `ExaminerCaps` — which shares one implementation of those
+> rules with the §8 observer caps rather than restating them.
+>
+> The admitted set is **derived from the archive, never declared**: a
+> participant counts as sitting only because an earlier record says so,
+> and priors are read in insertion order, so no admission can be
+> retroactively legitimized by one appended afterward. Compact formation
+> is exempt — its participants are founders, not entrants.
+>
+> **Two findings.** A re-entry's `completed_at` is the instant its own
+> probation window opens, so the petitioner was being de-weighted by the
+> very record it is party to; the fix is a self-exclusion, and it would
+> have *opened* a hole, because self-sponsorship had been refused only as
+> a side effect of that same self-reference. And the withholding was
+> evadable outright: probation only opens when somebody stakes standing,
+> so three aligned communities that seated examiners and simply never
+> vouched seated 5 of 5 entrants. Sponsor stake is now required of every
+> admission, which is what makes probation load-bearing rather than
+> opt-in.
+>
+> **Scope decision (settled 2026-08-04).** The slice above enforced exactly
+> the three domains §7 enumerates and left the wider reading open. It is now
+> the **purposive** one: probationary weight counts toward **no** second-class
+> quorum, because §7's stated reason — *"otherwise each admitted entrant
+> immediately amplifies the faction that admitted it"* — is general, and
+> second-class is precisely the class of acts whose cost is compact-wide. The
+> rule is written as the *class* rather than as a list of record types, so a
+> second-class record added later inherits the withholding instead of quietly
+> escaping it.
+>
+> Measured before it was written, and kept as `mod probation_reach`: three
+> communities admitted that year, none of them standing, **chartered and then
+> contracted the compact-incapable list by themselves** — the list of matters
+> that may not be compacted away, upstream of every other protection here.
+> Second-class commons sanctions and second-class escalation rungs went the
+> same way.
+>
+> **The finding: extending the generic quorum was not enough.** With the
+> withholding applied to every second-class record and nothing else changed, a
+> faction *at* the quorum still reached the asymmetric **contraction** bars
+> (`quorum + 1`) by topping itself up with entrants, because those bars counted
+> raw distinct signatures. The ordinary quorum was met on standing weight and
+> the higher bar on withheld weight, so the `+1` collapsed to the ordinary
+> quorum. Both contraction bars, the commons second-class floor and the
+> second-class rung floor now count weight through one
+> `deliberative_weight` counter — the same lesson §2 recorded for
+> `probationary_at` (one representation, so a gate and a bar cannot disagree)
+> and ethne's D19 recorded for retention (a floor must preserve what the grade
+> reads).
+>
+> The five **mediator panels** were swept at the same time: only the mediation
+> panel filtered probationary homes, so the four others — injunction, injunction
+> challenge, restitution verifier, whistleblower reception — counted seated
+> panelists from probationary communities at full weight. They now share one
+> `check_mediator_panel` implementation, on the reasoning that copying the
+> filter four times leaves the fifth panel to reintroduce the hole.
+>
+> **Deliberately not de-weighted:** the structured-skepticism *corroborator*
+> count (§6/move 4). A corroboration is evidence, not deliberative weight, and
+> KC keeps evidentiary plurality a detector signal rather than an authority
+> refusal.
+>
+> **The honest consequence**, surfaced by `deliberative_capacity` rather than
+> left to be met as an unaccountable refusal: a compact that admits a cohort
+> all at once can drop below its own quorum and be unable to take *any*
+> second-class decision until a window closes. It can also be able to expand
+> its protections while unable to contract them, which is the direction the
+> asymmetry is meant to run. Both recover by the passage of time alone.
+>
+> **Honest limits.** `compact_label` is a self-declared string, so a
+> mislabelled record reads as the formation of some other compact; it
+> cannot forge this compact's roll and a consumer reading by label never
+> sees it, so this is accountability rather than prevention. "Drawn by
+> lot" is **not** enforced: a verifiable lot needs a randomness beacon
+> the compact does not have, so terms, rotation and composition are
+> enforced while selection fairness remains social. Co-presence remains
+> unenforced at the code layer, as §2's own note above says. And the
+> readmission quorum's `ReEntry.decision_class` field is inert — the
+> second-class flag is hard-coded for that record, which is the fail-safe
+> direction but leaves a field nothing reads.
 
 ### 3. Archive / commons of memory
 
@@ -1069,23 +1219,32 @@ notes above:
 | Compact-incapable list as constitutional artifact | §9 | **Built** | `kc-constitution` (`ConstitutionGenesis`; genesis-immutable matters, asymmetric amendment) |
 | Structured-fast cadence as protocol-enforced operating mode | §9 | **Built** | `FastPeriod` + `in_structured_fast`; hard refusal *during* a fast is a documented non-goal (a fast is a disposition, not a compliance regime) |
 | Composition-drift dashboard maintained by observer corps | §8 | **Built** | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
-| Capture-resistance scenario simulation in test harness | §10 | **Built** | `harness.py`: eight scenarios scored against criteria stated in advance, run continuously over a parameterized space |
+| Capture-resistance scenario simulation in test harness | §10 | **Built** | `harness.py`: nine scenarios scored against criteria stated in advance, run continuously over a parameterized space |
 | Sponsor-stake tracking | §2 | **Built** | `SponsorshipRecord` + sponsor concentration in `composition_graph` |
-| Probationary-status enforcement | §2 | **Partial** | `Probationary` standing is *derived* (`kc-reputation`), and nothing gates on it: `RecognitionStanding` is read by no authority rule. The status is reported, not enforced |
-| Credentialing-panel rotation | §2 | **Not built** | Rotation and pool-share caps exist for the §8 observer corps only. The inter-community credentialing runner requires two or more participants and imposes no rotation or composition limit on examiners |
+| Probationary-status enforcement | §2 | **Built (2026-08-03; reach settled 2026-08-04)** | A probationary community may not sponsor an entrant, may not seat mediators or examiners, does not count toward `panel_min` on any of the five panels, and carries no weight toward **any second-class quorum** — including the asymmetric contraction bars, which count weight rather than signatures. `kc_archive::probationary_at` is the one predicate both the gate and `RecognitionStanding` read; `deliberative_weight` is the one counter every bar reads. `deliberative_capacity` reports what the compact can still do |
+| Credentialing-panel rotation | §2 | **Built (2026-08-03)** | `ExaminerRegistry` + `ExaminerCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share — one implementation shared with the §8 observer caps. An admission into a standing compact must be examined by `panel_min` seated examiners spanning two or more communities. Drawing *by lot* is not enforced |
+| Admission as a second-class decision | §2 | **Built (2026-08-03)** | Not previously on this list. An admission into a standing compact needs an admitting quorum of sitting, non-probationary members, so one member plus the entrant's own co-signature no longer seals one |
+| Sponsor stake required of an admission | §2 | **Built (2026-08-03)** | Not previously on this list. Every entrant must arrive vouched for; without it probation is opt-in, since a faction that never vouches opens no window to de-weight |
 
-So the §11 backlog is closed apart from the last two rows, both in
-§2 and both about the *gate* rather than the detectors: a
-probationary status that is computed but not enforced, and an
-examining panel that cannot be packed only because nothing yet
-counts who sits on it. Item 7 of the seven moves — admissions
-integrity — is the one whose component home is therefore
-incompletely realized; its *detection* half (the composition-drift
-dashboard, sponsor concentration, the rejection pattern) is built,
-and its *enforcement* half is not.
+So the §11 backlog is closed, and closing it surfaced two elements of
+`capture_resistance.md` §7 that this list had not carried at all —
+admission as a second-class decision, and the sponsor stake as a
+*requirement* rather than an available record. Both were needed to make
+the first two rows bite: a probationary community that carries no weight
+in admissions needs an admissions quorum to be excluded from, and a
+probation window has to be opened by somebody before there is anything to
+withhold. That is the hazard of reconciling a status list against other
+status lists — it reproduces their omissions. The gate is now the part
+that is built and the *lot* is the part that is not.
 
-The live backlog for the two components that still carry unbuilt
-scope is [`TODO.md`](../../TODO.md).
+Item 7 of the seven moves — admissions integrity — therefore has both
+halves: its detection half (the composition-drift dashboard, sponsor
+concentration, the rejection pattern) and its enforcement half. Harness
+scenario 7 scores it on refusal rather than legibility: a faction acting
+alone seats exactly one community, its co-founder at formation.
+
+The live backlog for the components that still carry unbuilt scope is
+[`TODO.md`](../../TODO.md).
 
 ## Architectural decisions
 

@@ -71,7 +71,7 @@
 //! - **Transmission** — admission puts someone on the roll; *induction* is the
 //!   separate step by which they acquire the substrate, and it is **witnessed by
 //!   the roll**: a majority of current members co-sign alongside the inductee (the
-//!   community receives them, and they participate). Founding members are inducted
+//!   community receives them, and they participate). The charter's ratifiers are inducted
 //!   by ratifying the charter, so they take no induction record and cannot be
 //!   inducted again. *Re-affirmation* is self-signed by an already-inducted member
 //!   — renewal is the member's own act, and its freshness decays
@@ -93,8 +93,9 @@ use en_core::{Cid, DidKey, KcError, KcResult, Timestamp};
 use crate::entry::CharterEntry;
 use crate::state::is_prunable;
 use crate::record::{
-    pruning_digest, AffirmationKind, AmendmentKind, BoundarySource, DissentKind, EnvoyKind,
-    GuardianKind, MembershipKind, Office, OfficeKind,
+    pruning_digest, AffirmationKind, AmendmentKind, AttestedRole, BoundarySource, DissentKind,
+    EnvoyKind, GuardianEvidence, GuardianKind, MembershipKind, Movement, Observation, Office,
+    OfficeKind,
 };
 
 /// How far back an effective `CharterKeeper` must reach before its delegated power
@@ -136,6 +137,17 @@ fn did_set(dids: &[DidKey]) -> BTreeSet<String> {
     dids.iter().map(|d| d.as_str().to_string()).collect()
 }
 
+/// One recorded movement, as the authority pass needs it: who is being inducted, where
+/// the movement sits in the sequence, who was there, when, and which entry it is — the
+/// completion cites these CIDs, so they are part of the state (**D29**).
+struct RitePoint {
+    member: DidKey,
+    order: u8,
+    attending: Vec<DidKey>,
+    recited_at: Timestamp,
+    cid: Cid,
+}
+
 struct Reconstructed {
     chartered: bool,
     dissolved: bool,
@@ -145,9 +157,17 @@ struct Reconstructed {
     /// Raw office grants (Confer − Resign/Revoke), not yet intersected with the
     /// live roll; the authority pass computes the effective holdings.
     offices: Vec<(Office, DidKey)>,
-    /// The founding roll, set once at genesis and never mutated: founding members
-    /// are inducted by ratifying the charter.
+    /// The founding roll, set once at genesis and never mutated. This is the
+    /// *boundary* the founding drew — what D21's exclusions are measured against and
+    /// what a `BoundaryDissent` is checked for coherence with. It is deliberately
+    /// **not** the induction seed: see `ratifiers`.
     founding_members: Vec<DidKey>,
+    /// Who actually signed the charter. Ratifying *is* a founding member's induction
+    /// (D13), so this — never the founding roll — is what seeds the inducted set
+    /// (**D29**). A founding needs only a majority, so the two sets differ whenever a
+    /// listed member did not sign, and treating them as one handed the substrate to
+    /// members who had recited nothing at an instant they were absent from.
+    ratifiers: Vec<DidKey>,
     /// Members with a prior `Induction` record.
     inducted: Vec<DidKey>,
     /// Derived-party designations (founding derivations + `GuardianChange`s), as
@@ -173,11 +193,27 @@ struct Reconstructed {
     /// a disavowal must be: the ground is *in* the record, unlike an omitted party,
     /// so unlike a dissent the filer is checkable.
     anchor: Option<DidKey>,
+    /// The chartered substrate's name, set once at genesis and never mutated. What a
+    /// rite's first movement must name (**D29**): a rite that recites some other
+    /// ground is not this polity's rite. Checked for identity, never read for meaning.
+    substrate_name: String,
+    /// Every rite movement recorded so far for this polity, in log order (**D29**). A
+    /// member's *current* rite is the tail since their last movement 1, because opening
+    /// a rite abandons any attempt in progress — which is what stops an abandoned rite
+    /// from deadlocking a member forever.
+    rite_movements: Vec<RitePoint>,
     /// Every reader that signed a reading behind the founding boundary, set once at
     /// genesis (design **D24**). An independence attestation must name one of these:
     /// like the anchor, a reader is *in* the record, so the subject of the claim is
     /// checkable even though the claim itself never can be.
     founding_readers: BTreeSet<String>,
+    /// Every observer the log has carried so far — a filed `Observed` entry, or an
+    /// observation carried as guardian evidence at founding or on a `GuardianChange`
+    /// (design **D28**). The observer counterpart of `founding_readers`, and unlike it
+    /// this one **accrues**: monitors arrive over the polity's life, so an attestation
+    /// about one is checkable against the log up to the filing rather than against
+    /// genesis.
+    observers: BTreeSet<String>,
 }
 
 /// Reconstruct a polity's charter state from entries strictly before `upto`.
@@ -191,12 +227,16 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
         in_force: BTreeSet::new(),
         offices: Vec::new(),
         founding_members: Vec::new(),
+        ratifiers: Vec::new(),
         inducted: Vec::new(),
         derivations: Vec::new(),
         envoys: Vec::new(),
         founding_exclusions: BTreeSet::new(),
         anchor: None,
+        substrate_name: String::new(),
+        rite_movements: Vec::new(),
         founding_readers: BTreeSet::new(),
+        observers: BTreeSet::new(),
     };
     for (idx, (_cid, e)) in archive.iter().enumerate() {
         if idx >= upto {
@@ -207,6 +247,7 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                 r.chartered = true;
                 r.members = s.payload.members.clone();
                 r.founding_members = s.payload.members.clone();
+                r.ratifiers = s.payload.ratifiers.clone();
                 for c in &s.payload.founding_commitments {
                     r.founding.insert(c.key.clone());
                     r.in_force.insert(c.key.clone());
@@ -218,8 +259,17 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                     r.founding_exclusions.insert(x.member.as_str().to_string());
                 }
                 r.anchor = s.payload.substrate.anchor.clone();
+                r.substrate_name = s.payload.substrate.name.clone();
                 for rd in s.payload.attestation.source.readings() {
                     r.founding_readers.insert(rd.payload.reader.as_str().to_string());
+                }
+                // D28 — a monitor whose observation the founding CARRIED as guardian
+                // evidence has observed this polity as surely as one who filed an
+                // entry of its own; the record is just held somewhere else.
+                for d in &s.payload.derivations {
+                    if let Some(GuardianEvidence::Observed(ob)) = &d.evidence {
+                        r.observers.insert(ob.payload.observer.as_str().to_string());
+                    }
                 }
             }
             CharterEntry::CommitmentAmended(s) if &s.payload.polity == polity => match s.payload.kind {
@@ -259,6 +309,9 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
             }
             CharterEntry::GuardianChanged(s) if &s.payload.polity == polity => {
                 let gc = &s.payload;
+                if let Some(GuardianEvidence::Observed(ob)) = &gc.evidence {
+                    r.observers.insert(ob.payload.observer.as_str().to_string());
+                }
                 match gc.kind {
                     GuardianKind::Designate => {
                         if !r.derivations.iter().any(|(m, _)| m == &gc.member) {
@@ -319,10 +372,31 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
             // disavowal is the ground's, which cannot rewrite a genesis-immutable
             // substrate; and an independence attestation is a third party's account of
             // a reader, counted by a lens and enforced by no rule.
+            //
+            // An observation still records *that a monitor spoke*, which is not the
+            // polity's state but is a fact about the log — the same distinction the
+            // founding readers already draw. `observers` is that ledger, and D28's
+            // coherence gate is the only thing that reads it.
+            CharterEntry::Observed(s) if &s.payload.polity == polity => {
+                r.observers.insert(s.payload.observer.as_str().to_string());
+            }
+            // A movement decides nothing, but the rite's progress is state: the next
+            // movement's order, and the completion's attendance count, both read it.
+            CharterEntry::RiteMovementRecorded(s) if &s.payload.polity == polity => {
+                let m = &s.payload;
+                r.rite_movements.push(RitePoint {
+                    member: m.member.clone(),
+                    order: m.movement.order(),
+                    attending: m.attending.clone(),
+                    recited_at: m.recited_at,
+                    cid: *_cid,
+                });
+            }
+            CharterEntry::RiteMovementRecorded(_) => {}
             CharterEntry::Observed(_)
             | CharterEntry::BoundaryDissented(_)
             | CharterEntry::SubstrateDisavowed(_)
-            | CharterEntry::ReaderIndependenceAttested(_) => {}
+            | CharterEntry::IndependenceAttested(_) => {}
             CharterEntry::ObservationsPruned(s) if &s.payload.polity == polity => {
                 let h = s.payload.horizon;
                 if r.prune_horizon.is_none_or(|prev| h > prev) {
@@ -335,16 +409,116 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
     r
 }
 
+/// The members who hold the substrate, and so carry deliberative weight (**D29**).
+///
+/// D13 made induction *"the distinct step by which they acquire the substrate"* and
+/// nothing read it: measured, a roll of three inducted founders plus six members who
+/// never were let the six confer an office on one of their own, amend the polity's
+/// commitments, expel a founder, and preside over a newcomer's induction into a
+/// substrate none of them had received — every pass green. A polity is constituted by
+/// its substrate, so governing it is for those who hold it.
+///
+/// The whole roll is still the roll: un-inducted members are members, may depart, may
+/// be expelled, may hold their own first-class acts. What they do not carry is weight.
+fn seasoned_members(prior: &Reconstructed) -> BTreeSet<String> {
+    prior
+        .members
+        .iter()
+        .filter(|m| prior.ratifiers.contains(m) || prior.inducted.contains(m))
+        .map(|m| m.as_str().to_string())
+        .collect()
+}
+
+/// How many of `deciders` carry deliberative weight (**D29**).
+///
+/// A de-weighting, not a refusal: an un-inducted decider may be named and may sign —
+/// the record still says it acted — and its signature simply does not count toward the
+/// threshold. Refusing the record instead would mean a polity had to know who was
+/// inducted before it could author anything, and would throw away the honest fact that
+/// the member was there.
+fn deciding_weight(prior: &Reconstructed, deciders: &[DidKey]) -> usize {
+    let seasoned = seasoned_members(prior);
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    deciders
+        .iter()
+        .filter(|d| seen.insert(d.as_str()))
+        .filter(|d| seasoned.contains(d.as_str()))
+        .count()
+}
+
+/// The movements of `member`'s **current** rite, in log order: the tail since their
+/// last movement 1 (design **D29**).
+///
+/// A `Substrate` movement opens a rite and abandons whatever was in progress, so the
+/// tail is the whole answer — no rite identifier is needed and an abandoned attempt
+/// cannot deadlock a member who wants to start again.
+fn current_rite<'a>(prior: &'a Reconstructed, member: &DidKey) -> Vec<&'a RitePoint> {
+    let mine: Vec<&RitePoint> =
+        prior.rite_movements.iter().filter(|p| &p.member == member).collect();
+    match mine.iter().rposition(|p| p.order == 1) {
+        Some(i) => mine[i..].to_vec(),
+        None => Vec::new(),
+    }
+}
+
+/// The members who attended **every** movement of `member`'s current rite, and the
+/// rite's span, or `None` if the rite is not complete (design **D29**).
+///
+/// Attendance is an intersection rather than a union because that is the difference
+/// between a ceremony and a stack of signatures: five movements signed by five
+/// disjoint groups is a rite nobody was at. D28 made the same correction for
+/// observations — count the watchers, not the filings.
+fn completed_rite(prior: &Reconstructed, member: &DidKey) -> Option<CompleteRite> {
+    let rite = current_rite(prior, member);
+    if rite.len() != Movement::COUNT as usize {
+        return None;
+    }
+    // The ordering rule enforced at authoring time means a complete tail is 1..=5.
+    if rite.iter().enumerate().any(|(i, p)| p.order != i as u8 + 1) {
+        return None;
+    }
+    let mut throughout: Option<BTreeSet<String>> = None;
+    for p in &rite {
+        let here = did_set(&p.attending);
+        throughout = Some(match throughout {
+            None => here,
+            Some(prev) => prev.intersection(&here).cloned().collect(),
+        });
+    }
+    Some(CompleteRite {
+        throughout: throughout.unwrap_or_default(),
+        cids: rite.iter().map(|p| p.cid).collect(),
+        last_at: rite[rite.len() - 1].recited_at,
+    })
+}
+
+/// A complete rite as the completion rule needs it (**D29**).
+struct CompleteRite {
+    /// Members who attended every movement — the only ones who may witness.
+    throughout: BTreeSet<String>,
+    /// The movement entries, in order; the completion must cite exactly these.
+    cids: Vec<Cid>,
+    /// When the last movement was recited; a completion cannot predate it.
+    last_at: Timestamp,
+}
+
 /// Who *effectively* holds `office` as of the reconstructed point: a raw grant
 /// counts only while its holder is on the roll (D12 — a holding lapses when its
 /// holder departs and revives when they return). Both use-time rules (D14) read
 /// the holdings through this, never the raw grants, so a departed officer neither
 /// presides nor authorizes.
 fn effective_holders(prior: &Reconstructed, office: &Office) -> BTreeSet<String> {
+    // D29 — and a holding is effective only while its holder holds the *substrate*,
+    // for the reason the roll rule exists: an office is the polity acting through a
+    // member, and a member who has not received what the polity is cannot act for it.
+    // Like the roll rule this lapses and revives rather than revoking: a holder who is
+    // later inducted presides again, with no new conferral.
+    let seasoned = seasoned_members(prior);
     prior
         .offices
         .iter()
         .filter(|(o, h)| o == office && prior.members.contains(h))
+        .filter(|(_, h)| seasoned.contains(h.as_str()))
         .map(|(_, h)| h.as_str().to_string())
         .collect()
 }
@@ -367,6 +541,68 @@ fn effective_derivations(prior: &Reconstructed) -> Vec<(&DidKey, &Option<DidKey>
 fn is_machine_majority(prior: &Reconstructed) -> bool {
     let roll = prior.members.len();
     roll > 0 && effective_derivations(prior).len() >= majority(roll)
+}
+
+
+/// Does a carried observation actually show the edge a [`GuardianChange`] claims?
+///
+/// The evidence half of D15's substrate backing. Everything asserted here is a
+/// property of the carried record itself, so it stays true no matter what the log
+/// later drops (D17) — which is the whole reason the evidence is carried rather than
+/// cited.
+///
+/// The observation's *own* well-formedness (signed by exactly its observer, no
+/// duplicate readings, no stamp postdating the look) is enforced where standalone
+/// observations are, and its signature by `verify_all`. What is checked here is only
+/// the relation between this evidence and this claim.
+fn evidence_shows_edge(
+    ob: &en_core::Signed<Observation>,
+    polity: &DidKey,
+    member: &DidKey,
+    guardian: Option<&DidKey>,
+    decided_at: Timestamp,
+) -> Result<(), String> {
+    let o = &ob.payload;
+    if &o.polity != polity {
+        return Err(format!(
+            "guardian evidence observes {} but the change is for {polity}", o.polity
+        ));
+    }
+    // A reading cannot back a decision it postdates: evidence is what was seen
+    // *before* the polity decided, not a justification assembled afterwards.
+    if o.observed_at > decided_at {
+        return Err(format!(
+            "guardian evidence was observed at {} , after the change decided at {decided_at}",
+            o.observed_at
+        ));
+    }
+    // An observation must be signed by exactly its observer wherever it appears, so
+    // carried evidence cannot be put in somebody else's mouth either.
+    let signers: BTreeSet<String> =
+        ob.signatures.iter().map(|sig| sig.signer_did.clone()).collect();
+    let required: BTreeSet<String> =
+        std::iter::once(o.observer.as_str().to_string()).collect();
+    if signers != required {
+        return Err("guardian evidence must be signed by exactly its observer".into());
+    }
+    let Some(reading) = o.readings.iter().find(|r| &r.member == member) else {
+        return Err(format!(
+            "guardian evidence carries no reading for {member}; a member absent from the \
+             readings was not observed"
+        ));
+    };
+    if reading.guardian.as_ref() != guardian {
+        return Err(match (&reading.guardian, guardian) {
+            (Some(saw), Some(claimed)) => format!(
+                "guardian evidence shows {member} guarded by {saw}, not the claimed {claimed}"
+            ),
+            (None, Some(claimed)) => format!(
+                "guardian evidence shows {member} with no guardian, not the claimed {claimed}"
+            ),
+            _ => format!("guardian evidence disagrees with the claimed edge for {member}"),
+        });
+    }
+    Ok(())
 }
 
 /// All authority violations in the archive, each as `(entry_cid, reason)`.
@@ -568,6 +804,67 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                         continue;
                     }
                 }
+                // D27 — the founding edge must show what stood behind it. D15 demands
+                // this of every later `GuardianChange`; founding derivations asserted
+                // an edge and carried nothing, which was not a cosmetic asymmetry: the
+                // GROUNDED rule below turns on whether *any* edge is guarded, so one
+                // claimed edge with a co-signing confederate exempted a whole machine
+                // cluster from naming a ground. Measured before the slice as
+                // `probe`-shaped: three machines, one asserted edge, no anchor, both
+                // passes green.
+                //
+                // Run *above* the GROUNDED rule on purpose. That rule now counts backed
+                // edges, and validating the evidence first means it can never be reached
+                // with an `Observed` that does not survive `evidence_shows_edge` —
+                // otherwise the order of the two would be load-bearing by accident,
+                // which is the trap the note below this one already names.
+                let mut bad_evidence = false;
+                for d in &p.derivations {
+                    match (&d.evidence, &d.guardian) {
+                        (None, Some(_)) => {
+                            out.push((*cid, format!(
+                                "founding derivation for {} claims a guardian edge with no \
+                                 substrate evidence and no declared override (D27)", d.member
+                            )));
+                            bad_evidence = true;
+                            break;
+                        }
+                        (Some(_), None) => {
+                            // Nothing is claimed, so there is nothing to evidence. A
+                            // machine chartered as answering to nobody is a state, not
+                            // an assertion about the world.
+                            out.push((*cid, format!(
+                                "founding derivation for {} carries substrate evidence but \
+                                 claims no guardian edge", d.member
+                            )));
+                            bad_evidence = true;
+                            break;
+                        }
+                        (None, None) => {}
+                        (Some(GuardianEvidence::Unbacked { reason }), Some(_)) => {
+                            if reason.trim().is_empty() {
+                                out.push((*cid, format!(
+                                    "an unbacked founding guardian edge for {} must say why \
+                                     (D27 override)", d.member
+                                )));
+                                bad_evidence = true;
+                                break;
+                            }
+                        }
+                        (Some(GuardianEvidence::Observed(ob)), Some(g)) => {
+                            if let Err(why) = evidence_shows_edge(
+                                ob, &p.polity, &d.member, Some(g), p.founded_at,
+                            ) {
+                                out.push((*cid, why));
+                                bad_evidence = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if bad_evidence {
+                    continue;
+                }
                 // GROUNDED. The keyed anchor is demanded exactly where nobody could
                 // hold an unkeyed one: every member a machine, and not one of them
                 // answering to a human. A human member holds the statement; a guarded
@@ -580,6 +877,19 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 // roll never had — the checks that refuse such padding run below this
                 // one, and a rule that relied on their order would be load-bearing by
                 // accident.
+                //
+                // Since D27 an edge only counts as guarding if an observation **backed**
+                // it. A declared `Unbacked` override is honest and permitted, but it
+                // cannot buy the exemption: post-founding that override is safe precisely
+                // because it can only weaken a record, and letting it satisfy this rule
+                // would make a self-declaration strengthening — what D21 and D22 each
+                // had to delete.
+                //
+                // Nor may the observation come from inside. A founder who signs one
+                // about the cluster's own edges is the polity vouching for its own
+                // ground, which is the closure D23 refused for the anchor and D25 for a
+                // successor. `is_backed` carries that rule, so the grade cannot drift
+                // from the gate.
                 let derived_on_roll: BTreeSet<&str> = p
                     .derivations
                     .iter()
@@ -587,13 +897,42 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     .filter(|m| members.contains(*m))
                     .collect();
                 let all_derived = derived_on_roll.len() == members.len();
-                let none_guarded = !p.derivations.iter().any(|d| d.guardian.is_some());
+                let none_guarded = !p
+                    .derivations
+                    .iter()
+                    .any(|d| d.is_backed(&p.polity, |o| members.contains(o)));
                 if all_derived && none_guarded && p.substrate.anchor.is_none() {
-                    out.push((*cid, format!(
-                        "a roll of {} machines answering to nobody must name a substrate anchor: \
-                         nobody here can hold a tradition",
-                        p.members.len()
-                    )));
+                    let claimed = p.derivations.iter().filter(|d| d.guardian.is_some()).count();
+                    out.push((*cid, if claimed == 0 {
+                        format!(
+                            "a roll of {} machines answering to nobody must name a substrate \
+                             anchor: nobody here can hold a tradition",
+                            p.members.len()
+                        )
+                    } else {
+                        // The D27 cases: edges are claimed, but their whole warrant comes
+                        // from inside the polity — either declared unbacked outright, or
+                        // observed by the roll about itself. Both are the polity's own
+                        // say-so, and the refusal says which it is looking at, since the
+                        // remedy differs (write down a ground, or have somebody outside
+                        // look).
+                        let inside = p
+                            .derivations
+                            .iter()
+                            .filter(|d| {
+                                matches!(d.evidence, Some(GuardianEvidence::Observed(_)))
+                                    && d.guardian.is_some()
+                            })
+                            .count();
+                        format!(
+                            "a roll of {} machines must name a substrate anchor: of its \
+                             {claimed} guardian edge(s), {inside} rest on an observation \
+                             taken from inside this polity and {} are self-declared — \
+                             nobody here can hold a tradition",
+                            p.members.len(),
+                            claimed - inside,
+                        )
+                    }));
                     continue;
                 }
                 // D15 — the founding derivations. Every designated member is on the
@@ -683,7 +1022,10 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     out.push((*cid, "amendment signers must be exactly the deciders".into()));
                     continue;
                 }
-                let m = prior.members.len();
+                // D29 — a majority of those who hold the substrate, counted over the
+                // deciders who carry weight.
+                let m = seasoned_members(&prior).len();
+                let weighed = deciding_weight(&prior, &a.deciders);
                 let key = &a.commitment.key;
                 match a.kind {
                     AmendmentKind::Add => {
@@ -692,8 +1034,8 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                         let need = majority(m);
-                        if a.deciders.len() < need {
-                            out.push((*cid, format!("Add needs a majority (>= {need}), got {}", a.deciders.len())));
+                        if weighed < need {
+                            out.push((*cid, format!("Add needs a majority (>= {need}), got {weighed}")));
                             continue;
                         }
                     }
@@ -709,10 +1051,9 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                         let need = majority(m) + 1;
-                        if a.deciders.len() < need {
+                        if weighed < need {
                             out.push((*cid, format!(
-                                "Remove needs more than a majority (>= {need}), got {}",
-                                a.deciders.len()
+                                "Remove needs more than a majority (>= {need}), got {weighed}"
                             )));
                             continue;
                         }
@@ -734,7 +1075,8 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 let deciders = did_set(&mc.deciders);
                 let signers = e.signer_dids();
                 let member = mc.member.as_str().to_string();
-                let roll = prior.members.len();
+                // D29 — majorities are of the members who hold the substrate.
+                let roll = seasoned_members(&prior).len();
                 match mc.kind {
                     MembershipKind::Admit => {
                         if members.contains(&member) {
@@ -754,8 +1096,9 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                         let need = majority(roll);
-                        if mc.deciders.len() < need {
-                            out.push((*cid, format!("Admit needs a majority (>= {need}), got {}", mc.deciders.len())));
+                        let weighed = deciding_weight(&prior, &mc.deciders);
+                        if weighed < need {
+                            out.push((*cid, format!("Admit needs a majority (>= {need}), got {weighed}")));
                             continue;
                         }
                         // Signers must be exactly the deciders PLUS the joiner: the
@@ -810,10 +1153,10 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                         let need = majority(roll) + 1;
-                        if mc.deciders.len() < need {
+                        let weighed = deciding_weight(&prior, &mc.deciders);
+                        if weighed < need {
                             out.push((*cid, format!(
-                                "Expel needs more than a majority (>= {need}), got {}",
-                                mc.deciders.len()
+                                "Expel needs more than a majority (>= {need}), got {weighed}"
                             )));
                             continue;
                         }
@@ -839,7 +1182,8 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 let deciders = did_set(&oc.deciders);
                 let signers = e.signer_dids();
                 let holder = oc.holder.as_str().to_string();
-                let roll = prior.members.len();
+                // D29 — majorities are of the members who hold the substrate.
+                let roll = seasoned_members(&prior).len();
                 let is_member = prior.members.contains(&oc.holder);
                 let raw_holds = prior.offices.iter().any(|(o, h)| o == &oc.office && h == &oc.holder);
                 // A holding is effective only while its holder is on the roll.
@@ -848,6 +1192,19 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     OfficeKind::Confer => {
                         if !is_member {
                             out.push((*cid, "office conferred on a non-member".into()));
+                            continue;
+                        }
+                        // D29 — refused outright rather than de-weighted, because there
+                        // is no count here to de-weight: a conferral either happens or
+                        // it does not, and an office nobody could exercise is exactly
+                        // the inert record this tier keeps refusing to write. (The same
+                        // reasoning KC's §2 gives for refusing a probationary sponsor.)
+                        if !seasoned_members(&prior).contains(oc.holder.as_str()) {
+                            out.push((*cid, format!(
+                                "office conferred on {}, who is on the roll but has not been \
+                                 inducted; an office is the polity acting through a member",
+                                oc.holder
+                            )));
                             continue;
                         }
                         if raw_holds {
@@ -863,8 +1220,9 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                         let need = majority(roll);
-                        if oc.deciders.len() < need {
-                            out.push((*cid, format!("conferral needs a majority (>= {need}), got {}", oc.deciders.len())));
+                        let weighed = deciding_weight(&prior, &oc.deciders);
+                        if weighed < need {
+                            out.push((*cid, format!("conferral needs a majority (>= {need}), got {weighed}")));
                             continue;
                         }
                         // D15 — in a machine-majority polity every office must trace
@@ -931,8 +1289,9 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                         let need = majority(roll);
-                        if oc.deciders.len() < need {
-                            out.push((*cid, format!("revocation needs a majority (>= {need}), got {}", oc.deciders.len())));
+                        let weighed = deciding_weight(&prior, &oc.deciders);
+                        if weighed < need {
+                            out.push((*cid, format!("revocation needs a majority (>= {need}), got {weighed}")));
                             continue;
                         }
                     }
@@ -957,7 +1316,8 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 let deciders = did_set(&gc.deciders);
                 let signers = e.signer_dids();
                 let member = gc.member.as_str().to_string();
-                let roll = prior.members.len();
+                // D29 — majorities are of the members who hold the substrate.
+                let roll = seasoned_members(&prior).len();
                 let need = majority(roll);
                 let designated: Vec<(&DidKey, &Option<DidKey>)> = effective_derivations(&prior);
                 let current = designated.iter().find(|(m, _)| *m == &gc.member).map(|(_, g)| *g);
@@ -987,16 +1347,58 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                         continue;
                     }
                 }
+                // D15's substrate backing: an edge that is *claimed* must carry what
+                // the substrate showed, or say outright that nothing did. Checked
+                // here rather than only at the authoring site because an
+                // emitter-side guard is walked around by a hand-built record, and
+                // `check_authority` is what a consumer verifies (D25's finding).
+                let claims_edge = match gc.kind {
+                    GuardianKind::Designate => gc.guardian.is_some(),
+                    GuardianKind::Rotate => true,
+                    GuardianKind::Release => false,
+                };
+                match (&gc.evidence, claims_edge) {
+                    (None, true) => {
+                        out.push((*cid, format!(
+                            "guardian change for {} claims an edge with no substrate evidence \
+                             and no declared override (D15)", gc.member
+                        )));
+                        continue;
+                    }
+                    (Some(_), false) => {
+                        // A release claims an edge is *gone*; an observation showing
+                        // one present would argue the opposite, and one showing it
+                        // absent is not the same object (D16: a member absent from
+                        // the readings was not observed).
+                        out.push((*cid, "a release carries no substrate evidence; it claims the edge is gone".into()));
+                        continue;
+                    }
+                    (None, false) => {}
+                    (Some(GuardianEvidence::Unbacked { reason }), true) => {
+                        if reason.trim().is_empty() {
+                            out.push((*cid, "an unbacked guardian edge must say why (D15 override)".into()));
+                            continue;
+                        }
+                    }
+                    (Some(GuardianEvidence::Observed(ob)), true) => {
+                        if let Err(why) = evidence_shows_edge(
+                            ob, &gc.polity, &gc.member, gc.guardian.as_ref(), gc.decided_at,
+                        ) {
+                            out.push((*cid, why));
+                            continue;
+                        }
+                    }
+                }
                 match gc.kind {
                     GuardianKind::Designate => {
                         if current.is_some() {
                             out.push((*cid, "member is already designated a derived party".into()));
                             continue;
                         }
-                        if gc.deciders.len() < need {
-                            out.push((*cid, format!(
-                                "designation needs a majority of the roll (>= {need}), got {}",
-                                gc.deciders.len()
+                        let weighed = deciding_weight(&prior, &gc.deciders);
+                            if weighed < need {
+                                out.push((*cid, format!(
+                                "designation needs a majority of the roll (>= {need}), got {weighed}"
                             )));
                             continue;
                         }
@@ -1025,10 +1427,10 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, "rotation to the guardian already in place".into()));
                             continue;
                         }
-                        if gc.deciders.len() < need {
-                            out.push((*cid, format!(
-                                "rotation needs a majority of the roll (>= {need}), got {}",
-                                gc.deciders.len()
+                        let weighed = deciding_weight(&prior, &gc.deciders);
+                            if weighed < need {
+                                out.push((*cid, format!(
+                                "rotation needs a majority of the roll (>= {need}), got {weighed}"
                             )));
                             continue;
                         }
@@ -1068,10 +1470,10 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                                 out.push((*cid, "release signers must be exactly the deciders".into()));
                                 continue;
                             }
-                            if gc.deciders.len() < need {
-                                out.push((*cid, format!(
-                                    "a release the roll records needs a majority (>= {need}), got {}",
-                                    gc.deciders.len()
+                            let weighed = deciding_weight(&prior, &gc.deciders);
+                                if weighed < need {
+                                    out.push((*cid, format!(
+                                    "a release the roll records needs a majority (>= {need}), got {weighed}"
                                 )));
                                 continue;
                             }
@@ -1105,7 +1507,8 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 let authorizers = did_set(&ea.authorizers);
                 let signers = e.signer_dids();
                 let envoy = ea.envoy.as_str().to_string();
-                let roll = prior.members.len();
+                // D29 — majorities are of the members who hold the substrate.
+                let roll = seasoned_members(&prior).len();
                 let is_member = prior.members.contains(&ea.envoy);
                 let raw_standing = prior.envoys.contains(&ea.envoy);
                 // A standing is effective only while the envoy is on the roll.
@@ -1137,11 +1540,11 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, "authorizer is not a member of the polity".into()));
                             continue;
                         }
-                        if !by_officer && ea.authorizers.len() < need {
+                        let weighed = deciding_weight(&prior, &ea.authorizers);
+                        if !by_officer && weighed < need {
                             out.push((*cid, format!(
                                 "authorization needs an EnvoyAuthorizer other than the envoy among \
-                                 the authorizers, or a majority of the roll (>= {need}), got {}",
-                                ea.authorizers.len()
+                                 the authorizers, or a majority of the roll (>= {need}), got {weighed}"
                             )));
                             continue;
                         }
@@ -1190,7 +1593,8 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, "envoy revocation signers must be exactly the authorizers".into()));
                             continue;
                         }
-                        if !by_officer && ea.authorizers.len() < need {
+                        let weighed = deciding_weight(&prior, &ea.authorizers);
+                        if !by_officer && weighed < need {
                             out.push((*cid, format!(
                                 "envoy revocation needs an EnvoyAuthorizer among the authorizers, \
                                  or a majority of the roll (>= {need}), got {}",
@@ -1216,13 +1620,17 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 let witnesses = did_set(&af.witnesses);
                 let signers = e.signer_dids();
                 let member = af.member.as_str().to_string();
-                let roll = prior.members.len();
+                // D29 — majorities are of the members who hold the substrate.
+                let roll = seasoned_members(&prior).len();
                 if !members.contains(&member) {
                     out.push((*cid, "affirmation by a non-member".into()));
                     continue;
                 }
                 // Ratifying the charter is a founding member's induction.
-                let is_inducted = prior.founding_members.contains(&af.member)
+                // Ratifying the charter is a founding member's induction — and only
+                // the ratifiers'. A listed founding member who never signed is on the
+                // roll and un-inducted (D29).
+                let is_inducted = prior.ratifiers.contains(&af.member)
                     || prior.inducted.contains(&af.member);
                 if witnesses.len() != af.witnesses.len() {
                     out.push((*cid, "duplicate witness".into()));
@@ -1238,10 +1646,47 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, "induction of an already-inducted member".into()));
                             continue;
                         }
+                        // D29 — the rite happened, and this record completes it. The
+                        // citation must be *exactly* the current rite's five movements
+                        // in order, so a completion can neither borrow somebody else's
+                        // rite nor sign off on an attempt that was abandoned.
+                        let Some(done) = completed_rite(&prior, &af.member) else {
+                            let so_far = current_rite(&prior, &af.member).len();
+                            out.push((*cid, format!(
+                                "induction completes a rite of {} movements, but {so_far} of {} \
+                                 have been recorded",
+                                Movement::COUNT,
+                                Movement::COUNT
+                            )));
+                            continue;
+                        };
+                        if af.movements != done.cids {
+                            out.push((*cid,
+                                "an induction must cite the five movements of its own rite, in order"
+                                    .into()));
+                            continue;
+                        }
+                        if af.affirmed_at < done.last_at {
+                            out.push((*cid,
+                                "induction is dated before the last movement of its rite".into()));
+                            continue;
+                        }
+                        // Only those present for the WHOLE rite witness it. Five
+                        // movements signed by five disjoint groups is a rite nobody
+                        // attended, which is D28's arithmetic one record over.
+                        if let Some(absent) =
+                            af.witnesses.iter().find(|w| !done.throughout.contains(w.as_str()))
+                        {
+                            out.push((*cid, format!(
+                                "witness {absent} did not attend every movement of the rite"
+                            )));
+                            continue;
+                        }
                         let need = majority(roll);
                         if af.witnesses.len() < need {
                             out.push((*cid, format!(
-                                "induction needs a majority of the roll to witness (>= {need}), got {}",
+                                "induction needs a majority of the inducted roll to witness \
+                                 (>= {need}), got {}",
                                 af.witnesses.len()
                             )));
                             continue;
@@ -1287,6 +1732,10 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, "re-affirmation records no witnesses".into()));
                             continue;
                         }
+                        if !af.movements.is_empty() {
+                            out.push((*cid, "re-affirmation cites no rite movements".into()));
+                            continue;
+                        }
                         // Renewal is the member's own act.
                         let required: BTreeSet<String> = std::iter::once(member.clone()).collect();
                         if signers != required {
@@ -1294,6 +1743,135 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                     }
+                }
+            }
+            CharterEntry::RiteMovementRecorded(s) => {
+                let m = &s.payload;
+                let prior = reconstruct(archive, &m.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("rite movement for {} precedes its charter", m.polity)));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!("rite movement for {} after its dissolution", m.polity)));
+                    continue;
+                }
+                let members = did_set(&prior.members);
+                let member = m.member.as_str().to_string();
+                if !members.contains(&member) {
+                    out.push((*cid, "rite movement for a non-member".into()));
+                    continue;
+                }
+                // Admission puts you on the roll; the rite is how you acquire the
+                // substrate. Someone who already holds it has nothing to acquire.
+                if prior.ratifiers.contains(&m.member) || prior.inducted.contains(&m.member) {
+                    out.push((*cid, "rite movement for an already-inducted member".into()));
+                    continue;
+                }
+                // A movement is performed. An empty one was not.
+                if m.statement.trim().is_empty() {
+                    out.push((*cid, format!(
+                        "movement {} carries no statement; a movement is performed, not listed",
+                        m.movement.order()
+                    )));
+                    continue;
+                }
+                let attending = did_set(&m.attending);
+                if attending.len() != m.attending.len() {
+                    out.push((*cid, "duplicate attendee at a rite movement".into()));
+                    continue;
+                }
+                if !attending.is_subset(&members) {
+                    out.push((*cid, "rite movement attendee is not a member of the polity".into()));
+                    continue;
+                }
+                // The substrate is transmitted by those who hold it (**D29**).
+                if let Some(who) = m
+                    .attending
+                    .iter()
+                    .find(|w| !prior.ratifiers.contains(w) && !prior.inducted.contains(w))
+                {
+                    out.push((*cid, format!(
+                        "rite movement attendee {who} is not inducted; the substrate is \
+                         transmitted by those who hold it"
+                    )));
+                    continue;
+                }
+                // Everyone present signs, and nobody else does: the inductee recites
+                // and those attending receive them.
+                let mut required = attending.clone();
+                required.insert(member.clone());
+                if e.signer_dids() != required {
+                    out.push((*cid,
+                        "a rite movement must be signed by exactly its attendees plus the inductee"
+                            .into()));
+                    continue;
+                }
+                // Order is semantic. Movement 1 always opens (or re-opens) a rite;
+                // every other movement must be the immediate successor of the last.
+                let rite = current_rite(&prior, &m.member);
+                let order = m.movement.order();
+                if order == 1 {
+                    // Always permitted: opening a rite abandons any attempt in progress.
+                } else {
+                    let last = rite.last();
+                    match last {
+                        None => {
+                            out.push((*cid, format!(
+                                "movement {order} with no rite open; a rite opens at movement 1"
+                            )));
+                            continue;
+                        }
+                        Some(p) => {
+                            let (prev, prev_at) = (p.order, p.recited_at);
+                            if order != prev + 1 {
+                                out.push((*cid, format!(
+                                    "movement {order} follows movement {prev}; the rite's order is \
+                                     semantic and its movements may not be skipped or repeated"
+                                )));
+                                continue;
+                            }
+                            if m.recited_at < prev_at {
+                                out.push((*cid, format!(
+                                    "movement {order} is dated before movement {prev}"
+                                )));
+                                continue;
+                            }
+                        }
+                    }
+                }
+                // Coherence with the charter, never content (D24/D28's line).
+                match &m.movement {
+                    Movement::Substrate { names } => {
+                        if names != &prior.substrate_name {
+                            out.push((*cid, format!(
+                                "movement 1 names substrate {names:?} but the charter's is {:?}",
+                                prior.substrate_name
+                            )));
+                            continue;
+                        }
+                    }
+                    Movement::CommonVirtue { commits_to } => {
+                        let said: BTreeSet<String> = commits_to.iter().cloned().collect();
+                        if said != prior.in_force {
+                            out.push((*cid, format!(
+                                "movement 4 commits to {} of the polity's {} commitments in force",
+                                said.intersection(&prior.in_force).count(),
+                                prior.in_force.len()
+                            )));
+                            continue;
+                        }
+                    }
+                    Movement::NonUltimacy { names_anchor } => {
+                        if names_anchor != &prior.anchor {
+                            out.push((*cid,
+                                "movement 5 does not name the anchor the charter names".into()));
+                            continue;
+                        }
+                    }
+                    // No rule can read contrition or recognition, and a gate that
+                    // pretended to would be the hollowest thing in the tier.
+                    Movement::Fallenness | Movement::Recognition => {}
                 }
             }
             CharterEntry::Observed(s) => {
@@ -1390,12 +1968,12 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 let settled =
                     pr.horizon.as_second() <= pr.pruned_at.as_second() - PRUNE_SETTLING_SECONDS;
                 let by_officer = settled && deciders.iter().any(|d| keepers.contains(d));
-                let need = majority(prior.members.len());
-                if !by_officer && pr.deciders.len() < need {
+                let need = majority(seasoned_members(&prior).len());
+                let weighed = deciding_weight(&prior, &pr.deciders);
+                if !by_officer && weighed < need {
                     out.push((*cid, format!(
                         "pruning needs a CharterKeeper among the deciders and a horizon at least \
-                         {PRUNE_SETTLING_SECONDS}s old, or a majority of the roll (>= {need}), got {}",
-                        pr.deciders.len()
+                         {PRUNE_SETTLING_SECONDS}s old, or a majority of the roll (>= {need}), got {weighed}"
                     )));
                     continue;
                 }
@@ -1545,12 +2123,12 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     Some(_) => {}
                 }
             }
-            CharterEntry::ReaderIndependenceAttested(s) => {
+            CharterEntry::IndependenceAttested(s) => {
                 let a = &s.payload;
                 let prior = reconstruct(archive, &a.polity, idx);
                 if !prior.chartered {
                     out.push((*cid, format!(
-                        "an attestation about {}'s readers precedes its founding", a.polity
+                        "an attestation about {} precedes its founding", a.polity
                     )));
                     continue;
                 }
@@ -1574,19 +2152,37 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     continue;
                 }
                 // Coherence with the record it speaks about — never its truth, which
-                // is the same line D22's dissent arm draws. A reader the founding never
-                // carried cannot be vouched for or challenged *as a reader of this
-                // founding*: there is no such party in the record.
+                // is the same line D22's dissent arm draws. A party the log never
+                // carried in the named role cannot be vouched for or challenged *in
+                // that role*: there is no such party in the record.
+                //
+                // The gate is parameterized by role rather than duplicated (**D28**),
+                // and the two halves are checkable against different things: a
+                // boundary reader is fixed at genesis, while observers accrue over the
+                // polity's life, so the observer half reads the log up to this filing.
+                // Note the consequence — a monitor must have **spoken before it can be
+                // vouched for**. Vouching for a key that has said nothing yet would be
+                // pre-registering a witness, which is the sockpuppet move with a
+                // longer setup.
                 //
                 // Note what is NOT checked here. Whether the attester is disinterested
-                // is a matter for the LENS (`reader_independence`), not for this pass:
-                // an interested attestation is a real fact somebody signed, and
-                // refusing it would destroy information, where merely not crediting it
-                // costs nothing. Gate the signature, grade the counting.
-                if !prior.founding_readers.contains(a.reader.as_str()) {
+                // is a matter for the LENS (`reader_independence` /
+                // `observer_independence`), not for this pass: an interested
+                // attestation is a real fact somebody signed, and refusing it would
+                // destroy information, where merely not crediting it costs nothing.
+                // Gate the signature, grade the counting.
+                let known = match a.role {
+                    AttestedRole::BoundaryReader => {
+                        prior.founding_readers.contains(a.subject.as_str())
+                    }
+                    AttestedRole::Observer => prior.observers.contains(a.subject.as_str()),
+                };
+                if !known {
                     out.push((*cid, format!(
-                        "{} is not a reader of {}'s founding; there is nothing to attest",
-                        a.reader, a.polity
+                        "{} is not {} {}; there is nothing to attest",
+                        a.subject,
+                        a.role.noun(),
+                        a.polity
                     )));
                     continue;
                 }
@@ -1620,11 +2216,11 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     out.push((*cid, "dissolution signers must be exactly the deciders".into()));
                     continue;
                 }
-                let need = majority(prior.members.len());
-                if d.deciders.len() < need {
-                    out.push((*cid, format!(
-                        "dissolution needs a majority of the roll (>= {need}), got {}",
-                        d.deciders.len()
+                let need = majority(seasoned_members(&prior).len());
+                let weighed = deciding_weight(&prior, &d.deciders);
+                    if weighed < need {
+                        out.push((*cid, format!(
+                        "dissolution needs a majority of the roll (>= {need}), got {weighed}"
                     )));
                     continue;
                 }

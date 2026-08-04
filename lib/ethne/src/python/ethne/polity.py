@@ -53,6 +53,8 @@ DecayTrends = _core.DecayTrends
 ObservationWindow = _core.ObservationWindow
 GroundStanding = _core.GroundStanding
 ReaderIndependence = _core.ReaderIndependence
+IndependentObservation = _core.IndependentObservation
+IndependentGrounding = _core.IndependentGrounding
 IndependentCorroboration = _core.IndependentCorroboration
 AffirmationState = _core.AffirmationState
 PruneRecommendation = _core.PruneRecommendation
@@ -118,7 +120,7 @@ class RetentionPolicy:
     a reclaimable few kilobytes for a permanent three — worse the longer the polity
     runs, not better.
 
-    `live_measure_seconds` and `min_witness_readings` are the two safety floors the
+    `live_measure_seconds` and `min_witness_watchers` are the two safety floors the
     horizon can never cross, whatever `retain_seconds` asks for. They are separate
     knobs from retention because they are a different claim: one is how much history
     the polity wants to keep, the others are how much its own grading still needs.
@@ -128,18 +130,24 @@ class RetentionPolicy:
     Both floors are needed, and that was measured rather than assumed. A sustained
     absence is graded on a **span** and on a **witness count**. Pruning clamps the
     span, so a duration floor protects it — but nothing protected the count: prune to
-    a 24-hour horizon on a polity observed twice a day and `readings_for` falls from
-    four to two, so a `Concern` silently becomes a `Notice` and nothing says that
-    evidence, not conduct, is what changed. `min_witness_readings` is per member,
-    because that is what `readings_for` counts. A member the monitors mention rarely
-    can therefore pin the horizon — the correct answer, and not a deadlock: the roll
-    may still prune anything by majority. What is refused is *recommending* it.
+    a 24-hour horizon on a polity observed twice a day and the count falls from four
+    to two, so a `Concern` silently becomes a `Notice` and nothing says that evidence,
+    not conduct, is what changed. `min_witness_watchers` is per member, because that
+    is what `watchers_for` counts. A member the monitors mention rarely can therefore
+    pin the horizon — the correct answer, and not a deadlock: the roll may still prune
+    anything by majority. What is refused is *recommending* it.
+
+    **Watchers, not filings, since D28**, and this is D19's own finding recurring one
+    decision later: the floor has to preserve whatever the grade reads. It protected a
+    count of filings because that is what the sustained-absence component read; that
+    count turned out to be the wrong quantity, so this moved with it. A floor that
+    protects a number nothing grades is not a floor.
     """
 
     retain_seconds: int = DEFAULT_RETENTION["retain_seconds"]
     min_dropped: int = DEFAULT_RETENTION["min_dropped"]
     live_measure_seconds: int = DEFAULT_RETENTION["live_measure_seconds"]
-    min_witness_readings: int = DEFAULT_RETENTION["min_witness_readings"]
+    min_witness_watchers: int = DEFAULT_RETENTION["min_witness_watchers"]
 
 
 def cid_of(data: bytes) -> str:
@@ -176,6 +184,8 @@ __all__ = [
     "GroundStanding",
     "IndependentCorroboration",
     "ReaderIndependence",
+    "IndependentObservation",
+    "IndependentGrounding",
     "PruneRecommendation",
     "RetentionPolicy",
     "SaveOutcome",

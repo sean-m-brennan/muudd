@@ -568,9 +568,21 @@ Specific elements:
 - *Probation as the load-bearing record.* For entrants without a
   long practice record, the probationary period is where the record
   accrues. Probationary members do not carry deliberative weight in
-  admissions, mediator selection, or designation procedures until
-  the period completes; otherwise each admitted entrant immediately
-  amplifies the faction that admitted it.
+  **any second-class decision** until the period completes —
+  admissions, mediator selection and designation procedures are
+  where it bites first and hardest, but the withholding is not
+  limited to them, because the reason is not: otherwise each
+  admitted entrant immediately amplifies the faction that admitted
+  it, and a faction one community short of the quorum tops itself up
+  with the entrant it just vouched for. What the entrant keeps is
+  its first-class voice — a local body acting inside its own
+  envelope — so probation is a season without compact-wide weight
+  rather than a year of silence. Where a second-class act carries an
+  asymmetric *higher* bar (contracting the compact-incapable list,
+  shortening a fast), that bar counts weight too; a floor that
+  counted signatures where the ordinary quorum counted weight would
+  be the cheaper of the two routes, which is the opposite of what an
+  asymmetry is for.
 
 The historical analogue is the catechumenate, which was never only a
 teaching period: it was the church's protection against entryism,

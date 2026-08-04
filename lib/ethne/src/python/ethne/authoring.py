@@ -302,7 +302,7 @@ def disavow_substrate(
     )
 
 
-# ---- Reader independence ----------------------------------------------------
+# ---- Independence attestation -----------------------------------------------
 
 
 def attest_reader_independence(
@@ -335,8 +335,74 @@ def attest_reader_independence(
     claim. It moves the cost of faking corroboration from one key to a second party
     willing to be named for it, permanently. Like a dissent and a disavowal it survives
     dissolution and cannot be pruned."""
-    return archive.attest_reader_independence(
-        polity_did, reader_did, attester.did, attester.priv, kind, basis, attested_at
+    return attest_independence(
+        archive, polity_did, reader_did, attester,
+        role="BoundaryReader", kind=kind, basis=basis, attested_at=attested_at,
+    )
+
+
+def attest_observer_independence(
+    archive,
+    polity_did: str,
+    observer_did: str,
+    attester: Signer,
+    kind: str = "Independent",
+    basis: str = "",
+    attested_at: Optional[int] = None,
+) -> str:
+    """File a third party's account of whether one of a polity's **monitors** is an
+    independent principal (D28).
+
+    **Why this exists.** D15 and D27 each closed a hole in guardian evidence and each
+    named the reader attestation above as the successor for what was left — that the
+    evidence is still one observer's perspectival reading. Measured, the successor did
+    not reach: its coherence gate demanded the subject be a *reader of the boundary*,
+    and an observer is not one, so filing about a monitor was refused outright.
+
+    The same measurement found the sharper case, and it points **outward**. A
+    confederate observer, on nobody's roll and costing one keypair, signs an
+    observation showing any guardian edge it likes and the machine cluster grades
+    `Guarded` with no anchor — and, filing three times, manufactures the
+    sustained-absence `Concern` that crosses to kith-covenant. The residue's wording
+    only ever described a polity flattering itself.
+
+    `observer_did` must actually have observed this polity already: a monitor has to
+    **speak before it can be vouched for**, since pre-registering a witness is the
+    sockpuppet move with a longer setup.
+
+    **Nothing refuses an unvouched monitor**, deliberately. A polity that simply
+    declines to vouch for anybody must not thereby become unwatchable."""
+    return attest_independence(
+        archive, polity_did, observer_did, attester,
+        role="Observer", kind=kind, basis=basis, attested_at=attested_at,
+    )
+
+
+def attest_independence(
+    archive,
+    polity_did: str,
+    subject_did: str,
+    attester: Signer,
+    role: str = "BoundaryReader",
+    kind: str = "Independent",
+    basis: str = "",
+    attested_at: Optional[int] = None,
+) -> str:
+    """File an independence attestation about a party behind `polity_did` in `role`
+    (D24, generalized to observers by D28).
+
+    `role` is `"BoundaryReader"` or `"Observer"`; `kind` is `"Independent"` or
+    `"Controlled"`. The two roles share one record and one set of counting rules,
+    because they are the same claim about the same kind of party; only the coherence
+    gate differs, since each is checkable against a different part of the log.
+
+    A key may hold both roles for the same polity, and a voucher for one is **not** a
+    voucher for the other: vouching is always for a party *in a capacity*, since what
+    an outsider can speak to is a relationship rather than an identity in the
+    abstract."""
+    return archive.attest_independence(
+        polity_did, subject_did, attester.did, attester.priv,
+        role, kind, basis, attested_at,
     )
 
 
@@ -398,18 +464,30 @@ def designate_derived(
     member_did: str,
     deciders: Sequence[Signer],
     guardian: Optional[Signer] = None,
+    evidence_cid: Optional[str] = None,
+    unbacked_reason: Optional[str] = None,
     rationale: str = "",
     decided_at: Optional[int] = None,
 ) -> str:
     """Designate a member a derived (machine) party at a majority, with the named
     guardian co-signing its acceptance. Passing no guardian charters a machine with
     nobody behind it — honest, and refused an office where machines are the
-    majority."""
+    majority.
+
+    Naming a guardian claims an edge, so D15 requires it to be backed: pass
+    `evidence_cid`, the CID of an observation in this charter whose reading for
+    `member_did` shows that guardian, or `unbacked_reason` to declare outright that no
+    monitor has reported it. The observation is **copied into** the record rather than
+    referenced, so a later pruning of the observation log cannot un-authorize the edge.
+
+    A guardian whose key is not on this host signs through
+    `pending_guardian_change` / `append_guardian_change_signed` instead."""
     dids, privs = _split(deciders)
     return archive.designate_derived(
         polity_did, member_did, dids, privs,
         guardian.did if guardian else None,
         guardian.priv if guardian else None,
+        evidence_cid, unbacked_reason,
         rationale, decided_at,
     )
 
@@ -420,15 +498,75 @@ def rotate_guardian(
     member_did: str,
     guardian: Signer,
     deciders: Sequence[Signer],
+    evidence_cid: Optional[str] = None,
+    unbacked_reason: Optional[str] = None,
     rationale: str = "",
     decided_at: Optional[int] = None,
 ) -> str:
     """Point a designated member at a (new) guardian — the operator changed, or an
-    unguarded machine acquires one. A majority plus the incoming guardian's consent."""
+    unguarded machine acquires one. A majority plus the incoming guardian's consent.
+
+    A rotation always claims an edge, so it always needs backing: see
+    `designate_derived` for `evidence_cid` and `unbacked_reason`."""
     dids, privs = _split(deciders)
     return archive.rotate_guardian(
-        polity_did, member_did, guardian.did, guardian.priv, dids, privs, rationale, decided_at
+        polity_did, member_did, guardian.did, guardian.priv, dids, privs,
+        evidence_cid, unbacked_reason, rationale, decided_at,
     )
+
+
+def pending_guardian_change(
+    archive,
+    polity_did: str,
+    member_did: str,
+    kind: str,
+    deciders: Sequence[Signer],
+    guardian_did: Optional[str] = None,
+    evidence_cid: Optional[str] = None,
+    unbacked_reason: Optional[str] = None,
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> tuple:
+    """Build a guardian change without signing it. Returns
+    `(cid, payload_bytes, description)`.
+
+    The detached path, for the arrangement AT's keystore location assumes: the
+    guardian's key lives with the guardian, not on the polity's authoring host. The
+    bytes travel to them, they sign in their own process (AT's operator CLI has a verb
+    for it), and `append_guardian_change_signed` puts the signatures back on. The
+    private key never enters this process.
+
+    **Show `description` to whoever is signing.** Asking a human to sign opaque bytes
+    teaches them to sign anything.
+
+    `deciders` are named, not signed for, here — they may sign the same bytes by any
+    route. Pass an explicit `decided_at` if the exchange may outlive the process: the
+    pending record is held in memory and the CID is a function of every argument."""
+    dids, _ = _split(deciders)
+    return archive.pending_guardian_change(
+        polity_did, member_did, kind, dids, guardian_did,
+        evidence_cid, unbacked_reason, rationale, decided_at,
+    )
+
+
+def append_guardian_change_signed(archive, cid: str, signatures: Sequence[tuple]) -> str:
+    """Attach collected detached signatures to a pending guardian change and append it.
+
+    `signatures` is a sequence of `(signer_did, signature_bytes)`. Every one is
+    verified against the pending payload before anything is appended, so a wrong key or
+    a stale exchange fails here with a reason rather than later as an unauthorized
+    record. Returns the entry CID."""
+    return archive.append_guardian_change_signed(cid, list(signatures))
+
+
+def sign_detached(signer: Signer, payload_bytes: bytes) -> tuple:
+    """Sign exported payload bytes, returning `(did, signature)` for
+    `append_guardian_change_signed`.
+
+    Provided for the co-located case and for tests. A guardian whose key is in their
+    own keystore signs with AT's operator verb instead — that is the whole point of
+    the detached path."""
+    return (signer.did, _core.sign_detached(signer.priv, payload_bytes))
 
 
 def release_guardian(
@@ -504,19 +642,88 @@ def revoke_envoy(
 # ---- Transmission -----------------------------------------------------------
 
 
+MOVEMENTS = ("Substrate", "Fallenness", "Recognition", "CommonVirtue", "NonUltimacy")
+"""The five movements of the rite, in order (D29). Order is semantic."""
+
+
+def recite_movement(
+    archive,
+    polity_did: str,
+    member: Signer,
+    movement: str,
+    statement: str,
+    attending: Sequence[Signer],
+    names: Optional[str] = None,
+    commits_to: Sequence[str] = (),
+    names_anchor: Optional[str] = None,
+    recited_at: Optional[int] = None,
+) -> str:
+    """Recite one movement of `member`'s induction rite (D29), returning its CID.
+
+    A rite opens with `"Substrate"` and each later movement must follow its
+    predecessor. `statement` is the polity's own words: required, never read. What is
+    checked is coherence with the charter — `names` must be the chartered substrate's
+    name, `commits_to` the commitments in force, `names_anchor` the chartered anchor.
+    Everyone attending co-signs, and attendees must already hold the substrate.
+    """
+    dids, privs = _split(attending)
+    return archive.recite_movement(
+        polity_did, member.did, member.priv, movement, statement, dids, privs,
+        names, list(commits_to), names_anchor, recited_at,
+    )
+
+
+def perform_rite(
+    archive,
+    polity_did: str,
+    member: Signer,
+    attending: Sequence[Signer],
+    substrate_name: str,
+    commitments: Sequence[str] = (),
+    anchor: Optional[str] = None,
+    start: Optional[int] = None,
+    seconds_between: int = 1,
+) -> list[str]:
+    """Recite all five movements in order, returning their CIDs for the induction.
+
+    The convenience path for a polity whose rite happens in one sitting; a polity
+    holding its rite over a week calls `recite_movement` five times with its own
+    instants, which is the difference the record now carries.
+    """
+    cids = []
+    for i, movement in enumerate(MOVEMENTS):
+        at = None if start is None else start + i * seconds_between
+        cids.append(
+            recite_movement(
+                archive, polity_did, member, movement,
+                f"{movement}: as we have received it", attending,
+                names=substrate_name if movement == "Substrate" else None,
+                commits_to=commitments if movement == "CommonVirtue" else (),
+                names_anchor=anchor if movement == "NonUltimacy" else None,
+                recited_at=at,
+            )
+        )
+    return cids
+
+
 def induct_member(
     archive,
     polity_did: str,
     member: Signer,
     witnesses: Sequence[Signer],
+    movement_cids: Sequence[str],
     affirmed_at: Optional[int] = None,
 ) -> str:
-    """Induct a member into the substrate: a majority of the roll witnesses, and
-    the inductee co-signs. Founding members need no induction — ratifying the
-    charter was theirs."""
+    """Complete a member's induction into the substrate (D29).
+
+    `movement_cids` must be the five movements of this member's rite, in order; the
+    witnesses must have attended every one of them and must be a majority of the
+    members who already hold the substrate. The charter's ratifiers need no
+    induction — ratifying was theirs.
+    """
     dids, privs = _split(witnesses)
     return archive.induct_member(
-        polity_did, member.did, member.priv, dids, privs, affirmed_at
+        polity_did, member.did, member.priv, dids, privs, list(movement_cids), affirmed_at
     )
 
 

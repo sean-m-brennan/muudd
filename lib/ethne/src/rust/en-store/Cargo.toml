@@ -18,6 +18,12 @@ en-core = { workspace = true }
 en-archive = { workspace = true }
 serde = { workspace = true }
 rusqlite = { workspace = true, optional = true }
+# D30's write lock: `flock`, which std does not expose. Adds NOTHING to the dependency
+# graph — libc is already here on the default (non-sqlite) build via
+# getrandom/rand/cpufeatures under en-core. Unix only; see src/lock.rs for what a
+# target without it loses, which is the early refusal and not the guarantee.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 # The generation/cursor hazard this crate guards is entirely about the archive

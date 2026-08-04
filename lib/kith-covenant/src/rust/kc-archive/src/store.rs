@@ -111,7 +111,18 @@ impl InMemoryArchive {
                 }
             }
         }
-        // 5. Observer registry entry active in its validity window (§8). Lets a
+        // 5. Examiner registry entry active in its validity window (§2). Lets a
+        //    seated examiner's signature on a credentialing record resolve.
+        for entry in self.entries.values() {
+            if let ArchiveEntry::ExaminerRegistryUpdated(s) = entry {
+                for e in &s.payload.entries {
+                    if e.examiner_did.as_str() == did && e.active_at(at) {
+                        return Some(e.examiner_pubkey.clone());
+                    }
+                }
+            }
+        }
+        // 6. Observer registry entry active in its validity window (§8). Lets a
         //    registered observer's signature on a report resolve.
         for entry in self.entries.values() {
             if let ArchiveEntry::ObserverRegistryUpdated(s) = entry {
@@ -164,6 +175,10 @@ impl Archive for InMemoryArchive {
             }
             ArchiveEntry::WitnessRegistryUpdated(s) => {
                 let at = s.payload.issued_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::MemberRollPublished(s) => {
+                let at = s.payload.published_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
             ArchiveEntry::IntraCommunityRite(s) => {
@@ -244,6 +259,10 @@ impl Archive for InMemoryArchive {
             }
             ArchiveEntry::SanctionApplied(s) => {
                 let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::ExaminerRegistryUpdated(s) => {
+                let at = s.payload.issued_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
             ArchiveEntry::ObserverRegistryUpdated(s) => {

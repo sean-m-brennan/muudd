@@ -41,8 +41,17 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={dir}");
     println!("cargo:rustc-link-lib=dylib=autonomous_trust");
-    // So the test binaries find it without LD_LIBRARY_PATH. A deployment that
-    // installs the library to a system path can ignore this.
+    // `rustc-link-arg` applies to THIS crate's own link steps — its tests, its
+    // examples, its benches — and no further. It is not inherited by a downstream
+    // binary that merely depends on `en-at`, so a host built elsewhere in the
+    // workspace still gets `error while loading shared libraries:
+    // libautonomous_trust.so`. Measured 2026-08-04, correcting the earlier claim
+    // here that this covered "the test binaries" generally.
+    //
+    // A host binary therefore needs one of: `LD_LIBRARY_PATH=$AT_LIB_DIR` at run
+    // time, AT installed to a system library path, or its own build script
+    // repeating this rpath. Only the last is a real fix, and it belongs to the
+    // host, not here.
     println!("cargo:rustc-link-arg=-Wl,-rpath,{dir}");
 
     // `libautonomous_trust.so` carries NO DT_NEEDED for its own dependencies
@@ -56,9 +65,15 @@ fn main() {
     // until then a consumer must name them. `AT_LINK_LIBS` overrides the default
     // for a build configured differently — notably `ssl`/`crypto` are only needed
     // when AT was built with `-DAT_ZTA=ON`.
+    //
+    // `protobuf` (the C++ runtime) is in the list and `protobuf-c` is not enough:
+    // AT's `protobuf-c` copy calls into the C++ library, and the linker stops at
+    // `undefined reference to google::protobuf::ShutdownProtobufLibrary()`. The
+    // comment above named protobuf from the start; the list did not, so the
+    // `at-ffi` feature could not link at all until 2026-08-04.
     println!("cargo:rerun-if-env-changed=AT_LINK_LIBS");
     let libs = std::env::var("AT_LINK_LIBS")
-        .unwrap_or_else(|_| "sodium jansson protobuf-c uuid ssl crypto".to_string());
+        .unwrap_or_else(|_| "sodium jansson protobuf-c protobuf uuid ssl crypto".to_string());
     for lib in libs.split_whitespace() {
         println!("cargo:rustc-link-lib=dylib={lib}");
     }

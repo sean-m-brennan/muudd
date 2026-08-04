@@ -26,17 +26,23 @@ from kith_covenant.harness import (
     shrink_failure, sweep, max_damage_ceremony, max_damage_admissions,
     max_damage_interpretation, MAX_DAMAGE_CEREMONY, MAX_DAMAGE_ADMISSIONS,
     MAX_DAMAGE_INTERPRETATION, CORROBORATION_MIN, DEFAULT_QUORUM,
+    MAX_DAMAGE_PROBATIONARY_WEIGHT,
 )
 
 
 def test_all_scenarios_present_all_supported():
     """Seven capture moves plus scenario 8, the quiet polity — which is not a
-    capture move (it has no adversary) but is scored the same way."""
+    capture move (it has no adversary) but is scored the same way. Move 7 carries
+    two scenarios: who a faction can seat, and what a seated entrant can carry."""
     report = run_harness()
-    assert report.total == 8
-    assert report.supported == 8
+    assert report.total == 9
+    assert report.supported == 9
     moves = sorted(r.move for r in report.results)
-    assert moves == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert moves == [1, 2, 3, 4, 5, 6, 7, 7, 8]
+    # Every move has a scenario, and no scenario key is duplicated.
+    assert set(moves) == {1, 2, 3, 4, 5, 6, 7, 8}
+    keys = [r.key for r in report.results]
+    assert len(set(keys)) == len(keys)
 
 
 def test_principal_capture_flagged_at_divergence():
@@ -79,7 +85,7 @@ def test_forged_quorum_never_validates():
 
 
 def test_admissions_capture_flagged_at_threshold():
-    r = next(r for r in run_harness().results if r.move == 7)
+    r = next(r for r in run_harness().results if r.key == "admissions-capture")
     assert r.supported and r.detected
     # Flagged as soon as the sponsor reaches the concentration threshold.
     assert r.damage <= ADMISSIONS_CONCENTRATION_THRESHOLD
@@ -91,7 +97,30 @@ def test_no_scenarios_remain_unsupported():
     report = run_harness()
     unsupported = [r for r in report.results if not r.supported]
     assert unsupported == []
-    assert report.supported == report.total == 8
+    assert report.supported == report.total == 9
+
+
+def test_probationary_weight_never_carries_a_second_class_act():
+    """Move 7's second half. The criterion is 0 rather than a bound: an entrant's
+    weight spent before its window closes must never validate, at the ordinary
+    quorum or at the contraction bar. The scenario pairs each refusal with a
+    standing-only control, so `detected` also asserts that no *unrelated* violation
+    is doing the work."""
+    r = next(r for r in run_harness().results if r.key == "probationary-weight")
+    assert r.supported and r.detected and r.passed
+    assert r.damage == MAX_DAMAGE_PROBATIONARY_WEIGHT == 0
+    assert "refused 2 of 2" in r.notes
+    assert "0 unrelated violation(s)" in r.notes
+
+
+def test_probationary_weight_holds_across_the_swept_quorum():
+    """The claim is general, not a property of quorum 2: at every quorum in the
+    sweep, a faction one community short cannot top itself up with an entrant, and
+    one at the quorum cannot reach the contraction bar that way."""
+    for quorum in (2, 3, 4):
+        p = HarnessParams(quorum_threshold=quorum, founding_size=quorum + 1).normalized()
+        r = next(r for r in run_harness(p).results if r.key == "probationary-weight")
+        assert r.passed and r.damage == 0, (quorum, r.notes)
 
 
 def test_the_quiet_polity_is_caught_by_an_absolute_cadence():
@@ -116,15 +145,34 @@ def test_the_quiet_polity_is_caught_by_an_absolute_cadence():
 
 # The hand-authored case's damage, by move. Pinned so a parameterization that
 # quietly moves the canonical fixture is caught rather than absorbed.
-_CANONICAL_DAMAGE = {1: 3, 2: 1, 3: 1, 4: 0, 5: 0, 6: 1, 7: 3, 8: 0}
+#
+# Move 7 was 3 while the compact's only answer to admissions capture was legibility:
+# the entrants a faction could seat before the composition lens flagged it. §2 turned
+# that answer into refusal, and the faction can now seat exactly one community — its
+# co-founder at compact formation, where there are no sitting members to draw an
+# admitting quorum from. The 1 is a property of the gate, not of this fixture.
+# Keyed by scenario key rather than by move: move 7 has two scenarios, and a
+# move-keyed dict silently collapsed them into whichever ran last — which is exactly
+# the kind of quiet absorption this pin exists to prevent.
+_CANONICAL_DAMAGE = {
+    "interpretation-monopoly": 3,
+    "incapable-erosion": 1,
+    "ceremony-hollowing": 1,
+    "manufactured-event": 0,
+    "forged-quorum": 0,
+    "principal-capture": 1,
+    "admissions-capture": 1,
+    "probationary-weight": 0,
+    "quiet-polity": 0,
+}
 
 
 def test_canonical_params_reproduce_the_hand_authored_results():
     default = run_harness()
     explicit = run_harness(HarnessParams.canonical())
     assert default.all_supported_passed and explicit.all_supported_passed
-    assert {r.move: r.damage for r in default.results} == _CANONICAL_DAMAGE
-    assert {r.move: r.damage for r in explicit.results} == _CANONICAL_DAMAGE
+    assert {r.key: r.damage for r in default.results} == _CANONICAL_DAMAGE
+    assert {r.key: r.damage for r in explicit.results} == _CANONICAL_DAMAGE
     assert all(r.detection_latency == 0 for r in default.results if r.supported)
     # The canonical witness sequence is the literal one the scenario used to hold.
     assert HarnessParams.canonical().witness_sequence() == [5, 4, 3]
@@ -136,9 +184,9 @@ def test_canonical_metrics_are_stable_across_runs():
     key-order-independent. It is also what lets a seed reproduce a fixture without
     reproducing key material. Measured over 200 runs when the drivers were built;
     kept here at a size the suite can afford."""
-    baseline = {r.move: (r.detection_latency, r.damage) for r in run_harness().results}
+    baseline = {r.key: (r.detection_latency, r.damage) for r in run_harness().results}
     for _ in range(4):
-        again = {r.move: (r.detection_latency, r.damage) for r in run_harness().results}
+        again = {r.key: (r.detection_latency, r.damage) for r in run_harness().results}
         assert again == baseline
 
 
@@ -186,9 +234,16 @@ def test_continuous_metrics_actually_move():
     recomputing a constant."""
     rep = run_continuous(rounds=10, seed=11, stop_on_failure=False)
     varying = [s.key for s in rep.stats if len(s.damage_histogram) > 1]
-    assert "admissions-capture" in varying
     assert "ceremony-hollowing" in varying
     assert "interpretation-monopoly" in varying
+    # `admissions-capture` deliberately no longer varies, and that is not this
+    # control going slack: since §2, what a faction can seat is decided by the gate
+    # rather than by how long the lens takes to notice, and the gate's answer is one
+    # co-founder whatever the parameters say. Pinned as a constant so the invariance
+    # is asserted rather than merely tolerated — if it ever moves, that is a gate
+    # regression and this fails.
+    admissions = next(s for s in rep.stats if s.key == "admissions-capture")
+    assert set(dict(admissions.damage_histogram)) == {1}, admissions.damage_histogram
 
 
 def test_the_old_constant_criterion_fails_on_a_flat_prefix():
@@ -261,13 +316,19 @@ def test_shrinking_a_passing_set_is_a_no_op():
 
 
 def test_sweep_covers_its_declared_range():
-    pts = sweep("admissions_threshold")
-    assert tuple(pt.value for pt in pts) == PARAM_RANGES["admissions_threshold"]
+    pts = sweep("ceremony_flat_prefix")
+    assert tuple(pt.value for pt in pts) == PARAM_RANGES["ceremony_flat_prefix"]
     for pt in pts:
-        r = pt.result("admissions-capture")
+        r = pt.result("ceremony-hollowing")
         assert pt.passed and pt.failed_keys == ()
-        # The bound moves with the threshold — the criterion is the formula, not 3.
-        assert r.threshold_damage == pt.value
+        # The bound moves with the parameter — the criterion is the formula, not 1.
+        assert r.threshold_damage == 1 + pt.value
+
+    # And a sweep whose bound is deliberately flat: since §2 refuses the chain, the
+    # entrants a faction may seat do not depend on how patient it is.
+    for pt in sweep("admissions_threshold"):
+        assert pt.passed and pt.failed_keys == ()
+        assert pt.result("admissions-capture").threshold_damage == 1
 
 
 def test_sweep_rejects_an_unknown_parameter():

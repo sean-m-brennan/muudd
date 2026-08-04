@@ -114,10 +114,17 @@ fn filing(claim: &str) -> (WhistleblowerReport, Vec<(DidKey, PubKey, PrivKey)>) 
             (DidKey::from_pubkey(&pk).unwrap(), pk, sk)
         })
         .collect();
-    let holders: Vec<(DidKey, PubKey)> =
-        panel.iter().map(|(d, pk, _)| (d.clone(), pk.clone())).collect();
+    // These holders are `did:key`s, so the `did:key` resolver returns each one's own
+    // key. A real §8 filing resolves against the mediator registry's encryption keys.
+    let holders: Vec<DidKey> = panel.iter().map(|(d, _, _)| d.clone()).collect();
     let bytes = kc_core::canonical::to_canonical_cbor(&preimage).unwrap();
-    let custody = ThresholdCustody::seal(&bytes, &holders, 2).unwrap();
+    let custody = ThresholdCustody::seal(
+        &bytes,
+        &holders,
+        kc_core::didkey_encryption_resolver,
+        2,
+    )
+    .unwrap();
 
     let insider = WhistleblowerReport::attest(
         accused.clone(),

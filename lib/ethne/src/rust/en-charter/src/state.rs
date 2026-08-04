@@ -18,6 +18,7 @@
 //! holdings, guardian edges, and envoy standings of a polity as of a point in time,
 //! plus the decay trends visible across its whole log.
 
+use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use en_archive::Archive;
@@ -25,10 +26,9 @@ use en_core::{Cid, DidKey, KcResult, PubKey, Timestamp};
 
 use crate::entry::CharterEntry;
 use crate::record::{
-    AffirmationKind, AmendmentKind, BoundarySource, Commitment, Derivation, DissentKind, EnvoyKind,
-    IndependenceKind,
-    Exclusion, GuardianKind,
-    MemberReading, MembershipKind, Office, OfficeKind, Substrate,
+    AffirmationKind, AmendmentKind, AttestedRole, BoundarySource, Commitment, DerivedEdge,
+    DissentKind, EnvoyKind, Exclusion, GuardianEvidence, GuardianKind, IndependenceKind,
+    MemberReading, MembershipKind, Movement, Office, OfficeKind, Substrate,
 };
 
 /// The state of a polity's charter as of a query time.
@@ -183,9 +183,15 @@ impl OfficeState {
 /// of a query time — the *effective* designations only (see [`guardian_state`]).
 /// This is the read-model the machine-majority office rule and `en-cohesion`'s
 /// guardian-edge component both read.
+///
+/// Holds [`DerivedEdge`] rather than [`crate::Derivation`] since **D27**: a derivation is one
+/// record's claim *and the evidence offered for it*, while this is the state left
+/// after folding the charter with every later change, where that evidence has no
+/// meaning. Keeping `Derivation` here would have put an always-`None` `evidence`
+/// field in a read-model — a field present and read by nothing.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GuardianState {
-    pub derivations: Vec<Derivation>,
+    pub derivations: Vec<DerivedEdge>,
 }
 
 impl GuardianState {
@@ -314,29 +320,38 @@ impl AffirmationState {
 }
 
 /// Compute the affirmation status of a polity's current members as of `as_of`.
-/// Founding members are seeded as inducted at `founded_at` (ratifying the charter
-/// is their induction); every `MemberAffirmed` record ≤ `as_of` then sets the
-/// induction flag (on `Induction`) and advances `last_affirmed_at`. Only current
-/// members ([`charter_state`]) are reported.
+///
+/// The charter's **ratifiers** are seeded as inducted at `founded_at`, because
+/// ratifying *is* their induction (D13) — and only they. A founding member who did
+/// not sign the charter is on the roll and un-inducted, which is an honest state the
+/// tier already has a name for: the founding needs only a majority, so the rest of
+/// the roll consented to nothing and recited nothing. Seeding the whole founding roll
+/// (as this did until **D29**) handed the substrate to whoever was listed, dated to an
+/// instant they were absent from — measured, a roll of 7 ratified by 4 reported 7
+/// inducted.
+///
+/// Every `MemberAffirmed` record ≤ `as_of` then sets the induction flag (on
+/// `Induction`) and advances `last_affirmed_at`. Only current members
+/// ([`charter_state`]) are reported.
 pub fn affirmation_state(
     archive: &Archive<CharterEntry>,
     polity: &DidKey,
     as_of: Timestamp,
 ) -> AffirmationState {
-    // Genesis: founding roll + founding instant.
+    // Genesis: the ratifiers (not the founding roll) + the founding instant.
     let mut founding: Vec<DidKey> = Vec::new();
     let mut founded_at: Option<Timestamp> = None;
     for (_cid, e) in archive.iter() {
         if let CharterEntry::PolityChartered(s) = e {
             if &s.payload.polity == polity && s.payload.founded_at <= as_of {
-                founding = s.payload.members.clone();
+                founding = s.payload.ratifiers.clone();
                 founded_at = Some(s.payload.founded_at);
                 break;
             }
         }
     }
 
-    // Seed each current member: founding members are inducted at `founded_at`.
+    // Seed each current member: ratifiers are inducted at `founded_at`.
     let members = charter_state(archive, polity, as_of).members;
     let mut entries: Vec<MemberAffirmation> = members
         .iter()
@@ -477,7 +492,7 @@ pub fn guardian_state(
     polity: &DidKey,
     as_of: Timestamp,
 ) -> GuardianState {
-    let mut raw: Vec<Derivation> = Vec::new();
+    let mut raw: Vec<DerivedEdge> = Vec::new();
     for (_cid, e) in archive.iter() {
         match e {
             CharterEntry::PolityChartered(s)
@@ -485,7 +500,7 @@ pub fn guardian_state(
             {
                 for d in &s.payload.derivations {
                     if !raw.iter().any(|h| h.member == d.member) {
-                        raw.push(d.clone());
+                        raw.push(d.edge());
                     }
                 }
             }
@@ -497,7 +512,7 @@ pub fn guardian_state(
                 match gc.kind {
                     GuardianKind::Designate => {
                         if !raw.iter().any(|d| d.member == gc.member) {
-                            raw.push(Derivation {
+                            raw.push(DerivedEdge {
                                 member: gc.member.clone(),
                                 guardian: gc.guardian.clone(),
                             });
@@ -720,8 +735,9 @@ pub struct ObservationPoint {
 ///
 /// A snapshot can say a guardian is absent; only this can say for how long, and only
 /// this can say whether anyone was even watching while they were. Both matter: the
-/// span is the absence, and the reading count is the evidence that the absence was
-/// observed rather than merely unrecorded.
+/// span is the absence, and the **watcher** count is the evidence that the absence was
+/// observed rather than merely unrecorded. Watchers, not filings — see
+/// [`Self::watchers_for`] for why the distinction is load-bearing (**D28**).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ObservationWindow {
     /// The observations inside the window, oldest first.
@@ -740,14 +756,48 @@ impl ObservationWindow {
         self.observations.len()
     }
 
-    /// How many of them actually saw `who` — the per-member evidence of watching,
-    /// which is what a duration measure should be held to. A monitor that observed
-    /// ten times but saw this member once has watched them once.
+    /// How many **filings** in the window actually saw `who`. An honest count of
+    /// records, and deliberately not what any grade reads — see [`Self::watchers_for`].
     pub fn readings_for(&self, who: &DidKey) -> usize {
         self.observations
             .iter()
             .filter(|o| o.readings.iter().any(|r| &r.member == who))
             .count()
+    }
+
+    /// How many **distinct observers** saw `who` — the per-member evidence of
+    /// watching, and what a duration measure is held to (design **D28**).
+    ///
+    /// **D19 made this count a safety floor on the reasoning that it "is evidence
+    /// that somebody was watching", and the sentence was false as written.** Measured:
+    /// one key, filing three times, made `readings_for` read `3` and drove
+    /// `en_cohesion`'s sustained-absence component to `Concern` — a `Concern` that
+    /// crosses to kith-covenant as a conduct record, manufactured by a stranger for
+    /// the price of one keypair. Three filings by one actor are one watcher, and that
+    /// is arithmetic rather than a judgement about who anyone is.
+    ///
+    /// A monitor that observed ten times but saw this member once has watched them
+    /// once, which is why this is per member and not per log.
+    ///
+    /// Nothing here asks whether the watchers are *independent* of each other or of
+    /// the polity — minting a second key is still cheap. That is the separate lens
+    /// [`observer_independence`] grades, and it is deliberately not a gate.
+    pub fn watchers_for(&self, who: &DidKey) -> usize {
+        self.observations
+            .iter()
+            .filter(|o| o.readings.iter().any(|r| &r.member == who))
+            .map(|o| o.observer.as_str())
+            .collect::<BTreeSet<_>>()
+            .len()
+    }
+
+    /// The distinct observers who saw `who`, oldest-first order discarded.
+    pub fn watchers_of(&self, who: &DidKey) -> BTreeSet<&str> {
+        self.observations
+            .iter()
+            .filter(|o| o.readings.iter().any(|r| &r.member == who))
+            .map(|o| o.observer.as_str())
+            .collect()
     }
 
     /// Seconds from the first observation to the last. `None` with fewer than two.
@@ -958,7 +1008,7 @@ pub struct RetentionPolicy {
     ///
     /// A shorter retention is permitted and forces the roll route. It can never clip
     /// a live measure, because [`prune_recommendation`] floors the horizon at
-    /// *both* `live_measure_seconds` and `min_witness_readings` regardless of what is
+    /// *both* `live_measure_seconds` and `min_witness_watchers` regardless of what is
     /// asked for — so the horizon may end up keeping more than was requested, never
     /// less.
     pub retain_seconds: i64,
@@ -982,7 +1032,7 @@ pub struct RetentionPolicy {
     pub min_dropped: usize,
     /// The longest span any live measure reads back over — one of the two floors the
     /// horizon can never cross, whatever `retain_seconds` asks for. It protects the
-    /// *span* half of a sustained absence; `min_witness_readings` protects the other.
+    /// *span* half of a sustained absence; `min_witness_watchers` protects the other.
     ///
     /// Defaults to one day, matching `en_cohesion`'s `sustained_absence_seconds`.
     /// It is a *separate* knob from `retain_seconds` because the two are different
@@ -990,23 +1040,24 @@ pub struct RetentionPolicy {
     /// much its own grading still needs. Collapsing them would let a caller tune
     /// away a safety property while believing they were only tuning storage.
     pub live_measure_seconds: i64,
-    /// How many observations *of each watched member* must survive — the second half
-    /// of the safety floor, and the half a duration cannot supply.
+    /// How many **distinct observers** *of each watched member* must survive — the
+    /// second half of the safety floor, and the half a duration cannot supply.
     ///
     /// A sustained absence is graded on two conditions, and `live_measure_seconds`
     /// only protects one of them. The span survives a prune (D17 clamps it to the
     /// horizon), but the **witness count** does not: prune to a 24-hour horizon on a
-    /// polity observed twice a day and `readings_for` falls from four to two, so a
+    /// polity observed twice a day and the count falls from four to two, so a
     /// `Concern` silently becomes a `Notice` with no signal that evidence was what
     /// changed. Measured, not assumed — the same absence, the same horizon, graded
     /// `Concern` at a dense cadence and `Notice` at a sparse one.
     ///
     /// So the floor is a duration **and** a count. Defaults to 3, matching
-    /// `en_cohesion`'s `sustained_absence_readings`. The count is per member, not per
-    /// log, because that is what `readings_for` counts: a member the monitors mention
-    /// rarely has thin evidence, and thinning it further is exactly the clip this
-    /// read-model exists to refuse.
-    pub min_witness_readings: usize,
+    /// `en_cohesion`'s `sustained_absence_watchers`. **Watchers, not filings, since
+    /// D28** — the floor tracks whatever the grade reads, or it protects a number
+    /// nothing uses. The count is per member, not per log: a member the monitors
+    /// mention rarely has thin evidence, and thinning it further is exactly the clip
+    /// this read-model exists to refuse.
+    pub min_witness_watchers: usize,
 }
 
 impl Default for RetentionPolicy {
@@ -1015,7 +1066,7 @@ impl Default for RetentionPolicy {
             retain_seconds: crate::PRUNE_SETTLING_SECONDS,
             min_dropped: 100,
             live_measure_seconds: 86_400,
-            min_witness_readings: 3,
+            min_witness_watchers: 3,
         }
     }
 }
@@ -1060,47 +1111,65 @@ impl PruneRecommendation {
     }
 }
 
-/// The latest horizon that still leaves `min_readings` observations of **every**
-/// watched member standing, or `None` when some member has too few to spare.
+/// The latest horizon that still leaves `min_watchers` **distinct observers** of
+/// **every** watched member standing, or `None` when some member has too few to spare.
 ///
-/// This is the half of the safety floor a duration cannot supply. `readings_for`
-/// counts observations mentioning a member, so the binding constraint is whichever
-/// member is mentioned most sparsely: the horizon may not advance past their
-/// `min_readings`-th most recent observation. A polity whose monitors cover the
-/// whole roll every time is unaffected — the duration floor binds first — while one
-/// with a thinly-watched member is pinned, which is the correct answer and not a
+/// This is the half of the safety floor a duration cannot supply, and **the floor has
+/// to preserve whatever the grade reads** — which is D19's own finding, recurring one
+/// decision later. D19 protected a count of filings because that is what the
+/// sustained-absence component read; **D28** found that count was the wrong quantity
+/// and moved the component to distinct watchers, so this moves with it. A floor that
+/// protects a number nothing grades is not a floor.
+///
+/// The binding constraint is whichever member is *watched* most sparsely: the horizon
+/// may not advance past the point where their `min_watchers`-th distinct observer
+/// falls out of the retained window. Note this is strictly stronger than counting
+/// filings — a member seen ten times by one monitor has one watcher, so a policy
+/// asking for three pins the horizon completely. That is the correct answer and not a
 /// deadlock: D17 always leaves the roll free to prune anything by majority. What is
 /// refused is *recommending* it.
 fn witness_floor(
     archive: &Archive<CharterEntry>,
     polity: &DidKey,
     as_of: Timestamp,
-    min_readings: usize,
+    min_watchers: usize,
 ) -> Option<Timestamp> {
-    if min_readings == 0 {
+    if min_watchers == 0 {
         return Some(as_of);
     }
-    let mut per_member: HashMap<&DidKey, Vec<i64>> = HashMap::new();
+    // (when, who) per member, so the walk below can count observers rather than rows.
+    let mut per_member: HashMap<&DidKey, Vec<(i64, &str)>> = HashMap::new();
     for (_, entry) in archive.iter() {
         if let CharterEntry::Observed(s) = entry {
             if &s.payload.polity != polity || s.payload.observed_at > as_of {
                 continue;
             }
             for reading in &s.payload.readings {
-                per_member
-                    .entry(&reading.member)
-                    .or_default()
-                    .push(s.payload.observed_at.as_second());
+                per_member.entry(&reading.member).or_default().push((
+                    s.payload.observed_at.as_second(),
+                    s.payload.observer.as_str(),
+                ));
             }
         }
     }
     let mut floor = as_of.as_second();
-    for (_, mut times) in per_member {
-        if times.len() < min_readings {
-            return None; // nothing may go: this member has no evidence to spare
+    for (_, mut seen) in per_member {
+        // Newest first, accumulating distinct observers: the horizon may fall no
+        // earlier than the moment the `min_watchers`-th of them was reached, because
+        // everything at or after that instant is what survives the prune.
+        seen.sort_unstable_by_key(|(at, _)| Reverse(*at));
+        let mut observers: BTreeSet<&str> = BTreeSet::new();
+        let mut pinned = None;
+        for (at, who) in seen {
+            observers.insert(who);
+            if observers.len() >= min_watchers {
+                pinned = Some(at);
+                break;
+            }
         }
-        times.sort_unstable();
-        floor = floor.min(times[times.len() - min_readings]);
+        // Nothing may go: this member has too few watchers to spare one.
+        let pinned = pinned?;
+        floor = floor.min(pinned);
     }
     Timestamp::from_second(floor).ok()
 }
@@ -1144,7 +1213,7 @@ pub fn prune_recommendation(
     // because a sustained absence is graded on a span *and* on a witness count.
     let retain = policy.retain_seconds.max(policy.live_measure_seconds);
     let by_duration = Timestamp::from_second(as_of.as_second().checked_sub(retain)?).ok()?;
-    let by_witness = witness_floor(archive, polity, as_of, policy.min_witness_readings)?;
+    let by_witness = witness_floor(archive, polity, as_of, policy.min_witness_watchers)?;
     let horizon = by_duration.min(by_witness);
 
     if let Some(prev) = effective_prune_horizon(archive, polity, as_of) {
@@ -1375,9 +1444,17 @@ pub fn founding_legitimacy(
         .derivations
         .iter()
         .any(|d| charter.members.iter().any(|m| m == &d.member));
+    // `Guarded` requires an edge an observation actually **backed**, taken by
+    // somebody outside the polity (D27). A self-declared `Unbacked` edge is honest and
+    // permitted, but grading it as ground would let a polity raise its own grade by
+    // writing a sentence — and a founder's own observation of the cluster would let it
+    // do the same in two steps. Same predicate as the authority rule, via
+    // `Derivation::is_backed`, so the grade and the gate cannot drift.
     let grounding = if anchor.is_some() {
         SubstrateGrounding::Anchored
-    } else if charter.derivations.iter().any(|d| d.guardian.is_some()) {
+    } else if charter.derivations.iter().any(|d| {
+        d.is_backed(&charter.polity, |o| charter.members.iter().any(|m| m.as_str() == o))
+    }) {
         SubstrateGrounding::Guarded
     } else if !derived_on_roll {
         SubstrateGrounding::Held
@@ -1655,21 +1732,30 @@ impl IndependentCorroboration {
     }
 }
 
-/// Read back who has vouched for `polity`'s founding readers, up to `as_of`.
+/// Read back who has vouched for `polity`'s parties in one `role`, up to `as_of`
+/// (design **D24**, generalized to observers by **D28**).
 ///
 /// Attesters are sorted into three buckets by *stake*, which is the whole point: an
-/// attestation from the polity, from the reader itself, or from a founding member
+/// attestation from the polity, from the subject itself, or from a founding member
 /// cannot count toward independence, because those are precisely the parties a
 /// sockpuppet chorus would be serving. The founding roll is used rather than the live
-/// one — a member admitted years later had no hand in the boundary being vouched for.
+/// one — a member admitted years later had no hand in what is being vouched for, and
+/// for an observer the founders remain the interested party whoever joined since.
+///
+/// The buckets are **per role**. A key that both read the boundary and later filed
+/// observations is two subjects here, because a voucher speaks to a relationship
+/// rather than to an identity in the abstract: "I know this party is not the
+/// convener's creature" is a different claim from "I know this monitor is nobody's
+/// creature", and only one of them may have been made.
 ///
 /// Reports attestations for a **dissolved** polity too: the third entry class a
 /// dissolution does not close, and by now a category rather than an exception —
 /// evidence about a founding outlives the polity, because the founding's legitimacy
 /// does.
-pub fn reader_independence(
+pub fn independence(
     archive: &Archive<CharterEntry>,
     polity: &DidKey,
+    role: AttestedRole,
     as_of: Timestamp,
 ) -> ReaderIndependence {
     let mut out = ReaderIndependence::default();
@@ -1683,36 +1769,59 @@ pub fn reader_independence(
     let roll: BTreeSet<&str> = charter.members.iter().map(DidKey::as_str).collect();
 
     for (_, e) in archive.iter() {
-        let CharterEntry::ReaderIndependenceAttested(s) = e else {
+        let CharterEntry::IndependenceAttested(s) = e else {
             continue;
         };
         let a = &s.payload;
-        if &a.polity != polity || a.attested_at > as_of {
+        if &a.polity != polity || a.role != role || a.attested_at > as_of {
             continue;
         }
-        let reader = a.reader.as_str().to_string();
+        let subject = a.subject.as_str().to_string();
         let attester = a.attesting_party.as_str().to_string();
         match a.kind {
             IndependenceKind::Controlled => {
                 // A counter-claim counts however interested its author is. Somebody
-                // saying "that reader is one of them" is worth recording from anyone
-                // — including a founder breaking ranks, who is the most informative
-                // possible source for it.
-                out.contested.entry(reader).or_default().insert(attester);
+                // saying "that one is ours" is worth recording from anyone — including
+                // a founder breaking ranks, who is the most informative possible
+                // source for it.
+                out.contested.entry(subject).or_default().insert(attester);
             }
             IndependenceKind::Independent => {
                 let interested = attester == polity.as_str()
-                    || attester == a.reader.as_str()
+                    || attester == a.subject.as_str()
                     || roll.contains(attester.as_str());
                 if interested {
-                    out.interested_attesters.entry(reader).or_default().insert(attester);
+                    out.interested_attesters.entry(subject).or_default().insert(attester);
                 } else {
-                    out.attesters.entry(reader).or_default().insert(attester);
+                    out.attesters.entry(subject).or_default().insert(attester);
                 }
             }
         }
     }
     out
+}
+
+/// [`independence`] over the founding's boundary readers (design **D24**).
+pub fn reader_independence(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> ReaderIndependence {
+    independence(archive, polity, AttestedRole::BoundaryReader, as_of)
+}
+
+/// [`independence`] over the monitors that have observed this polity (design **D28**).
+///
+/// Read alongside [`ObservationWindow::watchers_for`], which counts watchers without
+/// asking who they are. This says who has been vouched for; nothing anywhere refuses
+/// an unvouched monitor, deliberately — a polity that simply declines to vouch for
+/// anybody must not thereby become unwatchable.
+pub fn observer_independence(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> ReaderIndependence {
+    independence(archive, polity, AttestedRole::Observer, as_of)
 }
 
 /// Which of `polity`'s corroborating readers are independently vouched for, up to
@@ -1748,4 +1857,299 @@ pub fn independent_corroboration(
         .cloned()
         .collect();
     IndependentCorroboration { readers, contested }
+}
+
+/// **What a polity's watching is worth once independence is taken into account**
+/// (design **D28**) — the observer counterpart of [`IndependentCorroboration`].
+///
+/// Read against a member's `watchers_for`: that count says how many distinct parties
+/// spoke, this says how many of them somebody outside was willing to be named for.
+/// A polity watched by five monitors that are five faces of one actor reads `5` there
+/// and `0` here.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct IndependentObservation {
+    /// Monitors that have observed this polity **and** carry a disinterested voucher.
+    pub observers: Vec<DidKey>,
+    /// Of those, the ones somebody has also claimed are controlled — so
+    /// "independently observed" cannot quietly mean "and nobody objected".
+    pub contested: Vec<DidKey>,
+    /// Monitors that have observed and carry no disinterested voucher at all.
+    ///
+    /// **Not a fault, and the reason none of this is a gate.** A monitor nobody has
+    /// vouched for is the normal state of a new one, and of every honest one in a
+    /// polity whose neighbours do not write attestations. Reported so that the absence
+    /// of vouching is visible rather than silently read as its presence.
+    pub unvouched: Vec<DidKey>,
+}
+
+impl IndependentObservation {
+    /// How many monitors carry a disinterested voucher.
+    pub fn count(&self) -> usize {
+        self.observers.len()
+    }
+
+    /// Whether any does.
+    pub fn any(&self) -> bool {
+        !self.observers.is_empty()
+    }
+
+    /// The vouched-for monitors nobody has contradicted.
+    pub fn uncontested(&self) -> Vec<&DidKey> {
+        self.observers.iter().filter(|o| !self.contested.contains(o)).collect()
+    }
+}
+
+/// Which of the monitors that have observed `polity` are independently vouched for,
+/// up to `as_of` (design **D28**).
+///
+/// The set of monitors is taken from the log rather than from any registry, because
+/// there is no registry: **anybody may observe a polity**, which is D16's deliberate
+/// choice — a monitor that had to sit inside the roll could be silenced by expulsion.
+/// The cost of that openness is that a monitor may also be nobody, and this is the
+/// lens that says which.
+pub fn independent_observation(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> IndependentObservation {
+    let mut out = IndependentObservation::default();
+    let seen = observer_independence(archive, polity, as_of);
+    // Keyed by DID string because `DidKey` is not `Ord`; the value carries the key
+    // itself so the report can hand back real identities rather than strings.
+    let mut monitors: BTreeMap<&str, &DidKey> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        match e {
+            CharterEntry::Observed(s)
+                if &s.payload.polity == polity && s.payload.observed_at <= as_of =>
+            {
+                monitors.insert(s.payload.observer.as_str(), &s.payload.observer);
+            }
+            // A monitor whose observation was carried as guardian evidence has
+            // observed this polity as surely as one that filed its own entry — the
+            // same equivalence the authority pass's `observers` ledger draws.
+            CharterEntry::PolityChartered(s) if &s.payload.polity == polity => {
+                for d in &s.payload.derivations {
+                    if let Some(GuardianEvidence::Observed(ob)) = &d.evidence {
+                        monitors
+                            .insert(ob.payload.observer.as_str(), &ob.payload.observer);
+                    }
+                }
+            }
+            CharterEntry::GuardianChanged(s) if &s.payload.polity == polity => {
+                if let Some(GuardianEvidence::Observed(ob)) = &s.payload.evidence {
+                    monitors.insert(ob.payload.observer.as_str(), &ob.payload.observer);
+                }
+            }
+            _ => {}
+        }
+    }
+    for (who, did) in monitors {
+        if seen.is_attested(who) {
+            out.observers.push(did.clone());
+            if seen.is_contested(who) {
+                out.contested.push(did.clone());
+            }
+        } else {
+            out.unvouched.push(did.clone());
+        }
+    }
+    out
+}
+
+/// **What the polity's chartered ground rests on, once the monitor is looked at**
+/// (design **D28**).
+///
+/// D27 made a founding guardian edge carry the observation that showed it, and made
+/// the observer be somebody outside the polity. It did not — deliberately — ask *who*
+/// that outsider was, because requiring a vouched-for monitor at founding would refuse
+/// newness, which is the line **D24** drew and this slice keeps.
+///
+/// So the grade stays where it is and this reports the residue: of the founding edges
+/// that earned `Guarded`, how many rest on a monitor somebody outside has been willing
+/// to be named for. A separate accruing read-model rather than a field on
+/// [`FoundingLegitimacy`], on that model's charter-alone property — attestations
+/// arrive afterwards, and folding them in would mean the same charter graded
+/// differently on different days.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct IndependentGrounding {
+    /// Founding-derived members whose guardian edge is backed by a vouched-for monitor.
+    pub vouched_edges: Vec<DidKey>,
+    /// Founding-derived members whose backing monitor carries no disinterested
+    /// voucher. `Guarded` all the same — this is what the grade does not say.
+    pub unvouched_edges: Vec<DidKey>,
+    /// Members among `vouched_edges` whose monitor somebody has called controlled.
+    pub contested_edges: Vec<DidKey>,
+}
+
+impl IndependentGrounding {
+    /// Whether any chartered edge rests on a vouched-for monitor.
+    pub fn any(&self) -> bool {
+        !self.vouched_edges.is_empty()
+    }
+}
+
+/// Read back [`IndependentGrounding`] for `polity` as of `as_of` (design **D28**).
+pub fn independent_grounding(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> IndependentGrounding {
+    let mut out = IndependentGrounding::default();
+    let charter = archive.iter().find_map(|(_, e)| match e {
+        CharterEntry::PolityChartered(s) if &s.payload.polity == polity => Some(&s.payload),
+        _ => None,
+    });
+    let Some(charter) = charter else {
+        return out;
+    };
+    let seen = observer_independence(archive, polity, as_of);
+    let on_roll = |o: &str| charter.members.iter().any(|m| m.as_str() == o);
+    for d in &charter.derivations {
+        if !d.is_backed(&charter.polity, on_roll) {
+            continue;
+        }
+        let Some(GuardianEvidence::Observed(ob)) = &d.evidence else {
+            continue;
+        };
+        let who = ob.payload.observer.as_str();
+        if seen.is_attested(who) {
+            out.vouched_edges.push(d.member.clone());
+            if seen.is_contested(who) {
+                out.contested_edges.push(d.member.clone());
+            }
+        } else {
+            out.unvouched_edges.push(d.member.clone());
+        }
+    }
+    out
+}
+
+// --- D29: the rite as a process, not only its completion ---------------------
+
+/// One movement of one rite, as a reader sees it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MovementPoint {
+    /// 1–5, the movement's place in the sequence.
+    pub order: u8,
+    /// Who was present, and so co-signed.
+    pub attending: Vec<DidKey>,
+    pub recited_at: Timestamp,
+}
+
+/// One member's rite, complete or in progress (design **D29**).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rite {
+    pub member: DidKey,
+    /// The movements recited so far, in order.
+    pub movements: Vec<MovementPoint>,
+    /// When the completing `Induction` was recorded, or `None` while the rite is
+    /// open — which includes a rite that was **abandoned**: this tier does not
+    /// decide when an unfinished rite has been given up on, because nothing in the
+    /// doctrine says how long a catechumenate may take.
+    pub completed_at: Option<Timestamp>,
+}
+
+impl Rite {
+    /// Whether all five movements have been recited.
+    pub fn all_movements_recited(&self) -> bool {
+        self.movements.len() == Movement::COUNT as usize
+    }
+
+    /// Seconds from the first movement to the last, or `None` for an empty rite.
+    ///
+    /// This is the rite's **cost in time**, and the measure v1 could not express at
+    /// all: an induction carried one instant, so a ceremony held over a week and one
+    /// performed in a second produced identical records.
+    pub fn span_seconds(&self) -> Option<i64> {
+        match (self.movements.first(), self.movements.last()) {
+            (Some(a), Some(b)) => Some(b.recited_at.as_second() - a.recited_at.as_second()),
+            _ => None,
+        }
+    }
+
+    /// The members who attended **every** movement — the only ones the completion may
+    /// count as witnesses. An intersection rather than a union, because five movements
+    /// signed by five disjoint groups is a rite nobody was at.
+    pub fn attended_throughout(&self) -> Vec<DidKey> {
+        let mut iter = self.movements.iter();
+        let Some(first) = iter.next() else {
+            return Vec::new();
+        };
+        let mut keep: Vec<DidKey> = first.attending.clone();
+        for m in iter {
+            keep.retain(|w| m.attending.contains(w));
+        }
+        keep
+    }
+
+    /// How many attendees the rite **lost** between its first movement and its last.
+    ///
+    /// Not a trend across rites but a fact within one: the polity that turned out for
+    /// the naming of the substrate and had drifted away by the submission of the
+    /// polity itself performed the whole rite and attended half of it.
+    pub fn attrition(&self) -> usize {
+        let first = self.movements.first().map(|m| m.attending.len()).unwrap_or(0);
+        first.saturating_sub(self.attended_throughout().len())
+    }
+}
+
+/// Every rite this polity has performed or begun, oldest first (design **D29**).
+///
+/// A member's rite is the run of movements since their last movement 1, because
+/// opening a rite abandons any attempt in progress. So a member who was started on
+/// twice appears twice: the abandoned attempt is part of the record, and a polity
+/// that keeps beginning rites it does not finish is saying something about itself.
+pub fn rite_state(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> Vec<Rite> {
+    let mut rites: Vec<Rite> = Vec::new();
+    for (_cid, e) in archive.iter() {
+        match e {
+            CharterEntry::RiteMovementRecorded(s) => {
+                let m = &s.payload;
+                if &m.polity != polity || m.recited_at > as_of {
+                    continue;
+                }
+                let point = MovementPoint {
+                    order: m.movement.order(),
+                    attending: m.attending.clone(),
+                    recited_at: m.recited_at,
+                };
+                // Movement 1 opens a rite; anything else extends this member's most
+                // recent open one.
+                let open = rites
+                    .iter_mut()
+                    .rev()
+                    .find(|r| r.member == m.member && r.completed_at.is_none());
+                match (point.order, open) {
+                    (1, _) | (_, None) => rites.push(Rite {
+                        member: m.member.clone(),
+                        movements: vec![point],
+                        completed_at: None,
+                    }),
+                    (_, Some(r)) => r.movements.push(point),
+                }
+            }
+            CharterEntry::MemberAffirmed(s) => {
+                let af = &s.payload;
+                if &af.polity != polity
+                    || af.affirmed_at > as_of
+                    || af.kind != AffirmationKind::Induction
+                {
+                    continue;
+                }
+                if let Some(r) = rites
+                    .iter_mut()
+                    .rev()
+                    .find(|r| r.member == af.member && r.completed_at.is_none())
+                {
+                    r.completed_at = Some(af.affirmed_at);
+                }
+            }
+            _ => {}
+        }
+    }
+    rites
 }

@@ -24,6 +24,7 @@ from kith_covenant import (
     delegate_speaker, insider_ring, attest_insider, file_whistleblower,
     open_source_share, reveal_source, exculpate_source, reputation_of,
     observer_dashboard, observer_pool_concentration, now_seconds,
+    new_member, publish_member_roll, insider_set_size, Signer,
 )
 
 _DAY = 86400
@@ -143,6 +144,118 @@ def test_insider_ring_widens_with_delegations():
     ring = insider_ring(arch, subject.did, at=t0 + 100)
     # Root plus three delegated speakers.
     assert len(ring) == 4
+
+
+def test_a_mediator_needs_an_encryption_key_distinct_from_its_signing_key():
+    # §8 custody seals a share of a source's identity to the encryption key by key
+    # agreement. new_mediator() mints both; a bare Signer cannot be seated.
+    arch, t0, _subject, _obs = _fixture()
+    c = new_identity(arch, "Nominator", t0)
+    m = new_mediator()
+    assert m.enc_pub and m.enc_pub != m.pub
+    bare = Signer(did=m.did, priv=m.priv, pub=m.pub)
+    with pytest.raises(ValueError, match="encryption key"):
+        register_mediators(arch, c, [bare], valid_from=t0 - 10)
+
+
+def test_registering_the_signing_key_as_the_encryption_key_is_refused():
+    # Through the raw binding, since the facade will not build it: reusing one key for
+    # two primitives is what the field exists to end.
+    arch, t0, _subject, _obs = _fixture()
+    c = new_identity(arch, "Nominator", t0)
+    m = new_mediator()
+    arch.register_mediators(c.priv, c.did, [(m.pub, m.did, m.pub)], t0 - 10, None)
+    with pytest.raises(RuntimeError, match="signing key as its encryption key"):
+        arch.check_authority()
+
+
+def test_a_share_is_opened_with_the_encryption_key_not_the_signing_key():
+    arch, t0, subject, _obs = _fixture()
+    crew = _with_insiders(arch, subject, t0)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    att = attest_insider(arch, subject.did, crew[0], "coerced labor", filed_at=t0 + 100)
+    wb = file_whistleblower(arch, subject.did, "coerced labor", panel,
+                            attestation=att, threshold=2)
+    arch.verify_all()
+    arch.check_authority()
+    # The real custodian opens its own share.
+    assert open_source_share(arch, wb, panel[0])
+    # The same identity holding only its signing key cannot.
+    signing_only = Signer(did=panel[0].did, priv=panel[0].priv, pub=panel[0].pub)
+    with pytest.raises(ValueError, match="encryption key"):
+        open_source_share(arch, wb, signing_only)
+
+
+def test_a_member_roll_gives_a_community_an_anonymous_channel():
+    # The polity-tier feed: without a roll this community's channel is one key deep
+    # and it cannot file at all (see the test above).
+    arch, t0, subject, _obs = _fixture()
+    assert insider_set_size(arch, subject.did, at=t0 + 100) == 1
+    members = [new_member() for _ in range(4)]
+    publish_member_roll(arch, subject, members, as_of=t0 - 10)
+    assert insider_set_size(arch, subject.did, at=t0 + 100) == 5
+    arch.verify_all()
+    arch.check_authority()
+
+
+def test_a_rolled_member_with_no_delegation_can_file_anonymously():
+    arch, t0, subject, _obs = _fixture()
+    members = [new_member() for _ in range(4)]
+    publish_member_roll(arch, subject, members, as_of=t0 - 10)
+    panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
+    # The source holds no delegation of any kind — only a place on the roll.
+    att = attest_insider(arch, subject.did, members[2], "coerced labor",
+                         filed_at=t0 + 100)
+    file_whistleblower(arch, subject.did, "coerced labor", panel,
+                       attestation=att, filed_at=t0 + 100)
+    arch.verify_all()
+    arch.check_authority()
+
+
+def test_a_shorter_later_roll_removes_nobody():
+    # Union-only: a community cannot shrink the suspect set around whoever just left.
+    arch, t0, subject, _obs = _fixture()
+    members = [new_member() for _ in range(4)]
+    publish_member_roll(arch, subject, members, as_of=t0 - 10)
+    assert insider_set_size(arch, subject.did, at=t0 + 100) == 5
+    publish_member_roll(arch, subject, members[:1], as_of=t0 - 5)
+    assert insider_set_size(arch, subject.did, at=t0 + 100) == 5
+
+
+def test_a_roll_cannot_give_a_member_a_key_its_did_does_not_resolve_to():
+    # Reached through the raw binding: the `publish_member_roll` facade takes Signers
+    # and so always pairs a member with its own key. Root-only publication is the
+    # same story — the facade signs as the community it names, which makes
+    # "an envoy publishes a roll" unrepresentable here; the Rust authority tests
+    # cover that rule directly.
+    arch, t0, subject, _obs = _fixture()
+    member = new_member()
+    outsider = new_member()
+    arch.publish_member_roll(
+        subject.priv, subject.did,
+        [(outsider.pub, member.did)],   # a real member's DID, an outsider's key
+        t0 - 10, None,
+    )
+    with pytest.raises(RuntimeError, match="does not resolve"):
+        arch.check_authority()
+
+
+def test_an_empty_member_roll_is_refused_before_it_is_authored():
+    arch, t0, subject, _obs = _fixture()
+    with pytest.raises(ValueError, match="at least one member"):
+        publish_member_roll(arch, subject, [], as_of=t0)
+
+
+def test_the_dashboard_shows_the_thinnest_anonymity_sets_first():
+    arch, t0, subject, _obs = _fixture()
+    members = [new_member() for _ in range(3)]
+    publish_member_roll(arch, subject, members, as_of=t0 - 10)
+    dash = observer_dashboard(arch, t0 + 100)
+    sizes = dict(dash.anonymity_set_by_community)
+    assert sizes[subject.did] == 4
+    # Ascending: whichever community has no channel at all is the first row.
+    counts = [n for _did, n in dash.anonymity_set_by_community]
+    assert counts == sorted(counts)
 
 
 def test_a_reveal_cannot_name_someone_the_shares_do_not_recover():

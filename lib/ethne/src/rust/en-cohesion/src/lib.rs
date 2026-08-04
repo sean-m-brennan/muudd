@@ -47,7 +47,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use en_charter::{AffirmationState, DecayTrends, GroundStanding, GuardianState, ObservationWindow};
+use en_charter::{
+    AffirmationState, DecayTrends, GroundStanding, GuardianState, IndependentObservation,
+    ObservationWindow, Rite,
+};
 use en_core::{DidKey, Timestamp};
 use en_substrate::FoundingCandidate;
 
@@ -100,7 +103,7 @@ pub struct Thresholds {
     ///
     /// **The escape hatch this comment used to promise now exists** (D16): where the
     /// polity's monitors have *recorded* what they saw, `sustained_absence_seconds`
-    /// and `sustained_absence_readings` grade the same absence over an interval, and
+    /// and `sustained_absence_watchers` grade the same absence over an interval, and
     /// that measure may escalate — because a duration is exactly what a snapshot
     /// lacked. The cap here stands unchanged: a snapshot never escalates.
     pub unattended_notice: f64,
@@ -156,13 +159,21 @@ pub struct Thresholds {
     /// observations, before the absence is *sustained* rather than merely current.
     /// A day by default: long enough to have outlasted any shift.
     pub sustained_absence_seconds: i64,
-    /// How many observations must have seen that member across the span.
+    /// How many **distinct observers** must have seen that member across the span.
     ///
     /// **This is not "N absences".** The span is the absence; the count is the
     /// evidence that somebody was *watching* while it lasted. A span computed from a
     /// single stale reading with a long silence behind it says nothing about the
     /// polity — only that nobody looked. The same span witnessed repeatedly does.
-    pub sustained_absence_readings: usize,
+    ///
+    /// **Watchers, not filings** (design **D28**). Until this was measured the
+    /// component read `readings_for`, so one key filing three times satisfied a floor
+    /// whose whole justification was "somebody was watching" — and a stranger with
+    /// one keypair could manufacture the `Concern` that crosses to kith-covenant.
+    /// Counting distinct observers is arithmetic, not a judgement about who they are;
+    /// whether they are independent *of each other* is the separate lens
+    /// `observer_independence` grades, and deliberately not a gate.
+    pub sustained_absence_watchers: usize,
 }
 
 impl Default for Thresholds {
@@ -201,7 +212,7 @@ impl Default for Thresholds {
             churn_notice: 0.2,
             churn_concern: 0.5,
             sustained_absence_seconds: 86_400,
-            sustained_absence_readings: 3,
+            sustained_absence_watchers: 3,
         }
     }
 }
@@ -283,11 +294,55 @@ pub struct CohesionReport {
     /// boundary is being redrawn. `None` when unmeasured.
     pub churn_rate: Option<f64>,
     /// Chartered members whose guardian has been unattended across the recorded
-    /// window for at least `sustained_absence_seconds`, witnessed by at least
-    /// `sustained_absence_readings` observations. Unlike the snapshot attendance
+    /// window for at least `sustained_absence_seconds`, seen by at least
+    /// `sustained_absence_watchers` **distinct observers** (D28). Unlike the snapshot attendance
     /// count, this one escalates: nobody has been there all day, and we were
     /// watching.
     pub sustained_absences: usize,
+    /// **How much of the watching behind this report anyone has vouched for**
+    /// (design **D28**) — distinct monitors seen in the window, and how many of them
+    /// carry a disinterested independence attestation.
+    ///
+    /// A **lens, never a gate**, and the asymmetry is deliberate in a way worth
+    /// stating: the erosion level above does not move by one step on account of these
+    /// numbers. Gating an escalation on the monitor being vouched for would hand a
+    /// captured polity the simplest possible defence — vouch for nobody, and become
+    /// unwatchable — which is a worse hole than the one being reported. And a monitor
+    /// nobody has vouched for is the normal state of an honest new one, so refusing it
+    /// would be refusing newness, the line **D24** drew for readers.
+    ///
+    /// What it buys is that a reader of this report can tell a `Concern` raised by
+    /// three independent monitors from one raised by three keys, where before D28 the
+    /// second could not even be distinguished from *one key filing three times*.
+    /// `None` when no `observers` reading was supplied.
+    pub watchers: Option<WatcherStanding>,
+    /// How many of the polity's rites this reading covers — the denominator of the
+    /// three measures below, and `0` when no rite reading was supplied (in which case
+    /// they say nothing rather than reporting health).
+    pub rites: usize,
+    /// Whether the polity's most recent completed rite ran **shorter** than its first
+    /// — the ceremony costing less than it used to. `None` with fewer than two
+    /// completed rites, which is not the same as `Some(false)`.
+    ///
+    /// This is the measure v1 could not take at all: an induction carried a single
+    /// instant, so a rite held over a week and one performed in a second left
+    /// identical records. Capped at `Notice` like the other trends — a cheapening
+    /// ceremony is a leading indicator, and what it leads to is already gradeable.
+    pub rite_span_shortening: Option<bool>,
+    /// Rites begun and never completed, as of this reading. Not graded: nothing in the
+    /// doctrine says how long a catechumenate may take, so an open rite is reported
+    /// and left to a reader who knows the polity's own cadence.
+    pub rites_abandoned: usize,
+    /// Attendees lost between a rite's first movement and its last, summed over
+    /// completed rites — the polity that turned out for the naming of the substrate
+    /// and had drifted away by the submission of the polity itself.
+    pub rite_attrition: usize,
+    /// Whether **nobody** on the roll holds the substrate. Reached only by a polity
+    /// expelling its way there, since the founding seeds its ratifiers — and terminal
+    /// while it lasts, because every majority is of the members who hold it. Graded
+    /// straight to `Concern`, event-style, with no threshold: like a ground's
+    /// withdrawal this is a state, not a drift.
+    pub nobody_holds_the_substrate: bool,
     /// Whether the polity's chartered substrate anchor has withdrawn (design
     /// **D23**). `false` both when no ground reading was supplied and when the ground
     /// still stands, which is safe *here* only because the alternative — a polity
@@ -346,6 +401,36 @@ fn is_attended(attested_at: Option<Timestamp>, as_of: Timestamp, cadence_seconds
 /// Every field is derived from the polity's own signed log
 /// (`en_charter::{guardian_state, affirmation_state, decay_trends}`), never from a
 /// provider: the provider's side of the comparison is the `candidate`.
+/// **Who was watching, and who will say so** (design **D28**) — the standing of the
+/// monitors whose observations a report's duration measures rest on.
+///
+/// Three numbers rather than a grade, because there is no defensible ordering of
+/// them: a polity watched by one vouched-for monitor and one watched by six unvouched
+/// ones are differently legible, not differently healthy.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct WatcherStanding {
+    /// Distinct observers in the window. **Distinct** is the whole point: before D28
+    /// this was a count of filings, so one key filing three times cleared a floor
+    /// whose justification was that somebody had been watching.
+    pub distinct: usize,
+    /// How many of them carry a disinterested independence attestation — somebody
+    /// outside the polity, outside the roll, and not the monitor itself, willing to be
+    /// named for the claim that this monitor is its own principal.
+    pub vouched: usize,
+    /// How many of them somebody has claimed are *controlled*. Counted from anyone,
+    /// including a founder: interest disqualifies praise, not a warning (**D24**).
+    pub contested: usize,
+}
+
+impl WatcherStanding {
+    /// Watchers nobody has vouched for. Not a fault — the ordinary state of an honest
+    /// new monitor, and of every monitor in a polity whose neighbours write no
+    /// attestations.
+    pub fn unvouched(&self) -> usize {
+        self.distinct.saturating_sub(self.vouched)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct CohesionInputs<'a> {
     /// Which members are derived (machine) parties and whom they answer to (D15).
@@ -364,6 +449,12 @@ pub struct CohesionInputs<'a> {
     /// reporting false health — the same discipline every other optional input here
     /// follows.
     pub ground: Option<&'a GroundStanding>,
+    /// The polity's rites — movements, spans, attendance (D29). `None` when no rite
+    /// reading was supplied, in which case the rite measures say nothing.
+    pub rites: Option<&'a [Rite]>,
+    /// Who has vouched for the polity's monitors (D28). Feeds the `watchers` lens
+    /// and nothing else: no component reads it, and no level moves on it.
+    pub observers: Option<&'a IndependentObservation>,
 }
 
 /// Read a polity's cohesion by comparing its `chartered_roll` against the
@@ -637,15 +728,22 @@ pub fn cohesion_report(
 
     // Sustained absence (D16) — the one absence signal permitted to escalate,
     // because it is the only one that knows how long. Two conditions, and they do
-    // different jobs: the span IS the absence, and the reading count is evidence
+    // different jobs: the span IS the absence, and the watcher count is evidence
     // that somebody was watching while it lasted. Either alone is defeasible; a
     // stale reading with silence behind it proves only that nobody looked.
+    //
+    // **Watchers, not filings** (D28). This read `readings_for` until it was
+    // measured, and one key filing three times cleared the floor — so the escalation
+    // this component alone is trusted with could be manufactured by a stranger for
+    // one keypair. Nothing here asks whether the watchers are independent; that is
+    // graded, not gated, because a polity that refuses to vouch for anyone must not
+    // thereby become unwatchable.
     let sustained_absences = match inputs.window {
         None => 0,
         Some(window) => chartered_roll
             .iter()
             .filter(|did| {
-                window.readings_for(did) >= thresholds.sustained_absence_readings
+                window.watchers_for(did) >= thresholds.sustained_absence_watchers
                     && window
                         .unattended_span(did, as_of)
                         .is_some_and(|span| span >= thresholds.sustained_absence_seconds)
@@ -657,6 +755,25 @@ pub fn cohesion_report(
     } else {
         ErosionLevel::None
     };
+
+    // Who was doing the watching (D28). Reported beside the escalation it qualifies,
+    // and read by no component: see `CohesionReport::watchers` for why this one may
+    // never become a gate.
+    let watchers = inputs.window.map(|window| {
+        let seen: BTreeSet<&str> =
+            window.observations.iter().map(|o| o.observer.as_str()).collect();
+        let vouched = inputs.observers.map_or(0, |ind| {
+            seen.iter()
+                .filter(|w| ind.observers.iter().any(|o| o.as_str() == **w))
+                .count()
+        });
+        let contested = inputs.observers.map_or(0, |ind| {
+            seen.iter()
+                .filter(|w| ind.contested.iter().any(|o| o.as_str() == **w))
+                .count()
+        });
+        WatcherStanding { distinct: seen.len(), vouched, contested }
+    });
 
     // D23 — the ground has withdrawn.
     //
@@ -678,6 +795,43 @@ pub fn cohesion_report(
         ErosionLevel::None
     };
 
+    // D29 — the rite's own cost. `span_seconds` exists because the tier records the
+    // movements now: the completion alone carried one instant and could not be
+    // compared with anything.
+    let all_rites = inputs.rites.unwrap_or(&[]);
+    let rites = all_rites.len();
+    let completed: Vec<&Rite> = all_rites.iter().filter(|r| r.completed_at.is_some()).collect();
+    let rites_abandoned = rites - completed.len();
+    let rite_attrition: usize = completed.iter().map(|r| r.attrition()).sum();
+    // Against the FIRST rite, not the median of the priors: a ceremony that thins
+    // uniformly moves its own recent history, which is the failure
+    // `gap_widening_since_founding` exists to catch one measure over.
+    let rite_span_shortening = match (completed.first(), completed.last()) {
+        (Some(first), Some(last)) if completed.len() >= 2 => {
+            match (first.span_seconds(), last.span_seconds()) {
+                (Some(a), Some(b)) => Some(b < a),
+                _ => None,
+            }
+        }
+        _ => None,
+    };
+    let rite_level = if rite_span_shortening == Some(true) || rite_attrition > 0 {
+        ErosionLevel::Notice
+    } else {
+        ErosionLevel::None
+    };
+    // Nobody holding the substrate is not a drift, so it takes no threshold: a polity
+    // in that state can take no second-class act of its own, and saying so is more use
+    // than a ratio.
+    let nobody_holds_the_substrate = inputs
+        .affirmations
+        .is_some_and(|a| !a.entries.is_empty() && a.entries.iter().all(|e| !e.inducted));
+    let substrate_level = if nobody_holds_the_substrate {
+        ErosionLevel::Concern
+    } else {
+        ErosionLevel::None
+    };
+
     let erosion = attrition_level
         .max(mean_level)
         .max(breach_level)
@@ -689,6 +843,8 @@ pub fn cohesion_report(
         .max(witness_level)
         .max(churn_level)
         .max(sustained_level)
+        .max(rite_level)
+        .max(substrate_level)
         .max(ground_level);
 
     CohesionReport {
@@ -710,6 +866,12 @@ pub fn cohesion_report(
         witness_count_declined,
         churn_rate,
         sustained_absences,
+        watchers,
+        rites,
+        rite_span_shortening,
+        rites_abandoned,
+        rite_attrition,
+        nobody_holds_the_substrate,
         ground_disavowed,
         erosion,
     }
@@ -718,7 +880,7 @@ pub fn cohesion_report(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use en_charter::{DisavowalEntry, MemberAffirmation, Substrate};
+    use en_charter::{DisavowalEntry, MemberAffirmation, MovementPoint, Substrate};
     use en_core::{keys, Alg, DidKey};
     use en_substrate::{FoundingCandidate, MemberCandidate};
 
@@ -798,7 +960,7 @@ mod tests {
         GuardianState {
             derivations: edges
                 .iter()
-                .map(|(m, g)| en_charter::Derivation { member: m.clone(), guardian: g.clone() })
+                .map(|(m, g)| en_charter::DerivedEdge { member: m.clone(), guardian: g.clone() })
                 .collect(),
         }
     }
@@ -841,7 +1003,28 @@ mod tests {
 
     /// An observation window built directly: each entry is one observation at
     /// `(at, [(member, attendance stamp)])`.
+    /// A window whose every filing is by a *different* observer — the ordinary case,
+    /// and since D28 the one the sustained-absence grade needs.
     fn window(points: &[(i64, Vec<(DidKey, Option<i64>)>)]) -> ObservationWindow {
+        window_by(points, &[])
+    }
+
+    /// `window`, but with every filing signed by the same `solo` observer when one is
+    /// given: one party's word, however many times it is repeated.
+    fn window_by(
+        points: &[(i64, Vec<(DidKey, Option<i64>)>)],
+        solo: &[DidKey],
+    ) -> ObservationWindow {
+        let mut w = window_inner(points);
+        if let Some(one) = solo.first() {
+            for o in &mut w.observations {
+                o.observer = one.clone();
+            }
+        }
+        w
+    }
+
+    fn window_inner(points: &[(i64, Vec<(DidKey, Option<i64>)>)]) -> ObservationWindow {
         ObservationWindow {
             observations: points
                 .iter()
@@ -1749,6 +1932,146 @@ mod tests {
         assert_eq!(single.erosion, ErosionLevel::None);
     }
 
+    /// D29 — a rite fixture: `(recited_at, attendees)` per movement, drawn from one
+    /// pool so the *same* people attend across movements. (Minting fresh DIDs per
+    /// movement made every attendee read as lost, which is the measure working.)
+    fn rite(member: &DidKey, spans: &[(i64, usize)], completed: bool) -> Rite {
+        let pool: Vec<DidKey> =
+            (0..spans.iter().map(|(_, n)| *n).max().unwrap_or(0)).map(|_| did()).collect();
+        let movements = spans
+            .iter()
+            .map(|(at, present)| MovementPoint {
+                order: 1,
+                attending: pool[..*present].to_vec(),
+                recited_at: at_ts(*at),
+            })
+            .collect();
+        Rite {
+            member: member.clone(),
+            movements,
+            completed_at: completed.then(|| at_ts(spans.last().map(|s| s.0).unwrap_or(0))),
+        }
+    }
+
+    fn at_ts(secs: i64) -> Timestamp {
+        Timestamp::from_second(secs).unwrap()
+    }
+
+    #[test]
+    fn a_cheapening_rite_warns_but_never_escalates() {
+        let roll: Vec<DidKey> = (0..4).map(|_| did()).collect();
+        let members: Vec<(DidKey, f64)> = roll.iter().map(|d| (d.clone(), 0.9)).collect();
+        // A rite held over a week, then one performed in five seconds.
+        let rites = vec![
+            rite(&roll[0], &[(0, 3), (604_800, 3)], true),
+            rite(&roll[1], &[(1_000_000, 3), (1_000_005, 3)], true),
+        ];
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs { rites: Some(&rites), ..Default::default() },
+            at(0),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.rites, 2);
+        assert_eq!(r.rite_span_shortening, Some(true));
+        assert_eq!(r.erosion, ErosionLevel::Notice, "a cheapening ceremony warns");
+
+        // One rite is not a trend, and a lengthening one is not a signal.
+        let single = vec![rite(&roll[0], &[(0, 3), (5, 3)], true)];
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs { rites: Some(&single), ..Default::default() },
+            at(0),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.rite_span_shortening, None, "no trend from one rite");
+        assert_eq!(r.erosion, ErosionLevel::None);
+    }
+
+    #[test]
+    fn attendees_lost_mid_rite_are_reported_and_an_open_rite_is_not_graded() {
+        let roll: Vec<DidKey> = (0..4).map(|_| did()).collect();
+        let members: Vec<(DidKey, f64)> = roll.iter().map(|d| (d.clone(), 0.9)).collect();
+        // A completed rite that four attended and three finished, plus one abandoned.
+        let mut lost = rite(&roll[0], &[(0, 4), (10, 4)], true);
+        lost.movements[1].attending.truncate(3);
+        let rites = vec![lost, rite(&roll[1], &[(20, 3)], false)];
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs { rites: Some(&rites), ..Default::default() },
+            at(0),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.rite_attrition, 1);
+        assert_eq!(r.rites_abandoned, 1);
+        assert_eq!(r.erosion, ErosionLevel::Notice, "attrition warns; abandonment does not");
+
+        // With no rite reading the measures say nothing rather than reporting health.
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs::default(),
+            at(0),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.rites, 0);
+        assert_eq!(r.rite_span_shortening, None);
+        assert_eq!(r.rite_attrition, 0);
+        assert_eq!(r.erosion, ErosionLevel::None);
+    }
+
+    #[test]
+    fn nobody_holding_the_substrate_reaches_concern_alone() {
+        let roll: Vec<DidKey> = (0..3).map(|_| did()).collect();
+        let members: Vec<(DidKey, f64)> = roll.iter().map(|d| (d.clone(), 0.9)).collect();
+        // Everyone present, well-regarded, and holding nothing.
+        let none = affirmed(&roll.iter().map(|d| (d.clone(), false, None)).collect::<Vec<_>>());
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs { affirmations: Some(&none), ..Default::default() },
+            at(0),
+            &Thresholds::default(),
+        );
+        assert!(r.nobody_holds_the_substrate);
+        assert_eq!(r.erosion, ErosionLevel::Concern);
+
+        // One inducted member is enough for the polity to be able to act.
+        let mut some: Vec<(DidKey, bool, Option<Timestamp>)> =
+            roll.iter().map(|d| (d.clone(), false, None)).collect();
+        some[0] = (roll[0].clone(), true, Some(at_ts(0)));
+        let st = affirmed(&some);
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs { affirmations: Some(&st), ..Default::default() },
+            at(0),
+            &Thresholds::default(),
+        );
+        assert!(!r.nobody_holds_the_substrate);
+
+        // An empty reading is *not evaluated*, not "nobody holds it".
+        let empty = affirmed(&[]);
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs { affirmations: Some(&empty), ..Default::default() },
+            at(0),
+            &Thresholds::default(),
+        );
+        assert!(!r.nobody_holds_the_substrate);
+    }
+
     #[test]
     fn a_thinning_witness_turnout_warns_but_never_escalates() {
         let roll: Vec<DidKey> = (0..4).map(|_| did()).collect();
@@ -2082,4 +2405,87 @@ mod tests {
         assert_eq!(r.erosion, ErosionLevel::Concern);
     }
 
+
+    // ---- D28: the watcher, not the filing --------------------------------------
+
+    #[test]
+    fn one_key_filing_three_times_does_not_escalate() {
+        // **THE MEASURED HOLE.** This component is the only absence signal permitted
+        // past the snapshot cap, and it reached `Concern` — the grade that crosses to
+        // kith-covenant as a conduct record — on a count of FILINGS. A stranger with
+        // one keypair, no relationship to the polity at all, could raise it.
+        let m = did();
+        let roll = vec![m.clone()];
+        let solo = did();
+        let points = [
+            (0, vec![(m.clone(), Some(0))]),
+            (DAY / 2, vec![(m.clone(), None)]),
+            (DAY, vec![(m.clone(), None)]),
+        ];
+        let seen = window_by(&points, &[solo]);
+        let r = cohesion_report(
+            &roll,
+            &guarded(&[(m.clone(), 0.9, Some(did()), Some(at(0)))]),
+            false,
+            &CohesionInputs { window: Some(&seen), ..Default::default() },
+            at(DAY + 1),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.sustained_absences, 0, "three filings, one watcher");
+        assert_eq!(r.erosion, ErosionLevel::Notice, "the snapshot signal still speaks");
+        assert_eq!(r.watchers.unwrap().distinct, 1);
+
+        // The control: the same three filings from three keys DO escalate, so the
+        // assertion above is about the count and not about the fixture.
+        let seen = window(&points);
+        let r = cohesion_report(
+            &roll,
+            &guarded(&[(m.clone(), 0.9, Some(did()), Some(at(0)))]),
+            false,
+            &CohesionInputs { window: Some(&seen), ..Default::default() },
+            at(DAY + 1),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.sustained_absences, 1);
+        assert_eq!(r.erosion, ErosionLevel::Concern);
+        assert_eq!(r.watchers.unwrap().distinct, 3);
+    }
+
+    #[test]
+    fn vouching_moves_the_lens_and_never_the_level() {
+        // The locked decision, as a test. Gating an escalation on the monitor being
+        // vouched for would let a captured polity vouch for nobody and thereby become
+        // unwatchable, so the numbers move and the grade does not.
+        let m = did();
+        let roll = vec![m.clone()];
+        let points = [
+            (0, vec![(m.clone(), Some(0))]),
+            (DAY / 2, vec![(m.clone(), None)]),
+            (DAY, vec![(m.clone(), None)]),
+        ];
+        let seen = window(&points);
+        let vouched = seen.observations[0].observer.clone();
+        let ind = IndependentObservation {
+            observers: vec![vouched],
+            contested: vec![],
+            unvouched: vec![],
+        };
+        let read = |observers| {
+            cohesion_report(
+                &roll,
+                &guarded(&[(m.clone(), 0.9, Some(did()), Some(at(0)))]),
+                false,
+                &CohesionInputs { window: Some(&seen), observers, ..Default::default() },
+                at(DAY + 1),
+                &Thresholds::default(),
+            )
+        };
+        let bare = read(None);
+        let with = read(Some(&ind));
+        assert_eq!(bare.watchers.unwrap().vouched, 0);
+        assert_eq!(with.watchers.unwrap().vouched, 1);
+        assert_eq!(with.watchers.unwrap().unvouched(), 2);
+        assert_eq!(bare.erosion, with.erosion, "the lens must not move the level");
+        assert_eq!(bare.sustained_absences, with.sustained_absences);
+    }
 }

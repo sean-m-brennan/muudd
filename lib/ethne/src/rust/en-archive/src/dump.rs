@@ -78,6 +78,64 @@ struct ArchiveDump<E> {
     entries: Vec<E>,
 }
 
+/// Where a serialized segment sits in its log, read **without deserializing the
+/// entries** — the envelope header alone.
+///
+/// A store needs this to answer one question cheaply: where does the log in storage
+/// actually end? Reading the tail segment's header is O(tail); rebuilding the archive
+/// to ask the same thing is O(whole log), which is the shape D20 already had to fix
+/// once in `iter_from`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SegmentBounds {
+    /// The archive generation this segment was cut from.
+    pub generation: u64,
+    /// The index it starts at. Zero for a whole-log base dump.
+    pub start: usize,
+    /// How many entries it carries.
+    pub count: usize,
+}
+
+impl SegmentBounds {
+    /// The cursor a log ends at once this segment has been applied.
+    pub fn end(&self) -> Cursor {
+        Cursor { generation: self.generation, index: self.start + self.count }
+    }
+}
+
+/// Read a segment envelope's bounds without materializing its entries.
+///
+/// Deliberately in this module rather than in a caller: `dump.rs` owns the envelope
+/// format, and a second reader of it elsewhere is two things that can disagree about
+/// what a stored log means — the defect `en-store` exists to prevent, one level out.
+///
+/// Accepts everything [`Archive::load_json`] and [`Archive::append_json`] accept,
+/// including the legacy bare array, so a store cannot refuse a file the archive
+/// would have loaded.
+pub fn segment_bounds(s: &str) -> KcResult<SegmentBounds> {
+    // `IgnoredAny` tokenizes each entry and allocates nothing, so this costs a scan
+    // of the segment's bytes and no `E` at all — which is the point: a store is
+    // generic over the entry type and should not need one to find the end of a log.
+    let dump = read_dump::<serde::de::IgnoredAny, _>(s.as_bytes())?;
+    Ok(SegmentBounds {
+        generation: dump.generation,
+        start: dump.start,
+        count: dump.entries.len(),
+    })
+}
+
+/// The entries a segment carries, **with no positional check at all**.
+///
+/// Every other reader of a segment checks that it belongs where it claims to, because
+/// folding one into the wrong log produces an archive that never existed. This one
+/// exists for the single case where that check has already failed and the entries must
+/// be recovered anyway: `en-store`'s repair of a log two writers forked. Getting the
+/// entries out is exactly what lets the repair keep them instead of dropping them.
+///
+/// Use [`Archive::append_json`] for anything else.
+pub fn segment_entries<E: DeserializeOwned>(s: &str) -> KcResult<Vec<E>> {
+    Ok(read_dump::<E, _>(s.as_bytes())?.entries)
+}
+
 impl<E: Entry> Archive<E> {
     /// The whole log, as a versioned JSON envelope, written to `w`.
     pub fn dump_json<W: Write>(&self, w: W) -> KcResult<()> {
@@ -442,5 +500,76 @@ mod tests {
     fn garbage_is_an_archive_error_not_a_panic() {
         let err = Archive::<TestRec>::load_json_from_str("{\"nope\":").unwrap_err();
         assert!(matches!(err, KcError::Archive(_)));
+    }
+
+    // --- the header-only readers D30 needs -------------------------------------
+
+    #[test]
+    fn segment_bounds_finds_the_end_without_the_entry_type() {
+        let a = filled(6);
+        let base = a.dump_json_to_string().unwrap();
+        let b = segment_bounds(&base).unwrap();
+        assert_eq!(b, SegmentBounds { generation: 0, start: 0, count: 6 });
+        assert_eq!(b.end(), a.cursor(), "a whole log ends where the archive does");
+
+        let mut grown = a.clone();
+        grown.append(rec(100)).unwrap();
+        grown.append(rec(101)).unwrap();
+        let seg = grown.dump_json_since(a.cursor()).unwrap();
+        let b = segment_bounds(&seg).unwrap();
+        assert_eq!(b, SegmentBounds { generation: 0, start: 6, count: 2 });
+        assert_eq!(b.end(), grown.cursor());
+    }
+
+    #[test]
+    fn segment_bounds_carries_the_generation() {
+        let a = filled(4);
+        let mut compacted = Archive::next_generation(&a);
+        for (_, e) in a.iter().skip(2) {
+            compacted.append(e.clone()).unwrap();
+        }
+        let bounds = segment_bounds(&compacted.dump_json_to_string().unwrap()).unwrap();
+        assert_eq!(bounds.generation, 1);
+        assert_eq!(bounds.end(), Cursor { generation: 1, index: 2 });
+    }
+
+    #[test]
+    fn segment_bounds_accepts_everything_a_load_accepts() {
+        // A store must never refuse a file the archive itself would have loaded, so the
+        // legacy bare array reads as generation 0 starting at 0, exactly as `read_dump`
+        // treats it.
+        let legacy = serde_json::to_string(&vec![rec(0), rec(1), rec(2)]).unwrap();
+        assert_eq!(
+            segment_bounds(&legacy).unwrap(),
+            SegmentBounds { generation: 0, start: 0, count: 3 }
+        );
+        // And an unreadable version is refused here too, rather than read as some log.
+        let future = "{\"version\":99,\"generation\":0,\"start\":0,\"entries\":[]}";
+        assert!(segment_bounds(future).is_err());
+        assert!(segment_bounds("{\"nope\":").is_err());
+    }
+
+    #[test]
+    fn segment_entries_recovers_entries_a_segment_cannot_place() {
+        // The repair path's need: a segment that will NOT apply anywhere must still give
+        // up its entries, or they can only be dropped.
+        let a = filled(3);
+        let mut grown = a.clone();
+        grown.append(rec(77)).unwrap();
+        let seg = grown.dump_json_since(a.cursor()).unwrap();
+
+        // Applying it to an empty log is refused — it starts at 3 and the log ends at 0.
+        let mut empty: Archive<TestRec> = Archive::new();
+        assert!(empty.append_json(&seg).is_err());
+
+        // Reading its entries is not.
+        let entries: Vec<TestRec> = segment_entries(&seg).unwrap();
+        assert_eq!(entries, vec![rec(77)]);
+
+        // And re-appending one keeps its CID, since a CID is the content's address:
+        // this is what lets a repair move an entry without breaking a citation.
+        let cid_before = *grown.iter().nth(3).unwrap().0;
+        let cid_after = empty.append(entries[0].clone()).unwrap();
+        assert_eq!(cid_before, cid_after);
     }
 }

@@ -41,14 +41,31 @@
 //! anyone can confirm that the n shares went to exactly the n panelists and to nobody
 //! else, without being able to open any of them.
 //!
-//! ## The sealing key
+//! ## The sealing key, and who it must belong to
 //!
-//! Sealing performs Diffie–Hellman against a holder's **Ed25519 identity key** —
-//! the same key they sign with — mirroring what libsodium exposes as
-//! `crypto_sign_ed25519_pk_to_curve25519`. Using one key for two primitives is a
-//! compromise, mitigated here by domain-separated key derivation and by the fact that
-//! it keeps the compact on the Ed25519-only key model with no distribution ceremony.
-//! The named successor is a separate encryption key carried in the mediator registry.
+//! Naming a custodian and sealing to them are two different things, and for a while
+//! only the first was checked. [`ThresholdCustody::seal`] took `(DidKey, PubKey)` pairs
+//! with nothing anywhere requiring the two to correspond, so a record could name the
+//! right panel and seal every share to one outsider's key: structurally valid, fully
+//! authorized, and **no** named custodian able to open anything. The reveal path was
+//! then permanently dead with nothing on the record to show it — precisely the
+//! late-detection failure that property 2 above rejects plain Shamir for, except worse,
+//! because the recipient key was not recorded at all and so nobody but the holder who
+//! tried could ever discover it.
+//!
+//! So the key is now **resolved rather than supplied** (see `seal`), and recorded on
+//! each share as `recipient_pubkey` for the authority pass to check against the
+//! holder's registration. Both halves are needed: resolution keeps the honest caller
+//! from getting it wrong, and the recorded key is what a hand-built record cannot lie
+//! about undetected.
+//!
+//! Sealing performs Diffie–Hellman in Edwards form against that key. Where a holder has
+//! no separate encryption key, [`didkey_encryption_resolver`] falls back to its
+//! `did:key` — i.e. the key it also signs with, one key serving two primitives, which is
+//! a compromise mitigated only by domain-separated derivation. Mediators no longer rely
+//! on that: `MediatorEntry` carries an `encryption_pubkey` distinct from its signing key
+//! (the authority pass refuses a registration where the two are equal), and
+//! `kc_archive::mediator_encryption_resolver` is what the §8 custody path uses.
 
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Nonce};
@@ -104,6 +121,12 @@ pub struct SealedShare {
     pub holder_did: DidKey,
     /// The share's x-coordinate. Indices start at 1 (0 is the secret itself).
     pub index: u8,
+    /// The key this share was actually sealed to. On the record because naming a
+    /// custodian is not the same as sealing to them: without this, a share sealed to
+    /// somebody else's key is indistinguishable from an honest one until the named
+    /// holder tries to open it and fails. The authority pass requires it to be the key
+    /// that holder is registered under.
+    pub recipient_pubkey: Bytes32,
     /// The dealer's one-time public key for this share's key agreement.
     pub ephemeral_pub: Bytes32,
     #[serde(with = "serde_bytes")]
@@ -132,6 +155,15 @@ pub struct ThresholdCustody {
     #[serde(with = "serde_bytes")]
     pub ciphertext: Vec<u8>,
     pub nonce: Bytes32,
+}
+
+/// Resolve a holder's sealing key from its own `did:key`.
+///
+/// For holders that carry no separate encryption key. This is the one-key-two-primitives
+/// case: the key returned is the key the holder signs with. Prefer a registry-backed
+/// resolver where one exists — `kc_archive::mediator_encryption_resolver` for §8 custody.
+pub fn didkey_encryption_resolver(did: &DidKey) -> KcResult<PubKey> {
+    did.to_pubkey()
 }
 
 fn derive_key(domain: &[u8], material: &[u8]) -> [u8; 32] {
@@ -215,10 +247,24 @@ fn lagrange_at_zero(index: u8, indices: &[u8]) -> KcResult<Scalar> {
 impl ThresholdCustody {
     /// Seal `plaintext` so that `threshold_k` of `holders` are required to recover it.
     ///
-    /// `holders` are `(did, pubkey)` pairs; each gets share index `i+1`.
+    /// `holders` are DIDs, in share-index order (each gets index `i+1`). The key each
+    /// share is sealed to is **resolved**, never supplied: an earlier signature took
+    /// `(DidKey, PubKey)` pairs and nothing checked that the two corresponded, so a
+    /// caller could name the right custodians and seal to a key none of them held. That
+    /// produced a record which read as auditable k-of-n custody held by exactly the
+    /// panel, passed every structural check, and left **no** custodian able to open a
+    /// share — the lawful reveal path dead, with nothing on the record to show it.
+    ///
+    /// Use [`didkey_encryption_resolver`] where a holder's key is its own `did:key`, or
+    /// a registry-backed resolver (`kc_archive::mediator_encryption_resolver`) where
+    /// holders carry a separate encryption key. The resolved key is recorded on each
+    /// share, so the pairing is checkable by inspection rather than only by the holder
+    /// who tries — which is the same argument that chose Feldman over plain Shamir for
+    /// the sharing half, applied to the sealing half.
     pub fn seal(
         plaintext: &[u8],
-        holders: &[(DidKey, PubKey)],
+        holders: &[DidKey],
+        resolve: impl Fn(&DidKey) -> KcResult<PubKey>,
         threshold_k: usize,
     ) -> KcResult<Self> {
         let n = holders.len();
@@ -247,16 +293,23 @@ impl ThresholdCustody {
         let (ciphertext, nonce) = aead_seal(&record_key, AAD_RECORD, plaintext)?;
 
         let mut sealed_shares = Vec::with_capacity(n);
-        for (i, (did, pk)) in holders.iter().enumerate() {
+        for (i, did) in holders.iter().enumerate() {
             let index = u8::try_from(i + 1).map_err(|_| KcError::Key("share index".into()))?;
+            let pk = resolve(did)?;
             let value = poly_eval(&coefficients, Scalar::from(u64::from(index)));
             let ephemeral = random_scalar();
             let ephemeral_pub = EdwardsPoint::mul_base(&ephemeral);
-            let seal_key = derive_key(DOMAIN_SEAL_KEY, &agree(&ephemeral, pk)?);
+            let seal_key = derive_key(DOMAIN_SEAL_KEY, &agree(&ephemeral, &pk)?);
             let (ct, share_nonce) = aead_seal(&seal_key, AAD_SHARE, value.as_bytes())?;
             sealed_shares.push(SealedShare {
                 holder_did: did.clone(),
                 index,
+                recipient_pubkey: Bytes32(
+                    pk.bytes
+                        .clone()
+                        .try_into()
+                        .map_err(|_| KcError::Key("recipient key is not 32 bytes".into()))?,
+                ),
                 ephemeral_pub: Bytes32(ephemeral_pub.compress().to_bytes()),
                 ciphertext: ct,
                 nonce: share_nonce,
@@ -316,6 +369,16 @@ impl ThresholdCustody {
             .iter()
             .find(|s| &s.holder_did == holder_did)
             .ok_or_else(|| KcError::Key(format!("no share sealed to {holder_did}")))?;
+        // Say what is wrong. Without this the caller gets an AEAD failure, which reads
+        // as a corrupt record rather than as "this share was sealed to a key you do not
+        // hold" — and the difference between those two is the whole defect.
+        let offered = crate::keys::public_of(holder_priv)?;
+        if offered.bytes != sealed.recipient_pubkey.0 {
+            return Err(KcError::Key(format!(
+                "the share for {holder_did} was sealed to a different key than the one offered, \
+                 so this holder cannot open it"
+            )));
+        }
         let ephemeral_pub = PubKey {
             alg: Alg::Ed25519,
             bytes: sealed.ephemeral_pub.0.to_vec(),
@@ -443,6 +506,12 @@ mod tests {
         (pairs, privs)
     }
 
+    /// Just the DIDs, in share-index order. These holders are `did:key`s, so the
+    /// `did:key` resolver returns each one's own key and behaviour is unchanged.
+    fn dids(pairs: &[(DidKey, PubKey)]) -> Vec<DidKey> {
+        pairs.iter().map(|(d, _)| d.clone()).collect()
+    }
+
     fn open_all(
         custody: &ThresholdCustody,
         pairs: &[(DidKey, PubKey)],
@@ -458,7 +527,7 @@ mod tests {
     #[test]
     fn round_trips_at_exactly_the_threshold() {
         let (pairs, privs) = holders(5);
-        let custody = ThresholdCustody::seal(b"the source", &pairs, 3).unwrap();
+        let custody = ThresholdCustody::seal(b"the source", &dids(&pairs), didkey_encryption_resolver, 3).unwrap();
         custody.check_shape().unwrap();
         let shares = open_all(&custody, &pairs, &privs);
         assert_eq!(custody.recover(&shares[..3]).unwrap(), b"the source");
@@ -468,7 +537,7 @@ mod tests {
     fn every_k_subset_recovers_the_same_secret() {
         // Correctness of the interpolation, not just of one lucky subset.
         let (pairs, privs) = holders(5);
-        let custody = ThresholdCustody::seal(b"threshold-held", &pairs, 3).unwrap();
+        let custody = ThresholdCustody::seal(b"threshold-held", &dids(&pairs), didkey_encryption_resolver, 3).unwrap();
         let shares = open_all(&custody, &pairs, &privs);
         let mut subsets = 0;
         for i in 0..5 {
@@ -486,7 +555,7 @@ mod tests {
     #[test]
     fn one_short_of_the_threshold_recovers_nothing() {
         let (pairs, privs) = holders(5);
-        let custody = ThresholdCustody::seal(b"secret", &pairs, 4).unwrap();
+        let custody = ThresholdCustody::seal(b"secret", &dids(&pairs), didkey_encryption_resolver, 4).unwrap();
         let shares = open_all(&custody, &pairs, &privs);
         let err = custody.recover(&shares[..3]).unwrap_err();
         assert!(matches!(err, KcError::Key(_)), "got {err}");
@@ -495,7 +564,7 @@ mod tests {
     #[test]
     fn every_holder_can_open_only_its_own_share() {
         let (pairs, privs) = holders(4);
-        let custody = ThresholdCustody::seal(b"x", &pairs, 2).unwrap();
+        let custody = ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         for (i, (did, _)) in pairs.iter().enumerate() {
             let share = custody.open_share(did, &privs[i]).unwrap();
             assert_eq!(share.index, (i + 1) as u8);
@@ -509,7 +578,7 @@ mod tests {
     #[test]
     fn a_non_holder_has_no_share() {
         let (pairs, privs) = holders(3);
-        let custody = ThresholdCustody::seal(b"x", &pairs, 2).unwrap();
+        let custody = ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let (outsider_sk, outsider_pk) = keys::generate(Alg::Ed25519).unwrap();
         let outsider_did = DidKey::from_pubkey(&outsider_pk).unwrap();
         assert!(custody.open_share(&outsider_did, &outsider_sk).is_err());
@@ -517,10 +586,64 @@ mod tests {
         let _ = privs;
     }
 
+    // --- the recipient key: recorded, and the pairing enforced ------------------
+    //
+    // Measured before this existed: sealing three shares to the right holder DIDs but to
+    // one outsider's key produced a custody where `check_shape` passed, the holder set
+    // matched the panel, **0 of 3** named custodians could open a share, the substituted
+    // key opened all three and recovered the secret alone, Feldman's own share check
+    // passed on the wrongly-opened shares, and the recipient key appeared nowhere on the
+    // record. The archive authorized it. These are the regressions.
+
+    #[test]
+    fn a_share_records_the_key_it_was_sealed_to() {
+        let (pairs, _privs) = holders(3);
+        let custody =
+            ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
+        // On the record, so a mis-sealing is visible to any auditor rather than only to
+        // the holder who tries and fails. This is the Feldman argument — checkable when
+        // published, not at recovery — applied to the sealing half.
+        for ((did, pk), share) in pairs.iter().zip(&custody.sealed_shares) {
+            assert_eq!(&share.holder_did, did);
+            assert_eq!(share.recipient_pubkey.0.to_vec(), pk.bytes);
+        }
+    }
+
+    #[test]
+    fn opening_a_share_sealed_to_another_key_names_the_mismatch() {
+        // The holder is named correctly and the share is sealed to somebody else's key.
+        let (pairs, privs) = holders(3);
+        let (_att_sk, att_pk) = keys::generate(Alg::Ed25519).unwrap();
+        let substitute = |_did: &DidKey| Ok(att_pk.clone());
+        let custody = ThresholdCustody::seal(b"x", &dids(&pairs), substitute, 2).unwrap();
+
+        let err = custody.open_share(&pairs[0].0, &privs[0]).unwrap_err();
+        let msg = err.to_string();
+        // Not an AEAD failure: an AEAD failure reads as a corrupt record, and the
+        // difference between "corrupt" and "sealed to a key you do not hold" is the
+        // whole defect.
+        assert!(msg.contains("sealed to a different key"), "got {msg}");
+        // And the substitution is now visible on the record.
+        assert!(custody
+            .sealed_shares
+            .iter()
+            .all(|s| s.recipient_pubkey.0.to_vec() == att_pk.bytes));
+    }
+
+    #[test]
+    fn seal_refuses_a_holder_the_resolver_cannot_place() {
+        let (pairs, _privs) = holders(2);
+        let unplaceable = |did: &DidKey| -> KcResult<PubKey> {
+            Err(KcError::Key(format!("{did} is not a registered custodian")))
+        };
+        let err = ThresholdCustody::seal(b"x", &dids(&pairs), unplaceable, 2).unwrap_err();
+        assert!(err.to_string().contains("not a registered custodian"));
+    }
+
     #[test]
     fn tampered_share_is_caught_by_the_commitments() {
         let (pairs, privs) = holders(3);
-        let custody = ThresholdCustody::seal(b"x", &pairs, 2).unwrap();
+        let custody = ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let mut shares = open_all(&custody, &pairs, &privs);
         shares[0].value.0[0] ^= 0x01;
         assert!(custody.verify_share(&shares[0]).is_err());
@@ -530,8 +653,8 @@ mod tests {
     #[test]
     fn a_share_from_another_custody_is_refused() {
         let (pairs, privs) = holders(3);
-        let a = ThresholdCustody::seal(b"a", &pairs, 2).unwrap();
-        let b = ThresholdCustody::seal(b"b", &pairs, 2).unwrap();
+        let a = ThresholdCustody::seal(b"a", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
+        let b = ThresholdCustody::seal(b"b", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let b_shares = open_all(&b, &pairs, &privs);
         assert!(a.verify_share(&b_shares[0]).is_err());
     }
@@ -540,7 +663,7 @@ mod tests {
     fn duplicate_share_does_not_count_twice() {
         // Otherwise one holder could reach the threshold alone.
         let (pairs, privs) = holders(4);
-        let custody = ThresholdCustody::seal(b"x", &pairs, 3).unwrap();
+        let custody = ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 3).unwrap();
         let shares = open_all(&custody, &pairs, &privs);
         let doubled = [shares[0], shares[0], shares[1]];
         assert!(custody.recover(&doubled).is_err());
@@ -550,15 +673,15 @@ mod tests {
     fn degenerate_thresholds_are_refused() {
         let (pairs, _privs) = holders(3);
         // A threshold of 1 is no quorum at all.
-        assert!(ThresholdCustody::seal(b"x", &pairs, 1).is_err());
+        assert!(ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 1).is_err());
         // A threshold above n could never be met.
-        assert!(ThresholdCustody::seal(b"x", &pairs, 4).is_err());
+        assert!(ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 4).is_err());
     }
 
     #[test]
     fn tampered_commitments_are_detected() {
         let (pairs, privs) = holders(3);
-        let mut custody = ThresholdCustody::seal(b"x", &pairs, 2).unwrap();
+        let mut custody = ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let shares = open_all(&custody, &pairs, &privs);
         custody.commitments[1].0[0] ^= 0x01;
         // Either the point no longer decompresses or the share check fails; both are
@@ -569,7 +692,7 @@ mod tests {
     #[test]
     fn tampered_ciphertext_is_refused_by_the_aead() {
         let (pairs, privs) = holders(3);
-        let mut custody = ThresholdCustody::seal(b"the source", &pairs, 2).unwrap();
+        let mut custody = ThresholdCustody::seal(b"the source", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let shares = open_all(&custody, &pairs, &privs);
         let last = custody.ciphertext.len() - 1;
         custody.ciphertext[last] ^= 0x01;
@@ -579,7 +702,7 @@ mod tests {
     #[test]
     fn shape_check_rejects_a_short_commitment_list() {
         let (pairs, _privs) = holders(4);
-        let mut custody = ThresholdCustody::seal(b"x", &pairs, 3).unwrap();
+        let mut custody = ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 3).unwrap();
         custody.commitments.pop();
         assert!(custody.check_shape().is_err());
     }
@@ -590,7 +713,7 @@ mod tests {
         let preimage = SourcePreimage::new("did:key:zSource");
         let commitment = preimage.commitment().unwrap();
         let bytes = crate::canonical::to_canonical_cbor(&preimage).unwrap();
-        let custody = ThresholdCustody::seal(&bytes, &pairs, 2).unwrap();
+        let custody = ThresholdCustody::seal(&bytes, &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let shares = open_all(&custody, &pairs, &privs);
         let recovered = custody.recover_preimage(&shares[..2], &commitment).unwrap();
         assert_eq!(recovered, preimage);
@@ -615,7 +738,7 @@ mod tests {
     #[test]
     fn custody_roundtrips_through_canonical_cbor() {
         let (pairs, privs) = holders(3);
-        let custody = ThresholdCustody::seal(b"wire", &pairs, 2).unwrap();
+        let custody = ThresholdCustody::seal(b"wire", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let bytes = crate::canonical::to_canonical_cbor(&custody).unwrap();
         let decoded: ThresholdCustody = crate::canonical::from_canonical_cbor(&bytes).unwrap();
         assert_eq!(decoded, custody);
@@ -626,7 +749,7 @@ mod tests {
     #[test]
     fn holders_are_the_sealed_set() {
         let (pairs, _privs) = holders(3);
-        let custody = ThresholdCustody::seal(b"x", &pairs, 2).unwrap();
+        let custody = ThresholdCustody::seal(b"x", &dids(&pairs), didkey_encryption_resolver, 2).unwrap();
         let got: Vec<&DidKey> = custody.holders();
         let want: Vec<&DidKey> = pairs.iter().map(|(d, _)| d).collect();
         assert_eq!(got, want);

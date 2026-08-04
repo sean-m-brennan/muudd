@@ -28,6 +28,15 @@ use serde::{Deserialize, Serialize};
 pub struct MediatorEntry {
     pub mediator_did: DidKey,
     pub mediator_pubkey: PubKey,
+    /// The key §8 custody shares are sealed to, distinct from the signing key above.
+    ///
+    /// A mediator seated on a whistleblower reception panel holds a share of the
+    /// source's identity, and sealing that share is a key agreement. Doing it against
+    /// the signing key would put one key under two primitives; this is the separate key,
+    /// and the authority pass refuses a registration where the two are equal. It is
+    /// still an Ed25519 key — the Edwards-form agreement path is unchanged and no new
+    /// algorithm enters the compact — but it never signs anything.
+    pub encryption_pubkey: PubKey,
     pub valid_from: Timestamp,
     pub valid_until: Option<Timestamp>,
 }

@@ -470,6 +470,30 @@ class FeatureConcernProfile:
     perspectives: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class DeliberativeCapacity:
+    """How much of a compact's roll carries second-class weight (§2).
+
+    Probation withholds weight from every second-class quorum, so a compact
+    that has just admitted a cohort holds fewer *deciding* members than
+    members — and if it admits enough at once, `can_act` goes False and no
+    second-class decision is available until a window closes. That is the
+    withholding working, not a fault, and it is reported so the refusal it
+    causes is accountable.
+    """
+
+    compact_label: str
+    members: tuple[str, ...]
+    probationary: tuple[str, ...]
+    standing: int
+    # None for an empty roll: not evaluated, rather than a zero share.
+    standing_share: Optional[float]
+    quorum_threshold: int
+    can_act: bool
+    can_contract: bool
+    as_of: int
+
+
 def composition_graph(archive, as_of: Optional[int] = None) -> CompositionGraph:
     """Sponsorship graph over the whole archive: edges + concentration ranking."""
     g = archive.composition_graph(as_of)
@@ -1191,6 +1215,9 @@ class ObserverDashboard:
     substrate: SubstrateDeferenceReport
     # the graded erosion alert derived from `substrate` (the crossed-threshold signal)
     erosion: ErosionAlert
+    # (community_did, insider_set_size), ASCENDING — thinnest anonymous channels
+    # first. 1 means no channel at all; 2 is a channel in name only.
+    anonymity_set_by_community: tuple[tuple[str, int], ...]
 
 
 def observer_dashboard(archive, as_of: Optional[int] = None) -> ObserverDashboard:
@@ -1222,4 +1249,29 @@ def observer_dashboard(archive, as_of: Optional[int] = None) -> ObserverDashboar
         pool=_pool_from(d.pool),
         substrate=_substrate_from(d.substrate),
         erosion=_erosion_from(d.erosion),
+        anonymity_set_by_community=tuple(
+            tuple(x) for x in d.anonymity_set_by_community
+        ),
+    )
+
+
+def deliberative_capacity(
+    archive,
+    compact_label: str,
+    quorum_threshold: int = 2,
+    as_of: Optional[int] = None,
+) -> DeliberativeCapacity:
+    """The share of `compact_label`'s roll carrying second-class weight, and
+    whether the compact can act at the ordinary quorum or the contraction bar."""
+    c = archive.deliberative_capacity(compact_label, quorum_threshold, as_of)
+    return DeliberativeCapacity(
+        compact_label=c.compact_label,
+        members=tuple(c.members),
+        probationary=tuple(c.probationary),
+        standing=c.standing,
+        standing_share=c.standing_share,
+        quorum_threshold=c.quorum_threshold,
+        can_act=c.can_act,
+        can_contract=c.can_contract,
+        as_of=c.as_of,
     )

@@ -50,7 +50,11 @@ pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 # kith-covenant neutral base. Decision D1: ethne's core + monitor crates depend on
 # kc-core ONLY — not on KC's governance crates — so the tiers stay decoupled and
 # ethne can run stand-alone.
-kc-core = { path = "../kith-covenant/src/rust/kc-core" }
+# `default-features = false` switches off KC's §8 source-protection crypto (ring
+# signatures + threshold custody), which this tier never calls — so it stops carrying
+# chacha20poly1305. It must be set HERE: a member crate's `default-features = false` is
+# ignored when the dependency is inherited with `workspace = true`.
+kc-core = { path = "../kith-covenant/src/rust/kc-core", default-features = false }
 
 # KC conduct records. Decision (step 5, Concern-posture): the kc-conduct coupling
 # is confined to the single upward-facing crate `en-uplift` (the crate whose job

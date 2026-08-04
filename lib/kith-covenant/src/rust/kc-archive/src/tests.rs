@@ -25,7 +25,7 @@ use kc_ceremony::inter::{
 use kc_ceremony::intra::IntraCommunityRiteRunner;
 use kc_ceremony::recitation::{Recitation, RecitationVersion};
 use kc_conduct::{ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity};
-use kc_core::{keys, time, Alg, Cid, DidKey, KcError, PrivKey, Signed, Timestamp};
+use kc_core::{keys, time, Alg, Cid, DidKey, KcError, KcResult, PrivKey, Signed, Timestamp};
 use kc_mediation::{
     DecisionOutcome, DisputeRecord, MediationDecision, MediatorEntry, MediatorRegistry,
 };
@@ -35,8 +35,8 @@ use kc_identity::{
 };
 
 use crate::authority::{
-    authorize, check_authority, ObserverCaps, DEFAULT_PANEL_MIN, DEFAULT_QUORUM_THRESHOLD,
-    DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS,
+    authorize, authorize_with_caps, check_authority, ExaminerCaps, ObserverCaps,
+    DEFAULT_PANEL_MIN, DEFAULT_QUORUM_THRESHOLD, DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS,
 };
 use crate::entry::ArchiveEntry;
 use crate::store::{Archive, InMemoryArchive};
@@ -352,6 +352,7 @@ fn full_two_community_ceremony_verifies_and_roundtrips() {
         DEFAULT_QUORUM_THRESHOLD,
         DEFAULT_PANEL_MIN,
         ObserverCaps::default(),
+        ExaminerCaps::default(),
     )
     .expect("complete ceremony archive must be authorized");
 
@@ -763,19 +764,23 @@ fn add_mediators(
     root_priv: &PrivKey,
     n: usize,
     at: Timestamp,
-) -> Vec<(DidKey, PrivKey)> {
+) -> Vec<(DidKey, PrivKey, PrivKey)> {
     let mut entries = vec![];
     let mut out = vec![];
     for _ in 0..n {
         let (mpriv, mpub) = keys::generate(Alg::Ed25519).unwrap();
         let mdid = DidKey::from_pubkey(&mpub).unwrap();
+        // A second keypair, registered as the encryption key and never used to sign:
+        // §8 custody seals a share of a source's identity to it by key agreement.
+        let (epriv, epub) = keys::generate(Alg::Ed25519).unwrap();
         entries.push(MediatorEntry {
             mediator_did: mdid.clone(),
             mediator_pubkey: mpub,
+            encryption_pubkey: epub,
             valid_from: at,
             valid_until: None,
         });
-        out.push((mdid, mpriv));
+        out.push((mdid, mpriv, epriv));
     }
     let reg = Signed::build(
         MediatorRegistry { nominating_community: community.clone(), entries, issued_at: at },
@@ -836,7 +841,7 @@ fn decide(
 /// one mediator. Returns (a, a_priv, b, dispute_cid, [mC, mD, mE]).
 fn mediation_fixture(
     a: &mut InMemoryArchive,
-) -> (DidKey, PrivKey, DidKey, Cid, Vec<(DidKey, PrivKey)>) {
+) -> (DidKey, PrivKey, DidKey, Cid, Vec<(DidKey, PrivKey, PrivKey)>) {
     let (ca, ca_priv) = community(a, "A", ts(10));
     let (cb, _cb_priv) = community(a, "B", ts(10));
     let (cc, cc_priv) = community(a, "C", ts(10));
@@ -850,6 +855,97 @@ fn mediation_fixture(
     (ca, ca_priv, cb, dispute, pool)
 }
 
+/// §2's second withholding: a probationary community carries no deliberative weight
+/// in *mediator selection*, so it may not seat mediators — otherwise each admitted
+/// entrant immediately staffs the pool that will judge its own disputes.
+#[test]
+fn probationary_community_may_not_nominate_mediators() {
+    let mut a = InMemoryArchive::new();
+    let (sponsor, sponsor_priv) = community(&mut a, "Sponsor", ts(10));
+    let (entrant, entrant_priv) = community(&mut a, "Entrant", ts(10));
+    // Probation window [100, 10_000).
+    let vouch = Signed::build(
+        kc_ceremony::inter::SponsorshipRecord {
+            sponsor_community: sponsor.clone(),
+            entrant_community: entrant.clone(),
+            admission_cid: None,
+            probation_until: ts(10_000),
+            statement: "vouched".into(),
+            sponsored_at: ts(100),
+        },
+        &[(sponsor.as_str(), &sponsor_priv)],
+    )
+    .unwrap();
+    a.append(ArchiveEntry::SponsorshipVouched(vouch)).unwrap();
+
+    // Inside the window: refused. The registry record is the selection act.
+    add_mediators(&mut a, &entrant, &entrant_priv, 1, ts(500));
+    let inside = a
+        .iter()
+        .filter(|(_, e)| matches!(e, ArchiveEntry::MediatorRegistryUpdated(_)))
+        .map(|(c, _)| *c)
+        .last()
+        .unwrap();
+    let err = authorize(&a, a.get(&inside).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+        .expect_err("a probationary community does not select mediators");
+    assert!(err.to_string().contains("mediator selection"), "got: {err}");
+
+    // NEGATIVE CONTROL: once the window has closed, the same act is authorized.
+    add_mediators(&mut a, &entrant, &entrant_priv, 1, ts(20_000));
+    let after = a
+        .iter()
+        .filter(|(_, e)| matches!(e, ArchiveEntry::MediatorRegistryUpdated(_)))
+        .map(|(c, _)| *c)
+        .last()
+        .unwrap();
+    authorize(&a, a.get(&after).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+        .expect("after probation the community selects mediators like any member");
+}
+
+/// §2: a panelist whose home community is probationary may sit on a mediation panel
+/// but does not count toward `panel_min`. This is the rule that closes the re-entry
+/// route, where a re-admitted community's earlier nominations are still live and so
+/// its mediators are already seated when its new probation window opens.
+#[test]
+fn probationary_home_panelist_does_not_count_toward_panel_min() {
+    let mut a = InMemoryArchive::new();
+    let (_ca, _ca_priv, _cb, dispute, pool) = mediation_fixture(&mut a);
+    let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+    let dec = decide(&mut a, dispute, &panel, ts(200));
+    // The full 3-panel is authorized before any probation window exists.
+    authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+        .expect("a valid non-party 3-panel is authorized");
+
+    // Now one panelist's home community enters probation across the decision.
+    let (sponsor, sponsor_priv) = community(&mut a, "Sponsor", ts(10));
+    let home = crate::authority::mediator_home(&a, pool[0].0.as_str(), ts(200))
+        .expect("the panelist has a seating community");
+    let vouch = Signed::build(
+        kc_ceremony::inter::SponsorshipRecord {
+            sponsor_community: sponsor.clone(),
+            entrant_community: home,
+            admission_cid: None,
+            probation_until: ts(10_000),
+            statement: "vouched".into(),
+            sponsored_at: ts(100),
+        },
+        &[(sponsor.as_str(), &sponsor_priv)],
+    )
+    .unwrap();
+    a.append(ArchiveEntry::SponsorshipVouched(vouch)).unwrap();
+
+    let err = authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+        .expect_err("2 of 3 panelists carry weight, below panel_min");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("2 distinct mediators") && msg.contains("carry no weight"),
+        "the refusal must say which panelists were discounted, got: {msg}"
+    );
+    // NEGATIVE CONTROL: the same panel is authorized at a panel_min of 2.
+    authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, 2)
+        .expect("the two weight-carrying panelists satisfy a panel_min of 2");
+}
+
 #[test]
 fn mediation_dispute_and_valid_panel_are_authorized() {
     let mut a = InMemoryArchive::new();
@@ -858,7 +954,7 @@ fn mediation_dispute_and_valid_panel_are_authorized() {
     authorize(&a, a.get(&dispute).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
         .expect("filed dispute is authorized");
     // A 3-mediator, all-non-party panel decides.
-    let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+    let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
     let dec = decide(&mut a, dispute, &panel, ts(200));
     authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
         .expect("valid non-party 3-panel is authorized");
@@ -868,7 +964,7 @@ fn mediation_dispute_and_valid_panel_are_authorized() {
 fn mediation_panel_below_minimum_is_rejected() {
     let mut a = InMemoryArchive::new();
     let (_ca, _ca_priv, _cb, dispute, pool) = mediation_fixture(&mut a);
-    let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+    let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
     let dec = decide(&mut a, dispute, &panel, ts(200));
     assert!(authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN).is_err());
 }
@@ -880,7 +976,7 @@ fn mediation_party_mediator_violates_non_overlap() {
     // The complainant A also nominates a mediator and seats it on the panel.
     let a_meds = add_mediators(&mut a, &ca, &ca_priv, 1, ts(10));
     let mut panel: Vec<(&DidKey, &PrivKey)> =
-        pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
     panel.push((&a_meds[0].0, &a_meds[0].1));
     let dec = decide(&mut a, dispute, &panel, ts(200));
     assert!(authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN).is_err());
@@ -895,7 +991,7 @@ fn mediation_unregistered_panelist_is_rejected() {
         (DidKey::from_pubkey(&pk).unwrap(), sk)
     };
     let mut panel: Vec<(&DidKey, &PrivKey)> =
-        pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
     panel.push((&stray_did, &stray_priv));
     let dec = decide(&mut a, dispute, &panel, ts(200));
     assert!(authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN).is_err());
@@ -1255,6 +1351,57 @@ mod escalation {
         bad(&a, &hostis_rev);
     }
 
+    /// §2's third withholding: probationary communities carry no deliberative weight
+    /// in *designation procedures*. An expedited designation trades the two-cycle
+    /// cadence for a higher immediate quorum, so it is exactly where a faction that
+    /// had just seated its entrants would want to count them.
+    #[test]
+    fn probationary_deliberators_do_not_count_toward_a_designation_quorum() {
+        let mut a = InMemoryArchive::new();
+        let (s, _sp) = community(&mut a, "S", ts(1));
+        let (p, pp) = community(&mut a, "P", ts(1));
+        let (qc, qp) = community(&mut a, "Q", ts(1));
+        let (r, rp) = community(&mut a, "R", ts(1));
+
+        // Three deliberators satisfy the expedited quorum (> DEFAULT_QUORUM_THRESHOLD).
+        let dz = designation(&mut a, &s, DesignationTier::Anathema, DesignationUrgency::Expedited,
+            &[(&p, &pp), (&qc, &qp), (&r, &rp)], vec![], vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        ok(&a, &dz);
+
+        // R is then vouched into a probation window spanning the designation.
+        let vouch = Signed::build(
+            kc_ceremony::inter::SponsorshipRecord {
+                sponsor_community: p.clone(),
+                entrant_community: r.clone(),
+                admission_cid: None,
+                probation_until: ts(10_000),
+                statement: "vouched".into(),
+                sponsored_at: ts(100),
+            },
+            &[(p.as_str(), &pp)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::SponsorshipVouched(vouch)).unwrap();
+
+        let err = authorize(&a, a.get(&dz).unwrap(), Q, P)
+            .expect_err("a probationary deliberator does not count");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("deliberative weight") && msg.contains("§2"),
+            "the refusal must name the §2 exclusion, got: {msg}"
+        );
+
+        // NEGATIVE CONTROL: a fourth, unencumbered deliberator restores the quorum.
+        let (t, tp) = community(&mut a, "T", ts(1));
+        let restored = designation(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited,
+            &[(&p, &pp), (&qc, &qp), (&r, &rp), (&t, &tp)], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        ok(&a, &restored);
+    }
+
     #[test]
     fn designation_expedited_relaxes_cycles_but_needs_higher_quorum_and_reexamine() {
         let mut a = InMemoryArchive::new();
@@ -1476,9 +1623,33 @@ mod escalation {
         let dz = min_designation(&mut a, &s, DesignationTier::Anathema);
         let rec = recitation_for(&s, &sp, true);
         let ws = vec![witness_att(&w1, &w1p, true), witness_att(&w2, &w2p, true)];
-        // Petitioner co-signs with a second community to meet the second-class quorum.
-        let re = reentry(&mut a, dz, &s, &sp, rec, ws, &[(&s, &sp), (&p, &pp)], true);
+        // Two communities OTHER than the petitioner make up the admitting quorum.
+        // (§2: the petitioner does not count toward its own readmission. This
+        // fixture used to read `[(&s, &sp), (&p, &pp)]` — petitioner plus one — which
+        // is a single community admitting itself.)
+        let re = reentry(&mut a, dz, &s, &sp, rec, ws, &[(&p, &pp), (&w1, &w1p)], true);
         ok(&a, &re);
+    }
+
+    /// §2: readmission is an admission, so "no single sponsor cluster can admit
+    /// alone" applies to it — and the emptiest such cluster is the returning
+    /// community itself. Petitioner-plus-one is the arithmetic that used to pass.
+    #[test]
+    fn reentry_quorum_does_not_count_the_petitioner() {
+        let mut a = InMemoryArchive::new();
+        let (s, sp) = community(&mut a, "S", ts(1));
+        let (p, pp) = community(&mut a, "P", ts(1));
+        let (w1, w1p) = community(&mut a, "W1", ts(1));
+        let (w2, w2p) = community(&mut a, "W2", ts(1));
+        let dz = min_designation(&mut a, &s, DesignationTier::Anathema);
+        let rec = recitation_for(&s, &sp, true);
+        let ws = vec![witness_att(&w1, &w1p, true), witness_att(&w2, &w2p, true)];
+        let re = reentry(&mut a, dz, &s, &sp, rec, ws, &[(&s, &sp), (&p, &pp)], true);
+        let err = authorize(&a, a.get(&re).unwrap(), Q, P).expect_err("subject cannot self-admit");
+        assert!(
+            err.to_string().contains("own readmission"),
+            "the refusal must name the subject exclusion, got: {err}"
+        );
     }
 
     #[test]
@@ -1608,7 +1779,7 @@ mod injunction {
 
     /// Subject S plus three non-party communities C/D/E each with one mediator.
     /// Returns (s, [mC, mD, mE]).
-    fn injunction_fixture(a: &mut InMemoryArchive) -> (DidKey, Vec<(DidKey, PrivKey)>) {
+    fn injunction_fixture(a: &mut InMemoryArchive) -> (DidKey, Vec<(DidKey, PrivKey, PrivKey)>) {
         let (s, _sp) = community(a, "S", ts(1));
         let (c, cp) = community(a, "C", ts(1));
         let (d, dp) = community(a, "D", ts(1));
@@ -1624,9 +1795,53 @@ mod injunction {
     fn injunction_valid_emergency_panel_is_authorized() {
         let mut a = InMemoryArchive::new();
         let (s, pool) = injunction_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100 + NINETY_DAYS);
         ok(&a, &inj);
+    }
+
+    /// §2 reaches the emergency panel too. Before the probation filter was shared,
+    /// this panel counted a seated mediator from a probationary community at full
+    /// weight — so the one panel that can suspend a community's capabilities without
+    /// a hearing was the cheapest to staff with unseasoned weight.
+    #[test]
+    fn probationary_home_does_not_count_toward_an_injunction_panel() {
+        let mut a = InMemoryArchive::new();
+        let (s, pool) = injunction_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100 + NINETY_DAYS);
+        ok(&a, &inj);
+
+        // One panelist's home community enters probation across the issuance.
+        let (sponsor, sponsor_priv) = community(&mut a, "Sponsor", ts(1));
+        let home = crate::authority::mediator_home(&a, pool[0].0.as_str(), ts(100))
+            .expect("the panelist has a seating community");
+        let vouch = Signed::build(
+            kc_ceremony::inter::SponsorshipRecord {
+                sponsor_community: sponsor.clone(),
+                entrant_community: home,
+                admission_cid: None,
+                probation_until: ts(10_000),
+                statement: "vouched".into(),
+                sponsored_at: ts(50),
+            },
+            &[(sponsor.as_str(), &sponsor_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::SponsorshipVouched(vouch)).unwrap();
+
+        let err = authorize(&a, a.get(&inj).unwrap(), Q, P)
+            .expect_err("2 of 3 panelists carry weight, below panel_min");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("injunction panel has 2 distinct mediators")
+                && msg.contains("carry no weight"),
+            "the refusal must name the discounted panelist, got: {msg}"
+        );
+        // The panelist still *sits* — what is withheld is weight, not participation:
+        // at a panel_min of 2 the same record is authorized.
+        authorize(&a, a.get(&inj).unwrap(), Q, 2)
+            .expect("the two weight-carrying panelists satisfy a panel_min of 2");
     }
 
     #[test]
@@ -1634,7 +1849,7 @@ mod injunction {
         let mut a = InMemoryArchive::new();
         let (s, pool) = injunction_fixture(&mut a);
         // Only two non-party mediators — below panel_min.
-        let small: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let small: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
         let inj_small = issue(&mut a, &s, None, vec![Capability::Trade], &small, 100, 100 + NINETY_DAYS);
         bad(&a, &inj_small);
     }
@@ -1658,7 +1873,7 @@ mod injunction {
     fn injunction_zero_window_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, pool) = injunction_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100);
         bad(&a, &inj);
     }
@@ -1667,7 +1882,7 @@ mod injunction {
     fn injunction_challenge_by_different_panel_ok_same_panel_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, pool) = injunction_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100 + NINETY_DAYS);
         ok(&a, &inj);
         // A challenge co-signed by an issuing panelist violates the different-panel rule.
@@ -1690,7 +1905,7 @@ mod injunction {
     fn injunction_confirmation_needs_distinct_quorum() {
         let mut a = InMemoryArchive::new();
         let (s, pool) = injunction_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let inj = issue(&mut a, &s, None, vec![Capability::Trade], &panel, 100, 100 + NINETY_DAYS);
         // Two distinct communities confirm (second-class quorum).
         let (m, mp) = community(&mut a, "M", ts(1));
@@ -2272,9 +2487,10 @@ mod observer {
         out
     }
 
-    /// The ring the authority pass will expect for `accused` at `at`: its root key
-    /// plus every live delegation. Built here from the same archive the rule reads,
-    /// so a test that gets this wrong is testing the rule and not the helper.
+    /// The ring the authority pass will expect for `accused` at `at`: its root key,
+    /// every live delegation, and every member on every roll it has published (unioned,
+    /// never superseded). Built here from the same archive the rule reads, so a test
+    /// that gets this wrong is testing the rule and not the helper.
     fn expected_ring(a: &InMemoryArchive, accused: &DidKey, at: Timestamp) -> Vec<PubKey> {
         let mut ring = vec![];
         for (_, e) in a.iter() {
@@ -2291,6 +2507,17 @@ mod observer {
                 }
             }
         }
+        for (_, e) in a.iter() {
+            if let ArchiveEntry::MemberRollPublished(s) = e {
+                if &s.payload.community_did == accused && s.payload.published_at <= at {
+                    for m in &s.payload.members {
+                        ring.push(m.member_pubkey.clone());
+                    }
+                }
+            }
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        ring.retain(|pk| seen.insert(pk.bytes.clone()));
         ring
     }
 
@@ -2322,15 +2549,14 @@ mod observer {
         let source_did = DidKey::from_pubkey(source_pub).unwrap();
         let preimage = SourcePreimage::new(source_did.as_str());
         let commitment = preimage.commitment().unwrap();
-        // A mediator's DID is derived from its key, so the sealing key comes straight
-        // back out of the DID the panel is named by.
-        let holders: Vec<(DidKey, PubKey)> = panel
-            .iter()
-            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
-            .collect();
+        // Sealed to each panelist's *registered encryption key*, resolved from the
+        // archive — the production path. Naming a custodian is not sealing to them, so
+        // a filing that gets this wrong is refused by the authority pass.
+        let holders: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
         let custody = ThresholdCustody::seal(
             &kc_core::canonical::to_canonical_cbor(&preimage).unwrap(),
             &holders,
+            crate::mediator_encryption_resolver(a, at),
             threshold,
         )
         .unwrap();
@@ -2357,6 +2583,18 @@ mod observer {
             },
             source_did,
         }
+    }
+
+    /// The §8 resolution, but falling back to a holder's own `did:key` when it is not a
+    /// registered mediator. Only for fixtures that deliberately name an unregistered
+    /// holder: the rule under test is then the authority pass's, and `seal` must not
+    /// refuse first or the test would pass for the wrong reason.
+    fn lenient_enc(
+        a: &InMemoryArchive,
+        at: Timestamp,
+    ) -> impl Fn(&DidKey) -> kc_core::KcResult<PubKey> + '_ {
+        let strict = crate::mediator_encryption_resolver(a, at);
+        move |did: &DidKey| strict(did).or_else(|_| did.to_pubkey())
     }
 
     fn append_filing(
@@ -2396,13 +2634,15 @@ mod observer {
     }
 
     /// Open every panelist's custody share.
+    /// Each custodian opens its own share with its **encryption** key, which is not the
+    /// key it signs with: `pool` carries `(did, signing, encryption)`. Passing the
+    /// signing key here is now refused by name, which is the point of the change.
     fn open_shares(
         wb: &WhistleblowerReport,
-        panel: &[(&DidKey, &PrivKey)],
+        pool: &[(DidKey, PrivKey, PrivKey)],
     ) -> Vec<RevealedShare> {
-        panel
-            .iter()
-            .map(|(d, p)| wb.custody.open_share(d, p).unwrap())
+        pool.iter()
+            .map(|(d, _sign, enc)| wb.custody.open_share(d, enc).unwrap())
             .collect()
     }
 
@@ -2411,7 +2651,7 @@ mod observer {
     #[allow(clippy::type_complexity)]
     fn fixture(
         a: &mut InMemoryArchive,
-    ) -> (DidKey, PrivKey, (DidKey, PrivKey), Vec<(DidKey, PrivKey)>) {
+    ) -> (DidKey, PrivKey, (DidKey, PrivKey), Vec<(DidKey, PrivKey, PrivKey)>) {
         let (s, s_priv) = community(a, "S", ts(10));
         let (r, r_priv) = community(a, "R", ts(10));
         let obs = add_observers(a, &r, &r_priv, 1, ts(10)).pop().unwrap();
@@ -2472,7 +2712,7 @@ mod observer {
     #[allow(clippy::type_complexity)]
     fn wb_fixture(
         a: &mut InMemoryArchive,
-    ) -> (DidKey, PrivKey, Vec<(DidKey, PrivKey, PubKey)>, Vec<(DidKey, PrivKey)>) {
+    ) -> (DidKey, PrivKey, Vec<(DidKey, PrivKey, PubKey)>, Vec<(DidKey, PrivKey, PrivKey)>) {
         let (s, s_priv, _obs, pool) = fixture(a);
         let insiders = add_insiders(a, &s, &s_priv, 2, ts(10));
         (s, s_priv, insiders, pool)
@@ -2482,12 +2722,189 @@ mod observer {
     fn whistleblower_with_insider_attestation_and_custody_authorized() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
         let cid = append_filing(&mut a, f.wb, &panel);
         ok(&a, &cid);
+    }
+
+    // --- custody must be sealed to keys its named holders control ---------------
+    //
+    // Measured before these rules existed: a filing naming exactly the reception panel
+    // but sealing every share to one outsider's key was `verify`-clean and **authorized**,
+    // with 0 of 3 named custodians able to open a share. The lawful reveal path was dead
+    // for good, one actor held the whole secret, and nothing on the record showed it.
+
+    #[test]
+    fn an_honestly_sealed_filing_authorizes_and_every_custodian_opens_its_own_share() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        // Every custodian opens with its registered *encryption* key, not its signing key.
+        for (did, _sign, enc) in &pool {
+            f.wb.custody.open_share(did, enc).expect("its own share opens");
+        }
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+    }
+
+    /// Build a filing whose custody is sealed by `resolve` instead of honestly.
+    fn filing_sealed_by(
+        a: &InMemoryArchive,
+        accused: &DidKey,
+        source: (&PrivKey, &PubKey),
+        panel: &[(&DidKey, &PrivKey)],
+        resolve: impl Fn(&DidKey) -> kc_core::KcResult<PubKey>,
+        at: Timestamp,
+    ) -> WhistleblowerReport {
+        let ring = expected_ring(a, accused, at);
+        let idx = ring.iter().position(|pk| pk.bytes == source.1.bytes).unwrap();
+        let source_did = DidKey::from_pubkey(source.1).unwrap();
+        let preimage = SourcePreimage::new(source_did.as_str());
+        let commitment = preimage.commitment().unwrap();
+        let holders: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let custody = ThresholdCustody::seal(
+            &kc_core::canonical::to_canonical_cbor(&preimage).unwrap(),
+            &holders,
+            resolve,
+            P,
+        )
+        .unwrap();
+        let insider = WhistleblowerReport::attest(
+            accused.clone(), commitment, "coerced labor", at, ring, idx, source.0,
+        )
+        .unwrap();
+        WhistleblowerReport {
+            accused_community: accused.clone(),
+            source_commitment: commitment,
+            claim: "coerced labor".into(),
+            references: vec![],
+            reception_panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+            filed_at: at,
+            insider,
+            custody,
+        }
+    }
+
+    #[test]
+    fn custody_sealed_to_a_substituted_key_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let (att_sk, att_pk) = keys::generate(Alg::Ed25519).unwrap();
+        let wb = filing_sealed_by(
+            &a, &s, (&insiders[0].1, &insiders[0].2), &panel,
+            |_| Ok(att_pk.clone()), ts(100),
+        );
+        // The measurement, preserved: no named custodian can open, and one key opens all.
+        assert_eq!(
+            pool.iter().filter(|(d, _, e)| wb.custody.open_share(d, e).is_ok()).count(),
+            0
+        );
+        assert_eq!(
+            pool.iter().filter(|(d, _, _)| wb.custody.open_share(d, &att_sk).is_ok()).count(),
+            pool.len()
+        );
+        let cid = append_filing(&mut a, wb, &panel);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn custody_sealed_to_another_panelists_key_is_rejected() {
+        // Subtler than an outsider: every key belongs to a real custodian, just the
+        // wrong one, so the holder set and the key set both look right.
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let registered = crate::mediator_encryption_keys(&a, ts(100));
+        let rotated: Vec<PubKey> = pool
+            .iter()
+            .map(|(d, _, _)| registered.get(d.as_str()).unwrap().clone())
+            .collect();
+        let order: Vec<String> = pool.iter().map(|(d, _, _)| d.as_str().to_string()).collect();
+        let wb = filing_sealed_by(
+            &a, &s, (&insiders[0].1, &insiders[0].2), &panel,
+            |did| {
+                let i = order.iter().position(|o| o == did.as_str()).unwrap();
+                Ok(rotated[(i + 1) % rotated.len()].clone())
+            },
+            ts(100),
+        );
+        let cid = append_filing(&mut a, wb, &panel);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn custody_naming_a_holder_with_no_registered_encryption_key_is_rejected() {
+        // Reaching this rule takes care, and the care is the point. The reception-panel
+        // rule checks the *signers*, while the custody rule checks the *holders*, and
+        // `holders == reception_panel` is checked between them — so a holder who is not
+        // a registered mediator is normally caught earlier, as a signer. The gap it
+        // leaves is a `reception_panel` naming somebody who never signs: the three real
+        // mediators sign (meeting `panel_min`), the panel lists a fourth who does not,
+        // and custody is sealed to that fourth. Then, and only then, is this the first
+        // rule to fire.
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let (stranger, _stranger_priv) = community(&mut a, "Stranger", ts(10));
+        let signers: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let mut listed = signers.clone();
+        listed.push((&stranger, &insiders[0].1)); // key unused: it never signs
+        let wb = filing_sealed_by(
+            &a, &s, (&insiders[0].1, &insiders[0].2), &listed,
+            lenient_enc(&a, ts(100)), ts(100),
+        );
+        let cid = append_filing(&mut a, wb, &signers);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_re_registration_after_a_filing_does_not_invalidate_it() {
+        // The custody rule reads the registry at `filed_at`, so a community rotating its
+        // mediator's encryption key later cannot retroactively break an honest filing —
+        // the same log-order principle the ring is bound by.
+        let mut a = InMemoryArchive::new();
+        let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+        // C re-registers its mediator under a fresh encryption key, dated after filing.
+        let (cf, cf_priv) = community(&mut a, "Rotator", ts(10));
+        add_mediators(&mut a, &cf, &cf_priv, 1, ts(300));
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_mediator_registered_with_its_signing_key_as_its_encryption_key_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "C", ts(10));
+        let (_mpriv, mpub) = keys::generate(Alg::Ed25519).unwrap();
+        let mdid = DidKey::from_pubkey(&mpub).unwrap();
+        let reg = Signed::build(
+            MediatorRegistry {
+                nominating_community: c.clone(),
+                entries: vec![MediatorEntry {
+                    mediator_did: mdid,
+                    mediator_pubkey: mpub.clone(),
+                    encryption_pubkey: mpub,
+                    valid_from: ts(10),
+                    valid_until: None,
+                }],
+                issued_at: ts(10),
+            },
+            &[(c.as_str(), &c_priv)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::MediatorRegistryUpdated(reg)).unwrap();
+        bad(&a, &cid);
     }
 
     #[test]
@@ -2496,7 +2913,7 @@ mod observer {
         let (s, s_priv, insiders, pool) = wb_fixture(&mut a);
         // The accused S also nominates a mediator and seats it on the reception panel.
         let s_meds = add_mediators(&mut a, &s, &s_priv, 1, ts(10));
-        let mut panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let mut panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
         panel.push((&s_meds[0].0, &s_meds[0].1));
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
@@ -2509,7 +2926,7 @@ mod observer {
     fn whistleblower_panel_below_minimum_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", 2, ts(100),
         );
@@ -2525,7 +2942,7 @@ mod observer {
     fn a_panel_cannot_manufacture_a_filing_without_a_source() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         // A ring the panel assembles from its own keys, signed by a panelist: the
         // shape of a filing with no insider behind it.
         let ring: Vec<PubKey> = panel.iter().map(|(d, _)| d.to_pubkey().unwrap()).collect();
@@ -2539,11 +2956,9 @@ mod observer {
             panel[0].1,
         )
         .unwrap();
-        let holders: Vec<(DidKey, PubKey)> = panel
-            .iter()
-            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
-            .collect();
-        let custody = ThresholdCustody::seal(b"whatever", &holders, P).unwrap();
+        let holders: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let custody =
+            ThresholdCustody::seal(b"whatever", &holders, lenient_enc(&a, ts(100)), P).unwrap();
         let wb = WhistleblowerReport {
             accused_community: s,
             source_commitment: Cid::of_bytes(b"commit"),
@@ -2563,7 +2978,7 @@ mod observer {
     fn a_ring_missing_an_insider_key_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -2597,7 +3012,7 @@ mod observer {
     fn a_ring_padded_with_an_outsider_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -2629,7 +3044,7 @@ mod observer {
         // confession while telling them they are anonymous, the filing is refused.
         let mut a = InMemoryArchive::new();
         let (s, s_priv, _obs, pool) = fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         // S has only its root key: a ring of one, which `attest` will not even build.
         let ring = expected_ring(&a, &s, ts(100));
         assert_eq!(ring.len(), 1);
@@ -2658,10 +3073,8 @@ mod observer {
             &s_priv,
         )
         .unwrap();
-        let holders: Vec<(DidKey, PubKey)> = panel
-            .iter()
-            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
-            .collect();
+        let holders: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let custody = ThresholdCustody::seal(b"x", &holders, lenient_enc(&a, ts(100)), P).unwrap();
         let wb = WhistleblowerReport {
             accused_community: s,
             source_commitment: Cid::of_bytes(b"c"),
@@ -2670,7 +3083,7 @@ mod observer {
             reception_panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
             filed_at: ts(100),
             insider,
-            custody: ThresholdCustody::seal(b"x", &holders, P).unwrap(),
+            custody,
         };
         let cid = append_filing(&mut a, wb, &panel);
         bad(&a, &cid);
@@ -2680,7 +3093,7 @@ mod observer {
     fn an_attestation_cannot_be_moved_to_another_claim() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "the rota is coerced", P, ts(100),
         );
@@ -2699,7 +3112,7 @@ mod observer {
         let (s, _s_priv, insiders, mut pool) = wb_fixture(&mut a);
         let (cf, cf_priv) = community(&mut a, "F", ts(10));
         pool.extend(add_mediators(&mut a, &cf, &cf_priv, 1, ts(10)));
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         assert_eq!(panel.len(), 4);
         let minority = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", 2, ts(100),
@@ -2718,7 +3131,7 @@ mod observer {
     fn custody_held_by_someone_other_than_the_panel_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -2726,13 +3139,10 @@ mod observer {
         // would claim a quorum gate that the actual key holders do not match.
         let (_, stranger_pub) = keys::generate(Alg::Ed25519).unwrap();
         let stranger_did = DidKey::from_pubkey(&stranger_pub).unwrap();
-        let mut holders: Vec<(DidKey, PubKey)> = panel
-            .iter()
-            .take(2)
-            .map(|(d, _)| ((*d).clone(), d.to_pubkey().unwrap()))
-            .collect();
-        holders.push((stranger_did, stranger_pub));
-        let custody = ThresholdCustody::seal(b"x", &holders, P).unwrap();
+        let mut holders: Vec<DidKey> = panel.iter().take(2).map(|(d, _)| (*d).clone()).collect();
+        holders.push(stranger_did);
+        let _ = stranger_pub;
+        let custody = ThresholdCustody::seal(b"x", &holders, lenient_enc(&a, ts(100)), P).unwrap();
         let wb = WhistleblowerReport { custody, ..f.wb };
         let cid = append_filing(&mut a, wb, &panel);
         bad(&a, &cid);
@@ -2742,11 +3152,11 @@ mod observer {
     fn source_reveal_requires_cause_and_valid_panel() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
-        let shares = open_shares(&f.wb, &panel);
+        let shares = open_shares(&f.wb, &pool);
         let source = f.source_did.as_str().to_string();
         let wb = append_filing(&mut a, f.wb, &panel);
         // Empty cause: rejected.
@@ -2773,11 +3183,11 @@ mod observer {
     fn a_reveal_cannot_name_someone_the_shares_do_not_recover() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
-        let shares = open_shares(&f.wb, &panel);
+        let shares = open_shares(&f.wb, &pool);
         // The other insider, who had nothing to do with the filing.
         let framed = insiders[1].0.as_str().to_string();
         let wb = append_filing(&mut a, f.wb, &panel);
@@ -2789,11 +3199,11 @@ mod observer {
     fn a_reveal_naming_an_arbitrary_string_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
-        let shares = open_shares(&f.wb, &panel);
+        let shares = open_shares(&f.wb, &pool);
         let wb = append_filing(&mut a, f.wb, &panel);
         let invented = reveal_with(
             &mut a,
@@ -2811,12 +3221,12 @@ mod observer {
     fn a_reveal_one_share_short_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         // Threshold 3 of 3, so two shares must not suffice.
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", 3, ts(100),
         );
-        let shares = open_shares(&f.wb, &panel);
+        let shares = open_shares(&f.wb, &pool);
         let source = f.source_did.as_str().to_string();
         let wb = append_filing(&mut a, f.wb, &panel);
         let short = reveal_with(
@@ -2839,11 +3249,11 @@ mod observer {
     fn a_reveal_with_a_tampered_share_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
-        let mut shares = open_shares(&f.wb, &panel);
+        let mut shares = open_shares(&f.wb, &pool);
         shares[1].value.0[0] ^= 0x01;
         let source = f.source_did.as_str().to_string();
         let wb = append_filing(&mut a, f.wb, &panel);
@@ -2856,11 +3266,11 @@ mod observer {
         // Otherwise a single panelist reaches the threshold alone.
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
-        let shares = open_shares(&f.wb, &panel);
+        let shares = open_shares(&f.wb, &pool);
         let doubled = vec![shares[0], shares[0], shares[0]];
         let source = f.source_did.as_str().to_string();
         let wb = append_filing(&mut a, f.wb, &panel);
@@ -2886,7 +3296,7 @@ mod observer {
     fn a_wrongly_named_member_can_clear_itself() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -2900,7 +3310,7 @@ mod observer {
     fn the_true_source_cannot_disown_its_own_filing() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -2915,7 +3325,7 @@ mod observer {
     fn an_exculpation_with_a_forged_proof_is_rejected() {
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -2940,7 +3350,7 @@ mod observer {
         // at a bystander's image and walk away.
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -2965,7 +3375,7 @@ mod observer {
         // Nobody outside the ring was ever implicated, so there is nothing to clear.
         let mut a = InMemoryArchive::new();
         let (s, _s_priv, insiders, pool) = wb_fixture(&mut a);
-        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
         let f = build_filing(
             &a, &s, &insiders[0].1, &insiders[0].2, &panel, "coerced labor", P, ts(100),
         );
@@ -3105,6 +3515,360 @@ mod observer {
         let a_obs = observer_keys(3);
         let reg = append_roster(&mut a, &aa, &aa_priv, &a_obs, ts(10), Some(ts(100 * DAY)), ts(20));
         ok(&a, &reg);
+    }
+
+    // --- the member roll, and the insider set as a property of the log -----------
+    //
+    // Four measurements taken before any of this existed, kept as the regression
+    // tests for it:
+    //   M1 a bare community's insider set was 1 — the hole the roll closes;
+    //   M2 the whole corpus's anonymity set was 3 (root + 2 delegates);
+    //   M3 one delegation backdated *after* a filing invalidated that filing;
+    //   M4 one backdated revocation shrank the suspect set 3 → 2 around a source.
+
+    fn member_keys(n: usize) -> Vec<(DidKey, PrivKey, PubKey)> {
+        (0..n)
+            .map(|_| {
+                let (sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+                (DidKey::from_pubkey(&pk).unwrap(), sk, pk)
+            })
+            .collect()
+    }
+
+    fn roll_of(
+        community: &DidKey,
+        members: &[(DidKey, PrivKey, PubKey)],
+        as_of: Timestamp,
+        published_at: Timestamp,
+    ) -> kc_identity::MemberRoll {
+        kc_identity::MemberRoll {
+            community_did: community.clone(),
+            members: members
+                .iter()
+                .map(|(d, _, pk)| kc_identity::RollMember {
+                    member_did: d.clone(),
+                    member_pubkey: pk.clone(),
+                })
+                .collect(),
+            as_of,
+            published_at,
+        }
+    }
+
+    fn append_roll(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        root_priv: &PrivKey,
+        roll: kc_identity::MemberRoll,
+    ) -> Cid {
+        let signed = Signed::build(roll, &[(community.as_str(), root_priv)]).unwrap();
+        a.append(ArchiveEntry::MemberRollPublished(signed)).unwrap()
+    }
+
+    /// M1, preserved: with no delegation and no roll, a community still has a ring of
+    /// one and therefore no anonymous channel. The roll widens the set; it does not
+    /// manufacture one out of nothing.
+    fn insiders(a: &InMemoryArchive, c: &DidKey, at: Timestamp) -> usize {
+        crate::insider_keys(a, c, at).len()
+    }
+
+    #[test]
+    fn m1_a_community_with_no_delegation_and_no_roll_still_has_a_ring_of_one() {
+        let mut a = InMemoryArchive::new();
+        let (c, _c_priv) = community(&mut a, "Bare", ts(10));
+        assert_eq!(insiders(&a, &c, ts(100)), 1);
+    }
+
+    #[test]
+    fn a_member_roll_widens_the_insider_set() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        // M2: root + 2 delegates was the corpus's whole anonymity set.
+        add_insiders(&mut a, &c, &c_priv, 2, ts(10));
+        assert_eq!(insiders(&a, &c, ts(100)), 3);
+        let members = member_keys(5);
+        append_roll(&mut a, &c, &c_priv, roll_of(&c, &members, ts(20), ts(30)));
+        assert_eq!(insiders(&a, &c, ts(100)), 8);
+    }
+
+    #[test]
+    fn a_rolled_member_with_no_delegation_can_file() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, _obs, pool) = fixture(&mut a);
+        let members = member_keys(4);
+        append_roll(&mut a, &s, &s_priv, roll_of(&s, &members, ts(20), ts(30)));
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        // The source holds no delegation of any kind — only a place on the roll.
+        let f = build_filing(
+            &a, &s, &members[2].1, &members[2].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_roll_only_ever_widens_the_set_a_later_roll_cannot_drop_a_member() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let members = member_keys(4);
+        append_roll(&mut a, &c, &c_priv, roll_of(&c, &members, ts(20), ts(30)));
+        assert_eq!(insiders(&a, &c, ts(100)), 5);
+        // A later, shorter roll: the community drops three members. Union-only, so the
+        // suspect set does not shrink and whoever just left keeps their channel.
+        append_roll(&mut a, &c, &c_priv, roll_of(&c, &members[..1], ts(40), ts(50)));
+        assert_eq!(insiders(&a, &c, ts(100)), 5);
+    }
+
+    #[test]
+    fn a_departed_member_can_still_file() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, _obs, pool) = fixture(&mut a);
+        let members = member_keys(4);
+        append_roll(&mut a, &s, &s_priv, roll_of(&s, &members, ts(20), ts(30)));
+        // The community re-rolls without members[3], who has left.
+        append_roll(&mut a, &s, &s_priv, roll_of(&s, &members[..3], ts(40), ts(50)));
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &members[3].1, &members[3].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_member_who_also_holds_a_delegation_takes_one_ring_position() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let members = member_keys(3);
+        append_roll(&mut a, &c, &c_priv, roll_of(&c, &members, ts(20), ts(30)));
+        assert_eq!(insiders(&a, &c, ts(100)), 4);
+        // members[1] is also made a speaker. The set must not gain a position.
+        a.append(ArchiveEntry::SpeakerDelegated(grant(
+            &c, &c_priv, &members[1].0, &members[1].2, ts(40), None,
+        )))
+        .unwrap();
+        assert_eq!(insiders(&a, &c, ts(100)), 4);
+    }
+
+    #[test]
+    fn m3_a_delegation_appended_after_a_filing_cannot_invalidate_it() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, insiders_v, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders_v[0].1, &insiders_v[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+        // The accused backdates a delegation to before the filing instant. Insertion
+        // order is authoritative, so the filing's ring is untouched.
+        let (_sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+        let did = DidKey::from_pubkey(&pk).unwrap();
+        a.append(ArchiveEntry::SpeakerDelegated(grant(
+            &s, &s_priv, &did, &pk, ts(50), None,
+        )))
+        .unwrap();
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn m4_a_backdated_revocation_cannot_narrow_a_filed_rings_suspect_set() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, insiders_v, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders_v[0].1, &insiders_v[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+        // The accused revokes the non-source insider, backdated before the filing.
+        a.append(ArchiveEntry::SpeakerDelegated(grant(
+            &s,
+            &s_priv,
+            &insiders_v[1].0,
+            &insiders_v[1].2,
+            ts(10),
+            Some(ts(60)),
+        )))
+        .unwrap();
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_roll_appended_after_a_filing_does_not_widen_that_filing_ring() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, insiders_v, pool) = wb_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &insiders_v[0].1, &insiders_v[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+        // The mirror of M3: appending a roll afterwards must not move the ring either,
+        // in the widening direction any more than the narrowing one.
+        let members = member_keys(3);
+        append_roll(&mut a, &s, &s_priv, roll_of(&s, &members, ts(20), ts(30)));
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_filing_omitting_a_rolled_member_from_its_ring_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, _obs, pool) = fixture(&mut a);
+        let members = member_keys(4);
+        append_roll(&mut a, &s, &s_priv, roll_of(&s, &members, ts(20), ts(30)));
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let mut f = build_filing(
+            &a, &s, &members[0].1, &members[0].2, &panel, "coerced labor", P, ts(100),
+        );
+        // A narrowed ring: drop the last member, keeping the source in it.
+        let mut ring = f.wb.insider.ring.clone();
+        ring.pop();
+        let idx = ring.iter().position(|pk| pk.bytes == members[0].2.bytes).unwrap();
+        f.wb.insider = WhistleblowerReport::attest(
+            s.clone(),
+            f.wb.source_commitment,
+            &f.wb.claim,
+            ts(100),
+            ring,
+            idx,
+            &members[0].1,
+        )
+        .unwrap();
+        let cid = append_filing(&mut a, f.wb, &panel);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn an_empty_member_roll_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let cid = append_roll(&mut a, &c, &c_priv, roll_of(&c, &[], ts(20), ts(30)));
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_roll_naming_the_same_member_twice_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let members = member_keys(2);
+        let mut roll = roll_of(&c, &members, ts(20), ts(30));
+        roll.members.push(roll.members[0].clone());
+        let cid = append_roll(&mut a, &c, &c_priv, roll);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_roll_giving_a_member_a_foreign_key_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let members = member_keys(2);
+        let (_sk, outsider) = keys::generate(Alg::Ed25519).unwrap();
+        let mut roll = roll_of(&c, &members, ts(20), ts(30));
+        // The member's own DID, an outsider's key: without the identity rule this puts
+        // a non-member in the ring under a member's name.
+        roll.members[0].member_pubkey = outsider;
+        let cid = append_roll(&mut a, &c, &c_priv, roll);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_roll_naming_the_community_itself_is_rejected() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let members = member_keys(1);
+        let mut roll = roll_of(&c, &members, ts(20), ts(30));
+        roll.members.push(kc_identity::RollMember {
+            member_did: c.clone(),
+            member_pubkey: c.to_pubkey().unwrap(),
+        });
+        let cid = append_roll(&mut a, &c, &c_priv, roll);
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn only_the_community_itself_may_publish_its_roll() {
+        let mut a = InMemoryArchive::new();
+        let (c, _c_priv) = community(&mut a, "Polity", ts(10));
+        let (other, other_priv) = community(&mut a, "Other", ts(10));
+        let members = member_keys(2);
+        let signed =
+            Signed::build(roll_of(&c, &members, ts(20), ts(30)), &[(other.as_str(), &other_priv)])
+                .unwrap();
+        let cid = a.append(ArchiveEntry::MemberRollPublished(signed)).unwrap();
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn an_envoy_may_not_publish_a_member_roll() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let (esk, epk) = keys::generate(Alg::Ed25519).unwrap();
+        let envoy = DidKey::from_pubkey(&epk).unwrap();
+        a.append(ArchiveEntry::SpeakerDelegated(
+            Signed::build(
+                SpeakerDelegation {
+                    community_did: c.clone(),
+                    speaker_did: envoy.clone(),
+                    speaker_pubkey: epk,
+                    scope: DelegationScope::Envoy,
+                    issued_at: ts(10),
+                    expires_at: None,
+                    revoked_at: None,
+                },
+                &[(c.as_str(), &c_priv)],
+            )
+            .unwrap(),
+        ))
+        .unwrap();
+        let members = member_keys(2);
+        let signed =
+            Signed::build(roll_of(&c, &members, ts(20), ts(30)), &[(envoy.as_str(), &esk)])
+                .unwrap();
+        let cid = a.append(ArchiveEntry::MemberRollPublished(signed)).unwrap();
+        bad(&a, &cid);
+    }
+
+    #[test]
+    fn a_tampered_roll_fails_verification() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "Polity", ts(10));
+        let members = member_keys(2);
+        let cid = append_roll(&mut a, &c, &c_priv, roll_of(&c, &members, ts(20), ts(30)));
+        assert!(a.verify(&cid).is_ok());
+        let tampered = match a.get(&cid).unwrap() {
+            ArchiveEntry::MemberRollPublished(s) => {
+                let mut s = s.clone();
+                s.payload.members.pop();
+                ArchiveEntry::MemberRollPublished(s)
+            }
+            _ => unreachable!(),
+        };
+        let mut b = InMemoryArchive::new();
+        community(&mut b, "Polity", ts(10));
+        // Appending the tampered record: its CID no longer matches its signature.
+        let bad_cid = b.append(tampered).unwrap();
+        assert!(b.verify(&bad_cid).is_err());
+    }
+
+    #[test]
+    fn a_reveal_may_name_a_rolled_member() {
+        let mut a = InMemoryArchive::new();
+        let (s, s_priv, _obs, pool) = fixture(&mut a);
+        let members = member_keys(4);
+        append_roll(&mut a, &s, &s_priv, roll_of(&s, &members, ts(20), ts(30)));
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let f = build_filing(
+            &a, &s, &members[1].1, &members[1].2, &panel, "coerced labor", P, ts(100),
+        );
+        let source_did = f.source_did.clone();
+        let shares = open_shares(&f.wb, &pool[..P]);
+        let cid = append_filing(&mut a, f.wb, &panel);
+        ok(&a, &cid);
+        let rev = reveal_with(
+            &mut a, cid, &panel, "credible retaliation", source_did.as_str(), shares, ts(200),
+        );
+        ok(&a, &rev);
     }
 }
 
@@ -3455,5 +4219,1058 @@ mod event_action {
         let bogus = Cid::of_bytes(b"not an event");
         let act = invoke_action(&mut a, &bogus, &r, &rp, ts(2000));
         bad(&a, &act);
+    }
+}
+
+/// §2 admissions integrity — the enforcement half (`capture_resistance.md` §7).
+///
+/// The compact's answer to admissions capture had been "make it legible": the
+/// composition-drift dashboard, sponsor stake, and harness scenario 7 all *see* a
+/// faction seating entrants, and nothing refused it. These are the gate's cases.
+///
+/// The two `measure_*` tests are the slice's measurement kept as its regression
+/// test: each was authored green against the pre-gate code, and each records in its
+/// assertion message the number it measured.
+mod admissions_integrity {
+    use super::*;
+    use kc_ceremony::inter::{
+        ExaminerEntry, ExaminerRegistry, InterCommunityWitnessRecord, SponsorshipRecord,
+    };
+    use kc_ceremony::intra::IntraCommunityRiteRecord;
+
+    const YEAR: i64 = 365 * 24 * 3600;
+
+    /// A full credentialing round over N participants: each presents one claim per
+    /// required feature, and every other participant accepts all of them. This
+    /// generalizes the hand-rolled two-party loop in
+    /// `full_two_community_ceremony_verifies_and_roundtrips`, which is what an
+    /// *admission* needs — a compact formation has two founders, an admission has
+    /// the sitting members plus the entrant.
+    fn credential(
+        label: &str,
+        members: &[(&Community, &Signed<IntraCommunityRiteRecord>)],
+        now: Timestamp,
+    ) -> Signed<InterCommunityWitnessRecord> {
+        let participants: Vec<ParticipantContext> = members
+            .iter()
+            .map(|(c, rite)| ParticipantContext {
+                community: &c.signed_identity,
+                intra_record: rite,
+                cross_boundary_signer_did: c.envoy_did.clone(),
+                cross_boundary_signer_priv: &c.envoy_priv,
+            })
+            .collect();
+        let runner = InterCredentialingRunner::new(label.into(), participants);
+
+        let mut claims = Vec::new();
+        for (c, _) in members {
+            for feature in REQUIRED_FEATURES {
+                claims.push(
+                    InterCredentialingRunner::present_claim(
+                        &c.envoy_did,
+                        &c.envoy_priv,
+                        c.signed_identity.payload.did.clone(),
+                        feature,
+                        format!("{feature:?} evidenced."),
+                        vec![],
+                        now,
+                    )
+                    .unwrap(),
+                );
+            }
+        }
+        let mut acceptances = Vec::new();
+        for claim in &claims {
+            for (c, _) in members {
+                if c.signed_identity.payload.did == claim.payload.community_did {
+                    continue;
+                }
+                acceptances.push(
+                    InterCredentialingRunner::accept(
+                        &c.envoy_did,
+                        &c.envoy_priv,
+                        c.signed_identity.payload.did.clone(),
+                        claim.payload_cid,
+                        true,
+                        None,
+                        now,
+                    )
+                    .unwrap(),
+                );
+            }
+        }
+        match runner.seal(claims, acceptances, vec![], now).unwrap() {
+            InterCredentialingOutcome::Sealed(s) => s,
+            InterCredentialingOutcome::NonAdmission(_) => panic!("expected an admission"),
+        }
+    }
+
+    fn vouch(
+        archive: &mut InMemoryArchive,
+        sponsor: &Community,
+        entrant: &DidKey,
+        sponsored_at: Timestamp,
+        probation_until: Timestamp,
+    ) -> Cid {
+        let sponsor_did = sponsor.signed_identity.payload.did.clone();
+        let signed = Signed::build(
+            SponsorshipRecord {
+                sponsor_community: sponsor_did.clone(),
+                entrant_community: entrant.clone(),
+                admission_cid: None,
+                probation_until,
+                statement: "operative practice observed".into(),
+                sponsored_at,
+            },
+            &[(sponsor_did.as_str(), &sponsor.root_priv)],
+        )
+        .unwrap();
+        archive.append(ArchiveEntry::SponsorshipVouched(signed)).unwrap()
+    }
+
+    /// Seat this community's cross-boundary signer as its examiner over
+    /// `[valid_from, valid_until)`.
+    ///
+    /// The examiner at a credentialing *is* the community's cross-boundary signer:
+    /// the runner co-signs the witness record with exactly one signer per
+    /// participant, and principal binding requires that signature to be the
+    /// community's own root or `Envoy`. So §2's caps constrain who a community may
+    /// send to examine an entrant, and for how long it may keep sending them — which
+    /// is the bite the admitting quorum does not have.
+    fn seat_examiner(
+        archive: &mut InMemoryArchive,
+        c: &Community,
+        valid_from: Timestamp,
+        valid_until: Option<Timestamp>,
+        issued_at: Timestamp,
+    ) -> KcResult<Cid> {
+        let did = c.signed_identity.payload.did.clone();
+        let signed = Signed::build(
+            ExaminerRegistry {
+                nominating_community: did.clone(),
+                entries: vec![ExaminerEntry {
+                    examiner_did: c.envoy_did.clone(),
+                    examiner_pubkey: c.envoy_delegation.payload.speaker_pubkey.clone(),
+                    valid_from,
+                    valid_until,
+                }],
+                issued_at,
+            },
+            &[(did.as_str(), &c.root_priv)],
+        )
+        .unwrap();
+        archive.append(ArchiveEntry::ExaminerRegistryUpdated(signed))
+    }
+
+    /// A community seeded into the archive with its intra rite sealed and appended —
+    /// everything a credentialing participant needs.
+    fn member(archive: &mut InMemoryArchive, name: &str, now: Timestamp)
+        -> (Community, Signed<IntraCommunityRiteRecord>)
+    {
+        let c = mk_community(name, now);
+        seed_archive(archive, &c);
+        let rite = run_intra_rite(&c, now);
+        archive.append(ArchiveEntry::IntraCommunityRite(rite.clone())).unwrap();
+        (c, rite)
+    }
+
+    /// MEASUREMENT (step 1 of the §2 slice), kept as the regression test.
+    ///
+    /// Capture move 7 with nothing in its way: a faction of one co-founds a compact
+    /// with its first aligned entrant, then seats a stream of further entrants where
+    /// every co-signer other than the faction is itself inside its sponsorship
+    /// probation window. **Measured against the pre-gate code: the faction seated 5
+    /// of 5 attempted entrants, `verify_all` green and `check_authority` green at a
+    /// quorum threshold of 3** — every admission procedurally clean, which is
+    /// exactly what `capture_resistance.md` §7 says makes this vector hard to see.
+    #[test]
+    fn measure_faction_of_one_seats_entrants_unopposed() {
+        let now = time::now();
+        let probation_until = now.checked_add((YEAR / 3600).hours()).unwrap();
+        let mut archive = InMemoryArchive::new();
+        let (faction, faction_rite) = member(&mut archive, "Faction", now);
+
+        let mut seated: Vec<(Community, Signed<IntraCommunityRiteRecord>)> = Vec::new();
+        let mut refused: Option<String> = None;
+        for i in 0..5 {
+            let (entrant, rite) = member(&mut archive, &format!("Entrant-{i}"), now);
+            let mut members: Vec<(&Community, &Signed<IntraCommunityRiteRecord>)> =
+                vec![(&faction, &faction_rite)];
+            members.extend(seated.iter().map(|(c, r)| (c, r)));
+            members.push((&entrant, &rite));
+
+            let witness = credential("captured-compact", &members, now);
+            // The sponsor stakes its standing first, opening the entrant's probation:
+            // vouch, then seal. §2 counts only a vouch already in the log.
+            vouch(
+                &mut archive,
+                &faction,
+                &entrant.signed_identity.payload.did,
+                now,
+                probation_until,
+            );
+            let cid = archive
+                .append(ArchiveEntry::InterCommunityWitness(witness))
+                .unwrap();
+            if let Err(e) = authorize(&archive, archive.get(&cid).unwrap(), 3, DEFAULT_PANEL_MIN) {
+                refused = Some(e.to_string());
+                break;
+            }
+            seated.push((entrant, rite));
+        }
+
+        verify_all(&archive).expect("every record is crypto-intact either way");
+        assert_eq!(
+            seated.len(),
+            1,
+            "a faction of one must seat only its co-founder; measured 5 of 5 seated \
+             before the §2 gate existed. Refusal: {refused:?}"
+        );
+        let reason = refused.expect("the second admission must be refused");
+        assert!(
+            reason.contains("admitting"),
+            "the refusal must name the admitting quorum, got: {reason}"
+        );
+    }
+
+    /// A standing compact of three founders, each sending a seated examiner. The
+    /// fixture the examining-panel rules are exercised against.
+    fn standing_compact(
+        archive: &mut InMemoryArchive,
+        now: Timestamp,
+        seat: bool,
+    ) -> Vec<(Community, Signed<IntraCommunityRiteRecord>)> {
+        let term_end = now.checked_add((90 * 24).hours()).unwrap();
+        let founders: Vec<(Community, Signed<IntraCommunityRiteRecord>)> = ["A", "B", "C"]
+            .iter()
+            .map(|n| member(archive, n, now))
+            .collect();
+        let refs: Vec<(&Community, &Signed<IntraCommunityRiteRecord>)> =
+            founders.iter().map(|(c, r)| (c, r)).collect();
+        let formation = credential("standing-compact", &refs, now);
+        archive
+            .append(ArchiveEntry::InterCommunityWitness(formation))
+            .unwrap();
+        if seat {
+            for (c, _) in &founders {
+                seat_examiner(archive, c, now, Some(term_end), now).unwrap();
+            }
+        }
+        founders
+    }
+
+    /// One entrant presented to a standing compact by all of its members, vouched
+    /// for beforehand by `sponsor` when one is given.
+    ///
+    /// The vouch precedes the admission, which is both the order
+    /// `recognition_protocols.md` describes and the only order §2 counts: the sponsor
+    /// speaks for the candidate, then the compact seals the admission.
+    fn admit_entrant(
+        archive: &mut InMemoryArchive,
+        founders: &[(Community, Signed<IntraCommunityRiteRecord>)],
+        sponsor: Option<&Community>,
+        name: &str,
+        now: Timestamp,
+    ) -> Cid {
+        let (entrant, rite) = member(archive, name, now);
+        if let Some(sp) = sponsor {
+            vouch(
+                archive,
+                sp,
+                &entrant.signed_identity.payload.did,
+                now,
+                now.checked_add((YEAR / 3600).hours()).unwrap(),
+            );
+        }
+        let mut refs: Vec<(&Community, &Signed<IntraCommunityRiteRecord>)> =
+            founders.iter().map(|(c, r)| (c, r)).collect();
+        refs.push((&entrant, &rite));
+        let witness = credential("standing-compact", &refs, now);
+        archive
+            .append(ArchiveEntry::InterCommunityWitness(witness))
+            .unwrap()
+    }
+
+    /// §2: an admission into a standing compact must be examined by a panel of seated
+    /// examiners, not merely co-signed. Before the rule, the credentialing runner
+    /// imposed a headcount of two participants and nothing else — there was no term,
+    /// no rotation, and no cap on how much of the examining function one community
+    /// could hold.
+    #[test]
+    fn admission_without_a_seated_panel_is_refused() {
+        let now = time::now();
+        let mut archive = InMemoryArchive::new();
+        let founders = standing_compact(&mut archive, now, false);
+        let cid = admit_entrant(&mut archive, &founders, Some(&founders[0].0), "Entrant", now);
+        let err = authorize(&archive, archive.get(&cid).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect_err("an unexamined admission must be refused");
+        assert!(
+            err.to_string().contains("credentialing panel"),
+            "expected the panel rule, got: {err}"
+        );
+    }
+
+    /// NEGATIVE CONTROL: the same admission, examined by a seated panel spanning
+    /// three communities, is authorized. The gate refuses unexamined admissions, not
+    /// admissions.
+    #[test]
+    fn admission_examined_by_a_seated_panel_is_authorized() {
+        let now = time::now();
+        let mut archive = InMemoryArchive::new();
+        let founders = standing_compact(&mut archive, now, true);
+        let cid = admit_entrant(&mut archive, &founders, Some(&founders[0].0), "Entrant", now);
+        authorize(&archive, archive.get(&cid).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect("a properly examined admission is authorized");
+        verify_all(&archive).expect("and it verifies");
+    }
+
+    /// NEGATIVE CONTROL for the formation exemption: a compact's own founding record
+    /// has no sitting members to draw a quorum or a panel from, and is authorized.
+    /// All 10 admission records that existed before this rule were formations.
+    #[test]
+    fn compact_formation_is_exempt() {
+        let now = time::now();
+        let mut archive = InMemoryArchive::new();
+        let (a, a_rite) = member(&mut archive, "A", now);
+        let (b, b_rite) = member(&mut archive, "B", now);
+        let formation = credential("new-compact", &[(&a, &a_rite), (&b, &b_rite)], now);
+        let cid = archive
+            .append(ArchiveEntry::InterCommunityWitness(formation))
+            .unwrap();
+        authorize(&archive, archive.get(&cid).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect("compact formation is exempt: these are founders, not entrants");
+    }
+
+    /// §2 cross-community composition: a panel drawn from one community is the
+    /// standing admissions cadre wearing a rotation schedule.
+    #[test]
+    fn single_community_examining_panel_is_refused() {
+        let now = time::now();
+        let term_end = now.checked_add((90 * 24).hours()).unwrap();
+        let mut archive = InMemoryArchive::new();
+        let founders = standing_compact(&mut archive, now, false);
+        // Only A seats an examiner, so A alone examines.
+        seat_examiner(&mut archive, &founders[0].0, now, Some(term_end), now).unwrap();
+        let cid = admit_entrant(&mut archive, &founders, Some(&founders[0].0), "Entrant", now);
+        // A panel_min of 1 is satisfied, so composition is the only rule left to
+        // fire — otherwise the panel-size refusal would mask it.
+        let caps = ExaminerCaps { panel_min: 1, ..ExaminerCaps::default() };
+        let err = authorize_with_caps(
+            &archive,
+            archive.get(&cid).unwrap(),
+            2,
+            DEFAULT_PANEL_MIN,
+            ObserverCaps::default(),
+            caps,
+        )
+        .expect_err("a single-community panel must be refused");
+        assert!(
+            err.to_string().contains("single community"),
+            "expected the composition rule, got: {err}"
+        );
+    }
+
+    /// NEGATIVE CONTROL 5 (§2 term limit, shared with §8): an open-ended examining
+    /// seat is refused; the same roster with a bounded term is authorized. This is
+    /// what proves the shared caps checker is wired to the examiner path and not
+    /// merely present in the file.
+    #[test]
+    fn open_ended_examining_term_is_refused_bounded_is_not() {
+        let now = time::now();
+        let mut archive = InMemoryArchive::new();
+        let (a, _) = member(&mut archive, "A", now);
+
+        let open = seat_examiner(&mut archive, &a, now, None, now).unwrap();
+        let err = authorize(&archive, archive.get(&open).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect_err("no open-ended examining standing");
+        assert!(err.to_string().contains("open-ended"), "got: {err}");
+
+        let bounded = seat_examiner(
+            &mut archive,
+            &a,
+            now,
+            Some(now.checked_add((90 * 24).hours()).unwrap()),
+            now,
+        )
+        .unwrap();
+        authorize(&archive, archive.get(&bounded).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect("a bounded term is fine");
+    }
+
+    /// NEGATIVE CONTROL 6 (§2 continuous-service union, shared with §8): overlapping
+    /// re-nominations never trip the rotation-gap rule, so a community could chain
+    /// them to keep one examiner seated indefinitely. A copy of the §8 rules that had
+    /// dropped the union step would pass this test — which is why the two components
+    /// share one implementation.
+    #[test]
+    fn overlap_chained_examining_terms_are_refused() {
+        let now = time::now();
+        let mut archive = InMemoryArchive::new();
+        let (a, _) = member(&mut archive, "A", now);
+        let day = |d: i64| now.checked_add((d * 24).hours()).unwrap();
+
+        // Three 150-day terms, each inside the 182-day limit on its own, and each
+        // opened before every earlier one had ended. No prior term has *ended* by the
+        // third window's start, so the rotation-gap rule (ended terms only) stays
+        // silent — which is precisely the evasion the union rule exists to catch.
+        // Unioned, the continuous service runs 270 days.
+        seat_examiner(&mut archive, &a, now, Some(day(150)), now).unwrap();
+        seat_examiner(&mut archive, &a, day(100), Some(day(250)), day(100)).unwrap();
+        let third = seat_examiner(&mut archive, &a, day(120), Some(day(270)), day(120)).unwrap();
+
+        let err = authorize(&archive, archive.get(&third).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect_err("chained overlapping terms must be refused");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("continuous service") && msg.contains("§2"),
+            "expected the §2 union rule, got: {msg}"
+        );
+    }
+
+    /// §2's first withholding reaches the examining pool: a probationary community
+    /// does not staff the body that examines the next entrant.
+    #[test]
+    fn probationary_community_may_not_seat_examiners() {
+        let now = time::now();
+        let mut archive = InMemoryArchive::new();
+        let (sponsor, _) = member(&mut archive, "Sponsor", now);
+        let (entrant, _) = member(&mut archive, "Entrant", now);
+        vouch(
+            &mut archive,
+            &sponsor,
+            &entrant.signed_identity.payload.did,
+            now,
+            now.checked_add((YEAR / 3600).hours()).unwrap(),
+        );
+        let cid = seat_examiner(
+            &mut archive,
+            &entrant,
+            now,
+            Some(now.checked_add((90 * 24).hours()).unwrap()),
+            now,
+        )
+        .unwrap();
+        let err = authorize(&archive, archive.get(&cid).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect_err("a probationary community does not staff the examining pool");
+        assert!(err.to_string().contains("probationary"), "got: {err}");
+    }
+
+    /// MEASUREMENT: can a faction evade the probation withholding by simply never
+    /// vouching? Probation only opens when someone stakes standing on the entrant, and
+    /// nothing so far requires an admission to carry a sponsorship at all — so three
+    /// aligned communities that seat examiners and skip the vouch would face no
+    /// probationary de-weighting of anything.
+    #[test]
+    fn measure_admission_without_a_sponsor_is_refused() {
+        let now = time::now();
+        let mut archive = InMemoryArchive::new();
+        let founders = standing_compact(&mut archive, now, true);
+
+        let mut seated = 0usize;
+        let mut refused: Option<String> = None;
+        for i in 0..5 {
+            // No `vouch` anywhere: no sponsorship, so no probation window opens.
+            let cid = admit_entrant(&mut archive, &founders, None, &format!("Entrant-{i}"), now);
+            match authorize(&archive, archive.get(&cid).unwrap(), 2, DEFAULT_PANEL_MIN) {
+                Ok(()) => seated += 1,
+                Err(e) => {
+                    refused = Some(e.to_string());
+                    break;
+                }
+            }
+        }
+        assert_eq!(
+            seated, 0,
+            "an unsponsored admission must be refused; measured 5 of 5 seated before \
+             the sponsorship requirement existed. Refusal: {refused:?}"
+        );
+        let reason = refused.expect("the first unsponsored admission must be refused");
+        assert!(
+            reason.contains("sponsor"),
+            "the refusal must name the missing sponsorship, got: {reason}"
+        );
+    }
+
+    /// MEASUREMENT (step 1), kept as the regression test: an entrant admitted this
+    /// second may vouch for the next. **Measured against the pre-gate code:
+    /// authorized.** The chain this opens is the patient-sponsorship one — today's
+    /// entrant is tomorrow's sponsor, and probation withheld nothing.
+    #[test]
+    fn measure_probationary_community_may_not_sponsor() {
+        let now = time::now();
+        let probation_until = now.checked_add((YEAR / 3600).hours()).unwrap();
+        let mut archive = InMemoryArchive::new();
+        let (sponsor, _) = member(&mut archive, "Sitting-Member", now);
+        let (entrant, _) = member(&mut archive, "Entrant", now);
+        let (next, _) = member(&mut archive, "Next-Entrant", now);
+
+        // The entrant is inside its probation window from `now`.
+        vouch(
+            &mut archive,
+            &sponsor,
+            &entrant.signed_identity.payload.did,
+            now,
+            probation_until,
+        );
+        // ...and immediately vouches for the next entrant.
+        let cid = vouch(
+            &mut archive,
+            &entrant,
+            &next.signed_identity.payload.did,
+            now,
+            probation_until,
+        );
+
+        let err = authorize(&archive, archive.get(&cid).unwrap(), 2, DEFAULT_PANEL_MIN)
+            .expect_err("a probationary community carries no weight in admissions (§2)");
+        assert!(
+            err.to_string().contains("probation"),
+            "the refusal must name probation, got: {err}"
+        );
+    }
+}
+
+/// §2 probation reach (the purposive reading): probationary weight counts toward
+/// **no** second-class quorum, at the ordinary bar or at the asymmetric contraction
+/// bar, and first-class local voice is untouched.
+///
+/// Every one of these was measured GREEN before the rule existed. Three entrants,
+/// each inside a probation window, chartered and contracted the compact-incapable
+/// list on their own — the list of matters that may not be compacted away, upstream
+/// of every other protection in the tier.
+mod probation_reach {
+    use super::*;
+    use kc_ceremony::inter::SponsorshipRecord;
+    use kc_commons::{CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel};
+    use kc_constitution::{
+        AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
+        FastChange, FastPeriod, IncapableMatter,
+    };
+    use kc_escalation::LadderTransition;
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const YEAR: i64 = 365 * 24 * 3600;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    /// Refused, *and* refused for the §2 reason — a refusal on other grounds would
+    /// pass this test while proving nothing about probation.
+    fn refused_for_probation(a: &InMemoryArchive, cid: &Cid) -> String {
+        let err = authorize(a, a.get(cid).unwrap(), Q, P)
+            .expect_err("expected a refusal");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("probationary") && msg.contains("§2"),
+            "the refusal must name probation as the reason, got: {msg}"
+        );
+        msg
+    }
+
+    fn matter(k: &str) -> IncapableMatter {
+        IncapableMatter { key: k.into(), description: k.into() }
+    }
+
+    type Party<'a> = (&'a DidKey, &'a PrivKey);
+
+    /// A compact of four standing communities with a ratified constitution, plus
+    /// three entrants each inside a probation window from ts(100) for a year.
+    #[allow(clippy::type_complexity)]
+    fn fixture(a: &mut InMemoryArchive) -> (Vec<(DidKey, PrivKey)>, Vec<(DidKey, PrivKey)>) {
+        let standing: Vec<(DidKey, PrivKey)> =
+            ["A", "B", "C", "D"].iter().map(|n| community(a, n, ts(10))).collect();
+        let dids: Vec<DidKey> = standing.iter().map(|(d, _)| d.clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            standing.iter().map(|(d, p)| (d.as_str(), p)).collect();
+        let g = Signed::build(
+            ConstitutionGenesis {
+                compact_incapable: vec![matter("genesis_m")],
+                fast_periods: vec![FastPeriod {
+                    label: "annual".into(),
+                    start: ts(1000),
+                    end: ts(2000),
+                    recurrence: None,
+                }],
+                ratifiers: dids,
+                genesis_at: ts(20),
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ConstitutionRatified(g)).unwrap();
+
+        let entrants: Vec<(DidKey, PrivKey)> =
+            ["E1", "E2", "E3"].iter().map(|n| community(a, n, ts(90))).collect();
+        let (sponsor, sponsor_priv) = (standing[0].0.clone(), standing[0].1.clone());
+        for (e, _) in &entrants {
+            let s = Signed::build(
+                SponsorshipRecord {
+                    sponsor_community: sponsor.clone(),
+                    entrant_community: e.clone(),
+                    admission_cid: None,
+                    probation_until: ts(100 + YEAR),
+                    statement: "operative practice observed".into(),
+                    sponsored_at: ts(100),
+                },
+                &[(sponsor.as_str(), &sponsor_priv)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::SponsorshipVouched(s)).unwrap();
+        }
+        (standing, entrants)
+    }
+
+    fn amend(
+        a: &mut InMemoryArchive,
+        kind: AmendmentKind,
+        key: &str,
+        deciders: &[Party<'_>],
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = deciders.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = deciders.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let am = Signed::build(
+            CompactIncapableAmendment {
+                kind,
+                matter: matter(key),
+                rationale: "r".into(),
+                deciders: dids,
+                decision_class: DecisionClass::SecondClass,
+                decided_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::CompactIncapableAmended(am)).unwrap()
+    }
+
+    fn party(p: &(DidKey, PrivKey)) -> Party<'_> {
+        (&p.0, &p.1)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn sanction_at(
+        a: &mut InMemoryArchive,
+        commons_cid: Cid,
+        subject: &DidKey,
+        from: SanctionLevel,
+        to: SanctionLevel,
+        imposers: &[Party<'_>],
+        dc: DecisionClass,
+        at: Timestamp,
+    ) -> Cid {
+        let ids: Vec<DidKey> = imposers.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = imposers.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let s = Signed::build(
+            CommonsSanction {
+                commons_cid,
+                subject_community: subject.clone(),
+                from_level: from,
+                to_level: to,
+                basis: "overdraw".into(),
+                references: vec![],
+                imposers: ids,
+                decision_class: dc,
+                decided_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::SanctionApplied(s)).unwrap()
+    }
+
+    fn advance_at(
+        a: &mut InMemoryArchive,
+        dispute: Cid,
+        inits: &[Party<'_>],
+        at: Timestamp,
+    ) -> Cid {
+        let initiators: Vec<DidKey> = inits.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = inits.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let t = Signed::build(
+            LadderTransition {
+                dispute_cid: dispute,
+                from_rung: LadderRung::LimitedSanctions,
+                to_rung: LadderRung::CollectiveSanctions,
+                initiators,
+                decision_class: DecisionClass::SecondClass,
+                reasoning: "x".into(),
+                transitioned_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::LadderAdvanced(t)).unwrap()
+    }
+
+    #[test]
+    fn a_probationary_quorum_cannot_amend_the_compact_incapable_list() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        // Measured GREEN before the rule: two communities admitted this year,
+        // amending the compact's constitutional list between them.
+        let bad = amend(
+            &mut a,
+            AmendmentKind::Add,
+            "m_x",
+            &[party(&entrants[0]), party(&entrants[1])],
+            ts(200),
+        );
+        let msg = refused_for_probation(&a, &bad);
+        assert!(msg.contains("got 0"), "no weight at all was presented: {msg}");
+        // Control: the same act on standing weight is authorized.
+        let good = amend(
+            &mut a,
+            AmendmentKind::Add,
+            "m_ok",
+            &[party(&standing[0]), party(&standing[1])],
+            ts(210),
+        );
+        ok(&a, &good);
+    }
+
+    /// `deliberative_weight` counts communities, not signatures — the property the
+    /// four component bars used to get for free from their own `BTreeSet` and now
+    /// inherit from the shared counter. One community signing twice is one community.
+    #[test]
+    fn one_community_signing_twice_carries_one_vote() {
+        let mut a = InMemoryArchive::new();
+        let (standing, _entrants) = fixture(&mut a);
+        let s0 = party(&standing[0]);
+        let bad = amend(&mut a, AmendmentKind::Add, "m_dup", &[s0, s0], ts(200));
+        let err = authorize(&a, a.get(&bad).unwrap(), Q, P)
+            .expect_err("one community twice is not a quorum of two");
+        assert!(err.to_string().contains("got 1"), "got: {err}");
+        let good = amend(
+            &mut a,
+            AmendmentKind::Add,
+            "m_two",
+            &[s0, party(&standing[1])],
+            ts(210),
+        );
+        ok(&a, &good);
+    }
+
+    /// THE FINDING. Extending only the generic quorum leaves this green: the ordinary
+    /// bar is met by the standing members and the *higher* contraction bar is topped
+    /// up with probationary weight, so the +1 collapses to the ordinary quorum.
+    #[test]
+    fn probationary_weight_cannot_reach_the_incapable_contraction_bar() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        let all: Vec<Party<'_>> = standing.iter().map(party).collect();
+        // Two matters, and the control runs first: a *refused* amendment still moves
+        // the derived list the next one reads, so a control after the attempt would
+        // fail for "not in force" — refused for the wrong reason, proving nothing.
+        for key in ["m_ctl", "m_adv"] {
+            let added = amend(&mut a, AmendmentKind::Add, key, &all[..Q], ts(300));
+            ok(&a, &added);
+        }
+        // Control: Q+1 standing communities contract, which is what the bar means.
+        let good = amend(&mut a, AmendmentKind::Remove, "m_ctl", &all[..Q + 1], ts(400));
+        ok(&a, &good);
+
+        // The attempt: Q standing (enough for the ordinary quorum) + every entrant
+        // (enough for the raw distinct count the bar used to make).
+        let mut deciders: Vec<Party<'_>> = all[..Q].to_vec();
+        deciders.extend(entrants.iter().map(party));
+        let bad = amend(&mut a, AmendmentKind::Remove, "m_adv", &deciders, ts(500));
+        let msg = refused_for_probation(&a, &bad);
+        assert!(
+            msg.contains(&format!("got {Q}")),
+            "only the standing members carry weight: {msg}"
+        );
+    }
+
+    #[test]
+    fn probationary_weight_cannot_reach_the_fast_cadence_contraction_bar() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        let all: Vec<Party<'_>> = standing.iter().map(party).collect();
+        fn contract(
+            a: &mut InMemoryArchive,
+            deciders: &[Party<'_>],
+            at: Timestamp,
+        ) -> Cid {
+            let dids: Vec<DidKey> = deciders.iter().map(|(d, _)| (*d).clone()).collect();
+            let pairs: Vec<(&str, &PrivKey)> =
+                deciders.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+            let am = Signed::build(
+                FastCadenceAmendment {
+                    change: FastChange::Contract,
+                    period: FastPeriod {
+                        label: "annual".into(),
+                        start: ts(1000),
+                        end: ts(1500),
+                        recurrence: None,
+                    },
+                    rationale: "r".into(),
+                    deciders: dids,
+                    decision_class: DecisionClass::SecondClass,
+                    decided_at: at,
+                },
+                &pairs,
+            )
+            .unwrap();
+            a.append(ArchiveEntry::FastCadenceAmended(am)).unwrap()
+        }
+        let mut deciders: Vec<Party<'_>> = all[..Q].to_vec();
+        deciders.extend(entrants.iter().map(party));
+        let bad = contract(&mut a, &deciders, ts(600));
+        refused_for_probation(&a, &bad);
+        let good = contract(&mut a, &all[..Q + 1], ts(700));
+        ok(&a, &good);
+    }
+
+    /// Two subjects on one commons, so the control's ladder and the adversarial
+    /// ladder cannot interfere: a refused record still sets the level a later
+    /// sanction reads, and a control refused for "leaves the wrong level" would
+    /// prove nothing.
+    #[test]
+    fn a_second_class_commons_sanction_needs_standing_imposers() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        let (subj1, subj1_priv) = community(&mut a, "S1", ts(10));
+        let (subj2, subj2_priv) = community(&mut a, "S2", ts(10));
+        let appropriators = vec![
+            standing[0].0.clone(),
+            standing[1].0.clone(),
+            subj1.clone(),
+            subj2.clone(),
+        ];
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind: CommonsKind::Communication,
+                name: "relay".into(),
+                description: "a compact-level commons".into(),
+                appropriators: appropriators.clone(),
+                provision_rule: "provision scales with draw".into(),
+                registered_by: appropriators,
+                registered_at: ts(200),
+            },
+            &[
+                (standing[0].0.as_str(), &standing[0].1),
+                (standing[1].0.as_str(), &standing[1].1),
+                (subj1.as_str(), &subj1_priv),
+                (subj2.as_str(), &subj2_priv),
+            ],
+        )
+        .unwrap();
+        let commons_cid = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        let s0 = party(&standing[0]);
+        let s1 = party(&standing[1]);
+        for subject in [&subj1, &subj2] {
+            let m = sanction_at(
+                &mut a,
+                commons_cid,
+                subject,
+                SanctionLevel::None,
+                SanctionLevel::Monitoring,
+                &[s0],
+                DecisionClass::FirstClass,
+                ts(300),
+            );
+            ok(&a, &m);
+            let w = sanction_at(
+                &mut a,
+                commons_cid,
+                subject,
+                SanctionLevel::Monitoring,
+                SanctionLevel::Warning,
+                &[s0],
+                DecisionClass::FirstClass,
+                ts(400),
+            );
+            ok(&a, &w);
+        }
+        // Control first: standing imposers reach Restriction on subject 1.
+        let good = sanction_at(
+            &mut a,
+            commons_cid,
+            &subj1,
+            SanctionLevel::Warning,
+            SanctionLevel::Restriction,
+            &[s0, s1],
+            DecisionClass::SecondClass,
+            ts(500),
+        );
+        ok(&a, &good);
+        // The same act on subject 2, carried by entrants, is refused.
+        let bad = sanction_at(
+            &mut a,
+            commons_cid,
+            &subj2,
+            SanctionLevel::Warning,
+            SanctionLevel::Restriction,
+            &[party(&entrants[0]), party(&entrants[1])],
+            DecisionClass::SecondClass,
+            ts(600),
+        );
+        refused_for_probation(&a, &bad);
+    }
+
+    #[test]
+    fn a_second_class_rung_needs_standing_initiators() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        // Two disputes: a refused transition still sets the rung the next one reads,
+        // so the control needs its own ladder rather than a later step on this one.
+        let file = |name: &str, a: &mut InMemoryArchive| {
+            let (resp, _resp_priv) = community(a, name, ts(10));
+            let d = Signed::build(
+                DisputeRecord {
+                    complainant: standing[0].0.clone(),
+                    respondent: resp.clone(),
+                    rung: LadderRung::LimitedSanctions,
+                    summary: "s".into(),
+                    references: vec![],
+                    filed_at: ts(200),
+                },
+                &[(standing[0].0.as_str(), &standing[0].1)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::DisputeFiled(d)).unwrap()
+        };
+        let dispute = file("Respondent-adv", &mut a);
+        let control_dispute = file("Respondent-ctl", &mut a);
+        let good = advance_at(
+            &mut a,
+            control_dispute,
+            &[party(&standing[0]), party(&standing[1])],
+            ts(300),
+        );
+        ok(&a, &good);
+        let bad = advance_at(&mut a, dispute, &[party(&entrants[0]), party(&entrants[1])], ts(400));
+        refused_for_probation(&a, &bad);
+    }
+
+    /// The commons floor is `max(quorum, 2)`, so at a quorum of 1 it is *higher* than
+    /// the generic one — and a higher bar met with weight the generic bar rejects is
+    /// the contraction-bar finding again, one component over. At quorum 2 the generic
+    /// layer already refuses this, which is why the test has to configure the quorum
+    /// where the component rule is the only thing standing.
+    #[test]
+    fn the_commons_second_class_floor_counts_weight_at_a_quorum_of_one() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        let (subj, subj_priv) = community(&mut a, "S", ts(10));
+        let appropriators = vec![standing[0].0.clone(), subj.clone()];
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind: CommonsKind::Communication,
+                name: "relay".into(),
+                description: "a commons".into(),
+                appropriators: appropriators.clone(),
+                provision_rule: "provision scales with draw".into(),
+                registered_by: appropriators,
+                registered_at: ts(200),
+            },
+            &[(standing[0].0.as_str(), &standing[0].1), (subj.as_str(), &subj_priv)],
+        )
+        .unwrap();
+        let commons_cid = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        let s0 = party(&standing[0]);
+        let m = sanction_at(
+            &mut a, commons_cid, &subj, SanctionLevel::None, SanctionLevel::Monitoring,
+            &[s0], DecisionClass::FirstClass, ts(300),
+        );
+        authorize(&a, a.get(&m).unwrap(), 1, P).expect("first-class, one imposer");
+        let w = sanction_at(
+            &mut a, commons_cid, &subj, SanctionLevel::Monitoring, SanctionLevel::Warning,
+            &[s0], DecisionClass::FirstClass, ts(400),
+        );
+        authorize(&a, a.get(&w).unwrap(), 1, P).expect("first-class, one imposer");
+        // One standing imposer meets the generic quorum of 1; the entrant is what
+        // would carry it over the floor of 2.
+        let bad = sanction_at(
+            &mut a, commons_cid, &subj, SanctionLevel::Warning, SanctionLevel::Restriction,
+            &[s0, party(&entrants[0])], DecisionClass::SecondClass, ts(500),
+        );
+        let err = authorize(&a, a.get(&bad).unwrap(), 1, P)
+            .expect_err("the floor of 2 is not reachable on one standing imposer");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("probationary") && msg.contains("got 1"),
+            "the refusal must name probation and the weight it counted, got: {msg}"
+        );
+    }
+
+    /// The same shape for the second-class ladder rung, whose floor is also
+    /// `max(quorum, 2)`.
+    #[test]
+    fn the_second_class_rung_floor_counts_weight_at_a_quorum_of_one() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        let (resp, _resp_priv) = community(&mut a, "Respondent", ts(10));
+        let d = Signed::build(
+            DisputeRecord {
+                complainant: standing[0].0.clone(),
+                respondent: resp.clone(),
+                rung: LadderRung::LimitedSanctions,
+                summary: "s".into(),
+                references: vec![],
+                filed_at: ts(200),
+            },
+            &[(standing[0].0.as_str(), &standing[0].1)],
+        )
+        .unwrap();
+        let dispute = a.append(ArchiveEntry::DisputeFiled(d)).unwrap();
+        let bad = advance_at(
+            &mut a,
+            dispute,
+            &[party(&standing[0]), party(&entrants[0])],
+            ts(300),
+        );
+        let err = authorize(&a, a.get(&bad).unwrap(), 1, P)
+            .expect_err("the floor of 2 is not reachable on one standing initiator");
+        assert!(err.to_string().contains("probationary"), "got: {err}");
+    }
+
+    /// The boundary the doctrine draws: probation withholds *compact-wide* weight and
+    /// nothing else. A first-class act — a local body acting inside its own envelope —
+    /// is untouched, which is why the withholding is not a year of silence.
+    #[test]
+    fn a_first_class_act_is_untouched_by_probation() {
+        let mut a = InMemoryArchive::new();
+        let (standing, entrants) = fixture(&mut a);
+        let (subj, subj_priv) = community(&mut a, "S", ts(10));
+        let appropriators = vec![standing[0].0.clone(), entrants[0].0.clone(), subj.clone()];
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind: CommonsKind::Communication,
+                name: "relay".into(),
+                description: "a commons".into(),
+                appropriators: appropriators.clone(),
+                provision_rule: "provision scales with draw".into(),
+                registered_by: appropriators,
+                registered_at: ts(200),
+            },
+            &[
+                (standing[0].0.as_str(), &standing[0].1),
+                (entrants[0].0.as_str(), &entrants[0].1),
+                (subj.as_str(), &subj_priv),
+            ],
+        )
+        .unwrap();
+        let commons_cid = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        // A probationary community, acting alone, applies a first-class sanction.
+        let s = Signed::build(
+            CommonsSanction {
+                commons_cid,
+                subject_community: subj.clone(),
+                from_level: SanctionLevel::None,
+                to_level: SanctionLevel::Monitoring,
+                basis: "overdraw".into(),
+                references: vec![],
+                imposers: vec![entrants[0].0.clone()],
+                decision_class: DecisionClass::FirstClass,
+                decided_at: ts(300),
+            },
+            &[(entrants[0].0.as_str(), &entrants[0].1)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::SanctionApplied(s)).unwrap();
+        ok(&a, &cid);
     }
 }

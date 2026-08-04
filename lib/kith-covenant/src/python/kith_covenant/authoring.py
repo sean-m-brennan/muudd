@@ -85,6 +85,12 @@ class Signer:
     record payload — it defaults to `did`, so a root identity speaks for itself,
     while a delegate speaks for the community that delegated it.
 
+    `enc_priv`/`enc_pub` are a **second** keypair, present only where the role needs
+    one — today, a mediator, whose §8 custody share of a whistleblower's identity is
+    sealed to `enc_pub` by key agreement. It is deliberately not the signing key: one
+    key under two primitives is what the encryption key exists to end, and the
+    authority pass refuses a registration where the two are equal.
+
     `priv` is a secret; treat this object as sensitive. `Signer` deliberately
     does not print its key material.
     """
@@ -93,6 +99,8 @@ class Signer:
     priv: bytes
     pub: bytes
     principal: str = field(default=None)  # type: ignore[assignment]
+    enc_priv: Optional[bytes] = None
+    enc_pub: Optional[bytes] = None
 
     def __post_init__(self) -> None:
         if self.principal is None:  # a root identity speaks for itself
@@ -540,6 +548,174 @@ def run_intra_rite(
     )
 
 
+# --- §2 Admissions integrity: admission, sponsorship, the examining pool -------
+
+
+def record_admission(
+    archive,
+    signers: Sequence[Signer],
+    participants: Sequence[str],
+    *,
+    compact_label: str = "compact",
+    witnessed_at: Optional[int] = None,
+) -> str:
+    """Append a signed inter-community admission record (§2).
+
+    `participants` are the communities the record speaks for — the sitting members
+    and the entrant together, as the ceremony seals them; `signers` are the
+    cross-boundary signers.
+
+    The first record for a `compact_label` is that compact's **formation** and is
+    exempt from the §2 admission rules: its participants are founders, not
+    entrants. Every later record is an admission into a standing compact and
+    `check_authority` requires it to carry an admitting quorum of sitting,
+    non-probationary members plus an examining panel of seated examiners spanning
+    at least two communities. Returns the CID."""
+    if not signers:
+        raise ValueError("at least one signer is required")
+    if not participants:
+        raise ValueError("at least one participant is required")
+    return archive.append_admission(
+        [s.priv for s in signers], [s.did for s in signers],
+        list(participants), compact_label, witnessed_at,
+    )
+
+
+
+
+
+def new_examiner(archive=None) -> Signer:
+    """Mint a fresh keypair to serve as an examiner identity.
+
+    An examiner's public key is carried in its community's `ExaminerRegistry`
+    entry (see `register_examiners`) and resolves from there. `archive` is
+    accepted and ignored for call-site symmetry with `new_identity`. Returns a
+    `Signer`; the key is a secret, treat it as sensitive.
+
+    In a real ceremony the examiner is the community's cross-boundary signer for
+    that credentialing — the witness record carries exactly one signer per
+    participant, and principal binding requires it to be the community's own root
+    or `Envoy`. Seating that signer is what §2's caps constrain."""
+    _ = archive
+    priv, pub, did = _core.generate_ed25519_keypair()
+    return Signer(did=did, priv=priv, pub=pub)
+
+
+def register_examiners(
+    archive,
+    community: Signer,
+    examiners: Sequence[Signer],
+    *,
+    valid_from: Optional[int] = None,
+    valid_until: Optional[int] = None,
+) -> str:
+    """Seat `community`'s examiners (§2), signed by the community root.
+
+    Each examiner's `(pub, did)` holds a seat over `[valid_from, valid_until)`;
+    `valid_from` defaults to now. The compact-wide examining pool is the union of
+    every community's registry, and a later registry from the same community
+    supersedes its earlier one.
+
+    `valid_until=None` authors fine and is refused by `check_authority`: §2 allows
+    no open-ended examining standing, because a permanent examiner is the standing
+    admissions cadre the rotation rule exists to prevent. A probationary community
+    may not seat examiners at all. Returns the CID."""
+    if not examiners:
+        raise ValueError("at least one examiner is required")
+    if valid_from is None:
+        valid_from = now_seconds()
+    return archive.register_examiners(
+        community.priv, community.did,
+        [(e.pub, e.did) for e in examiners],
+        valid_from, valid_until,
+    )
+
+
+def new_member(archive=None) -> Signer:
+    """Mint a fresh keypair to serve as an individual member identity.
+
+    A member's public key is carried in its community's `MemberRoll` (see
+    `publish_member_roll`) and must be the key its DID resolves to. `archive` is
+    accepted and ignored for call-site symmetry with `new_identity`. Returns a
+    `Signer`; the key is a secret, treat it as sensitive.
+
+    A member is not a speaker: being on the roll authorizes no record at all. What
+    it grants is a place in the §8 insider ring, so a member who has no delegation
+    can still file a whistleblower report anonymously."""
+    _ = archive
+    priv, pub, did = _core.generate_ed25519_keypair()
+    return Signer(did=did, priv=priv, pub=pub)
+
+
+def publish_member_roll(
+    archive,
+    community: Signer,
+    members: Sequence[Signer],
+    *,
+    as_of: Optional[int] = None,
+    published_at: Optional[int] = None,
+) -> str:
+    """Publish `community`'s member roll (§8), signed by the community root.
+
+    The roll is what makes the whistleblower channel real. Without one the insider
+    ring is the community's root key plus its live speaker delegations, so a member
+    holding no delegation is not in it, and a community with a single key has no
+    anonymous channel at all.
+
+    **A roll only ever widens the ring.** Rolls are unioned rather than superseded,
+    so publishing a shorter roll later removes nobody — once named an insider, always
+    an insider. That is deliberate: the alternative hands a community the power to
+    shrink the suspect set around whoever just left. A departed member keeps the
+    channel they had, which is the direction to err in.
+
+    Naming who belongs is not delegable: an `Envoy` cannot publish a roll, only the
+    root. Each member's key must be the one its DID resolves to, so a roll cannot
+    name a real member against an outsider's key.
+
+    `as_of` records the instant the roll was read from whatever models membership
+    upstream — for a polity, its charter — and is provenance only; this tier cannot
+    check it. Defaults to now. Returns the CID."""
+    if not members:
+        raise ValueError("at least one member is required")
+    if as_of is None:
+        as_of = now_seconds()
+    return archive.publish_member_roll(
+        community.priv, community.did,
+        [(m.pub, m.did) for m in members],
+        as_of, published_at,
+    )
+
+
+def insider_set_size(archive, community_did: str, at: Optional[int] = None) -> int:
+    """How many keys `community_did`'s anonymous channel can hide a source among.
+
+    1 means there is no channel: a ring of one names its signer, and the authority
+    pass refuses to file at all. 2 is a channel in name only — the key image is
+    published on every filing, so a suspect set of two is nearly a name. Publish a
+    member roll to widen it.
+
+    This is `len(insider_ring(...))`, offered separately because the count is the
+    part a community should be watching and the keys are not."""
+    return len(archive.insider_ring(community_did, at))
+
+
+def probationary_at(archive, community_did: str, at: Optional[int] = None) -> bool:
+    """Is `community_did` inside a probation window at `at` (default now)?
+
+    The §2 predicate the authority rules enforce: a received sponsorship whose
+    stake still rides on this community's conduct, or a completed re-entry before
+    its window closes. Exposed so a caller can see why an act would be refused
+    before authoring it — a probationary community may not sponsor an entrant, may
+    not seat mediators or examiners, and carries no weight toward an admitting or
+    designation quorum.
+
+    This is the same function `reputation_of(...).standing == "Probationary"` is
+    derived from, so the two cannot disagree."""
+    if at is None:
+        at = now_seconds()
+    return archive.probationary_at(community_did, at)
+
+
 # --- §4 Mediation: mediator pool, dispute intake, paneled decisions ----------
 
 
@@ -551,10 +727,18 @@ def new_mediator(archive=None) -> Signer:
     community — a mediator key does NOT need a separately published identity to
     have its panel co-signature verify. `archive` is accepted and ignored for
     call-site symmetry with `new_identity`. Returns a `Signer` (principal ==
-    did); the key is a secret, treat it as sensitive."""
+    did); the key is a secret, treat it as sensitive.
+
+    A mediator gets **two** keypairs. The second (`enc_pub`/`enc_priv`) is registered
+    as its encryption key and never signs anything: a mediator seated on a §8
+    whistleblower reception panel holds a share of the source's identity, and that
+    share is sealed to the encryption key by key agreement. Sealing to the signing key
+    would put one key under two primitives, and the authority pass refuses a
+    registration where the two are equal."""
     _ = archive
     priv, pub, did = _core.generate_ed25519_keypair()
-    return Signer(did=did, priv=priv, pub=pub)
+    enc_priv, enc_pub, _enc_did = _core.generate_ed25519_keypair()
+    return Signer(did=did, priv=priv, pub=pub, enc_priv=enc_priv, enc_pub=enc_pub)
 
 
 def register_mediators(
@@ -570,14 +754,24 @@ def register_mediators(
     `[valid_from, valid_until)`; `valid_from` defaults to now and `valid_until`
     open-ended. The commons-wide mediator pool is the union of every community's
     registry; a later registry from the same community supersedes its earlier
-    one (latest `valid_from` wins). Returns the CID."""
+    one (latest `valid_from` wins).
+
+    Each entry also carries the mediator's **encryption key**, distinct from its
+    signing key, which is what §8 custody shares are sealed to. `new_mediator` mints
+    both; a `Signer` without one cannot be registered as a mediator. Returns the CID."""
     if not mediators:
         raise ValueError("at least one mediator is required")
+    missing = [m.did for m in mediators if not m.enc_pub]
+    if missing:
+        raise ValueError(
+            "a mediator needs an encryption key distinct from its signing key "
+            f"(missing for {', '.join(missing)}); use new_mediator()"
+        )
     if valid_from is None:
         valid_from = now_seconds()
     return archive.register_mediators(
         community.priv, community.did,
-        [(m.pub, m.did) for m in mediators],
+        [(m.pub, m.did, m.enc_pub) for m in mediators],
         valid_from, valid_until,
     )
 
@@ -1117,7 +1311,6 @@ def file_whistleblower(
         )
     return archive.file_whistleblower(
         [s.priv for s in reception_panel], [s.did for s in reception_panel],
-        [s.pub for s in reception_panel],
         accused_did, claim, attestation, threshold, list(references or []),
     )
 
@@ -1125,8 +1318,16 @@ def file_whistleblower(
 def open_source_share(archive, report_cid: str, holder: Signer) -> str:
     """One panelist opens its own custody share of a filed report's source (§8).
     A share is useless alone; it takes the filing's threshold of them to name
-    anybody. Gather them and pass the list to `reveal_source`."""
-    return archive.open_source_share(report_cid, holder.priv, holder.did)
+    anybody. Gather them and pass the list to `reveal_source`.
+
+    Opened with the holder's **encryption** key, which is what the share was sealed
+    to — not the key it signs with."""
+    if not holder.enc_priv:
+        raise ValueError(
+            "a custody share is sealed to the holder's encryption key; this Signer has "
+            "none (use new_mediator())"
+        )
+    return archive.open_source_share(report_cid, holder.enc_priv, holder.did)
 
 
 def reveal_source(
@@ -1280,7 +1481,10 @@ __all__ = [
     "invoke_event_action", "find_undisclosed_interest",
     "attest_principal", "record_principal_output",
     "record_conduct", "record_concern", "designate_anathema", "lift_designation",
-    "record_non_admission", "run_intra_rite", "new_mediator",
+    "record_non_admission", "record_admission", "run_intra_rite",
+    "new_mediator", "new_examiner",
+    "register_examiners", "probationary_at",
+    "new_member", "publish_member_roll", "insider_set_size",
     "register_mediators", "file_dispute", "decide_mediation",
     "file_ladder_transition", "decide_designation", "impose_restitution",
     "verify_restitution", "complete_reentry", "invoke_substantive_reengagement",

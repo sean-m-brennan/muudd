@@ -20,7 +20,7 @@ assertions are deterministic rather than clock-dependent.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Optional, Sequence
 
 import pytest
 
@@ -45,17 +45,41 @@ class Polity:
         return self.archive.charter_state(self.did, as_of).members
 
     def quorum(self, as_of: int) -> list[Signer]:
-        """A majority of the live roll, drawn from the founders."""
-        need = e.majority(len(self.roll(as_of)))
+        """A majority of the members who carry weight, drawn from the founders.
+
+        Since D29 a majority is of the members who hold the substrate, so this counts
+        the inducted roll rather than the whole one.
+        """
+        st = self.archive.affirmation_state(self.did, as_of)
+        inducted = sum(1 for m, ind, _ in st.entries if ind)
+        need = e.majority(inducted)
         assert need <= len(self.founders), "fixture cannot form this quorum"
         return self.founders[:need]
+
+    def rite(
+        self,
+        member: Signer,
+        attending: Sequence[Signer],
+        start: int,
+        commitments: Sequence[str] = (),
+    ) -> list[str]:
+        """Perform `member`'s five-movement rite (D29), returning the movement CIDs
+        the induction must cite."""
+        return e.perform_rite(
+            self.archive, self.did, member, list(attending),
+            substrate_name="tradition", commitments=commitments, start=start,
+        )
 
 
 @pytest.fixture
 def found():
-    """Factory: found a polity of `n` members, ratified by a bare majority."""
+    """Factory: found a polity of `n` members, ratified by all of them."""
 
-    def _found(n: int = 3, commitments: Sequence[tuple[str, str]] = ()) -> Polity:
+    def _found(
+        n: int = 3,
+        commitments: Sequence[tuple[str, str]] = (),
+        ratifiers: Optional[int] = None,
+    ) -> Polity:
         founders = [Signer.generate() for _ in range(n)]
         priv, pub, did = e.generate_keypair()
         proposal = e.propose_charter(
@@ -67,9 +91,13 @@ def found():
             proposed_at=PROPOSED_AT,
         )
         archive = e.Archive()
-        ratify_charter(
-            archive, proposal, founders[: e.majority(n)], founded_at=FOUNDED_AT
-        )
+        # The whole roll ratifies by default. Since D29 ratifying is what inducts a
+        # founding member, so a bare-majority ratification (the old default) leaves
+        # members on the roll who carry no weight, hold no office and witness no rite —
+        # correct, and not what most tests are about. Pass `ratifiers` for the cases
+        # where partial ratification is the point.
+        signing = founders[: ratifiers if ratifiers is not None else n]
+        ratify_charter(archive, proposal, signing, founded_at=FOUNDED_AT)
         return Polity(
             archive=archive, did=did, priv=priv, pub=pub, founders=founders
         )

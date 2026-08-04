@@ -46,7 +46,7 @@ Detection latency and damage bounds are the primary metrics, per §10.
 so drift is caught as it accumulates rather than at one snapshot. Running
 ``run_harness()`` on a loop does not achieve that: with the parameters fixed it is
 a **constant function** — 200 consecutive runs return byte-identical latency and
-damage for all eight scenarios — so a scheduler around it recomputes the same eight
+damage for all nine scenarios — so a scheduler around it recomputes the same nine
 numbers forever. (That measurement establishes something else worth keeping: fresh
 Ed25519 keys are generated per run and several lenses tiebreak on DID ordering, so
 zero variation across 200 runs means the detectors are key-order-independent. It is
@@ -90,7 +90,7 @@ from typing import Callable, Optional
 from kith_covenant.ceremony import Archive
 from kith_covenant.authoring import (
     new_identity, run_intra_rite, ratify_constitution, amend_compact_incapable,
-    register_commons, apply_sanction, vouch, attest_interpretation,
+    register_commons, apply_sanction, vouch, record_admission, attest_interpretation,
     report_event, corroborate_event, attest_principal, record_principal_output,
     now_seconds,
 )
@@ -115,9 +115,14 @@ MAX_DAMAGE_CEREMONY = 1
 # A forged-quorum second-class act (move 5) must NEVER validate.
 MAX_DAMAGE_FORGED_QUORUM = 0
 # Admissions capture (move 7): a sponsor's concentration that trips the flag, and
-# the entrants it may admit before then.
+# the entrants a faction acting alone may seat with authority — one, its co-founder
+# at compact formation. §2 refuses every later admission for want of an admitting
+# quorum, so this is a property of the gate rather than of the lens.
 ADMISSIONS_CONCENTRATION_THRESHOLD = 3
-MAX_DAMAGE_ADMISSIONS = 3
+MAX_DAMAGE_ADMISSIONS = 1
+# A second-class act carried by a probationary community's weight (move 7's second
+# half) must NEVER validate — at the ordinary quorum or at the contraction bar.
+MAX_DAMAGE_PROBATIONARY_WEIGHT = 0
 # Interpretation monopoly (move 1): a single interpreter's share that trips the
 # flag, and the monopolized readings it may accrue before then.
 INTERPRETATION_MONOPOLY_THRESHOLD = 3
@@ -153,7 +158,7 @@ class HarnessParams:
 
     The defaults are the **canonical case**: `HarnessParams()` reproduces exactly
     the archives the hand-authored scenarios built before they were parameterized,
-    so `run_harness()` with no arguments still returns the same eight results. That
+    so `run_harness()` with no arguments still returns the same nine results. That
     fixed point is what keeps the existing tests and the demo's output meaningful.
 
     Several fields constrain each other (a compact cannot contract a protection
@@ -312,9 +317,21 @@ def max_damage_ceremony(p: HarnessParams) -> int:
 
 
 def max_damage_admissions(p: HarnessParams) -> int:
-    """Flagged when the sponsor reaches the concentration threshold, so the entrants
-    admitted before then are exactly that threshold."""
-    return p.admissions_threshold
+    """One: the co-founder, and only that one.
+
+    A faction acting alone can put exactly one other community into a compact — at
+    formation, where there are no sitting members to draw an admitting quorum from
+    and the participants are founders rather than entrants. Every later admission
+    needs `quorum_threshold` sitting communities carrying deliberative weight, and
+    the faction's co-founder is inside its sponsorship probation window, so the
+    quorum stands at one however patient the faction is. The bound is therefore
+    independent of `quorum_threshold` and of `admissions_threshold`.
+
+    This formula replaced `p.admissions_threshold` when §2 turned the answer to
+    move 7 from legibility into refusal. The old value was the number of entrants
+    seated before the *lens* noticed; this one is the number the *gate* allows."""
+    _ = p
+    return 1
 
 
 def max_damage_interpretation(p: HarnessParams) -> int:
@@ -527,29 +544,61 @@ def _scenario_forged_quorum(p: HarnessParams) -> ScenarioResult:
 
 
 def _scenario_admissions_capture(p: HarnessParams) -> ScenarioResult:
-    """Move 7: admissions capture by patient sponsorship. One community sponsors a
-    stream of aligned entrants; the composition-drift lens must flag the sponsor's
-    concentration before it reaches a collusion threshold."""
+    """Move 7: admissions capture by patient sponsorship.
+
+    A faction founds a compact with its first aligned entrant, then tries to seat a
+    stream of further entrants — each vouched for by the faction, each admission
+    procedurally clean in the sense that matters to move 7. Two things are scored:
+    the composition-drift lens must still *flag* the sponsor's concentration, and
+    the §2 gate must *refuse* the chain. Before §2 the compact's only answer here was
+    legibility; the criterion is now the refusal, and `damage` counts entrants
+    actually seated **with authority**.
+    """
     arch = Archive()
     t0 = now_seconds()
-    (sponsor,) = _founding(arch, ("Patient-Sponsor",), t0)
+    (faction,) = _founding(arch, ("Patient-Sponsor",), t0)
     threshold = p.admissions_threshold
 
     detected = False
     latency = None
     damage = 0
+    # Every participant co-signs its own admission, as the ceremony does: the runner
+    # seals the witness record with one cross-boundary signer per participant, and
+    # principal binding requires each participant's own key. Signing with the faction
+    # alone would be refused for want of a signature, which is a different (and
+    # weaker) refusal than the one this scenario is testing.
+    seated = [faction]
+    refusals = 0
     step = 0
-    # The sponsor keeps admitting aligned entrants; each step re-reads the graph.
-    while step < threshold + 2 and not detected:
+    # The faction is never itself probationary, so its *vouches* stay authorized
+    # however many it writes — it simply cannot seat the communities it vouches for.
+    # The loop therefore runs to the end rather than stopping at the first refusal:
+    # the gate is scored on how many entrants it lets through, and the lens is scored
+    # on whether it still sees the sponsor's concentration. Short-circuiting on the
+    # refusal would leave the lens unexercised and let it rot unnoticed.
+    while step < threshold + 2:
         entrant = new_identity(arch, f"Entrant-{step}", t0)
-        vouch(arch, sponsor, entrant.did, probation_until=t0 + _YEAR, sponsored_at=t0 + step)
+        # The sponsor stakes its standing first: §2 counts only a vouch already in
+        # the log when the admission is sealed.
+        vouch(arch, faction, entrant.did, probation_until=t0 + _YEAR, sponsored_at=t0 + step)
+        party = seated + [entrant]
+        cid = record_admission(
+            arch, party, [m.did for m in party],
+            compact_label="captured-compact", witnessed_at=t0 + step,
+        )
         step += 1
+        violations = dict(arch.authority_violations(quorum_threshold=p.quorum_threshold))
+        if cid in violations:
+            refusals += 1
+        else:
+            seated.append(entrant)
+            damage = len(seated) - 1  # entrants seated with authority
         graph = composition_graph(arch, as_of=t0 + step)
         top = graph.by_concentration[0][1] if graph.by_concentration else 0
-        damage = step  # entrants admitted so far
-        if top >= threshold:
+        if top >= threshold and not detected:
             detected = True
             latency = 0
+
     bound = max_damage_admissions(p)
     passed = detected and damage <= bound
     return ScenarioResult(
@@ -557,7 +606,87 @@ def _scenario_admissions_capture(p: HarnessParams) -> ScenarioResult:
         supported=True, detected=detected, detection_latency=latency, damage=damage,
         threshold_latency=MAX_DETECTION_LATENCY_STEPS, threshold_damage=bound,
         passed=passed,
-        notes="composition_graph flags sponsor concentration before the collusion threshold",
+        notes=f"check_authority refused {refusals} of {step} admissions into the "
+              "standing compact (§2 admitting quorum: the faction's co-founder is "
+              "inside its probation window, so the quorum stands at one); "
+              "composition_graph flags the sponsor's concentration either way",
+    )
+
+
+def _scenario_probationary_weight(p: HarnessParams) -> ScenarioResult:
+    """Move 7, second half: an admitted entrant's weight spent before it is seasoned.
+
+    Admissions capture (above) is scored on who a faction can *seat*. This is scored
+    on what a seated entrant can *carry*: probation withholds deliberative weight
+    from every second-class quorum, so a faction one community short of the quorum
+    cannot top itself up with an entrant it vouched for — and one at the quorum
+    cannot reach the higher contraction bar that way either. Both must be refused,
+    which is why the criterion is 0 rather than a bound.
+
+    Every refusal is paired with a **control** using standing communities only, so a
+    refusal can never be scored for the wrong reason: the same act, the same archive
+    state, the same bar, differing only in whether a probationary community is
+    supplying the missing weight.
+    """
+    arch = Archive()
+    t0 = now_seconds()
+    # Enough communities to reach the contraction bar with standing members alone,
+    # whatever the swept quorum is — otherwise a control would fail for want of
+    # communities and the scenario would prove nothing.
+    size = max(p.founding_size, p.quorum_threshold + 1)
+    compact = [new_identity(arch, chr(ord("A") + i), t0) for i in range(size)]
+    at_quorum = compact[: p.quorum_threshold]
+    above_quorum = compact[: p.quorum_threshold + 1]
+    ratify_constitution(arch, at_quorum, [("genesis_m", "immutable")],
+                        [("annual", t0 + 1000, t0 + 2000)], genesis_at=t0)
+
+    # Controls, before any adversarial act: the ordinary bar and the contraction bar
+    # are both reachable by standing communities in this archive.
+    amend_compact_incapable(arch, "Add", "ctl_add", at_quorum, decided_at=t0 + 100)
+    amend_compact_incapable(arch, "Add", "ctl_rm", at_quorum, decided_at=t0 + 150)
+    amend_compact_incapable(arch, "Remove", "ctl_rm", above_quorum, decided_at=t0 + 200)
+    assert not arch.authority_violations(quorum_threshold=p.quorum_threshold), (
+        "the legitimate prelude must be authorized, or the scenario proves nothing"
+    )
+
+    # The faction vouches for an entrant, which is what opens its probation window.
+    entrant = new_identity(arch, "Entrant", t0)
+    vouch(arch, compact[0], entrant.did,
+          probation_until=t0 + _YEAR, sponsored_at=t0 + 300)
+
+    # Adversarial act 1: one short of the quorum, topped up with the entrant.
+    short = compact[: max(0, p.quorum_threshold - 1)]
+    ordinary = amend_compact_incapable(
+        arch, "Add", "probation_add", short + [entrant], decided_at=t0 + 400)
+
+    # Interleaved control: the same bar, standing communities only, still authorized —
+    # so the refusal above is attributable to probation and not to the archive's state.
+    amend_compact_incapable(arch, "Add", "post_ctl", at_quorum, decided_at=t0 + 450)
+    amend_compact_incapable(arch, "Add", "probation_rm", at_quorum, decided_at=t0 + 500)
+
+    # Adversarial act 2: at the quorum, reaching the contraction bar with the entrant.
+    contraction = amend_compact_incapable(
+        arch, "Remove", "probation_rm", at_quorum + [entrant], decided_at=t0 + 600)
+
+    violations = dict(arch.authority_violations(quorum_threshold=p.quorum_threshold))
+    attempts = [ordinary, contraction]
+    refused = [cid for cid in attempts if cid in violations]
+    unrelated = [cid for cid in violations if cid not in attempts]
+    damage = len(attempts) - len(refused)
+    detected = not damage and not unrelated
+    latency = 0 if detected else None
+    passed = detected and damage <= MAX_DAMAGE_PROBATIONARY_WEIGHT
+    reason = violations.get(attempts[0], "")
+    return ScenarioResult(
+        move=7, key="probationary-weight", name="probationary weight spent early",
+        supported=True, detected=detected, detection_latency=latency, damage=damage,
+        threshold_latency=MAX_DETECTION_LATENCY_STEPS,
+        threshold_damage=MAX_DAMAGE_PROBATIONARY_WEIGHT,
+        passed=passed,
+        notes=f"check_authority refused {len(refused)} of {len(attempts)} acts carried "
+              f"by probationary weight ({reason or 'n/a'}); "
+              f"{len(unrelated)} unrelated violation(s), which would invalidate the "
+              "controls",
     )
 
 
@@ -821,6 +950,7 @@ SCENARIOS: tuple[Callable[[HarnessParams], ScenarioResult], ...] = (
     _scenario_forged_quorum,
     _scenario_principal_capture,
     _scenario_admissions_capture,
+    _scenario_probationary_weight,
     _scenario_quiet_polity,
 )
 
@@ -832,7 +962,7 @@ def run_harness(params: Optional[HarnessParams] = None) -> HarnessReport:
     the public API.
 
     `params` defaults to `HarnessParams.canonical()` — the hand-authored case — so
-    calling this with no arguments gives the same eight results it always has. Pass
+    calling this with no arguments gives the same nine results it always has. Pass
     a drawn or swept set to run the scenarios somewhere else in the space, or use
     `run_continuous` / `sweep` to do that systematically."""
     p = (params or HarnessParams.canonical()).normalized()

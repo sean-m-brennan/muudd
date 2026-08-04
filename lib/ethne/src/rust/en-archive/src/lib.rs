@@ -30,5 +30,5 @@
 mod dump;
 mod store;
 
-pub use dump::DUMP_VERSION;
+pub use dump::{segment_bounds, segment_entries, SegmentBounds, DUMP_VERSION};
 pub use store::{Archive, Cursor, Entry};

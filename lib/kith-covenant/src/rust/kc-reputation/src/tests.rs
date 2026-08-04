@@ -995,6 +995,45 @@ fn probation_elapsed_is_plain_incompact() {
     assert_eq!(view.standing, RecognitionStanding::InCompact);
 }
 
+/// §2: the standing a dashboard reports and the window the authority pass enforces
+/// are one predicate, not two. `derive_standing` calls `kc_archive::probationary_at`;
+/// this sweeps instants across both window kinds and both boundaries and pins the
+/// equivalence, so a future edit to either side that makes them disagree fails here.
+///
+/// The one intended asymmetry is precedence, and it is asserted too: an
+/// anathematized community is inside the window and does not read `Probationary`.
+#[test]
+fn probationary_standing_and_the_authority_predicate_agree() {
+    let mut archive = InMemoryArchive::new();
+    let (_, _, subj) = seed_admitted_subject(&mut archive);
+    let (sp_priv, _, sponsor) = fresh_id();
+    // Sponsorship window [100, 1000).
+    publish_sponsorship(&mut archive, &sponsor, &sp_priv, &subj, t(1000), t(100));
+
+    for at in [0, 99, 100, 101, 500, 999, 1000, 1001, 5000] {
+        let standing = lookup(&archive, &subj, Some(t(at))).standing;
+        let predicate = kc_archive::probationary_at(&archive, &subj, t(at));
+        assert_eq!(
+            standing == RecognitionStanding::Probationary,
+            predicate,
+            "standing {standing:?} and probationary_at {predicate} disagree at t={at}"
+        );
+    }
+
+    // Precedence is reputation's alone: inside the window, but designated.
+    let (rep_priv, _, rep) = fresh_id();
+    publish_conduct_with_refs(
+        &mut archive, &subj, &rep, &rep_priv,
+        ConductKind::DesignationAnathema, vec![], t(200),
+    );
+    assert_eq!(lookup(&archive, &subj, Some(t(500))).standing, RecognitionStanding::Anathema);
+    assert!(
+        kc_archive::probationary_at(&archive, &subj, t(500)),
+        "the window is a fact about sponsorship; the designation overrides the \
+         *standing*, not the window"
+    );
+}
+
 #[test]
 fn anathema_overrides_probation() {
     let mut archive = InMemoryArchive::new();
@@ -1739,9 +1778,12 @@ mod observer_projection {
         let ring = vec![source_pub.clone(), decoy];
         let preimage = SourcePreimage::new(DidKey::from_pubkey(source_pub).unwrap().as_str());
         let commitment = preimage.commitment().unwrap();
+        // Projection reads do not run the authority pass, so this seals to the panel's
+        // own `did:key` rather than to a registered encryption key.
         let custody = ThresholdCustody::seal(
             &kc_core::canonical::to_canonical_cbor(&preimage).unwrap(),
-            &[(panel.clone(), panel.to_pubkey().unwrap()), (panel.clone(), panel.to_pubkey().unwrap())],
+            &[panel.clone(), panel.clone()],
+            kc_core::didkey_encryption_resolver,
             2,
         )
         .unwrap();
@@ -1950,6 +1992,46 @@ mod observer_projection {
         assert_eq!(dash.pool.total_active, 2);
         // No constitution ratified: the substrate half is present but not ratified.
         assert!(!dash.substrate.ratified);
+    }
+
+    /// The anonymity-set lens: a community with no roll and no delegation shows the
+    /// 1 that means "no anonymous channel", and a roll moves the number. Ascending, so
+    /// the community that cannot shelter a source is the first row.
+    #[test]
+    fn observer_dashboard_shows_the_thinnest_anonymity_sets_first() {
+        let (a_priv, a_pub, aa) = fresh_id();
+        let (b_priv, b_pub, bb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        publish_identity(&mut arc, "A", &aa, &a_pub, &a_priv, t(10));
+        publish_identity(&mut arc, "B", &bb, &b_pub, &b_priv, t(10));
+
+        let dash = observer_dashboard(&arc, Some(t(500)));
+        assert_eq!(dash.anonymity_set_by_community.len(), 2);
+        assert!(dash.anonymity_set_by_community.iter().all(|(_, n)| *n == 1));
+
+        // B publishes a roll of three members; A publishes nothing.
+        let members: Vec<kc_identity::RollMember> = (0..3)
+            .map(|_| {
+                let (_sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+                kc_identity::RollMember {
+                    member_did: DidKey::from_pubkey(&pk).unwrap(),
+                    member_pubkey: pk,
+                }
+            })
+            .collect();
+        let roll = kc_identity::MemberRoll {
+            community_did: bb.clone(),
+            members,
+            as_of: t(20),
+            published_at: t(30),
+        };
+        let signed = Signed::build(roll, &[(bb.as_str(), &b_priv)]).unwrap();
+        arc.append(ArchiveEntry::MemberRollPublished(signed)).unwrap();
+
+        let dash = observer_dashboard(&arc, Some(t(500)));
+        // A is still 1 and sorts first; B's channel is now four deep.
+        assert_eq!(dash.anonymity_set_by_community[0], (aa.as_str().to_string(), 1));
+        assert_eq!(dash.anonymity_set_by_community[1], (bb.as_str().to_string(), 4));
     }
 }
 
@@ -3531,5 +3613,118 @@ mod witness_chain_lens {
         assert!(empty.links.is_empty());
         assert_eq!(empty.separable_links(), 0);
         assert!(empty.is_intact());
+    }
+}
+
+/// The §2 deliberative-capacity lens: how much of a compact's roll carries
+/// second-class weight, and whether the compact can act at all.
+mod deliberative_capacity_lens {
+    use super::*;
+    use crate::analytics::deliberative_capacity;
+
+    const Q: usize = 2;
+
+    /// Found a compact of `n` communities by one admission record, returning their
+    /// (priv, did) pairs. The roll is derived from that record, never declared.
+    fn compact(archive: &mut InMemoryArchive, n: usize) -> Vec<(PrivKey, DidKey)> {
+        let members: Vec<(PrivKey, PubKey, DidKey)> = (0..n).map(|_| fresh_id()).collect();
+        for (i, (sk, pk, did)) in members.iter().enumerate() {
+            publish_identity(archive, &format!("C{i}"), did, pk, sk, t(10));
+        }
+        let parts: Vec<(&DidKey, &PrivKey)> =
+            members.iter().map(|(sk, _, did)| (did, sk)).collect();
+        publish_inter_admission(archive, &parts, t(20));
+        members.into_iter().map(|(sk, _, did)| (sk, did)).collect()
+    }
+
+    #[test]
+    fn a_seasoned_roll_carries_its_whole_weight() {
+        let mut a = InMemoryArchive::new();
+        let members = compact(&mut a, 4);
+        let c = deliberative_capacity(&a, "fixture-compact", Q, Some(t(100)));
+        assert_eq!(c.members.len(), 4, "the roll is derived from the admission record");
+        assert!(c.probationary.is_empty());
+        assert_eq!(c.standing(), 4);
+        assert_eq!(c.standing_share(), Some(1.0));
+        assert!(c.can_act() && c.can_contract());
+        let _ = members;
+    }
+
+    #[test]
+    fn a_probationary_member_is_on_the_roll_and_carries_nothing() {
+        let mut a = InMemoryArchive::new();
+        let members = compact(&mut a, 4);
+        let (sponsor_priv, sponsor) = (&members[0].0, &members[0].1);
+        publish_sponsorship(&mut a, sponsor, sponsor_priv, &members[3].1, t(10_000), t(50));
+        let c = deliberative_capacity(&a, "fixture-compact", Q, Some(t(100)));
+        assert_eq!(c.members.len(), 4, "probation does not remove anyone from the roll");
+        assert_eq!(c.probationary.len(), 1);
+        assert_eq!(c.standing(), 3);
+        assert_eq!(c.standing_share(), Some(0.75));
+        assert!(c.can_act() && c.can_contract());
+    }
+
+    /// The honest consequence of the withholding, and the reason the lens exists: a
+    /// compact that admits a cohort all at once can lose the ability to take a
+    /// second-class decision at all. Better surfaced than discovered as a refusal
+    /// nobody can account for.
+    #[test]
+    fn a_compact_can_admit_its_way_out_of_being_able_to_act() {
+        let mut a = InMemoryArchive::new();
+        let members = compact(&mut a, 4);
+        let (sponsor_priv, sponsor) = (&members[0].0, &members[0].1);
+        // Three of four enter probation at once.
+        for (_, did) in &members[1..] {
+            publish_sponsorship(&mut a, sponsor, sponsor_priv, did, t(10_000), t(50));
+        }
+        let c = deliberative_capacity(&a, "fixture-compact", Q, Some(t(100)));
+        assert_eq!(c.standing(), 1);
+        assert_eq!(c.standing_share(), Some(0.25));
+        assert!(!c.can_act(), "one standing member is below the quorum");
+        assert!(!c.can_contract());
+
+        // And it recovers by the passage of time alone — no act required.
+        let after = deliberative_capacity(&a, "fixture-compact", Q, Some(t(20_000)));
+        assert_eq!(after.standing(), 4);
+        assert!(after.can_act() && after.can_contract());
+    }
+
+    /// The contraction bar is the *pair*: a compact can be able to expand its
+    /// protections and unable to contract them, which is the direction the asymmetry
+    /// is meant to run.
+    #[test]
+    fn expansion_can_be_available_while_contraction_is_not() {
+        let mut a = InMemoryArchive::new();
+        let members = compact(&mut a, 3);
+        let (sponsor_priv, sponsor) = (&members[0].0, &members[0].1);
+        publish_sponsorship(&mut a, sponsor, sponsor_priv, &members[2].1, t(10_000), t(50));
+        let c = deliberative_capacity(&a, "fixture-compact", Q, Some(t(100)));
+        assert_eq!(c.standing(), 2);
+        assert!(c.can_act(), "two standing members meet the ordinary quorum");
+        assert!(!c.can_contract(), "but not the quorum + 1 contraction bar");
+    }
+
+    #[test]
+    fn an_unknown_compact_label_is_not_evaluated_rather_than_empty() {
+        let mut a = InMemoryArchive::new();
+        compact(&mut a, 3);
+        let c = deliberative_capacity(&a, "some-other-compact", Q, Some(t(100)));
+        assert!(c.members.is_empty());
+        assert_eq!(
+            c.standing_share(),
+            None,
+            "an empty roll is not a compact whose seasoning has lapsed"
+        );
+        assert!(!c.can_act());
+    }
+
+    /// The lens reads the roll as of the query, so an admission after `as_of` is not
+    /// counted — the same insertion-order/timestamp discipline the gate keeps.
+    #[test]
+    fn the_roll_is_read_as_of_the_query() {
+        let mut a = InMemoryArchive::new();
+        compact(&mut a, 3);
+        let c = deliberative_capacity(&a, "fixture-compact", Q, Some(t(15)));
+        assert!(c.members.is_empty(), "the admission is witnessed at t(20)");
     }
 }

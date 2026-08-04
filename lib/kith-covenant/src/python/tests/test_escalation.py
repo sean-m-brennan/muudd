@@ -156,8 +156,10 @@ def test_reentry_reverses_designation():
         deliberation_cycles=cycles, reversal_conditions="rev", designated_at=t0 + 5000,
     )
     w1, w2 = new_identity(arch, "W1", t0), new_identity(arch, "W2", t0)
+    # Two deliberators OTHER than the petitioner: §2 does not count the subject
+    # toward its own readmission (this read `[s, b]` — petitioner plus one).
     complete_reentry(
-        arch, dz, s, [s, b], MOVEMENTS, [(w1, True), (w2, True)],
+        arch, dz, s, [b, c], MOVEMENTS, [(w1, True), (w2, True)],
         conduct_accounting="we account for it", public_acknowledgement="it was wrong",
         probation_until=t0 + 20000, completed_at=t0 + 6000,
     )

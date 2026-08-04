@@ -19,7 +19,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use kc_archive::{ArchiveEntry, InMemoryArchive};
+use kc_archive::{probationary_at, ArchiveEntry, InMemoryArchive};
 use kc_commons::{CommonsSanction, SanctionLevel};
 use kc_conduct::{ConductKind, LadderRung};
 use kc_core::{time, Cid, DidKey, Timestamp};
@@ -574,7 +574,7 @@ pub fn lookup(
     view.restitutions.sort_by_key(|s| s.imposed_at);
     view.substantive_reengagements.sort_by_key(|s| s.invoked_at);
     view.injunctions.sort_by_key(|s| s.issued_at);
-    view.standing = derive_standing(&view);
+    view.standing = derive_standing(&view, archive);
     view
 }
 
@@ -626,7 +626,7 @@ pub fn commons_level(
     level
 }
 
-fn derive_standing(view: &ReputationView) -> RecognitionStanding {
+fn derive_standing(view: &ReputationView, archive: &InMemoryArchive) -> RecognitionStanding {
     // Anathema overrides all: an active DesignationAnathema against this
     // community that no later DesignationLifted has superseded (by referencing
     // its CID). view.conduct is already filtered to recorded_at <= as_of.
@@ -653,19 +653,14 @@ fn derive_standing(view: &ReputationView) -> RecognitionStanding {
         return RecognitionStanding::Unknown;
     }
     if has_admission {
-        // Probationary when within an active received-sponsorship probation
-        // window, or within a post-re-entry probation window (a re-entered actor
-        // does not return to clean-slate status); otherwise a plain member.
-        let in_sponsorship_probation = view
-            .sponsorships_received
-            .iter()
-            .any(|s| s.sponsored_at <= view.as_of && view.as_of < s.probation_until);
-        let in_reentry_probation = view
-            .reentries
-            .iter()
-            .any(|r| r.completed_at <= view.as_of && view.as_of < r.probation_until);
-        let in_probation = in_sponsorship_probation || in_reentry_probation;
-        return if in_probation {
+        // Probationary when inside a received-sponsorship or post-re-entry
+        // probation window; otherwise a plain member. The window arithmetic is
+        // `kc_archive::probationary_at` — the same predicate the §2 authority rules
+        // enforce, so what a dashboard reports and what the gate refuses cannot
+        // drift apart. Only the *precedence* is decided here: an active designation
+        // has already returned above, and probation applies to an admitted
+        // community.
+        return if probationary_at(archive, &view.community_did, view.as_of) {
             RecognitionStanding::Probationary
         } else {
             RecognitionStanding::InCompact

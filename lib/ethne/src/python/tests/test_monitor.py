@@ -243,7 +243,7 @@ def _designate(polity, members, guardian):
     """Charter each member a derived party answering to `guardian`."""
     for m in members:
         designate_derived(polity.archive, polity.did, m, polity.quorum(as_of=200),
-                          guardian=guardian, decided_at=200)
+                          guardian=guardian, unbacked_reason="fixture: no monitor reading", decided_at=200)
 
 
 def test_a_chartered_guardian_the_substrate_no_longer_shows_is_erosion(wide):
@@ -322,7 +322,10 @@ def test_the_trend_series_comes_from_the_polity_own_records(polity):
     from ethne.authoring import admit_member, induct_member, reaffirm_member
 
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
-    induct_member(polity.archive, polity.did, joiner, polity.founders, affirmed_at=300)
+    movements = polity.rite(joiner, polity.founders, 250)
+    induct_member(
+        polity.archive, polity.did, joiner, polity.founders, movements, affirmed_at=300
+    )
     reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=400)
     reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=5_400)
     polity.archive.check_authority()
@@ -340,7 +343,10 @@ def test_a_widening_gap_warns_but_does_not_escalate(polity):
 
     joiner = Signer.generate()
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
-    induct_member(polity.archive, polity.did, joiner, polity.founders, affirmed_at=300)
+    movements = polity.rite(joiner, polity.founders, 250)
+    induct_member(
+        polity.archive, polity.did, joiner, polity.founders, movements, affirmed_at=300
+    )
     reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=400)
     reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=5_400)
 
@@ -357,15 +363,16 @@ def test_a_widening_gap_warns_but_does_not_escalate(polity):
 
 def test_a_watched_absence_that_outlasts_a_day_reaches_concern(polity):
     """The escape hatch the attendance cap has always pointed at."""
-    monitor = Signer.generate()
+    # THREE monitors, not one filing three times (D28): the count is watchers.
+    monitors = [Signer.generate() for _ in range(3)]
     human = Signer.generate()
     machine = polity.founders[2].did
     # Present at t=0, then nobody for a day, watched throughout.
-    record_observation(polity.archive, polity.did, monitor,
+    record_observation(polity.archive, polity.did, monitors[0],
                        [(machine, 0.9, human.did, 0)], observed_at=0)
-    record_observation(polity.archive, polity.did, monitor,
+    record_observation(polity.archive, polity.did, monitors[1],
                        [(machine, 0.9, human.did, None)], observed_at=DAY // 2)
-    record_observation(polity.archive, polity.did, monitor,
+    record_observation(polity.archive, polity.did, monitors[2],
                        [(machine, 0.9, human.did, None)], observed_at=DAY)
     polity.archive.verify_all()
     polity.archive.check_authority()
@@ -373,6 +380,7 @@ def test_a_watched_absence_that_outlasts_a_day_reaches_concern(polity):
     w = polity.archive.observation_window(polity.did, since=0, as_of=DAY + 1)
     assert w.reading_count() == 3
     assert w.readings_for(machine) == 3
+    assert w.watchers_for(machine) == 3, "three parties, not three filings"
     assert w.unattended_span(machine, as_of=DAY + 1) == DAY + 1
 
     roll = polity.roll(as_of=DAY + 1)
@@ -520,7 +528,10 @@ def test_a_settled_cadence_slip_is_caught_by_the_pinned_reading(polity):
 
     joiner = Signer.generate()
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
-    induct_member(polity.archive, polity.did, joiner, polity.founders, affirmed_at=300)
+    movements = polity.rite(joiner, polity.founders, 250)
+    induct_member(
+        polity.archive, polity.did, joiner, polity.founders, movements, affirmed_at=300
+    )
     for at in (400, 800, 1_200, 1_600):
         reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=at)
 
@@ -546,12 +557,17 @@ def test_a_settled_cadence_slip_is_caught_by_the_pinned_reading(polity):
 # which authorization route a horizon leaves open.
 
 
-def _observed_log(polity, count, first_at, step):
-    """`count` observations of one member, one per `step` seconds from `first_at`."""
-    monitor = Signer.generate()
+def _observed_log(polity, count, first_at, step, monitors=3):
+    """`count` observations of one member, one per `step` seconds from `first_at`,
+    rotated over `monitors` distinct watchers.
+
+    Three by default since **D28**: the retention floor counts distinct observers, so
+    a lone monitor filing repeatedly pins the horizon however long it goes on. Pass
+    `monitors=1` for that case, which is a test of its own."""
+    keys = [Signer.generate() for _ in range(monitors)]
     watched = polity.founders[2].did
     for i in range(count):
-        record_observation(polity.archive, polity.did, monitor,
+        record_observation(polity.archive, polity.did, keys[i % monitors],
                            [(watched, 0.9, None, None)], observed_at=first_at + i * step)
     return watched
 
@@ -564,7 +580,7 @@ def test_a_recommendation_names_what_it_drops_and_who_may_authorize_it(polity):
     as_of = 100 * DAY
 
     rec = polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of)
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of)
     assert rec is not None
     assert rec.seconds_retained == e.DEFAULT_RETENTION["retain_seconds"]
     assert rec.horizon == as_of - 30 * DAY
@@ -586,12 +602,12 @@ def test_the_default_retention_is_the_cheapest_to_authorize(polity):
     as_of = 100 * DAY
 
     at_default = polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of)
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of)
     assert at_default.keeper_may_authorize is True
 
     # One second shorter and the office can no longer carry it alone.
     shorter = polity.archive.prune_recommendation(
-        polity.did, retain_seconds=30 * DAY - 1, min_dropped=1, min_witness_readings=0,
+        polity.did, retain_seconds=30 * DAY - 1, min_dropped=1, min_witness_watchers=0,
         as_of=as_of)
     assert shorter.keeper_may_authorize is False
     assert shorter.routes == ["RollMajority"]
@@ -604,7 +620,7 @@ def test_a_short_retention_can_never_clip_a_live_measure(polity):
     as_of = 100 * DAY
 
     rec = polity.archive.prune_recommendation(
-        polity.did, retain_seconds=60, min_dropped=1, min_witness_readings=0, as_of=as_of)
+        polity.did, retain_seconds=60, min_dropped=1, min_witness_watchers=0, as_of=as_of)
     # Asked for a minute; floored at the day a sustained absence reads back over.
     assert rec.seconds_retained == e.DEFAULT_RETENTION["live_measure_seconds"]
     assert rec.horizon == as_of - DAY
@@ -615,22 +631,22 @@ def test_nothing_worth_doing_recommends_nothing(polity):
     as_of = 100 * DAY
     # Below the churn floor: three observations do not justify a permanent record.
     assert polity.archive.prune_recommendation(
-        polity.did, min_dropped=4, min_witness_readings=0, as_of=as_of) is None
+        polity.did, min_dropped=4, min_witness_watchers=0, as_of=as_of) is None
     assert polity.archive.prune_recommendation(
-        polity.did, min_dropped=3, min_witness_readings=0, as_of=as_of) is not None
+        polity.did, min_dropped=3, min_witness_watchers=0, as_of=as_of) is not None
 
 
 def test_the_recommendation_goes_quiet_once_acted_on(polity):
     _observed_log(polity, 5, first_at=DAY, step=DAY)
     as_of = 100 * DAY
     rec = polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of)
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of)
 
     prune_observations(polity.archive, polity.did, horizon=rec.horizon,
                        deciders=polity.quorum(as_of=as_of), pruned_at=as_of)
     # A horizon that does not advance would claim to drop what is already gone.
     assert polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of) is None
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of) is None
 
 
 def test_the_default_policy_fires_on_a_year_of_attendance_cadence(polity):
@@ -656,7 +672,7 @@ def test_a_recommendation_only_ever_proposes_what_authority_accepts(polity):
     human = Signer.generate()
     machine = polity.founders[2].did
     designate_derived(polity.archive, polity.did, machine, polity.quorum(as_of=300),
-                      guardian=human, decided_at=300)
+                      guardian=human, unbacked_reason="fixture: no monitor reading", decided_at=300)
     as_of = 100 * DAY
     # An old attended history, well past the horizon — this is what goes.
     for i in range(5):
@@ -675,7 +691,7 @@ def test_a_recommendation_only_ever_proposes_what_authority_accepts(polity):
     assert span_before == 10 * DAY, "the signal under test must be non-trivial"
 
     rec = polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of)
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of)
     assert rec.keeper_may_authorize and rec.keeper_holders == [keeper.did]
     assert rec.dropped == 5, "and the pruning under test must actually drop something"
 
@@ -695,29 +711,33 @@ def test_an_unchartered_or_dissolved_polity_recommends_nothing(polity):
 
     empty = e.Archive()
     assert empty.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=100 * DAY) is None
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=100 * DAY) is None
 
     _observed_log(polity, 5, first_at=DAY, step=DAY)
     as_of = 100 * DAY
     assert polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of) is not None
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of) is not None
     dissolve_charter(polity.archive, polity.did, polity.quorum(as_of=as_of),
                      rationale="done", dissolved_at=as_of - 1)
     # A dissolved polity has no housekeeping to do; its log is what remains of it.
     assert polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of) is None
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of) is None
 
 
-def _absent_machine(polity, observed_at, as_of):
+def _absent_machine(polity, observed_at, as_of, monitors=3):
     """A guardian-answering member unattended since `stale`, watched at each of
-    `observed_at`. Returns a reader giving (sustained_absences, erosion, span)."""
-    mon, human = Signer.generate(), Signer.generate()
+    `observed_at` by `monitors` distinct parties in rotation.
+
+    Three since **D28**: the grade counts watchers, so one monitor filing repeatedly
+    is one watcher and reaches no Concern at all."""
+    mons = [Signer.generate() for _ in range(monitors)]
+    human = Signer.generate()
     machine = polity.founders[2].did
     designate_derived(polity.archive, polity.did, machine, polity.quorum(as_of=300),
-                      guardian=human, decided_at=300)
+                      guardian=human, unbacked_reason="fixture: no monitor reading", decided_at=300)
     stale = min(observed_at)
-    for at in observed_at:
-        record_observation(polity.archive, polity.did, mon,
+    for i, at in enumerate(observed_at):
+        record_observation(polity.archive, polity.did, mons[i % monitors],
                            [(machine, 0.9, human.did, stale)], observed_at=at)
     roll = polity.roll(as_of=as_of)
     cand = founding_candidate(
@@ -790,5 +810,87 @@ def test_a_thinly_watched_member_pins_the_horizon(polity):
         "the thinly-watched member has no reading to spare"
     # Switch the floor off and the duration floor would drop all twenty-three.
     loose = polity.archive.prune_recommendation(
-        polity.did, min_dropped=1, min_witness_readings=0, as_of=as_of)
+        polity.did, min_dropped=1, min_witness_watchers=0, as_of=as_of)
     assert loose.dropped == 23
+
+
+# --- D28: the watcher, not the filing ---------------------------------------
+
+
+def test_one_key_filing_three_times_does_not_escalate(polity):
+    """THE MEASURED HOLE. The sustained-absence component is the only absence signal
+    permitted past the snapshot cap, and it reached `Concern` — the grade that crosses
+    to kith-covenant as a conduct record — on a count of FILINGS. A stranger with one
+    keypair and no relationship to the polity could raise it."""
+    as_of = 100 * DAY
+    times = [as_of - 3 * DAY, as_of - 2 * DAY, as_of - DAY]
+    machine, read = _absent_machine(polity, times, as_of, monitors=1)
+    w = polity.archive.observation_window(polity.did, since=0, as_of=as_of)
+    assert w.readings_for(machine) == 3, "three filings, as it says"
+    assert w.watchers_for(machine) == 1, "and one party's word"
+    assert read(polity.archive) == (0, "Notice")
+
+
+def test_three_distinct_monitors_do_escalate(polity):
+    """The control on the test above, so the assertion there is about the count and
+    not about the fixture."""
+    as_of = 100 * DAY
+    times = [as_of - 3 * DAY, as_of - 2 * DAY, as_of - DAY]
+    machine, read = _absent_machine(polity, times, as_of, monitors=3)
+    w = polity.archive.observation_window(polity.did, since=0, as_of=as_of)
+    assert w.watchers_for(machine) == 3
+    assert len(w.watchers_of(machine)) == 3
+    assert read(polity.archive) == (1, "Concern")
+
+
+def test_vouching_moves_the_lens_and_never_the_level(polity):
+    """The locked decision, as a test. Gating an escalation on the monitor being
+    vouched for would let a captured polity vouch for nobody and thereby become
+    unwatchable, so the numbers move and the grade does not."""
+    from ethne.authoring import attest_observer_independence
+
+    as_of = 100 * DAY
+    times = [as_of - 3 * DAY, as_of - 2 * DAY, as_of - DAY]
+    machine, _read = _absent_machine(polity, times, as_of, monitors=3)
+    roll = polity.roll(as_of=as_of)
+    cand = founding_candidate([(d, 0.9, None, None, False) for d in roll])
+
+    def report():
+        w = polity.archive.observation_window(polity.did, since=0, as_of=as_of)
+        return cohesion_report(
+            roll, cand, window=w, as_of=as_of,
+            observers=polity.archive.independent_observation(polity.did, as_of=as_of),
+        )
+
+    bare = report()
+    assert bare.watchers == (3, 0, 0)
+
+    w = polity.archive.observation_window(polity.did, since=0, as_of=as_of)
+    watcher = w.watchers_of(machine)[0]
+    attest_observer_independence(polity.archive, polity.did, watcher,
+                                 Signer.generate(), basis="separate operator",
+                                 attested_at=as_of)
+    polity.archive.check_authority()
+
+    after = report()
+    assert after.watchers == (3, 1, 0), "the lens moves"
+    assert after.erosion == bare.erosion, "and the level does not"
+    assert after.sustained_absences == bare.sustained_absences
+
+
+def test_a_lone_monitor_filing_forever_never_frees_the_horizon(polity):
+    """D19's floor follows the grade (D28): 200 filings by one key used to clear a
+    floor of three, because the floor counted filings."""
+    as_of = 100 * DAY
+    _observed_log(polity, 200, first_at=DAY, step=DAY // 2, monitors=1)
+    assert polity.archive.prune_recommendation(
+        polity.did, min_dropped=1, as_of=as_of) is None, \
+        "one watcher is one watcher, 200 filings or not"
+
+
+def test_three_monitors_free_the_horizon_the_lone_one_pinned(polity):
+    """The control: the same volume of watching, spread over three keys."""
+    as_of = 100 * DAY
+    _observed_log(polity, 200, first_at=DAY, step=DAY // 2, monitors=3)
+    assert polity.archive.prune_recommendation(
+        polity.did, min_dropped=1, as_of=as_of) is not None

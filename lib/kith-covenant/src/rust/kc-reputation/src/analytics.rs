@@ -29,7 +29,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kc_archive::{ArchiveEntry, InMemoryArchive};
+use kc_archive::{probationary_at, ArchiveEntry, InMemoryArchive};
 use kc_ceremony::inter::AntiSpiralFeature;
 use kc_commons::sanction_rank;
 use kc_conduct::{ConductBearing, ConductKind};
@@ -1537,6 +1537,14 @@ pub struct ObserverDashboard {
     /// The graded erosion alert derived from `substrate` — the crossed-threshold
     /// signal the observer corps reads before eyeballing raw counts.
     pub erosion: ErosionAlert,
+    /// Community DID → how many keys its anonymous channel can hide a source among,
+    /// ascending, so the thinnest channels are first.
+    ///
+    /// A community whose count is 1 has no channel at all, and 2 is a channel in name
+    /// only: with the key image published on every filing, a suspect set of two is
+    /// nearly a name. This is the lens on whether the §8 channel is real, and it is
+    /// what a member roll moves. Ascending because the interesting end is the low end.
+    pub anonymity_set_by_community: Vec<(String, usize)>,
 }
 
 fn descending(map: BTreeMap<String, usize>) -> Vec<(String, usize)> {
@@ -1566,6 +1574,21 @@ pub fn observer_dashboard(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
     }
     let distinct: BTreeMap<String, usize> =
         tags.into_iter().map(|(k, v)| (k, v.len())).collect();
+    // Every community the archive knows, sized by its insider set. Communities come
+    // from their published identities, so a community with neither delegation nor roll
+    // still appears — at 1, which is the reading that matters.
+    let mut anonymity: Vec<(String, usize)> = archive
+        .iter()
+        .filter_map(|(_, e)| match e {
+            ArchiveEntry::CommunityIdentityPublished(s) => Some(s.payload.did.clone()),
+            _ => None,
+        })
+        .map(|did| {
+            let n = kc_archive::insider_keys(archive, &did, as_of).len();
+            (did.as_str().to_string(), n)
+        })
+        .collect();
+    anonymity.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
     ObserverDashboard {
         composition: composition_graph(archive, Some(as_of)),
         rejections: rejection_pattern(archive, Some(as_of)),
@@ -1575,6 +1598,7 @@ pub fn observer_dashboard(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
         pool: observer_pool_concentration(archive, Some(as_of)),
         substrate: substrate_deference(archive, Some(as_of)),
         erosion: erosion_alert(archive, Some(as_of)),
+        anonymity_set_by_community: anonymity,
     }
 }
 
@@ -2139,5 +2163,103 @@ pub fn erosion_alert_with(
         overdue_reaffirmations,
         hollowing_communities,
         overdue_reexaminations,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// §2 deliberative-capacity lens (how much of the compact carries weight).
+// ---------------------------------------------------------------------------
+
+/// How much of a compact's roll carries deliberative weight right now (§2).
+///
+/// Probation withholds weight from every second-class quorum, so a compact that
+/// has just admitted a cohort holds fewer *deciding* members than *members* — and
+/// if it admits enough at once, fewer than the quorum needs. That is a correct
+/// consequence of the withholding and an operationally severe one: no second-class
+/// decision is available until a window closes. It is surfaced here rather than
+/// left to be discovered as a refusal nobody can account for.
+///
+/// It is also a capture signal in its own right, read in the opposite direction:
+/// a roll whose standing share is falling is a compact taking in members faster
+/// than it can season them, which is the growth pressure
+/// `capture_resistance.md` §7 names as the historical failure mode.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeliberativeCapacity {
+    /// The compact this reads, by self-declared label (the §2 honest limit).
+    pub compact_label: String,
+    /// The derived roll: every community admitted under this label, in DID order.
+    /// Derived from the admission records, never declared.
+    pub members: Vec<DidKey>,
+    /// Those of `members` inside a probation window at `as_of`.
+    pub probationary: Vec<DidKey>,
+    /// The quorum this capacity was judged against.
+    pub quorum_threshold: usize,
+    pub as_of: Timestamp,
+}
+
+impl DeliberativeCapacity {
+    /// Members carrying deliberative weight.
+    pub fn standing(&self) -> usize {
+        self.members.len() - self.probationary.len()
+    }
+
+    /// The share of the roll that carries weight, or `None` for an empty roll —
+    /// *not evaluated* rather than a zero share, since a compact with no members
+    /// is not one whose seasoning has lapsed.
+    pub fn standing_share(&self) -> Option<f64> {
+        (!self.members.is_empty())
+            .then(|| self.standing() as f64 / self.members.len() as f64)
+    }
+
+    /// Can the compact take an ordinary second-class decision at all?
+    pub fn can_act(&self) -> bool {
+        self.standing() >= self.quorum_threshold
+    }
+
+    /// Can it take one at the asymmetric *contraction* bar — removing a matter from
+    /// the compact-incapable list, shortening a fast? The pair matters because a
+    /// compact can be able to expand its protections and unable to contract them,
+    /// which is the intended direction of the asymmetry.
+    pub fn can_contract(&self) -> bool {
+        self.standing() >= self.quorum_threshold + 1
+    }
+}
+
+/// Derive [`DeliberativeCapacity`] for one compact label as of a query instant.
+///
+/// The roll is every participant of every admission record carrying that label,
+/// which is the same derivation `kc_archive`'s admitting quorum uses — a lens and a
+/// gate that disagreed about who is a member would be worse than either alone.
+pub fn deliberative_capacity(
+    archive: &InMemoryArchive,
+    compact_label: &str,
+    quorum_threshold: usize,
+    as_of: Option<Timestamp>,
+) -> DeliberativeCapacity {
+    let as_of = as_of.unwrap_or_else(time::now);
+    // Keyed by DID string so the roll dedups and orders without a parse round-trip.
+    let mut roll: BTreeMap<String, DidKey> = BTreeMap::new();
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::InterCommunityWitness(s) = entry {
+            if s.payload.compact_label != compact_label || s.payload.witnessed_at > as_of {
+                continue;
+            }
+            for p in &s.payload.participants {
+                roll.insert(p.as_str().to_string(), p.clone());
+            }
+        }
+    }
+    let members: Vec<DidKey> = roll.into_values().collect();
+    let probationary = members
+        .iter()
+        .filter(|d| probationary_at(archive, d, as_of))
+        .cloned()
+        .collect();
+    DeliberativeCapacity {
+        compact_label: compact_label.to_string(),
+        members,
+        probationary,
+        quorum_threshold,
+        as_of,
     }
 }

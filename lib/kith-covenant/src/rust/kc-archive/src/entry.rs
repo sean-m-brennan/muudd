@@ -18,7 +18,9 @@
 //! produces. Every entry carries a `Signed<...>` envelope; the archive stores
 //! the enum and indexes by `Cid`.
 
-use kc_ceremony::inter::{InterCommunityWitnessRecord, NonAdmissionRecord, SponsorshipRecord};
+use kc_ceremony::inter::{
+    ExaminerRegistry, InterCommunityWitnessRecord, NonAdmissionRecord, SponsorshipRecord,
+};
 use kc_ceremony::intra::IntraCommunityRiteRecord;
 use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
 use kc_commons::{CommonsRegistration, CommonsSanction, UsageRecord};
@@ -33,7 +35,7 @@ use kc_escalation::{
     Designation, InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition,
     ReEntry, RestitutionCompletion, RestitutionObligation, SubstantiveReEngagement,
 };
-use kc_identity::{CommunityIdentity, SpeakerDelegation, WitnessRegistry};
+use kc_identity::{CommunityIdentity, MemberRoll, SpeakerDelegation, WitnessRegistry};
 use kc_mediation::{DisputeRecord, MediationDecision, MediatorRegistry};
 use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
 use kc_provenance::{
@@ -89,9 +91,19 @@ pub enum ArchiveEntry {
     /// A step along a commons' graduated-sanction ladder (§7); heavier levels are
     /// co-signed by the imposing quorum.
     SanctionApplied(Signed<CommonsSanction>),
+    /// A community's roster of seated examiners (§2). The examining pool is the
+    /// union across communities; supersedes by latest `issued_at` per community.
+    /// Bounded terms, rotation gaps and pool share are enforced by `ExaminerCaps`,
+    /// which shares one implementation with the §8 observer caps.
+    ExaminerRegistryUpdated(Signed<ExaminerRegistry>),
     /// A community's roster of nominated observers (§8). The corps is the union
     /// across communities; supersedes by latest `issued_at` per community.
     ObserverRegistryUpdated(Signed<ObserverRegistry>),
+    /// A community's member roll — the individual key-holders it names as its own,
+    /// typically published from the polity tier's charter. Unlike every other
+    /// registry here it **does not supersede**: rolls are unioned, so the insider
+    /// set a whistleblower hides in can only ever widen. See [`kc_identity::roll`].
+    MemberRollPublished(Signed<MemberRoll>),
     /// An attributed public observer report on a community (§8), signed by a
     /// non-party registered observer.
     ObserverReportPublished(Signed<ObserverReport>),
@@ -174,7 +186,9 @@ impl ArchiveEntry {
             Self::CommonsRegistered(_) => "CommonsRegistered",
             Self::UsageAccounted(_) => "UsageAccounted",
             Self::SanctionApplied(_) => "SanctionApplied",
+            Self::ExaminerRegistryUpdated(_) => "ExaminerRegistryUpdated",
             Self::ObserverRegistryUpdated(_) => "ObserverRegistryUpdated",
+            Self::MemberRollPublished(_) => "MemberRollPublished",
             Self::ObserverReportPublished(_) => "ObserverReportPublished",
             Self::ReportResponsePublished(_) => "ReportResponsePublished",
             Self::WhistleblowerFiled(_) => "WhistleblowerFiled",

@@ -187,9 +187,17 @@ pub mod ffi {
             log_file: *const c_char,
         ) -> *mut AtAppNodeHandle;
         fn at_app_node_alive(node: *mut AtAppNodeHandle) -> bool;
+        fn at_app_node_ready(node: *mut AtAppNodeHandle) -> bool;
+        fn at_app_node_wait_ready(node: *mut AtAppNodeHandle, timeout_ms: c_int) -> bool;
         fn at_app_node_pid(node: *const AtAppNodeHandle) -> c_int;
         fn at_app_node_stop(node: *mut AtAppNodeHandle);
     }
+
+    /// `app_events.h`'s `AT_APP_NOT_READY`: the daemon is there but has not bound
+    /// its queue yet, which on a cold start is the ordinary case for the first
+    /// ~210 ms. Distinct from the generic -1 so a caller can tell "wait" from
+    /// "this will never work".
+    const AT_APP_NOT_READY: c_int = -2;
 
     /// AT log levels, as `app_node.h` fixes them.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -303,9 +311,18 @@ pub mod ffi {
             };
             // SAFETY: handle is non-null by construction; q_out outlives the call.
             let rc = unsafe { at_app_events_request_roster(self.handle, q_out.as_ptr()) };
+            // The "(daemon not ready?)" in the old message was a guess, because the
+            // C side answered -1 to both cases. It now says which, so the two stop
+            // being one diagnosis: not-ready means retry, anything else does not.
+            if rc == AT_APP_NOT_READY {
+                return Err(KcError::Key(
+                    "at_app_events: daemon has not bound its queue yet — not ready, retry"
+                        .into(),
+                ));
+            }
             if rc != 0 {
                 return Err(KcError::Key(
-                    "at_app_events: roster request refused (daemon not ready?)".into(),
+                    "at_app_events: roster request refused".into(),
                 ));
             }
             self.roster_requested = true;
@@ -419,11 +436,21 @@ pub mod ffi {
     impl EmbeddedAtNode {
         /// Launch a daemon and attach to it.
         ///
-        /// Returns as soon as the daemon is **forked**, not when it is ready —
-        /// nothing waits, so the first sends may find no recipient. That is why
-        /// [`request_roster`](AttachedAtDaemon::request_roster) has to be retried,
-        /// and why retrying is not enough on its own: on a cold node an early pull
-        /// truthfully answers "nothing yet", so re-pull periodically.
+        /// Returns as soon as the daemon is **forked**, not when it is reachable:
+        /// measured, `start` returns in about **2 ms** and the daemon's queue is
+        /// not bound for another **~210 ms**. Anything sent in that window goes
+        /// nowhere.
+        ///
+        /// This used to say only that "nothing waits, so the first sends may find
+        /// no recipient", which was the honest statement of a gap with no answer.
+        /// There is now an answer: [`ready`](Self::ready) to ask, or
+        /// [`wait_ready`](Self::wait_ready) to wait.
+        ///
+        /// Being ready is still not the same as knowing anything, so
+        /// [`request_roster`](AttachedAtDaemon::request_roster) is *also* worth
+        /// repeating: on a cold node an early pull truthfully answers "nothing
+        /// yet". Readiness fixes the sends that vanished; it does not fill a
+        /// roster that has not been discovered.
         pub fn start(
             app_name: &str,
             q_in: &str,
@@ -431,14 +458,47 @@ pub mod ffi {
             log_level: AtLogLevel,
             generate_config: bool,
         ) -> KcResult<Self> {
+            Self::start_logging_to(app_name, q_in, q_out, log_level, generate_config, None)
+        }
+
+        /// As [`start`](Self::start), naming a file for the daemon's log.
+        ///
+        /// Not cosmetic, and the reason is worth knowing before embedding a node
+        /// inside anything that captures output. With no log file,
+        /// `autonomous_trust.c` sets `NO_STDERR_REDIRECT` on the daemon **and**
+        /// `process_child_extra_flags` on every subsystem process it forks — so all
+        /// of them keep this process's stderr, deliberately, so their logs reach a
+        /// terminal.
+        ///
+        /// Under a harness that captures stderr through a pipe, that is a hang: the
+        /// harness reads to EOF, and EOF does not come while any of those children
+        /// holds the write end. Measured during this work — a `timeout 60` run held
+        /// the shell for ten minutes. Naming a log file sends the daemon's whole
+        /// process tree to `/dev/null` for stdio and leaves the pipe alone.
+        ///
+        /// `None` is the terminal-friendly behaviour and stays the default.
+        pub fn start_logging_to(
+            app_name: &str,
+            q_in: &str,
+            q_out: &str,
+            log_level: AtLogLevel,
+            generate_config: bool,
+            log_file: Option<&str>,
+        ) -> KcResult<Self> {
             let (name, qi, qo) = (cstr(app_name)?, cstr(q_in)?, cstr(q_out)?);
+            let log = match log_file {
+                Some(p) => Some(cstr(p)?),
+                None => None,
+            };
+            let log_ptr = log.as_ref().map_or(std::ptr::null(), |c| c.as_ptr());
             // SAFETY: all three strings outlive the call — and only the call:
             // `app_node.h` copies them into the handle, so these may drop here
             // while the node lives on. (`node.h` keeps the caller's pointers,
             // which is exactly why a foreign host must not use it.) The C side
             // validates them (empty, q_in == q_out, too long to survive the
             // messaging layer, log level out of range) and returns NULL rather
-            // than proceeding. log_file NULL = stderr.
+            // than proceeding. A null log_file means stderr, with the process-tree
+            // consequence documented on `start_logging_to`.
             let node = unsafe {
                 at_app_node_start(
                     name.as_ptr(),
@@ -446,7 +506,7 @@ pub mod ffi {
                     qo.as_ptr(),
                     log_level as c_int,
                     generate_config,
-                    std::ptr::null(),
+                    log_ptr,
                 )
             };
             if node.is_null() {
@@ -474,6 +534,32 @@ pub mod ffi {
         pub fn alive(&mut self) -> bool {
             // SAFETY: non-null by construction.
             unsafe { at_app_node_alive(self.node) }
+        }
+
+        /// Whether the daemon can actually be **reached** — alive *and* listening.
+        ///
+        /// [`alive`](Self::alive) reports a running process and is not wrong; this
+        /// reports a two-way stream, which is the question a host that is about to
+        /// send actually has. Non-blocking, so it belongs directly in a poll loop.
+        pub fn ready(&mut self) -> bool {
+            // SAFETY: non-null by construction.
+            unsafe { at_app_node_ready(self.node) }
+        }
+
+        /// Wait up to `timeout` for [`ready`](Self::ready).
+        ///
+        /// For a tool or a test whose next step is pointless before the daemon can
+        /// hear it. A host running its own loop should poll [`ready`](Self::ready)
+        /// instead of blocking in here. Returns early — not at the end of the
+        /// timeout — if the daemon dies while waiting.
+        ///
+        /// A `timeout` past `c_int::MAX` milliseconds is clamped rather than
+        /// wrapped: a saturating cast keeps a `Duration::MAX` from arriving in C as
+        /// a negative timeout, which would mean "check once and give up".
+        pub fn wait_ready(&mut self, timeout: std::time::Duration) -> bool {
+            let ms = timeout.as_millis().min(c_int::MAX as u128) as c_int;
+            // SAFETY: non-null by construction.
+            unsafe { at_app_node_wait_ready(self.node, ms) }
         }
 
         /// The daemon's pid, for logs.
@@ -741,10 +827,13 @@ pub mod ffi {
         }
 
         /// `at_app_node_start` validates before it touches the filesystem or forks
-        /// anything, so these reach the real C guards without starting a daemon —
-        /// which matters because a daemon cannot start in this sandbox at all
-        /// (autonomous_trust ISSUES.md §2.1.1). No socket lock needed for the same
-        /// reason: nothing is bound and the root is never read.
+        /// anything, so these reach the real C guards without starting a daemon.
+        /// No socket lock needed: nothing is bound and the root is never read.
+        ///
+        /// This used to add "which matters because a daemon cannot start in this
+        /// sandbox at all (autonomous_trust ISSUES.md §2.1.1)". §2.1.1 is fixed and
+        /// that is no longer true — see `a_live_daemon_starts_becomes_ready_and_stops`
+        /// below, which does start one.
         #[test]
         fn embedding_refuses_one_queue_name_for_both_directions() {
             // The two directions are separate sockets; one name would have the
@@ -914,6 +1003,187 @@ pub mod ffi {
             let p = only_peer(&events);
             assert!(!p.operator_bound);
             assert_eq!(p.guardian_pubkey, None);
+        }
+
+        extern "C" {
+            /// `sig` 0 sends nothing and only asks whether a pid exists.
+            fn kill(pid: c_int, sig: c_int) -> c_int;
+        }
+
+        /// Kill processes AT orphaned, and return how many there were.
+        ///
+        /// A stopped daemon leaves its subsystem processes running, reparented to
+        /// init — 8 per run, measured, and filed as autonomous_trust ISSUES.md
+        /// §2.1.3. They are harmless to the assertions (a log file keeps them off
+        /// this process's stderr) but a test that leaks eight processes every run
+        /// is not one to leave in a suite.
+        ///
+        /// The handle is exact rather than a name match: AT forks without execing,
+        /// so an orphan's `/proc/<pid>/exe` is **this test binary**. Nothing else
+        /// can be that and have init for a parent. A `pkill AutonomousTrust` would
+        /// have been shorter and would kill a developer's real node.
+        fn kill_orphans_of_this_binary() -> usize {
+            let me = std::process::id();
+            let Ok(exe) = std::env::current_exe() else {
+                return 0;
+            };
+            let Ok(entries) = std::fs::read_dir("/proc") else {
+                return 0;
+            };
+            let mut killed = 0;
+            for entry in entries.flatten() {
+                let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() else {
+                    continue;
+                };
+                if pid == me {
+                    continue;
+                }
+                // Same executable image...
+                if std::fs::read_link(format!("/proc/{pid}/exe")).ok().as_ref() != Some(&exe) {
+                    continue;
+                }
+                // ...and orphaned. Field 4 of `stat` is ppid; the comm in field 2
+                // can contain spaces, so parse after its closing paren.
+                let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+                    continue;
+                };
+                let Some(rest) = stat.rsplit_once(") ").map(|(_, r)| r) else {
+                    continue;
+                };
+                if rest.split_whitespace().nth(1) != Some("1") {
+                    continue;
+                }
+                // SAFETY: a plain kill on a pid we have just identified as an
+                // orphaned fork of this very binary.
+                unsafe { kill(pid as c_int, 9) };
+                killed += 1;
+            }
+            killed
+        }
+
+        /// **The leg that was never covered: a real daemon.**
+        ///
+        /// Every other test here plays daemon over the test-support emitters, which
+        /// covers the decoder and the wire and cannot cover the lifecycle. This
+        /// starts an actual `autonomous_trust` process, waits for it to become
+        /// reachable, reads from it, and stops it.
+        ///
+        /// It was blocked, and the block was real rather than environmental: AT
+        /// ISSUES.md §2.1.1, a stack overflow in socket-path construction that
+        /// aborted *this* process from inside the FFI call. Now fixed.
+        ///
+        /// **The assertions are on the lifecycle, not on event content.** A
+        /// solitary node with no peers emits nothing, so `assert_eq!(events, 0)`
+        /// would be asserting nothing at all; content is covered by the five
+        /// end-to-end emitter tests above. What is worth asserting is the sequence
+        /// that used to be unobservable: not-ready → ready, alive throughout, a
+        /// reachable and empty stream, a roster pull that is refused before ready
+        /// and accepted after, and a clean shutdown.
+        ///
+        /// Three hazards, each measured rather than guessed:
+        ///
+        /// 1. **The root must be short and must be ours.** After the §2.1.1 fix an
+        ///    over-long root is a *refusal*, and this suite's own `temp_dir()` may
+        ///    be a long scratchpad path — so a test that inherited it would fail to
+        ///    start and, if it treated that as "skip", would be indistinguishable
+        ///    from one that passed. The length is asserted below for that reason.
+        /// 2. **The socket lock**, as for every other test here: AT's messaging
+        ///    layer keeps process-global state and Rust runs tests in parallel.
+        /// 3. **The daemon's stdio must not be this process's stderr** — see
+        ///    [`EmbeddedAtNode::start_logging_to`]. This is the ten-minute hang.
+        #[test]
+        fn a_live_daemon_starts_becomes_ready_and_stops() {
+            let _guard = socket_lock();
+
+            // Literal "/tmp", not `temp_dir()`: TMPDIR may point somewhere long,
+            // and the point is a root we know fits.
+            let root = std::path::Path::new("/tmp/en-at-live");
+            let root_len = root.as_os_str().len();
+            assert!(
+                root_len <= 90,
+                "root is {root_len} bytes; over 90 AT refuses to build a socket path \
+                 (ISSUES.md §2.1.1), and this test would be measuring the refusal"
+            );
+
+            let _ = std::fs::remove_dir_all(root);
+            std::fs::create_dir_all(root.join("var/at")).expect("queue dir");
+            std::env::set_var("AUTONOMOUS_TRUST_ROOT", root);
+            let log = root.join("daemon.log");
+
+            let mut node = EmbeddedAtNode::start_logging_to(
+                "en_at_live",
+                "at_to_app_live",
+                "app_to_at_live",
+                AtLogLevel::Info,
+                true, // generate the configs; the root was just emptied
+                Some(log.to_str().expect("ascii path")),
+            )
+            .expect("a live daemon starts — if this fails, read /tmp/en-at-live/daemon.log");
+
+            // Alive immediately, and NOT yet reachable. The margin is what makes
+            // this sound rather than racy: `start` returns in ~2 ms and the queue
+            // is not bound for ~210 ms, two orders of magnitude apart.
+            assert!(node.alive(), "forked");
+            assert!(
+                !node.ready(),
+                "a just-forked daemon has not bound its queue yet — if this fires, \
+                 either the daemon got much faster or `ready` is reporting `alive`"
+            );
+            // And the pull that motivated all of this is refused, by name.
+            let refused = node.request_roster().expect_err("not ready yet");
+            assert!(
+                format!("{refused}").contains("not ready"),
+                "the refusal should say WHY: {refused}"
+            );
+
+            // 10 s against a measured ~210 ms: generous enough not to be a timing
+            // test, tight enough to fail rather than hang.
+            let waited = std::time::Instant::now();
+            assert!(
+                node.wait_ready(std::time::Duration::from_secs(10)),
+                "daemon never became reachable; log at {}",
+                log.display()
+            );
+            let elapsed = waited.elapsed();
+            assert!(node.ready(), "still ready once waited for");
+            assert!(node.alive(), "and still running");
+
+            // Reachable and empty: `poll` must succeed, and a lone node with no
+            // peers has nothing to say. Ok-with-nothing is the assertion; a count
+            // would be asserting noise.
+            for _ in 0..5 {
+                node.poll().expect("the stream is reachable");
+            }
+
+            // Now accepted, where it was refused a moment ago.
+            node.request_roster()
+                .expect("a roster pull goes through once the daemon is bound");
+
+            let pid = node.pid();
+            assert!(pid > 0, "a real pid");
+            drop(node);
+
+            // **Gone, not merely signalled.** This assertion found a defect and is
+            // the reason `at_node_shutdown` now waits: it used to call `waitpid` on
+            // a daemon that `daemonize`'s double fork had already given to init, so
+            // waitpid returned ECHILD at once and `stop` returned with the daemon
+            // still running and still holding its sockets. Measured, a full
+            // shutdown takes ~5.3 s, so "stop then immediately start another node"
+            // was racing a live process for the socket path.
+            //
+            // (`kill(pid, 0)` could in principle hit a recycled pid — not in the
+            // microseconds between the daemon's exit and this line.)
+            // SAFETY: signal 0 sends nothing and only tests for existence.
+            let gone = unsafe { kill(pid, 0) };
+            assert_eq!(gone, -1, "daemon {pid} outlived at_app_node_stop");
+
+            // The daemon's own children are a different matter, and not fixed
+            // here — see the helper, and ISSUES.md §2.1.3.
+            let orphans = kill_orphans_of_this_binary();
+            eprintln!(
+                "live daemon pid {pid} became ready in {elapsed:?}; \
+                 cleaned up {orphans} subsystem process(es) AT left behind"
+            );
         }
     }
 }

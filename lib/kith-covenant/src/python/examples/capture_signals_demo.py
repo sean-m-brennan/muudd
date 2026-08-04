@@ -24,7 +24,8 @@ from __future__ import annotations
 import sys
 
 from kith_covenant import (
-    Archive, composition_graph, demo_capture_scenario,
+    Archive, composition_graph, demo_capture_scenario, deliberative_capacity,
+    record_admission, vouch,
     feature_concern_profile, reputation_of, sponsor_stake,
     rejection_pattern, ceremony_cost_decay,
     new_identity, run_intra_rite, record_non_admission, designate_anathema,
@@ -102,6 +103,33 @@ def main() -> int:
     print(f"    rites={decay.rite_count} "
           f"witnesses first→last={decay.first_witness_count}→{decay.last_witness_count} "
           f"declined={decay.witness_count_declined} widening={decay.latest_gap_widening}")
+
+    # §2 deliberative-capacity lens: what the compact can still decide -------
+    # A compact of three seasons its members, then admits two of them into a new
+    # probation window all at once. Nobody leaves the roll — but the weight that
+    # validates a second-class decision does.
+    grown = Archive()
+    founders = [new_identity(grown, f"Founder-{i}") for i in range(3)]
+    record_admission(grown, founders, [m.did for m in founders],
+                     compact_label="demo-compact", witnessed_at=1000)
+    print("\nDeliberative-capacity lens (§2 — what the compact can still decide):")
+    before = deliberative_capacity(grown, "demo-compact", as_of=1100)
+    print(f"    seasoned: roll={len(before.members)} standing={before.standing} "
+          f"share={before.standing_share:.2f} "
+          f"can_act={before.can_act} can_contract={before.can_contract}")
+    for m in founders[1:]:
+        vouch(grown, founders[0], m.did, probation_until=2_000_000, sponsored_at=1200)
+    after = deliberative_capacity(grown, "demo-compact", as_of=1300)
+    print(f"    after admitting a cohort: roll={len(after.members)} "
+          f"standing={after.standing} share={after.standing_share:.2f} "
+          f"can_act={after.can_act} can_contract={after.can_contract}")
+    print("    nobody left the roll; the compact simply cannot act until a window "
+          "closes —")
+    print("    the honest consequence of the withholding, reported rather than "
+          "met as a refusal")
+    recovered = deliberative_capacity(grown, "demo-compact", as_of=2_000_001)
+    print(f"    once the windows close: standing={recovered.standing} "
+          f"can_act={recovered.can_act} can_contract={recovered.can_contract}")
 
     print("\nStanding derivation:")
     print(f"    Designated community standing: "

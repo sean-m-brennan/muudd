@@ -25,7 +25,7 @@ use std::collections::BTreeSet;
 
 use en_charter::{
     BoundaryAttestation, BoundarySource, Commitment, Derivation, Exclusion, FoundingProposal,
-    Substrate, SubstrateReading,
+    Observation, Substrate, SubstrateReading,
 };
 use en_core::{DidKey, KcResult, Signed, Timestamp};
 use serde::{Deserialize, Serialize};
@@ -159,6 +159,7 @@ impl FoundingCandidate {
         founding_commitments: Vec<Commitment>,
         min_reputation: f64,
         readings: Vec<Signed<SubstrateReading>>,
+        observation: Option<Signed<Observation>>,
         proposed_at: Timestamp,
     ) -> FoundingProposal {
         // An unrated candidate clears a floor of 0.0 (which demands nothing) and
@@ -190,6 +191,7 @@ impl FoundingCandidate {
             founding_commitments,
             keeps,
             readings,
+            observation,
             exclusions,
             proposed_at,
         )
@@ -218,6 +220,7 @@ impl FoundingCandidate {
         keep: &[DidKey],
         reason: &str,
         readings: Vec<Signed<SubstrateReading>>,
+        observation: Option<Signed<Observation>>,
         proposed_at: Timestamp,
     ) -> FoundingProposal {
         let kept: BTreeSet<&str> = keep.iter().map(DidKey::as_str).collect();
@@ -234,6 +237,7 @@ impl FoundingCandidate {
             founding_commitments,
             keeps,
             readings,
+            observation,
             exclusions,
             proposed_at,
         )
@@ -249,14 +253,67 @@ impl FoundingCandidate {
         founding_commitments: Vec<Commitment>,
         keeps: impl Fn(&MemberCandidate) -> bool,
         readings: Vec<Signed<SubstrateReading>>,
+        observation: Option<Signed<Observation>>,
         exclusions: Vec<Exclusion>,
         proposed_at: Timestamp,
     ) -> FoundingProposal {
         let retained = || self.members.iter().filter(|m| keeps(m));
         let proposed_members: Vec<DidKey> = retained().map(|m| m.did.clone()).collect();
+        // D27 — a founding derivation that claims a guardian edge must carry what the
+        // substrate showed, or declare that nothing did. The provider holds a snapshot,
+        // not a signed reading, so the observation is passed in: a monitor that ran over
+        // this cluster before the founding backs the edges it actually saw, and every
+        // other claimed edge says outright that nothing backed it. The honest default is
+        // `Unbacked` — which since D27 does not count as ground, so a wholly machine
+        // cluster proposed from an unobserved snapshot must name a substrate anchor.
+        //
+        // The observer must also be somebody the roll does not contain: a founder
+        // observing the cluster it is founding is the polity vouching for its own
+        // ground, which the charter's grounded rule will not credit. Checked here too
+        // so the provider never mints an `Observed` derivation that rule then ignores
+        // — an edge whose evidence does not count should say so where an operator can
+        // read it, not look backed and behave unbacked.
+        let on_roll: BTreeSet<&str> = proposed_members.iter().map(DidKey::as_str).collect();
+        let disinterested = observation.as_ref().is_some_and(|ob| {
+            let who = ob.payload.observer.as_str();
+            who != polity.as_str() && !on_roll.contains(who)
+        });
+        let shown = |member: &DidKey, guardian: &DidKey| -> bool {
+            disinterested
+                && observation.as_ref().is_some_and(|ob| {
+                    ob.payload
+                        .readings
+                        .iter()
+                        .find(|r| &r.member == member)
+                        .is_some_and(|r| r.guardian.as_ref() == Some(guardian))
+                })
+        };
         let proposed_derivations = retained()
             .filter(|m| m.derived)
-            .map(|m| Derivation { member: m.did.clone(), guardian: m.guardian.clone() })
+            .map(|m| match &m.guardian {
+                None => Derivation::unguarded(m.did.clone()),
+                Some(g) if shown(&m.did, g) => Derivation::observed(
+                    m.did.clone(),
+                    g.clone(),
+                    observation.clone().expect("shown() only true with an observation"),
+                ),
+                Some(g) => Derivation::unbacked(
+                    m.did.clone(),
+                    g.clone(),
+                    match &observation {
+                        None => "no observation was taken of this cluster before founding"
+                            .to_string(),
+                        Some(_) if !disinterested => {
+                            "the observation was taken from inside the polity being founded"
+                                .to_string()
+                        }
+                        Some(_) => format!(
+                            "the observation carries no reading showing {} guarded by {g}",
+                            m.did
+                        ),
+                    },
+                ),
+            })
             .collect();
         FoundingProposal {
             polity,

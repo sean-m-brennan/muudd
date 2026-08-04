@@ -33,12 +33,14 @@ use pyo3::types::{PyBytes, PyType};
 
 use jiff::ToSpan;
 use kc_archive::{
-    verify_all, Archive, ArchiveEntry, InMemoryArchive, ObserverCaps,
-    DEFAULT_OBSERVER_MAX_TERM_SECONDS, DEFAULT_OBSERVER_POOL_FLOOR,
-    DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+    verify_all, Archive, ArchiveEntry, ExaminerCaps, InMemoryArchive, ObserverCaps,
+    DEFAULT_EXAMINER_MAX_TERM_SECONDS, DEFAULT_EXAMINER_PANEL_MIN, DEFAULT_EXAMINER_POOL_FLOOR,
+    DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS, DEFAULT_OBSERVER_MAX_TERM_SECONDS,
+    DEFAULT_OBSERVER_POOL_FLOOR, DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
 };
 use kc_ceremony::inter::{
-    AntiSpiralFeature, InterCredentialingOutcome, InterCredentialingRunner, NonAdmissionRecord,
+    AntiSpiralFeature, ExaminerEntry, ExaminerRegistry, InterCommunityWitnessRecord,
+    InterCredentialingOutcome, InterCredentialingRunner, NonAdmissionRecord,
     ParticipantContext, RejectionDetail, SponsorshipRecord, REQUIRED_FEATURES,
 };
 use kc_conduct::{
@@ -56,8 +58,8 @@ use kc_core::{
     SourcePreimage, ThresholdCustody, Timestamp,
 };
 use kc_identity::{
-    CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessEntry, WitnessRegistry,
-    WitnessRole,
+    CommunityIdentity, DelegationScope, MemberRoll, RollMember, SpeakerDelegation, WitnessEntry,
+    WitnessRegistry, WitnessRole,
 };
 use kc_mediation::{
     DecisionOutcome, DisputeRecord, MediationDecision, MediatorEntry, MediatorRegistry,
@@ -142,15 +144,22 @@ impl PyArchive {
     /// signature from its own root or an active, scope-appropriate delegate, and
     /// second-class decisions need >= `quorum_threshold` distinct communities.
     /// The §8 observer-corps caps (pool-share, term, rotation) gate observer
-    /// registries. A separate pass from `verify_all` (crypto); raises on the
-    /// first violation. Assumes signatures already verify.
+    /// registries, and the §2 examiner caps do the same for the examining pool
+    /// plus the panel that must examine an admission into a standing compact.
+    /// A separate pass from `verify_all` (crypto); raises on the first violation.
+    /// Assumes signatures already verify.
     #[pyo3(signature = (
         quorum_threshold=2,
         panel_min=3,
         observer_pool_floor=DEFAULT_OBSERVER_POOL_FLOOR,
         observer_max_term_seconds=DEFAULT_OBSERVER_MAX_TERM_SECONDS,
         observer_rotation_period_seconds=DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+        examiner_pool_floor=DEFAULT_EXAMINER_POOL_FLOOR,
+        examiner_max_term_seconds=DEFAULT_EXAMINER_MAX_TERM_SECONDS,
+        examiner_rotation_period_seconds=DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS,
+        examiner_panel_min=DEFAULT_EXAMINER_PANEL_MIN,
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn check_authority(
         &self,
         quorum_threshold: usize,
@@ -158,13 +167,23 @@ impl PyArchive {
         observer_pool_floor: usize,
         observer_max_term_seconds: i64,
         observer_rotation_period_seconds: i64,
+        examiner_pool_floor: usize,
+        examiner_max_term_seconds: i64,
+        examiner_rotation_period_seconds: i64,
+        examiner_panel_min: usize,
     ) -> PyResult<()> {
         let caps = ObserverCaps {
             pool_floor: observer_pool_floor,
             max_term_seconds: observer_max_term_seconds,
             rotation_period_seconds: observer_rotation_period_seconds,
         };
-        kc_archive::check_authority(&self.inner, quorum_threshold, panel_min, caps)
+        let ex_caps = ExaminerCaps {
+            pool_floor: examiner_pool_floor,
+            max_term_seconds: examiner_max_term_seconds,
+            rotation_period_seconds: examiner_rotation_period_seconds,
+            panel_min: examiner_panel_min,
+        };
+        kc_archive::check_authority(&self.inner, quorum_threshold, panel_min, caps, ex_caps)
             .map_err(kc_err_to_py)
     }
 
@@ -175,7 +194,12 @@ impl PyArchive {
         observer_pool_floor=DEFAULT_OBSERVER_POOL_FLOOR,
         observer_max_term_seconds=DEFAULT_OBSERVER_MAX_TERM_SECONDS,
         observer_rotation_period_seconds=DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+        examiner_pool_floor=DEFAULT_EXAMINER_POOL_FLOOR,
+        examiner_max_term_seconds=DEFAULT_EXAMINER_MAX_TERM_SECONDS,
+        examiner_rotation_period_seconds=DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS,
+        examiner_panel_min=DEFAULT_EXAMINER_PANEL_MIN,
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn authority_violations(
         &self,
         quorum_threshold: usize,
@@ -183,13 +207,33 @@ impl PyArchive {
         observer_pool_floor: usize,
         observer_max_term_seconds: i64,
         observer_rotation_period_seconds: i64,
+        examiner_pool_floor: usize,
+        examiner_max_term_seconds: i64,
+        examiner_rotation_period_seconds: i64,
+        examiner_panel_min: usize,
     ) -> Vec<(String, String)> {
         let caps = ObserverCaps {
             pool_floor: observer_pool_floor,
             max_term_seconds: observer_max_term_seconds,
             rotation_period_seconds: observer_rotation_period_seconds,
         };
-        kc_archive::authority_violations(&self.inner, quorum_threshold, panel_min, caps)
+        let ex_caps = ExaminerCaps {
+            pool_floor: examiner_pool_floor,
+            max_term_seconds: examiner_max_term_seconds,
+            rotation_period_seconds: examiner_rotation_period_seconds,
+            panel_min: examiner_panel_min,
+        };
+        kc_archive::authority_violations(&self.inner, quorum_threshold, panel_min, caps, ex_caps)
+    }
+
+    /// §2: is `community_did` inside a probation window at `at` (a received
+    /// sponsorship still riding on its conduct, or a completed re-entry before its
+    /// window closes)? The predicate the §2 authority rules enforce, exposed so a
+    /// caller can see *why* an act would be refused before authoring it.
+    fn probationary_at(&self, community_did: &str, at: i64) -> PyResult<bool> {
+        use std::str::FromStr as _;
+        let did = DidKey::from_str(community_did).map_err(kc_err_to_py)?;
+        Ok(kc_archive::probationary_at(&self.inner, &did, ts(at)?))
     }
 
     // ---- §4 Mediation authoring ------------------------------------------
@@ -202,7 +246,7 @@ impl PyArchive {
         &mut self,
         community_priv: &[u8],
         community_did: &str,
-        mediators: Vec<(Vec<u8>, String)>,
+        mediators: Vec<(Vec<u8>, String, Vec<u8>)>,
         valid_from: i64,
         valid_until: Option<i64>,
     ) -> PyResult<String> {
@@ -210,10 +254,11 @@ impl PyArchive {
         let vf = ts(valid_from)?;
         let vu = valid_until.map(ts).transpose()?;
         let mut entries = Vec::with_capacity(mediators.len());
-        for (pk, did) in &mediators {
+        for (pk, did, enc) in &mediators {
             entries.push(MediatorEntry {
                 mediator_did: parse_did(did)?,
                 mediator_pubkey: pub_from_bytes(pk),
+                encryption_pubkey: pub_from_bytes(enc),
                 valid_from: vf,
                 valid_until: vu,
             });
@@ -223,6 +268,84 @@ impl PyArchive {
         let signed = Signed::build(reg, &[(community_did, &sk)]).map_err(kc_err_to_py)?;
         self.inner
             .append(ArchiveEntry::MediatorRegistryUpdated(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Publish a community's member roll (§8). `members` is a list of
+    /// `(pubkey_bytes, did)`; each key must be the one its DID resolves to. Signed by
+    /// the community root — naming who belongs is not delegable. Returns the CID.
+    ///
+    /// The roll widens the insider ring a whistleblower hides in, and it only ever
+    /// widens it: rolls are unioned rather than superseded, so publishing a shorter
+    /// roll later does not remove anyone. A departed member keeps the channel they
+    /// had. `as_of` records the instant the roll was read upstream (a polity charter),
+    /// and is provenance only — this tier cannot check it.
+    #[pyo3(signature = (community_priv, community_did, members, as_of, published_at=None))]
+    fn publish_member_roll(
+        &mut self,
+        community_priv: &[u8],
+        community_did: &str,
+        members: Vec<(Vec<u8>, String)>,
+        as_of: i64,
+        published_at: Option<i64>,
+    ) -> PyResult<String> {
+        let cdid = parse_did(community_did)?;
+        let as_of = ts(as_of)?;
+        let published_at = match published_at {
+            Some(p) => ts(p)?,
+            None => as_of,
+        };
+        let mut entries = Vec::with_capacity(members.len());
+        for (pk, did) in &members {
+            entries.push(RollMember {
+                member_did: parse_did(did)?,
+                member_pubkey: pub_from_bytes(pk),
+            });
+        }
+        let roll = MemberRoll { community_did: cdid, members: entries, as_of, published_at };
+        let sk = priv_from_bytes(community_priv);
+        let signed = Signed::build(roll, &[(community_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::MemberRollPublished(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Seat a community's examiners (§2). `examiners` is a list of
+    /// `(pubkey_bytes, did)` the community seats to conduct anti-spiral-feature
+    /// credentialing; they hold seats over `[valid_from, valid_until)`. Signed by the
+    /// community root. Returns the CID.
+    ///
+    /// `valid_until=None` is accepted by the authoring call and refused by the
+    /// authority pass: §2 allows no open-ended examining standing. A probationary
+    /// community may not seat examiners at all.
+    #[pyo3(signature = (community_priv, community_did, examiners, valid_from, valid_until=None))]
+    fn register_examiners(
+        &mut self,
+        community_priv: &[u8],
+        community_did: &str,
+        examiners: Vec<(Vec<u8>, String)>,
+        valid_from: i64,
+        valid_until: Option<i64>,
+    ) -> PyResult<String> {
+        let cdid = parse_did(community_did)?;
+        let vf = ts(valid_from)?;
+        let vu = valid_until.map(ts).transpose()?;
+        let mut entries = Vec::with_capacity(examiners.len());
+        for (pk, did) in &examiners {
+            entries.push(ExaminerEntry {
+                examiner_did: parse_did(did)?,
+                examiner_pubkey: pub_from_bytes(pk),
+                valid_from: vf,
+                valid_until: vu,
+            });
+        }
+        let reg = ExaminerRegistry { nominating_community: cdid, entries, issued_at: vf };
+        let sk = priv_from_bytes(community_priv);
+        let signed = Signed::build(reg, &[(community_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ExaminerRegistryUpdated(signed))
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
@@ -993,13 +1116,12 @@ impl PyArchive {
     /// panel can name the source later. The authority pass requires a non-party
     /// reception panel, an attestation from a real insider bound to this exact claim,
     /// and custody held by exactly this panel. Returns the report CID.
-    #[pyo3(signature = (panel_privs, panel_dids, panel_pubs, accused_did, claim, attestation, threshold=None, references=Vec::new()))]
+    #[pyo3(signature = (panel_privs, panel_dids, accused_did, claim, attestation, threshold=None, references=Vec::new()))]
     #[allow(clippy::too_many_arguments)]
     fn file_whistleblower(
         &mut self,
         panel_privs: Vec<Vec<u8>>,
         panel_dids: Vec<String>,
-        panel_pubs: Vec<Vec<u8>>,
         accused_did: &str,
         claim: String,
         attestation: &str,
@@ -1007,11 +1129,6 @@ impl PyArchive {
         references: Vec<String>,
     ) -> PyResult<String> {
         let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
-        if panel_pubs.len() != ids.len() {
-            return Err(PyValueError::new_err(
-                "panel_pubs must have one public key per panelist",
-            ));
-        }
         let refs: Vec<Cid> = references.iter().map(|s| parse_cid(s)).collect::<PyResult<_>>()?;
         let packet: serde_json::Value = serde_json::from_str(attestation)
             .map_err(|e| PyValueError::new_err(format!("attestation packet: {e}")))?;
@@ -1022,15 +1139,21 @@ impl PyArchive {
             .map_err(|e| PyValueError::new_err(format!("attestation preimage: {e}")))?;
         let filed_at = insider.payload.filed_at;
 
-        let holders: Vec<(DidKey, PubKey)> = ids
-            .iter()
-            .cloned()
-            .zip(panel_pubs.iter().map(|b| pub_from_bytes(b)))
-            .collect();
+        // The caller supplies no keys. Each share is sealed to the encryption key its
+        // holder is *registered* under, resolved from this archive — so a filing cannot
+        // name the panel and seal the shares elsewhere, which used to be authorized and
+        // left no custodian able to open anything.
+        let holders: Vec<DidKey> = ids.to_vec();
         // A majority by default: the smallest quorum that cannot be met by a minority.
         let k = threshold.unwrap_or(holders.len() / 2 + 1);
         let bytes = kc_core::canonical::to_canonical_cbor(&preimage).map_err(kc_err_to_py)?;
-        let custody = ThresholdCustody::seal(&bytes, &holders, k).map_err(kc_err_to_py)?;
+        let custody = ThresholdCustody::seal(
+            &bytes,
+            &holders,
+            kc_archive::mediator_encryption_resolver(&self.inner, filed_at),
+            k,
+        )
+        .map_err(kc_err_to_py)?;
 
         let wb = WhistleblowerReport {
             accused_community: parse_did(accused_did)?,
@@ -1405,6 +1528,26 @@ impl PyArchive {
         let as_of_ts = parse_as_of(as_of)?;
         let g = kc_reputation::composition_graph(&self.inner, as_of_ts);
         Ok(PyCompositionGraph::from(&g))
+    }
+
+    /// How much of `compact_label`'s roll carries deliberative weight as of
+    /// `as_of` (§2): the roll, who is probationary, and whether an ordinary
+    /// second-class decision — or one at the contraction bar — is available at all.
+    #[pyo3(signature = (compact_label, quorum_threshold=2, as_of=None))]
+    fn deliberative_capacity(
+        &self,
+        compact_label: &str,
+        quorum_threshold: usize,
+        as_of: Option<i64>,
+    ) -> PyResult<PyDeliberativeCapacity> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let c = kc_reputation::deliberative_capacity(
+            &self.inner,
+            compact_label,
+            quorum_threshold,
+            as_of_ts,
+        );
+        Ok(PyDeliberativeCapacity::from(&c))
     }
 
     /// Sponsor-stake report for `sponsor` as of `as_of`: for each sponsee, the
@@ -1980,6 +2123,57 @@ impl PyArchive {
     /// claim was rejected). Signed by the `signer_privs[i]`/`signer_dids[i]`
     /// pairs (participant root keys, or keys they have delegated). `rejections`
     /// is a list of `(rejecting_did, presenting_did, feature, rationale)`. The
+    /// Append a signed inter-community admission record (§2). `signers` are the
+    /// cross-boundary signers, `participants` the communities the record speaks for
+    /// — the sitting members and the entrant together, as the ceremony seals them.
+    ///
+    /// The first such record for a `compact_label` is that compact's *formation* and
+    /// is exempt from the §2 admission rules. Every later one is an admission into a
+    /// standing compact and must carry an admitting quorum of sitting, non-probationary
+    /// members plus an examining panel of seated examiners spanning at least two
+    /// communities — see `check_authority`.
+    ///
+    /// This authors the record directly, as `record_non_admission` does, rather than
+    /// driving the full claim/acceptance ceremony (`two_community_credentialing`).
+    #[pyo3(signature = (signer_privs, signer_dids, participants, compact_label, witnessed_at=None))]
+    fn append_admission(
+        &mut self,
+        signer_privs: Vec<Vec<u8>>,
+        signer_dids: Vec<String>,
+        participants: Vec<String>,
+        compact_label: String,
+        witnessed_at: Option<i64>,
+    ) -> PyResult<String> {
+        if signer_privs.len() != signer_dids.len() {
+            return Err(PyValueError::new_err(
+                "signer_privs and signer_dids must be the same length",
+            ));
+        }
+        if signer_privs.is_empty() {
+            return Err(PyValueError::new_err("at least one signer is required"));
+        }
+        let witnessed = parse_as_of(witnessed_at)?.unwrap_or_else(time::now);
+        let parts: Vec<DidKey> =
+            participants.iter().map(|p| parse_did(p)).collect::<PyResult<_>>()?;
+        let rec = InterCommunityWitnessRecord {
+            compact_label,
+            participants: parts,
+            sequenced_rites: vec![],
+            claims: vec![],
+            acceptances: vec![],
+            examination_exchanges: vec![],
+            witnessed_at: witnessed,
+        };
+        let sks: Vec<PrivKey> = signer_privs.iter().map(|b| priv_from_bytes(b)).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            signer_dids.iter().map(|s| s.as_str()).zip(sks.iter()).collect();
+        let signed = Signed::build(rec, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::InterCommunityWitness(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
     /// signer identities must already be published. Returns the entry CID.
     #[pyo3(signature = (signer_privs, signer_dids, participants, rejections, compact_label=String::new(), decided_at=None))]
     #[allow(clippy::too_many_arguments)]
@@ -3483,6 +3677,42 @@ impl From<&rep::CompositionGraph> for PyCompositionGraph {
     }
 }
 
+#[pyclass(name = "DeliberativeCapacity", get_all)]
+#[derive(Clone)]
+struct PyDeliberativeCapacity {
+    compact_label: String,
+    /// The derived roll, in DID order.
+    members: Vec<String>,
+    /// Those inside a probation window, carrying no second-class weight (§2).
+    probationary: Vec<String>,
+    /// Members that do carry weight.
+    standing: usize,
+    /// Standing over roll, or `None` for an empty roll (not evaluated).
+    standing_share: Option<f64>,
+    quorum_threshold: usize,
+    /// Whether an ordinary second-class decision is available at all.
+    can_act: bool,
+    /// Whether one is available at the asymmetric contraction bar.
+    can_contract: bool,
+    as_of: i64,
+}
+
+impl From<&rep::DeliberativeCapacity> for PyDeliberativeCapacity {
+    fn from(c: &rep::DeliberativeCapacity) -> Self {
+        Self {
+            compact_label: c.compact_label.clone(),
+            members: c.members.iter().map(|d| d.to_string()).collect(),
+            probationary: c.probationary.iter().map(|d| d.to_string()).collect(),
+            standing: c.standing(),
+            standing_share: c.standing_share(),
+            quorum_threshold: c.quorum_threshold,
+            can_act: c.can_act(),
+            can_contract: c.can_contract(),
+            as_of: c.as_of.as_second(),
+        }
+    }
+}
+
 #[pyclass(name = "FreeRiderReport", get_all)]
 #[derive(Clone)]
 struct PyFreeRiderReport {
@@ -3573,6 +3803,9 @@ struct PyObserverDashboard {
     substrate: PySubstrateDeferenceReport,
     /// The graded erosion alert derived from `substrate` (the crossed-threshold signal).
     erosion: PyErosionAlert,
+    /// (community_did, insider_set_size), **ascending** — the thinnest anonymous
+    /// channels first. 1 means no channel at all; 2 is a channel in name only.
+    anonymity_set_by_community: Vec<(String, usize)>,
 }
 
 impl From<&rep::ObserverDashboard> for PyObserverDashboard {
@@ -3586,6 +3819,7 @@ impl From<&rep::ObserverDashboard> for PyObserverDashboard {
             pool: PyObserverPoolConcentration::from(&d.pool),
             substrate: PySubstrateDeferenceReport::from(&d.substrate),
             erosion: PyErosionAlert::from(&d.erosion),
+            anonymity_set_by_community: d.anonymity_set_by_community.clone(),
         }
     }
 }
@@ -4091,6 +4325,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySponseeOutcome>()?;
     m.add_class::<PySponsorStakeReport>()?;
     m.add_class::<PyCompositionGraph>()?;
+    m.add_class::<PyDeliberativeCapacity>()?;
     m.add_class::<PyFeatureConcernProfile>()?;
     m.add_class::<PyRejectionPattern>()?;
     m.add_class::<PyCeremonyCostDecay>()?;

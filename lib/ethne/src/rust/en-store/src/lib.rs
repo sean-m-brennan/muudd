@@ -38,12 +38,40 @@
 //!
 //! The store holds the cursor, so a host cannot hold a stale one.
 //!
+//! # Being the only writer (design **D30**)
+//!
+//! D20 left exclusion to the host, and measuring that decision is what overturned it.
+//! Two writers on one store do not "fail loudly": the worst case is **silent**. A
+//! second writer holding a stale cursor compacts, rewrites, and discards the first
+//! writer's already-fsynced entries — every layer returning `Ok`, the reloaded log
+//! well-formed, `verify_all` and `check_authority` both green, and the loser's cursor
+//! still reading *current* so it never re-writes them. That is the D20 failure above,
+//! reappearing across **writers** rather than across **cursors**.
+//!
+//! So the same argument that put the cursor here puts exclusion here too: the store
+//! owns the cursor *because* a caller keeping one caused the bug, and "am I the only
+//! writer of this file" is the same class of belief about shared storage. It is not an
+//! operational concern a careful host can discharge — `SqliteStore` had SQLite's own
+//! file locking underneath it and lost the entries identically.
+//!
+//! Two mechanisms, because neither reaches the other's case:
+//!
+//! - **A compare-and-swap.** Immediately before writing, the store reads where storage
+//!   actually ends and refuses if that is not where it left it ([`check_not_forked`]).
+//!   This catches a stale belief even when the two writers never overlap in time —
+//!   which no lock can, since there is nothing to contend for.
+//! - **An exclusive lock**, held while a write happens and optionally for the store's
+//!   whole life ([`FileStore::claim`]). This closes the case a CAS cannot reach: two
+//!   *fresh* stores, neither of which has a belief to check.
+//!
 //! # What is still the host's
 //!
 //! The **clock and the loop**. Nothing here calls `now()`, in keeping with the rest
 //! of the tier's libraries; `en-host` decides *when* and the binary that drives it
 //! supplies the time. Also the host's: where the file lives, key custody, and
-//! process supervision.
+//! process supervision — and, D30 having moved exclusion in here, the **policy** on a
+//! refusal: whether to retry, back off, or exit is the host's call, exactly as *when*
+//! to save is.
 //!
 //! # Backends
 //!
@@ -65,6 +93,8 @@ use serde::de::DeserializeOwned;
 
 mod file;
 pub use file::FileStore;
+
+pub(crate) mod lock;
 
 #[cfg(test)]
 mod tests;
@@ -118,7 +148,31 @@ pub trait ArchiveStore<E: Entry + DeserializeOwned> {
     /// and rewrites in full when it is not — because a changed generation means
     /// entries were removed, and appending past that point would keep what the
     /// compaction dropped while losing what it recorded.
+    ///
+    /// **Refuses when storage is not where this store left it** (D30): another writer
+    /// has been here, and both branches would then be wrong — appending forks the log,
+    /// rewriting discards entries that are already durable. See
+    /// [`reconcile`](ArchiveStore::reconcile) for a log already forked.
     fn save(&mut self, archive: &Archive<E>) -> KcResult<SaveOutcome>;
+
+    /// Repair a log that two writers forked, and report what the repair did.
+    ///
+    /// Storage can hold a segment sequence that will not fold back together: two
+    /// writers each appended their own continuation of the same log, so the second
+    /// segment claims a position the first already took. Loading such a log fails —
+    /// correctly, since folding them anyway would produce an archive that never
+    /// existed — and `recover` cannot help, because the file is not *torn*, it is
+    /// *forked*: every line is complete. Before D30 that left a polity's archive
+    /// permanently unloadable, which is the worst state in the tier, the log being the
+    /// evidence.
+    ///
+    /// This lifts the orphaned entries out and re-appends them at the end of the
+    /// surviving log, then rewrites storage as a single base segment. **Nothing is
+    /// forgotten and no CID changes** — see [`reconcile_segments`] for why, and for the
+    /// one judgment call it makes.
+    ///
+    /// Safe on a healthy log: it reports `segments_orphaned: 0` and moves nothing.
+    fn reconcile(&mut self) -> KcResult<Reconciled>;
 }
 
 /// Rebuild an archive from stored segments: the first is the base, the rest are
@@ -176,6 +230,141 @@ pub(crate) enum SavePlan {
     Nothing,
     Append(Cursor),
     Rewrite,
+}
+
+/// Refuse a write when storage is not where this store last left it — the
+/// compare-and-swap half of D30.
+///
+/// [`plan_save`] decides from `stored`, which is a *belief* about shared storage. This
+/// checks the belief against storage itself, immediately before writing, and both
+/// backends call it for the same reason they share `plan_save`: two backends with two
+/// ideas of when a write is safe is the defect this crate exists to prevent.
+///
+/// What each refusal prevents, measured (D30):
+///
+/// - **A stale cursor** meant a second writer's compaction rewrite silently discarded
+///   the first writer's fsynced entries. Every layer reported success, the reloaded
+///   log was well-formed, and the loser's cursor still read *current*, so it never
+///   re-wrote them. That is D20's own failure — a compaction losing signed records
+///   quietly — reappearing across writers instead of across cursors.
+/// - **Never having looked** meant two fresh stores could each rewrite the same path,
+///   after which the outcome each `save` returned described a log that was not in
+///   storage. A store may not overwrite a log it has never read; the rule stands on
+///   its own terms, not as a patch.
+pub(crate) fn check_not_forked(stored: Option<Cursor>, on_disk: Option<Cursor>) -> KcResult<()> {
+    // Absent storage and an empty log in generation 0 are the same fact, and must
+    // compare equal: `load` on a path that does not exist yet legitimately reports
+    // having seen a zero-entry log, and a first run needs no special case anywhere in
+    // this crate. Not normalizing here refused the reference host its founding save.
+    const EMPTY: Cursor = Cursor { generation: 0, index: 0 };
+    let disk = on_disk.unwrap_or(EMPTY);
+
+    match stored {
+        // Never looked, and nothing to miss.
+        None if disk == EMPTY => Ok(()),
+        None => Err(KcError::Archive(format!(
+            "store: refusing to write a log this store has never read — storage \
+             already holds {} entries at generation {}, and a rewrite would discard \
+             them. Call load() first",
+            disk.index, disk.generation
+        ))),
+        Some(c) if c == disk => Ok(()),
+        // A distinct diagnosis: not another writer's log, but no log at all where this
+        // store left one.
+        Some(c) if on_disk.is_none() => Err(KcError::Archive(format!(
+            "store: storage was emptied underneath this store — it last wrote \
+             generation {} index {}, and storage now holds nothing. Something else is \
+             writing here; call load() before saving again",
+            c.generation, c.index
+        ))),
+        Some(c) => Err(KcError::Archive(format!(
+            "store: another writer has been here — this store last wrote generation \
+             {} index {}, but storage is at generation {} index {}. Refusing to \
+             write: appending would fork the log and rewriting would discard entries \
+             that are already durable. Call load() to pick up what is there, or \
+             reconcile() if the log is already forked",
+            c.generation, c.index, disk.generation, disk.index
+        ))),
+    }
+}
+
+/// What a [`reconcile`](ArchiveStore::reconcile) actually did.
+///
+/// Every field is here so the repair is *reported* rather than merely performed: this
+/// is the log's own account of the one operation in the crate that changes the order
+/// of entries already written.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Reconciled {
+    /// Trailing segments that would not apply where they claimed to.
+    pub segments_orphaned: usize,
+    /// Entries lifted out of those segments and re-appended at the end of the log.
+    pub entries_moved: usize,
+    /// Entries in those segments that the log already held, by CID, and so were
+    /// already safe. A reconcile of an unforked log moves nothing and reports zero.
+    pub entries_already_present: usize,
+    /// The CIDs that moved, in the order they were re-appended.
+    pub cids_moved: Vec<String>,
+    /// Bytes written by the rewrite that leaves storage as a single base segment.
+    pub bytes: usize,
+}
+
+impl Reconciled {
+    /// Whether the log was forked at all. A healthy store reports `false`.
+    pub fn was_forked(&self) -> bool {
+        self.segments_orphaned > 0
+    }
+}
+
+/// Fold stored segments into an archive, re-appending anything that will not apply
+/// where it claims to — the shared half of [`ArchiveStore::reconcile`].
+///
+/// Both backends use it, so a repaired log is the same log whichever backend held it.
+///
+/// **Nothing is forgotten.** An entry's CID is the hash of its content
+/// (`Entry::cid` = `Cid::of`, with no chaining), so an entry re-appended at a
+/// different index keeps the same address and every receipt naming it still resolves —
+/// which is what let D17 carry evidence rather than cite it. A duplicate is rejected
+/// by CID, so a segment replayed twice moves nothing.
+///
+/// **The judgment call, stated rather than buried:** when two writers appended
+/// concurrently, this decides the order between them, putting the orphaned writer's
+/// entries after the surviving log's. Neither order is more correct — the writes were
+/// concurrent — but a state folded in order can differ between them, so the repair
+/// reports exactly which CIDs it moved.
+pub(crate) fn reconcile_segments<E>(segments: Vec<String>) -> KcResult<(Archive<E>, Reconciled)>
+where
+    E: Entry + DeserializeOwned,
+{
+    let mut report = Reconciled::default();
+    let mut iter = segments.into_iter();
+    let Some(base) = iter.next() else {
+        return Ok((Archive::new(), report));
+    };
+    let mut archive: Archive<E> = Archive::load_json_from_str(&base)?;
+
+    // Once one segment has been orphaned, every later one is too: it was cut from a
+    // log whose end has moved, so its claimed position means nothing either.
+    let mut forked = false;
+    for segment in iter {
+        if !forked {
+            match archive.append_json(&segment) {
+                Ok(_) => continue,
+                Err(_) => forked = true,
+            }
+        }
+        report.segments_orphaned += 1;
+        for entry in en_archive::segment_entries::<E>(&segment)? {
+            match archive.append(entry) {
+                Ok(cid) => {
+                    report.entries_moved += 1;
+                    report.cids_moved.push(cid.to_string());
+                }
+                // Already present under the same address, so already safe.
+                Err(_) => report.entries_already_present += 1,
+            }
+        }
+    }
+    Ok((archive, report))
 }
 
 /// Map an I/O failure into the archive error the rest of the tier speaks.

@@ -19,6 +19,7 @@
 //! Shape mirrors kith-covenant's `kc-pyo3`: one `Archive` class carrying the
 //! authoring methods and the derived read-models, a handful of module-level
 //! functions for keys and for the substrate/monitor/uplift entry points, and
+
 //! `dump_json` for full inspection rather than one `#[pyclass]` per record.
 //!
 //! Conventions across the surface:
@@ -38,29 +39,36 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyType};
 
+use std::collections::BTreeMap;
+
 use en_archive::{Archive, Cursor};
 use en_charter::{
     affirmation_state, apply_prunings, authority_violations, charter_state, check_authority,
     decay_trends, envoy_state, guardian_state, observation_window, office_state,
     founding_dissent as founding_dissent_rs, founding_legitimacy as founding_legitimacy_rs, prunable_observations,
     independent_corroboration as independent_corroboration_rs,
+    independent_grounding as independent_grounding_rs,
+    independent_observation as independent_observation_rs,
+    observer_independence as observer_independence_rs,
     reader_independence as reader_independence_rs, substrate_disavowal as substrate_disavowal_rs,
     prune_recommendation as prune_recommendation_rs, pruning_digest,
     verify_all, Affirmation,
     AffirmationKind, AffirmationState, AmendmentKind, CharterDissolution, CharterEntry, Commitment,
     CommitmentAmendment, DecayTrends, Derivation, EnvoyAuthorization, EnvoyKind, EnvoyState,
-    FoundingProposal, GuardianChange, GuardianKind, GuardianState, MemberReading, MembershipChange,
+    FoundingProposal, GuardianChange, GuardianEvidence, GuardianKind, GuardianState,
+    MemberReading, MembershipChange,
     MembershipKind, Observation, ObservationPruning, ObservationWindow, Office, OfficeChange,
     OfficeKind, OfficeState, PolityCharter, PruneRecommendation, PruneRoute, RetentionPolicy,
-    Substrate,
+    Substrate, Movement, RiteMovement, rite_state, Rite,
 };
 use en_charter::{
     BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion, FoundingBasis,
     FoundingDissent, FoundingLegitimacy, GroundStanding, IndependenceKind,
-    IndependentCorroboration, ReaderIndependence, ReaderIndependenceAttestation,
+    AttestedRole, IndependenceAttestation, IndependentCorroboration, IndependentGrounding,
+    IndependentObservation, ReaderIndependence,
     SubstrateDisavowal, SubstrateGrounding, SubstrateReading,
 };
-use en_store::{ArchiveStore, FileStore, SaveOutcome};
+use en_store::{ArchiveStore, FileStore, Reconciled, SaveOutcome};
 use en_cohesion::{
     cohesion_report as cohesion_report_rs, CohesionInputs, CohesionReport, ErosionLevel, Thresholds,
 };
@@ -68,6 +76,54 @@ use en_core::{keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, Signed, Ti
 use en_substrate::{FoundingCandidate, ManualFounding, MemberCandidate, SubstrateProvider};
 use en_uplift::FusionPredecessor;
 use kc_core::CommunityIdentity;
+
+/// Resolve a caller's evidence arguments into the record's carried evidence (D15).
+///
+/// The Python surface takes a **citation** — the CID of an observation already in the
+/// charter — and this copies it into the record, so the caller gets the ergonomics of
+/// a reference while the record gets the durability of a copy. That matters because
+/// D17 lets a polity prune observations: a record holding a CID would be
+/// un-authorized by legitimate housekeeping, while a record holding the copy is not.
+///
+/// `unbacked_reason` is the declared override, for bootstrap and offline authoring.
+/// Exactly one of the two may be given.
+fn resolve_evidence(
+    archive: &Archive<CharterEntry>,
+    evidence_cid: Option<&str>,
+    unbacked_reason: Option<String>,
+) -> PyResult<Option<GuardianEvidence>> {
+    match (evidence_cid, unbacked_reason) {
+        (Some(_), Some(_)) => Err(PyValueError::new_err(
+            "pass either evidence_cid or unbacked_reason, not both",
+        )),
+        (None, None) => Ok(None),
+        (None, Some(reason)) => {
+            if reason.trim().is_empty() {
+                return Err(PyValueError::new_err(
+                    "unbacked_reason may not be empty: an unexplained override is what \
+                     the rule exists to prevent",
+                ));
+            }
+            Ok(Some(GuardianEvidence::Unbacked { reason }))
+        }
+        (Some(cid_str), None) => {
+            let cid = parse_cid(cid_str)?;
+            match archive.get(&cid) {
+                Some(CharterEntry::Observed(signed)) => {
+                    Ok(Some(GuardianEvidence::Observed(Box::new(signed.clone()))))
+                }
+                Some(other) => Err(PyValueError::new_err(format!(
+                    "evidence_cid {cid_str} is a {}, not an observation",
+                    en_archive::Entry::kind(other)
+                ))),
+                None => Err(PyValueError::new_err(format!(
+                    "evidence_cid {cid_str} is not in this charter"
+                ))),
+            }
+        }
+    }
+}
+
 
 fn en_err_to_py(e: KcError) -> PyErr {
     PyRuntimeError::new_err(format!("ethne: {e}"))
@@ -91,6 +147,10 @@ fn parse_did(did: &str) -> PyResult<DidKey> {
 
 fn parse_dids(dids: &[String]) -> PyResult<Vec<DidKey>> {
     dids.iter().map(|d| parse_did(d)).collect()
+}
+
+fn parse_cids(cids: &[String]) -> PyResult<Vec<Cid>> {
+    cids.iter().map(|c| parse_cid(c)).collect()
 }
 
 fn parse_cid(s: &str) -> PyResult<Cid> {
@@ -264,6 +324,20 @@ fn sign_reading(
     serde_json::to_string(&signed).map_err(json_err_to_py)
 }
 
+/// Sign arbitrary exported payload bytes with an ed25519 key (D15's detached path).
+///
+/// The counterpart to `pending_guardian_change`: whoever holds the key signs the bytes
+/// it exported and hands back the signature. Deliberately a free function rather than
+/// an `Archive` method — the signer is not the archive's host, and in the arrangement
+/// this exists for it is a different process on a different machine.
+#[pyfunction]
+fn sign_detached(signer_priv: &[u8], payload_bytes: &[u8]) -> PyResult<Vec<u8>> {
+    let sk = priv_from_bytes(signer_priv);
+    keys::sign(&sk, payload_bytes)
+        .map(|s| s.bytes)
+        .map_err(en_err_to_py)
+}
+
 fn commitments_from(pairs: Vec<(String, String)>) -> Vec<Commitment> {
     pairs
         .into_iter()
@@ -294,7 +368,7 @@ fn propose_charter(
     member_dids: Vec<String>,
     substrate_anchor: Option<String>,
     commitments: Vec<(String, String)>,
-    derivations: Vec<(String, Option<String>)>,
+    derivations: Vec<PyDerivation>,
     exclusions: Vec<(String, String)>,
     proposed_at: Option<i64>,
 ) -> PyResult<String> {
@@ -331,19 +405,105 @@ fn propose_charter(
     serde_json::to_string(&proposal).map_err(json_err_to_py)
 }
 
-/// Parse `(member_did, guardian_did | None)` pairs into founding derivations —
-/// which members are derived (machine) parties and the human each answers to. A
-/// `None` guardian is a machine chartered with nobody behind it.
-fn derivations_from(pairs: Vec<(String, Option<String>)>) -> PyResult<Vec<Derivation>> {
+/// One founding derivation as a caller writes it: either the bare pair, or the
+/// pair plus the evidence for its edge (**D27**).
+///
+/// Untagged, tried in order, so `(member, None)` keeps working for the case that
+/// needs no evidence — a machine chartered with nobody behind it, which claims
+/// nothing. A caller naming a guardian passes the 4-tuple.
+#[derive(FromPyObject)]
+enum PyDerivation {
+    /// `(member_did, guardian_did | None)`
+    Bare(String, Option<String>),
+    /// `(member_did, guardian_did | None, observation_json | None, unbacked_reason | None)`
+    Evidenced(String, Option<String>, Option<String>, Option<String>),
+}
+
+/// Parse caller-written derivations into founding records — which members are
+/// derived (machine) parties, the human each answers to, and what showed it
+/// (**D27**).
+///
+/// Evidence is passed here rather than resolved by CID as the post-founding path
+/// does, because at founding there is no archive yet to hold the observation: sign
+/// it with `sign_observation` and hand in the JSON, exactly as D22's boundary
+/// readings work. Pass `unbacked_reason` instead to declare that nothing backed the
+/// edge — honest, permitted, and (unlike post-founding) not enough to count as
+/// guarding, so a wholly machine roll must still name an anchor.
+///
+/// A guardian named with neither argument builds fine and is refused by
+/// `check_authority`, deliberately: the rule lives in one place, and a Python
+/// negative control has to be able to reach it.
+fn derivations_from(pairs: Vec<PyDerivation>) -> PyResult<Vec<Derivation>> {
     pairs
         .into_iter()
-        .map(|(m, g)| {
-            Ok(Derivation {
-                member: parse_did(&m)?,
-                guardian: g.as_deref().map(parse_did).transpose()?,
-            })
+        .map(|d| {
+            let (m, g, ob_json, reason) = match d {
+                PyDerivation::Bare(m, g) => (m, g, None, None),
+                PyDerivation::Evidenced(m, g, ob, r) => (m, g, ob, r),
+            };
+            let guardian = g.as_deref().map(parse_did).transpose()?;
+            let evidence = match (ob_json.as_deref(), reason) {
+                (Some(_), Some(_)) => {
+                    return Err(PyValueError::new_err(
+                        "pass either an observation or an unbacked_reason for a founding \
+                         derivation, not both",
+                    ))
+                }
+                (Some(json), None) => {
+                    let ob: Signed<Observation> =
+                        serde_json::from_str(json).map_err(json_err_to_py)?;
+                    Some(GuardianEvidence::Observed(Box::new(ob)))
+                }
+                (None, Some(reason)) => Some(GuardianEvidence::Unbacked { reason }),
+                (None, None) => None,
+            };
+            Ok(Derivation { member: parse_did(&m)?, guardian, evidence })
         })
         .collect()
+}
+
+/// Sign an observation of `polity_did` as `observer_did`, returning JSON — the
+/// pre-archive counterpart of `Archive.record_observation` (**D27**).
+///
+/// A founding derivation's evidence has to be signed before the charter that will
+/// carry it exists, so it cannot be resolved out of the archive by CID the way a
+/// later `guardian_change` resolves its own. `readings` are
+/// `(member_did, reputation, guardian_did | None, attested_at | None)` tuples, as
+/// there. Pass the result to `propose_charter(derivations=[...])`.
+#[pyfunction]
+#[pyo3(signature = (
+    polity_did, observer_did, observer_priv, readings,
+    opaque_boundary=false, observed_at=None,
+))]
+fn sign_observation(
+    polity_did: &str,
+    observer_did: &str,
+    observer_priv: &[u8],
+    readings: Vec<(String, f64, Option<String>, Option<i64>)>,
+    opaque_boundary: bool,
+    observed_at: Option<i64>,
+) -> PyResult<String> {
+    let signers = Signers::only(observer_did, observer_priv)?;
+    let readings = readings
+        .into_iter()
+        .map(|(member, reputation, guardian, attested_at)| {
+            Ok(MemberReading {
+                member: parse_did(&member)?,
+                reputation,
+                guardian: guardian.as_deref().map(parse_did).transpose()?,
+                attested_at: attested_at.map(ts).transpose()?,
+            })
+        })
+        .collect::<PyResult<Vec<_>>>()?;
+    let record = Observation {
+        polity: parse_did(polity_did)?,
+        observer: parse_did(observer_did)?,
+        observed_at: ts_or_now(observed_at)?,
+        readings,
+        opaque_boundary,
+    };
+    let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+    serde_json::to_string(&signed).map_err(json_err_to_py)
 }
 
 /// Generate an Ed25519 keypair, returning `(priv, pub, did)`.
@@ -513,6 +673,16 @@ fn manual_founding(
     Ok(PyFoundingCandidate { inner })
 }
 
+/// Parse an observation handed in as JSON — what `sign_observation` produced.
+///
+/// Backs the founding guardian edges it actually shows (**D27**); every other
+/// claimed edge is recorded as unbacked, saying so.
+fn observation_from(json: Option<String>) -> PyResult<Option<Signed<Observation>>> {
+    json.as_deref()
+        .map(|j| serde_json::from_str(j).map_err(json_err_to_py))
+        .transpose()
+}
+
 /// Offer a candidate back to its members as a founding proposal, trimming the
 /// roll to those at or above `min_reputation`. The substrate defaults to the one
 /// the candidate observed; pass a name and statement to override it (the provider
@@ -528,6 +698,7 @@ fn manual_founding(
     commitments=Vec::new(),
     min_reputation=0.0,
     readings=Vec::new(),
+    observation=None,
     proposed_at=None,
 ))]
 #[allow(clippy::too_many_arguments)]
@@ -540,6 +711,7 @@ fn propose_from_candidate(
     commitments: Vec<(String, String)>,
     min_reputation: f64,
     readings: Vec<String>,
+    observation: Option<String>,
     proposed_at: Option<i64>,
 ) -> PyResult<String> {
     let substrate = match substrate_from(substrate_name, substrate_statement, substrate_anchor)? {
@@ -556,6 +728,7 @@ fn propose_from_candidate(
         commitments_from(commitments),
         min_reputation,
         readings_from(readings)?,
+        observation_from(observation)?,
         ts_or_now(proposed_at)?,
     );
     serde_json::to_string(&proposal).map_err(json_err_to_py)
@@ -585,6 +758,7 @@ fn propose_from_candidate(
     substrate_anchor=None,
     commitments=Vec::new(),
     readings=Vec::new(),
+    observation=None,
     proposed_at=None,
 ))]
 #[allow(clippy::too_many_arguments)]
@@ -598,6 +772,7 @@ fn select_from_candidate(
     substrate_anchor: Option<String>,
     commitments: Vec<(String, String)>,
     readings: Vec<String>,
+    observation: Option<String>,
     proposed_at: Option<i64>,
 ) -> PyResult<String> {
     let substrate = match substrate_from(substrate_name, substrate_statement, substrate_anchor)? {
@@ -616,6 +791,7 @@ fn select_from_candidate(
         &keep,
         reason,
         readings_from(readings)?,
+        observation_from(observation)?,
         ts_or_now(proposed_at)?,
     );
     serde_json::to_string(&proposal).map_err(json_err_to_py)
@@ -764,6 +940,56 @@ impl PyCohesionReport {
         self.inner.sustained_absences
     }
 
+    /// **Who was watching, and who will say so** (design **D28**) —
+    /// `(distinct, vouched, contested)`, or `None` when no window was supplied.
+    ///
+    /// A **lens, never a gate**: the erosion level does not move on these numbers.
+    /// Gating an escalation on the monitor being vouched for would let a captured
+    /// polity vouch for nobody and become unwatchable. What it buys is that a reader
+    /// can tell a `Concern` raised by three independent monitors from one raised by
+    /// three keys — or, before D28, by one key filing three times.
+    #[getter]
+    fn watchers(&self) -> Option<(usize, usize, usize)> {
+        self.inner.watchers.map(|w| (w.distinct, w.vouched, w.contested))
+    }
+
+    /// How many rites this reading covers (**D29**); `0` when none was supplied.
+    #[getter]
+    fn rites(&self) -> usize {
+        self.inner.rites
+    }
+
+    /// Whether the polity's most recent completed rite ran shorter than its first —
+    /// the ceremony costing less than it used to. `None` with fewer than two completed
+    /// rites, which is not `False`. Capped at `Notice` like the other trends.
+    #[getter]
+    fn rite_span_shortening(&self) -> Option<bool> {
+        self.inner.rite_span_shortening
+    }
+
+    /// Rites begun and never completed. Reported, not graded: nothing says how long a
+    /// catechumenate may take.
+    #[getter]
+    fn rites_abandoned(&self) -> usize {
+        self.inner.rites_abandoned
+    }
+
+    /// Attendees lost between a rite's first movement and its last, over completed
+    /// rites — the polity that turned out for the naming of the substrate and had
+    /// drifted away by the submission of the polity itself.
+    #[getter]
+    fn rite_attrition(&self) -> usize {
+        self.inner.rite_attrition
+    }
+
+    /// Whether nobody on the roll holds the substrate. Reaches `Concern` alone: every
+    /// majority is of the members who hold it, so the polity can take no act of its own
+    /// while this is true.
+    #[getter]
+    fn nobody_holds_the_substrate(&self) -> bool {
+        self.inner.nobody_holds_the_substrate
+    }
+
     /// Whether the polity's chartered substrate anchor has withdrawn (design
     /// **D23**). `False` both when no ground reading was supplied and when the ground
     /// still stands — safe only because a polity with no anchor cannot be disavowed in
@@ -815,12 +1041,14 @@ impl PyCohesionReport {
     churn_notice=None,
     churn_concern=None,
     sustained_absence_seconds=None,
-    sustained_absence_readings=None,
+    sustained_absence_watchers=None,
     guardians=None,
     affirmations=None,
     trends=None,
     window=None,
     ground=None,
+    observers=None,
+    rites=None,
     as_of=None,
 ))]
 #[allow(clippy::too_many_arguments)]
@@ -847,12 +1075,14 @@ fn cohesion_report(
     churn_notice: Option<f64>,
     churn_concern: Option<f64>,
     sustained_absence_seconds: Option<i64>,
-    sustained_absence_readings: Option<usize>,
+    sustained_absence_watchers: Option<usize>,
     guardians: Option<&PyGuardianState>,
     affirmations: Option<&PyAffirmationState>,
     trends: Option<&PyDecayTrends>,
     window: Option<&PyObservationWindow>,
     ground: Option<&PyGroundStanding>,
+    observers: Option<&PyIndependentObservation>,
+    rites: Option<&PyRiteState>,
     as_of: Option<i64>,
 ) -> PyResult<PyCohesionReport> {
     let d = Thresholds::default();
@@ -881,8 +1111,8 @@ fn cohesion_report(
         churn_concern: churn_concern.unwrap_or(d.churn_concern),
         sustained_absence_seconds: sustained_absence_seconds
             .unwrap_or(d.sustained_absence_seconds),
-        sustained_absence_readings: sustained_absence_readings
-            .unwrap_or(d.sustained_absence_readings),
+        sustained_absence_watchers: sustained_absence_watchers
+            .unwrap_or(d.sustained_absence_watchers),
     };
     // No affirmation state supplied → an empty one, which the monitor reads as
     // "not evaluated" rather than "everyone is current".
@@ -894,6 +1124,8 @@ fn cohesion_report(
         trends: trends.map(|t| &t.inner),
         window: window.map(|w| &w.inner),
         ground: ground.map(|g| &g.inner),
+        observers: observers.map(|o| &o.inner),
+        rites: rites.map(|r| r.inner.as_slice()),
     };
     let inner = cohesion_report_rs(
         &parse_dids(&chartered_roll)?,
@@ -965,6 +1197,15 @@ fn coherence_concern(
 #[pyclass(name = "Archive")]
 struct PyArchive {
     inner: Archive<CharterEntry>,
+    /// Guardian changes built but not yet signed, keyed by the CID of the bytes the
+    /// signers are being asked to sign (D15's detached path).
+    ///
+    /// Process state, deliberately: it holds only what is *in flight*, and the
+    /// exchange is resumable without it — `pending_guardian_change` is a pure
+    /// function of its arguments, so re-running it with the same explicit
+    /// `decided_at` reproduces the same CID. Pass `decided_at` rather than letting it
+    /// default to now if the exchange may outlive the process.
+    pending: BTreeMap<String, GuardianChange>,
 }
 
 impl PyArchive {
@@ -1003,7 +1244,7 @@ fn to_json<T: serde::Serialize>(value: &T) -> PyResult<String> {
 impl PyArchive {
     #[new]
     fn new() -> Self {
-        Self { inner: Archive::new() }
+        Self { inner: Archive::new(), pending: BTreeMap::new() }
     }
 
     fn __len__(&self) -> usize {
@@ -1085,7 +1326,10 @@ impl PyArchive {
     /// emitted.
     #[classmethod]
     fn load_json(_cls: &Bound<'_, PyType>, s: &str) -> PyResult<Self> {
-        Ok(Self { inner: Archive::load_json_from_str(s).map_err(load_err_to_py)? })
+        Ok(Self {
+            inner: Archive::load_json_from_str(s).map_err(load_err_to_py)?,
+            pending: BTreeMap::new(),
+        })
     }
 
     /// Crypto-verify every signature in the log. Raises on the first failure.
@@ -1482,7 +1726,7 @@ impl PyArchive {
     fn apply_prunings(&self, polity_did: &str, as_of: Option<i64>) -> PyResult<Self> {
         let inner = apply_prunings(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?)
             .map_err(en_err_to_py)?;
-        Ok(Self { inner })
+        Ok(Self { inner, pending: BTreeMap::new() })
     }
 
     /// What pruning this observation log would take right now, or `None` when there
@@ -1501,12 +1745,12 @@ impl PyArchive {
     /// must have aged out before a pruning is worth its own permanent record; and the
     /// two safety floors the horizon may never cross, whatever retention asks for —
     /// `live_measure_seconds` for the *span* a live measure reads back over, and
-    /// `min_witness_readings` for the *witness count* it also needs. Both are
+    /// `min_witness_watchers` for the *witness count* it also needs. Both are
     /// required: a sustained absence is graded on two conditions, and a duration only
     /// protects one of them.
     #[pyo3(signature = (
         polity_did, retain_seconds=None, min_dropped=None, live_measure_seconds=None,
-        min_witness_readings=None, as_of=None,
+        min_witness_watchers=None, as_of=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn prune_recommendation(
@@ -1515,7 +1759,7 @@ impl PyArchive {
         retain_seconds: Option<i64>,
         min_dropped: Option<usize>,
         live_measure_seconds: Option<i64>,
-        min_witness_readings: Option<usize>,
+        min_witness_watchers: Option<usize>,
         as_of: Option<i64>,
     ) -> PyResult<Option<PyPruneRecommendation>> {
         let d = RetentionPolicy::default();
@@ -1523,7 +1767,7 @@ impl PyArchive {
             retain_seconds: retain_seconds.unwrap_or(d.retain_seconds),
             min_dropped: min_dropped.unwrap_or(d.min_dropped),
             live_measure_seconds: live_measure_seconds.unwrap_or(d.live_measure_seconds),
-            min_witness_readings: min_witness_readings.unwrap_or(d.min_witness_readings),
+            min_witness_watchers: min_witness_watchers.unwrap_or(d.min_witness_watchers),
         };
         Ok(prune_recommendation_rs(
             &self.inner,
@@ -1543,7 +1787,8 @@ impl PyArchive {
     /// machine-majority office rule refuses to give an office to.
     #[pyo3(signature = (
         polity_did, member_did, decider_dids, decider_privs,
-        guardian_did=None, guardian_priv=None, rationale=String::new(), decided_at=None,
+        guardian_did=None, guardian_priv=None, evidence_cid=None, unbacked_reason=None,
+        rationale=String::new(), decided_at=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn designate_derived(
@@ -1554,9 +1799,12 @@ impl PyArchive {
         decider_privs: Vec<Vec<u8>>,
         guardian_did: Option<&str>,
         guardian_priv: Option<&[u8]>,
+        evidence_cid: Option<&str>,
+        unbacked_reason: Option<String>,
         rationale: String,
         decided_at: Option<i64>,
     ) -> PyResult<String> {
+        let evidence = resolve_evidence(&self.inner, evidence_cid, unbacked_reason)?;
         let mut signers = Signers::new(decider_dids, decider_privs)?;
         let deciders = parse_dids(&signers.dids)?;
         let guardian = match (guardian_did, guardian_priv) {
@@ -1576,6 +1824,7 @@ impl PyArchive {
             kind: GuardianKind::Designate,
             member: parse_did(member_did)?,
             guardian,
+            evidence,
             rationale,
             deciders,
             decided_at: ts_or_now(decided_at)?,
@@ -1589,7 +1838,7 @@ impl PyArchive {
     /// **incoming** guardian's consent; the outgoing one is released, never held.
     #[pyo3(signature = (
         polity_did, member_did, guardian_did, guardian_priv, decider_dids, decider_privs,
-        rationale=String::new(), decided_at=None,
+        evidence_cid=None, unbacked_reason=None, rationale=String::new(), decided_at=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn rotate_guardian(
@@ -1600,9 +1849,12 @@ impl PyArchive {
         guardian_priv: &[u8],
         decider_dids: Vec<String>,
         decider_privs: Vec<Vec<u8>>,
+        evidence_cid: Option<&str>,
+        unbacked_reason: Option<String>,
         rationale: String,
         decided_at: Option<i64>,
     ) -> PyResult<String> {
+        let evidence = resolve_evidence(&self.inner, evidence_cid, unbacked_reason)?;
         let mut signers = Signers::new(decider_dids, decider_privs)?;
         let deciders = parse_dids(&signers.dids)?;
         signers.consent(guardian_did, guardian_priv)?;
@@ -1611,12 +1863,101 @@ impl PyArchive {
             kind: GuardianKind::Rotate,
             member: parse_did(member_did)?,
             guardian: Some(parse_did(guardian_did)?),
+            evidence,
             rationale,
             deciders,
             decided_at: ts_or_now(decided_at)?,
         };
         let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
         self.append(CharterEntry::GuardianChanged(signed))
+    }
+
+    /// **Phase 1 of detached signing (D15):** build a guardian change without signing
+    /// it, and return what the signers need — `(cid, payload_bytes, description)`.
+    ///
+    /// Use this when the guardian's key is not on this host, which is the arrangement
+    /// AT's keystore location assumes: one key per operator, living with the operator.
+    /// The bytes travel to the guardian, they sign in their own process, and
+    /// [`append_guardian_change_signed`] puts the signatures back on. The private key
+    /// never enters this process.
+    ///
+    /// **Show the description to whoever is signing.** Asking a human to sign opaque
+    /// bytes teaches them to sign anything.
+    ///
+    /// Pass an explicit `decided_at` if the exchange may outlive this process: the
+    /// pending record is held in memory, and re-running this call reproduces the same
+    /// CID only if every argument (including the timestamp) is the same.
+    #[pyo3(signature = (
+        polity_did, member_did, kind, decider_dids, guardian_did=None,
+        evidence_cid=None, unbacked_reason=None, rationale=String::new(), decided_at=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn pending_guardian_change(
+        &mut self,
+        polity_did: &str,
+        member_did: &str,
+        kind: &str,
+        decider_dids: Vec<String>,
+        guardian_did: Option<&str>,
+        evidence_cid: Option<&str>,
+        unbacked_reason: Option<String>,
+        rationale: String,
+        decided_at: Option<i64>,
+    ) -> PyResult<(String, Vec<u8>, String)> {
+        let kind = match kind {
+            "Designate" => GuardianKind::Designate,
+            "Rotate" => GuardianKind::Rotate,
+            "Release" => GuardianKind::Release,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown guardian change kind {other:?}; expected Designate, Rotate or Release"
+                )))
+            }
+        };
+        let evidence = resolve_evidence(&self.inner, evidence_cid, unbacked_reason)?;
+        let record = GuardianChange {
+            polity: parse_did(polity_did)?,
+            kind,
+            member: parse_did(member_did)?,
+            guardian: guardian_did.map(parse_did).transpose()?,
+            evidence,
+            rationale,
+            deciders: parse_dids(&decider_dids)?,
+            decided_at: ts_or_now(decided_at)?,
+        };
+        let description = en_charter::describe_guardian_change(&record);
+        let p = en_charter::pending(record, description).map_err(en_err_to_py)?;
+        let cid = p.cid.to_string();
+        self.pending.insert(cid.clone(), p.payload);
+        Ok((cid, p.bytes, p.description))
+    }
+
+    /// **Phase 2 of detached signing (D15):** attach the collected signatures to a
+    /// pending guardian change and append it.
+    ///
+    /// `signatures` is a list of `(signer_did, signature_bytes)`. Every signature is
+    /// verified against the pending payload *before* the record is appended, so a
+    /// wrong key, a stale exchange or a corrupted signature fails here with a reason
+    /// rather than surfacing later as an unauthorized record.
+    fn append_guardian_change_signed(
+        &mut self,
+        cid: &str,
+        signatures: Vec<(String, Vec<u8>)>,
+    ) -> PyResult<String> {
+        // Cloned rather than removed: a failed assembly is usually a signature the
+        // caller will fix and retry, and dropping the pending record would make them
+        // rebuild it — risking a different `decided_at` and so a different CID.
+        let record = self.pending.get(cid).cloned().ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "no pending guardian change {cid} in this process; call \
+                 pending_guardian_change first (and pass an explicit decided_at if the \
+                 exchange spans a restart)"
+            ))
+        })?;
+        let signed = en_charter::assemble(record, &signatures).map_err(en_err_to_py)?;
+        let appended = self.append(CharterEntry::GuardianChanged(signed))?;
+        self.pending.remove(cid);
+        Ok(appended)
     }
 
     /// Record that a member's guardian edge is gone: the machine now answers to
@@ -1659,6 +2000,9 @@ impl PyArchive {
             kind: GuardianKind::Release,
             member: parse_did(member_did)?,
             guardian: None,
+            // A release claims the edge is *gone*; carrying evidence of one would
+            // argue the opposite, so the rule forbids it and this never sets it.
+            evidence: None,
             rationale,
             deciders,
             decided_at: ts_or_now(decided_at)?,
@@ -1772,14 +2116,83 @@ impl PyArchive {
         self.append(CharterEntry::EnvoyAuthorized(signed))
     }
 
-    // ---- Transmission: induction and re-affirmation -----------------------
+    // ---- Transmission: the rite, then induction and re-affirmation ---------
 
-    /// Induct a member into the substrate — the step admission does *not* perform.
-    /// A majority of the roll witnesses (the community receives them) and the
-    /// inductee co-signs (they participate). Founding members need no induction:
-    /// ratifying the charter was theirs.
+    /// Recite one movement of a member's induction rite (**D29**).
+    ///
+    /// `movement` is one of `"Substrate"`, `"Fallenness"`, `"Recognition"`,
+    /// `"CommonVirtue"`, `"NonUltimacy"`; order is semantic, so a rite opens with
+    /// `Substrate` and each later movement must follow its predecessor. `statement` is
+    /// the polity's own words and is required but never read. What *is* checked is
+    /// coherence with the charter: `names` must be the chartered substrate's name,
+    /// `commits_to` the commitments in force, `names_anchor` the chartered anchor.
+    /// Everyone attending co-signs alongside the inductee, and attendees must already
+    /// hold the substrate. Returns the movement's CID, which the induction cites.
     #[pyo3(signature = (
-        polity_did, member_did, member_priv, witness_dids, witness_privs, affirmed_at=None,
+        polity_did, member_did, member_priv, movement, statement, attending_dids,
+        attending_privs, names=None, commits_to=Vec::new(), names_anchor=None,
+        recited_at=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn recite_movement(
+        &mut self,
+        polity_did: &str,
+        member_did: &str,
+        member_priv: &[u8],
+        movement: &str,
+        statement: String,
+        attending_dids: Vec<String>,
+        attending_privs: Vec<Vec<u8>>,
+        names: Option<String>,
+        commits_to: Vec<String>,
+        names_anchor: Option<String>,
+        recited_at: Option<i64>,
+    ) -> PyResult<String> {
+        let mut signers = Signers::new(attending_dids, attending_privs)?;
+        let attending = parse_dids(&signers.dids)?;
+        signers.consent(member_did, member_priv)?;
+        let movement = match movement {
+            "Substrate" => Movement::Substrate {
+                names: names.ok_or_else(|| {
+                    PyValueError::new_err("the Substrate movement must name the substrate")
+                })?,
+            },
+            "Fallenness" => Movement::Fallenness,
+            "Recognition" => Movement::Recognition,
+            "CommonVirtue" => Movement::CommonVirtue { commits_to },
+            "NonUltimacy" => Movement::NonUltimacy {
+                names_anchor: names_anchor.as_deref().map(parse_did).transpose()?,
+            },
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown movement '{other}': expected Substrate, Fallenness, Recognition, \
+                     CommonVirtue or NonUltimacy"
+                )))
+            }
+        };
+        let record = RiteMovement {
+            polity: parse_did(polity_did)?,
+            member: parse_did(member_did)?,
+            movement,
+            statement,
+            attending,
+            recited_at: ts_or_now(recited_at)?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::RiteMovementRecorded(signed))
+    }
+
+    /// Complete a member's induction into the substrate — the step admission does
+    /// *not* perform.
+    ///
+    /// Since **D29** an induction completes a *rite*: `movement_cids` must be the five
+    /// [`Self::recite_movement`] records in order, the witnesses must be members who
+    /// attended every one of them, and they must number a majority of the members who
+    /// already hold the substrate. The charter's ratifiers need no induction —
+    /// ratifying was theirs.
+    #[pyo3(signature = (
+        polity_did, member_did, member_priv, witness_dids, witness_privs, movement_cids,
+        affirmed_at=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn induct_member(
@@ -1789,6 +2202,7 @@ impl PyArchive {
         member_priv: &[u8],
         witness_dids: Vec<String>,
         witness_privs: Vec<Vec<u8>>,
+        movement_cids: Vec<String>,
         affirmed_at: Option<i64>,
     ) -> PyResult<String> {
         let mut signers = Signers::new(witness_dids, witness_privs)?;
@@ -1799,6 +2213,7 @@ impl PyArchive {
             member: parse_did(member_did)?,
             kind: AffirmationKind::Induction,
             witnesses,
+            movements: parse_cids(&movement_cids)?,
             affirmed_at: ts_or_now(affirmed_at)?,
         };
         let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
@@ -1821,6 +2236,7 @@ impl PyArchive {
             member: parse_did(member_did)?,
             kind: AffirmationKind::ReAffirmation,
             witnesses: vec![],
+            movements: vec![],
             affirmed_at: ts_or_now(affirmed_at)?,
         };
         let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
@@ -2076,6 +2492,90 @@ impl PyArchive {
         basis: &str,
         attested_at: Option<i64>,
     ) -> PyResult<String> {
+        self.attest_independence(
+            polity_did,
+            reader_did,
+            attester_did,
+            attester_priv,
+            "BoundaryReader",
+            kind,
+            basis,
+            attested_at,
+        )
+    }
+
+    /// Who has vouched for `polity_did`'s **monitors**, as of `as_of` (**D28**).
+    ///
+    /// The observer counterpart of `reader_independence`, same three buckets and the
+    /// same stake rule. Read it beside `ObservationWindow.watchers_for`, which counts
+    /// watchers without asking who they are.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn observer_independence(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyReaderIndependence> {
+        let r = observer_independence_rs(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyReaderIndependence { inner: r })
+    }
+
+    /// Which of the monitors that have observed `polity_did` are independently
+    /// vouched for, as of `as_of` (design **D28**).
+    ///
+    /// A polity watched by five monitors that are five faces of one actor reads five
+    /// distinct watchers and `0` here. Nothing refuses an unvouched monitor — a
+    /// polity that simply declines to vouch for anybody must not become unwatchable.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn independent_observation(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyIndependentObservation> {
+        let o = independent_observation_rs(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyIndependentObservation { inner: o })
+    }
+
+    /// Of the founding edges that earned `Guarded`, which rest on a monitor somebody
+    /// outside has vouched for (design **D28**).
+    ///
+    /// D27 required the founding observer to be outside the polity and deliberately
+    /// did not ask *who* — requiring a vouched-for monitor at founding would refuse
+    /// newness. This reports the residue rather than changing the grade, and it is a
+    /// separate accruing model so `founding_legitimacy` keeps its charter-alone
+    /// property.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn independent_grounding(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<PyIndependentGrounding> {
+        let g = independent_grounding_rs(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyIndependentGrounding { inner: g })
+    }
+
+    /// File a third party's account of whether `subject_did` — a party behind
+    /// `polity_did` in the named `role` — is an independent principal (**D24**,
+    /// generalized to observers by **D28**).
+    ///
+    /// `role` is `"BoundaryReader"` or `"Observer"`; `kind` is `"Independent"`
+    /// (vouching) or `"Controlled"` (the counter-claim). The attester signs alone, and
+    /// the subject must actually appear in the record in that role — among the
+    /// founding's readings for a reader, among the observations filed so far for a
+    /// monitor. A monitor must therefore have **spoken before it can be vouched for**:
+    /// pre-registering a witness is the sockpuppet move with a longer setup.
+    #[pyo3(signature = (polity_did, subject_did, attester_did, attester_priv, role="BoundaryReader", kind="Independent", basis="", attested_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn attest_independence(
+        &mut self,
+        polity_did: &str,
+        subject_did: &str,
+        attester_did: &str,
+        attester_priv: &[u8],
+        role: &str,
+        kind: &str,
+        basis: &str,
+        attested_at: Option<i64>,
+    ) -> PyResult<String> {
         let signers = Signers::only(attester_did, attester_priv)?;
         let kind = match kind {
             "Independent" => IndependenceKind::Independent,
@@ -2086,16 +2586,26 @@ impl PyArchive {
                 )))
             }
         };
-        let record = ReaderIndependenceAttestation {
+        let role = match role {
+            "BoundaryReader" => AttestedRole::BoundaryReader,
+            "Observer" => AttestedRole::Observer,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown attested role {other:?} (expected BoundaryReader or Observer)"
+                )))
+            }
+        };
+        let record = IndependenceAttestation {
             polity: parse_did(polity_did)?,
-            reader: parse_did(reader_did)?,
+            subject: parse_did(subject_did)?,
+            role,
             attesting_party: parse_did(attester_did)?,
             kind,
             basis: basis.to_string(),
             attested_at: ts_or_now(attested_at)?,
         };
         let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
-        self.append(CharterEntry::ReaderIndependenceAttested(signed))
+        self.append(CharterEntry::IndependenceAttested(signed))
     }
 
     /// The polity's decay trends as of `as_of` — the affirmation series and its
@@ -2133,6 +2643,14 @@ impl PyArchive {
     fn guardian_state(&self, polity_did: &str, as_of: Option<i64>) -> PyResult<PyGuardianState> {
         let st = guardian_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
         Ok(PyGuardianState { inner: st })
+    }
+
+    /// The polity's rites as of `as_of` — the movements recited, each rite's span, who
+    /// attended throughout, and which rites were begun and never finished (**D29**).
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn rite_state(&self, polity_did: &str, as_of: Option<i64>) -> PyResult<PyRiteState> {
+        let st = rite_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(PyRiteState { inner: st })
     }
 
     /// Who may speak for the polity as of `as_of` — standings intersected with the
@@ -2177,6 +2695,44 @@ impl PyArchive {
             &priv_from_bytes(root_priv),
             pub_from_bytes(root_pub),
             ts_or_now(created_at)?,
+        )
+        .map_err(en_err_to_py)?;
+        serde_json::to_string(&signed).map_err(json_err_to_py)
+    }
+
+    /// Emit KC's `MemberRoll` (JSON) for this polity — the border artifact that gives
+    /// it a real anonymous whistleblower channel. The roll is read from this log as of
+    /// `as_of` (the founding roll plus admissions minus departures), so it names
+    /// exactly who is a member then; each member's verifying key comes from its own
+    /// `did:key`.
+    ///
+    /// KC **unions** rolls rather than superseding them, so publishing a later,
+    /// shorter roll removes nobody from its insider ring: a member who has left keeps
+    /// the channel they had. Republish whenever the roll grows.
+    #[pyo3(signature = (polity_did, root_priv, root_pub, as_of=None, published_at=None))]
+    fn member_roll(
+        &self,
+        polity_did: &str,
+        root_priv: &[u8],
+        root_pub: &[u8],
+        as_of: Option<i64>,
+        published_at: Option<i64>,
+    ) -> PyResult<String> {
+        let polity = parse_did(polity_did)?;
+        let charter = self.charter_of(&polity)?;
+        let as_of = ts_or_now(as_of)?;
+        let state = charter_state(&self.inner, &polity, as_of);
+        let published_at = match published_at {
+            Some(p) => ts(p)?,
+            None => as_of,
+        };
+        let signed = en_uplift::member_roll(
+            &charter,
+            &state.members,
+            &priv_from_bytes(root_priv),
+            pub_from_bytes(root_pub),
+            as_of,
+            published_at,
         )
         .map_err(en_err_to_py)?;
         serde_json::to_string(&signed).map_err(json_err_to_py)
@@ -2509,9 +3065,30 @@ impl PyObservationWindow {
         self.inner.reading_count()
     }
 
-    /// How many of them actually saw `did` — the per-member evidence of watching.
+    /// How many **filings** in the window saw `did`. An honest count of records, and
+    /// deliberately not what any grade reads — see `watchers_for`.
     fn readings_for(&self, did: &str) -> PyResult<usize> {
         Ok(self.inner.readings_for(&parse_did(did)?))
+    }
+
+    /// How many **distinct observers** saw `did` — the per-member evidence of
+    /// watching, and what the sustained-absence grade is held to (**D28**).
+    ///
+    /// Three filings by one key are one watcher. Before D28 the grade read
+    /// `readings_for`, so a stranger with one keypair could manufacture the `Concern`
+    /// that crosses to kith-covenant.
+    fn watchers_for(&self, did: &str) -> PyResult<usize> {
+        Ok(self.inner.watchers_for(&parse_did(did)?))
+    }
+
+    /// The distinct observers that saw `did`.
+    fn watchers_of(&self, did: &str) -> PyResult<Vec<String>> {
+        Ok(self
+            .inner
+            .watchers_of(&parse_did(did)?)
+            .into_iter()
+            .map(str::to_string)
+            .collect())
     }
 
     /// Seconds from the first observation to the last; `None` with fewer than two.
@@ -2551,6 +3128,45 @@ impl PyObservationWindow {
 #[pyclass(name = "GuardianState")]
 struct PyGuardianState {
     inner: GuardianState,
+}
+
+#[pyclass(name = "RiteState")]
+#[derive(Clone)]
+struct PyRiteState {
+    inner: Vec<Rite>,
+}
+
+#[pymethods]
+impl PyRiteState {
+    /// Every rite, oldest first, as
+    /// `(member, movements_recited, span_seconds | None, completed_at | None,
+    /// attended_throughout, attrition)`.
+    #[getter]
+    fn rites(&self) -> Vec<(String, usize, Option<i64>, Option<i64>, Vec<String>, usize)> {
+        self.inner
+            .iter()
+            .map(|r| {
+                (
+                    r.member.to_string(),
+                    r.movements.len(),
+                    r.span_seconds(),
+                    r.completed_at.map(|t| t.as_second()),
+                    r.attended_throughout().iter().map(|w| w.to_string()).collect(),
+                    r.attrition(),
+                )
+            })
+            .collect()
+    }
+
+    /// Rites begun and never completed.
+    #[getter]
+    fn abandoned(&self) -> usize {
+        self.inner.iter().filter(|r| r.completed_at.is_none()).count()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
 }
 
 #[pymethods]
@@ -2859,6 +3475,63 @@ impl PySaveOutcome {
     }
 }
 
+/// What a `FileStore.reconcile` did to a forked log (design **D30**).
+#[pyclass(name = "Reconciled")]
+struct PyReconciled {
+    inner: Reconciled,
+}
+
+#[pymethods]
+impl PyReconciled {
+    /// Whether the log was forked at all. A healthy store reports False.
+    #[getter]
+    fn was_forked(&self) -> bool {
+        self.inner.was_forked()
+    }
+
+    /// Trailing segments that would not apply where they claimed to.
+    #[getter]
+    fn segments_orphaned(&self) -> usize {
+        self.inner.segments_orphaned
+    }
+
+    /// Entries lifted out of those segments and re-appended at the end of the log.
+    #[getter]
+    fn entries_moved(&self) -> usize {
+        self.inner.entries_moved
+    }
+
+    /// Entries in those segments the log already held, by CID, and so were already
+    /// safe.
+    #[getter]
+    fn entries_already_present(&self) -> usize {
+        self.inner.entries_already_present
+    }
+
+    /// The CIDs that moved, in the order they were re-appended.
+    #[getter]
+    fn cids_moved(&self) -> Vec<String> {
+        self.inner.cids_moved.clone()
+    }
+
+    /// Bytes written by the rewrite that leaves storage as a single base segment.
+    #[getter]
+    fn bytes(&self) -> usize {
+        self.inner.bytes
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Reconciled(segments_orphaned={}, entries_moved={}, \
+             entries_already_present={}, bytes={})",
+            self.inner.segments_orphaned,
+            self.inner.entries_moved,
+            self.inner.entries_already_present,
+            self.inner.bytes
+        )
+    }
+}
+
 /// A charter log persisted to a single file, one segment per line.
 ///
 /// Use this rather than hand-rolling persistence, because the one branch that
@@ -2873,6 +3546,15 @@ impl PySaveOutcome {
 ///     archive = store.load()          # absent file ⇒ empty log, not an error
 ///     ...
 ///     store.save(archive)             # append, or rewrite after a pruning
+///
+/// **Only one writer** (D30). Every `save` takes an exclusive lock and checks that
+/// storage is still where this store left it, raising rather than writing if it is
+/// not; `claim()` moves that discovery to startup. What used to happen without it was
+/// silent: a second writer's compaction discarded the first's already-persisted
+/// entries and every call returned successfully.
+///
+///     store = FileStore("polity.log")
+///     store.claim()                   # raises if another host is writing
 #[pyclass(name = "FileStore")]
 struct PyFileStore {
     inner: FileStore,
@@ -2901,7 +3583,7 @@ impl PyFileStore {
     fn load(&mut self) -> PyResult<PyArchive> {
         let inner: Archive<CharterEntry> =
             ArchiveStore::<CharterEntry>::load(&mut self.inner).map_err(load_err_to_py)?;
-        Ok(PyArchive { inner })
+        Ok(PyArchive { inner, pending: BTreeMap::new() })
     }
 
     /// Persist whatever is not yet stored, appending or rewriting as the log's
@@ -2920,6 +3602,61 @@ impl PyFileStore {
     /// only by saying so.
     fn recover(&mut self) -> PyResult<usize> {
         self.inner.recover().map_err(en_err_to_py)
+    }
+
+    /// Take the write lock and hold it for this store's life, so a second writer is
+    /// refused **now** rather than at its first save.
+    ///
+    /// A host should call this at startup: a supervisor that restarted a host while the
+    /// old one is still alive is the ordinary way two writers arrive on one log, and a
+    /// refusal at boot is one a supervisor can act on. Writes are guarded either way.
+    ///
+    /// Idempotent. Released when the store is garbage-collected or the process dies, so
+    /// there is nothing to clean up and no stale lock to reap.
+    fn claim(&mut self) -> PyResult<()> {
+        self.inner.claim().map_err(en_err_to_py)
+    }
+
+    /// Whether this store holds a lifetime write lock.
+    #[getter]
+    fn is_claimed(&self) -> bool {
+        self.inner.is_claimed()
+    }
+
+    /// Give up a `claim()`, leaving individual writes still guarded — for a process
+    /// that is done writing but still reading, and does not want a second host to wait
+    /// on its exit.
+    fn release(&mut self) {
+        self.inner.release();
+    }
+
+    /// Where **storage** says the log ends, read from the tail alone rather than by
+    /// loading it.
+    ///
+    /// `None` when storage is absent or empty. Compare it with `cursor()` to ask
+    /// whether anything has moved underneath this store; `save` does exactly that, and
+    /// refuses when the two disagree.
+    fn stored_end(&self) -> PyResult<Option<PyCursor>> {
+        Ok(self.inner.stored_end().map_err(en_err_to_py)?.map(|inner| PyCursor { inner }))
+    }
+
+    /// Repair a log that two writers forked, and report what the repair did.
+    ///
+    /// Storage can hold a segment sequence that will not fold back together, because
+    /// two writers each appended their own continuation of the same log. Loading such a
+    /// log raises — correctly — and `recover()` cannot help: the file is not *torn* but
+    /// *forked*, every line complete. This lifts the orphaned entries out, re-appends
+    /// them at the end of the surviving log, and rewrites storage as one segment.
+    ///
+    /// **Nothing is forgotten and no CID changes**, entries being content-addressed, so
+    /// a receipt naming any of them still resolves. What the repair does decide is the
+    /// order between two writers that were concurrent, and it reports which CIDs moved.
+    ///
+    /// Safe on a healthy log: `was_forked` is False and nothing moves.
+    fn reconcile(&mut self) -> PyResult<PyReconciled> {
+        let inner = ArchiveStore::<CharterEntry>::reconcile(&mut self.inner)
+            .map_err(en_err_to_py)?;
+        Ok(PyReconciled { inner })
     }
 }
 
@@ -3154,6 +3891,103 @@ impl PyIndependentCorroboration {
     }
 }
 
+#[pyclass(name = "IndependentObservation")]
+#[derive(Clone)]
+struct PyIndependentObservation {
+    inner: IndependentObservation,
+}
+
+#[pymethods]
+impl PyIndependentObservation {
+    /// Monitors that have observed this polity **and** carry a disinterested voucher.
+    #[getter]
+    fn observers(&self) -> Vec<String> {
+        self.inner.observers.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// Of those, the ones somebody has also claimed are controlled.
+    #[getter]
+    fn contested(&self) -> Vec<String> {
+        self.inner.contested.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// Monitors that have observed and carry no disinterested voucher at all.
+    ///
+    /// **Not a fault**, and the reason none of this is a gate: an unvouched monitor is
+    /// the normal state of an honest new one. Reported so the absence of vouching is
+    /// visible rather than silently read as its presence.
+    #[getter]
+    fn unvouched(&self) -> Vec<String> {
+        self.inner.unvouched.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// The vouched-for monitors nobody has contradicted.
+    #[getter]
+    fn uncontested(&self) -> Vec<String> {
+        self.inner.uncontested().iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    #[getter]
+    fn any(&self) -> bool {
+        self.inner.any()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.count()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "IndependentObservation(vouched={}, unvouched={}, contested={})",
+            self.inner.count(),
+            self.inner.unvouched.len(),
+            self.inner.contested.len()
+        )
+    }
+}
+
+#[pyclass(name = "IndependentGrounding")]
+#[derive(Clone)]
+struct PyIndependentGrounding {
+    inner: IndependentGrounding,
+}
+
+#[pymethods]
+impl PyIndependentGrounding {
+    /// Founding-derived members whose guardian edge is backed by a vouched-for monitor.
+    #[getter]
+    fn vouched_edges(&self) -> Vec<String> {
+        self.inner.vouched_edges.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// Founding-derived members whose backing monitor carries no disinterested
+    /// voucher. `Guarded` all the same — this is what the grade does not say.
+    #[getter]
+    fn unvouched_edges(&self) -> Vec<String> {
+        self.inner.unvouched_edges.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    /// Members whose backing monitor somebody has called controlled.
+    #[getter]
+    fn contested_edges(&self) -> Vec<String> {
+        self.inner.contested_edges.iter().map(|r| r.as_str().to_string()).collect()
+    }
+
+    #[getter]
+    fn any(&self) -> bool {
+        self.inner.any()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "IndependentGrounding(vouched={}, unvouched={}, contested={})",
+            self.inner.vouched_edges.len(),
+            self.inner.unvouched_edges.len(),
+            self.inner.contested_edges.len()
+        )
+    }
+}
+
 fn grounding_name(g: SubstrateGrounding) -> &'static str {
     match g {
         SubstrateGrounding::Anchored => "Anchored",
@@ -3335,7 +4169,7 @@ fn default_retention(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     out.set_item("retain_seconds", d.retain_seconds)?;
     out.set_item("min_dropped", d.min_dropped)?;
     out.set_item("live_measure_seconds", d.live_measure_seconds)?;
-    out.set_item("min_witness_readings", d.min_witness_readings)?;
+    out.set_item("min_witness_watchers", d.min_witness_watchers)?;
     Ok(out)
 }
 
@@ -3363,7 +4197,7 @@ fn default_thresholds(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     out.set_item("churn_notice", d.churn_notice)?;
     out.set_item("churn_concern", d.churn_concern)?;
     out.set_item("sustained_absence_seconds", d.sustained_absence_seconds)?;
-    out.set_item("sustained_absence_readings", d.sustained_absence_readings)?;
+    out.set_item("sustained_absence_watchers", d.sustained_absence_watchers)?;
     Ok(out)
 }
 
@@ -3382,11 +4216,15 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyFoundingLegitimacy>()?;
     m.add_class::<PyGroundStanding>()?;
     m.add_class::<PyReaderIndependence>()?;
+    m.add_class::<PyIndependentObservation>()?;
+    m.add_class::<PyIndependentGrounding>()?;
     m.add_class::<PyIndependentCorroboration>()?;
     m.add_class::<PyCursor>()?;
     m.add_class::<PySaveOutcome>()?;
+    m.add_class::<PyReconciled>()?;
     m.add_class::<PyFileStore>()?;
     m.add_class::<PyGuardianState>()?;
+    m.add_class::<PyRiteState>()?;
     m.add_class::<PyEnvoyState>()?;
     m.add_class::<PyAffirmationState>()?;
     m.add_class::<PyFoundingCandidate>()?;
@@ -3402,6 +4240,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(propose_from_candidate, m)?)?;
     m.add_function(wrap_pyfunction!(select_from_candidate, m)?)?;
     m.add_function(wrap_pyfunction!(sign_reading, m)?)?;
+    m.add_function(wrap_pyfunction!(sign_observation, m)?)?;
+    m.add_function(wrap_pyfunction!(sign_detached, m)?)?;
     m.add_function(wrap_pyfunction!(cohesion_report, m)?)?;
     m.add_function(wrap_pyfunction!(coherence_concern, m)?)?;
     Ok(())

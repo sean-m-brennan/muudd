@@ -30,6 +30,8 @@ import time
 import ethne as e
 from ethne.authoring import (
     Signer,
+    attest_observer_independence,
+    designate_derived,
     attest_reader_independence,
     disavow_substrate,
     dissent_boundary,
@@ -40,6 +42,8 @@ from ethne.authoring import (
     authorize_envoy,
     confer_office,
     induct_member,
+    perform_rite,
+    MOVEMENTS,
     ratify_charter,
     reaffirm_member,
     rotate_guardian,
@@ -92,8 +96,12 @@ def main() -> None:
         proposed_at=t0,
     )
     archive = e.Archive()
-    ratify_charter(archive, proposal, founders[:2], founded_at=t0 + DAY)
-    print(f"chartered {short(polity_did)} — ratified by {e.majority(3)} of 3")
+    # All three ratify. Since D29 ratifying *is* a founding member's induction, so a
+    # bare-majority founding would leave a member on the roll holding no substrate —
+    # legal, and a different demo.
+    ratify_charter(archive, proposal, founders, founded_at=t0 + DAY)
+    print(f"chartered {short(polity_did)} — ratified by all 3, "
+          "which is what inducts them")
 
     # The roll — never an office — confers the offices. Conferring an Inductor is
     # not decoration: from here the induction rite needs them among its witnesses,
@@ -108,12 +116,35 @@ def main() -> None:
     af = archive.affirmation_state(polity_did, as_of=t0 + 101 * DAY)
     print(f"admitted {short(joiner.did)} — inducted? {af.is_inducted(joiner.did)}")
 
-    induct_member(archive, polity_did, joiner, founders, affirmed_at=t0 + 102 * DAY)
-    af = archive.affirmation_state(polity_did, as_of=t0 + 103 * DAY)
-    offices = archive.office_state(polity_did, as_of=t0 + 103 * DAY)
+    # The rite itself, movement by movement (D29). Each is a signed record with its
+    # own instant, so the log shows the rite happening rather than only its result —
+    # and only those present for every movement may witness the completion.
+    # The rite is read off the charter, never hardcoded: movement 1 must name the
+    # substrate the polity actually chartered and movement 4 the commitments actually
+    # in force, or the rite is refused. (Writing this demo tripped exactly that rule.)
+    chartered = archive.charter_state(polity_did, as_of=t0 + 101 * DAY)
+    movements = perform_rite(
+        archive, polity_did, joiner, founders,
+        substrate_name=chartered.substrate_name,
+        commitments=[k for k, _ in chartered.commitments],
+        start=t0 + 101 * DAY, seconds_between=DAY,
+    )
+    print(f"rite: {len(movements)} movements recited over "
+          f"{len(MOVEMENTS)} days — {', '.join(MOVEMENTS)}")
+
+    induct_member(archive, polity_did, joiner, founders, movements,
+                  affirmed_at=t0 + 107 * DAY)
+    af = archive.affirmation_state(polity_did, as_of=t0 + 108 * DAY)
+    offices = archive.office_state(polity_did, as_of=t0 + 108 * DAY)
     print(f"inducted, witnessed by {len(founders)} of the roll of 4 "
           f"(the Inductor {short(offices.holders('Inductor')[0])} among them) — "
           f"inducted? {af.is_inducted(joiner.did)}")
+    rites = archive.rite_state(polity_did, as_of=t0 + 108 * DAY)
+    for member, recited, span, completed, throughout, attrition in rites.rites:
+        print(f"  rite for {short(member)}: {recited} movements over "
+              f"{span // DAY if span else 0}d, attended throughout by "
+              f"{len(throughout)}, lost {attrition}, "
+              f"completed? {completed is not None}")
 
     confer_office(archive, polity_did, "Convener", founders[0], founders[:3],
                   decided_at=t0 + 110 * DAY)
@@ -458,17 +489,34 @@ def machine_polity() -> None:
         (nodes[1].did, 0.9, humans[1].did, t0, True),
         (nodes[2].did, 0.9, None, None, True),
     ])
+    # A monitor ran over the cluster before the founding, and the proposal carries what
+    # it saw (D27). Founding edges are held to the same standard as every later change:
+    # claiming one and offering nothing for it was a gate evasion, not a cosmetic gap —
+    # the grounded rule turns on whether any edge is guarded, so one asserted edge used
+    # to exempt a whole machine cluster from naming a ground. The monitor is outside the
+    # roll on purpose; a founder observing its own polity is that same self-issued
+    # exemption in two steps.
+    monitor = Signer.generate()
+    seen_at_founding = e.sign_observation(
+        polity_did,
+        monitor.did,
+        monitor.priv,
+        [(nodes[0].did, 0.9, humans[0].did, t0),
+         (nodes[1].did, 0.9, humans[1].did, t0)],
+        observed_at=t0 - 3600,
+    )
     proposal = e.propose_from_candidate(
         candidate,
         polity_did,
         substrate_name="the guardians' ground",
         substrate_statement="answers to the humans whose standing its machines carry",
         commitments=[("answer-for-our-machines", "each node has a human")],
+        observation=seen_at_founding,
         proposed_at=t0,
     )
     # Every named guardian co-signs the founding: answerability is accepted, never
     # assigned.
-    ratify_charter(archive := e.Archive(), proposal, nodes[:2], founded_at=t0 + DAY,
+    ratify_charter(archive := e.Archive(), proposal, nodes, founded_at=t0 + DAY,
                    guardians=humans)
     edges = archive.guardian_state(polity_did, as_of=t0 + 2 * DAY)
     print(f"chartered {len(edges.derivations)} derived members, "
@@ -478,6 +526,9 @@ def machine_polity() -> None:
     print("  (all three straight from the provider's reading: before D18 the third "
           "node\n   proposed silently as a HUMAN, and reaching its true state needed "
           "a\n   deliberate designate_derived after founding)")
+    print(f"  grounding={archive.founding_legitimacy(polity_did).grounding} — the "
+          f"monitor's observation is what earns that;\n   unbacked edges read Bare and "
+          f"a wholly machine roll must then name an anchor")
 
     # It may hold no office here. The refusal is about the missing human, not about the machine —
     # tried in a throwaway copy of the log, since a refused entry stays in it.
@@ -486,9 +537,18 @@ def machine_polity() -> None:
     print("conferral on the unguarded machine: "
           f"{[m for _cid, m in refused.authority_violations()][0][:72]}…")
 
-    # Give that node a human, and the identical conferral goes through.
+    # Give that node a human, and the identical conferral goes through. The edge has
+    # to be *backed*: a monitor reports that this human now answers for the node, and
+    # the change carries a copy of that reading (D15). Carried rather than cited, so a
+    # later pruning of the observation log cannot un-authorize the edge.
+    watcher = Signer.generate()
+    seen = record_observation(
+        archive, polity_did, watcher,
+        [(nodes[2].did, 0.9, humans[0].did, t0 + 4 * DAY)],
+        observed_at=t0 + 4 * DAY + 3600,
+    )
     rotate_guardian(archive, polity_did, nodes[2].did, humans[0], nodes[:2],
-                    decided_at=t0 + 5 * DAY)
+                    evidence_cid=seen, decided_at=t0 + 5 * DAY)
     confer_office(archive, polity_did, "Convener", nodes[2], nodes[:2], decided_at=t0 + 6 * DAY)
     archive.verify_all()
     archive.check_authority()
@@ -520,7 +580,10 @@ def watched_absence() -> None:
     print("\n--- a watched absence -------------------------------------------")
     nodes = [Signer.generate() for _ in range(2)]
     human = Signer.generate()
-    monitor = Signer.generate()          # a monitor need not be a member
+    # Three monitors, none of them members — a monitor need not be one, and since
+    # D28 the escalation counts distinct WATCHERS rather than filings: one key
+    # reporting three times is one party's word, and stays capped at Notice.
+    monitors = [Signer.generate() for _ in range(3)]
     polity_priv, polity_pub, polity_did = e.generate_keypair()
     t0 = e.now_seconds() - 10 * DAY
 
@@ -542,17 +605,18 @@ def watched_absence() -> None:
 
     # Three recorded observations across a day, the human present only in the first.
     base = t0 + 2 * DAY
-    record_observation(archive, polity_did, monitor,
+    record_observation(archive, polity_did, monitors[0],
                        [(watched, 0.9, human.did, base)], observed_at=base)
-    for offset in (DAY // 2, DAY):
-        record_observation(archive, polity_did, monitor,
+    for i, offset in enumerate((DAY // 2, DAY)):
+        record_observation(archive, polity_did, monitors[i + 1],
                            [(watched, 0.9, human.did, None)], observed_at=base + offset)
     archive.verify_all()
     archive.check_authority()
 
     later = base + DAY + 60
     w = archive.observation_window(polity_did, since=base, as_of=later)
-    print(f"observed {w.reading_count()} times over {w.span_seconds() // 3600}h; "
+    print(f"observed {w.reading_count()} times by {w.watchers_for(watched)} distinct "
+          f"monitors over {w.span_seconds() // 3600}h; "
           f"unattended for {w.unattended_span(watched, as_of=later) // 3600}h")
 
     report = cohesion_report(roll, seen_now, window=w, as_of=later)
@@ -644,7 +708,10 @@ def storage():
     import tempfile
 
     nodes = [Signer.generate() for _ in range(3)]
-    monitor = Signer.generate()
+    # Three monitors, rotated: since D28 the retention floor counts distinct
+    # WATCHERS, so a lone monitor filing four hundred times is one watcher and pins
+    # the horizon completely — nothing would be recommended at all.
+    monitors = [Signer.generate() for _ in range(3)]
     polity_priv, polity_pub, polity_did = e.generate_keypair()
     now = e.now_seconds()
     t0 = now - 400 * DAY
@@ -666,11 +733,11 @@ def storage():
     # A year of observation, persisted incrementally as it arrives.
     appended = 0
     for i in range(120):
-        record_observation(archive, polity_did, monitor,
+        record_observation(archive, polity_did, monitors[i % 3],
                            [(watched, 0.9, None, None)], observed_at=t0 + 200 + i * 3 * DAY)
         appended += store.save(archive).appended
-    for at in (now - 3 * DAY, now - DAY, now - 3600):
-        record_observation(archive, polity_did, monitor,
+    for i, at in enumerate((now - 3 * DAY, now - DAY, now - 3600)):
+        record_observation(archive, polity_did, monitors[i % 3],
                            [(watched, 0.9, None, None)], observed_at=at)
         appended += store.save(archive).appended
     print(f"{appended} observations appended one at a time (never rewriting the log)")
@@ -724,7 +791,10 @@ def retention():
     """
     print("\n--- what pruning to run, and who may sign it ---------------------")
     nodes = [Signer.generate() for _ in range(3)]
-    monitor = Signer.generate()
+    # Three monitors, rotated: since D28 the retention floor counts distinct
+    # WATCHERS, so a lone monitor filing four hundred times is one watcher and pins
+    # the horizon completely — nothing would be recommended at all.
+    monitors = [Signer.generate() for _ in range(3)]
     polity_priv, polity_pub, polity_did = e.generate_keypair()
     now = e.now_seconds()
     t0 = now - 400 * DAY
@@ -741,10 +811,10 @@ def retention():
 
     # A year of watching, then a few readings inside the live window.
     for i in range(120):
-        record_observation(archive, polity_did, monitor,
+        record_observation(archive, polity_did, monitors[i % 3],
                            [(watched, 0.9, None, None)], observed_at=t0 + 200 + i * 3 * DAY)
-    for at in (now - 3 * DAY, now - DAY, now - 3600):
-        record_observation(archive, polity_did, monitor,
+    for i, at in enumerate((now - 3 * DAY, now - DAY, now - 3600)):
+        record_observation(archive, polity_did, monitors[i % 3],
                            [(watched, 0.9, None, None)], observed_at=at)
     archive.check_authority()
     print(f"{len(archive)} entries: a year of observation, kept because nothing "
@@ -766,15 +836,15 @@ def retention():
 
     # 3. And retention can never be tuned below what the polity's own grading reads.
     #    Two floors, because a sustained absence is graded on a span AND on a witness
-    #    count: here the three surviving readings are what holds the horizon back,
+    #    count: here the three surviving WATCHERS are what holds the horizon back,
     #    past even the 24h the span alone would need.
     greedy = archive.prune_recommendation(polity_did, retain_seconds=60, as_of=now)
     span_only = archive.prune_recommendation(polity_did, retain_seconds=60,
-                                             min_witness_readings=0, as_of=now)
+                                             min_witness_watchers=0, as_of=now)
     print(f"  asked to keep 60s, it keeps {greedy.seconds_retained // 3600}h — "
           f"{span_only.seconds_retained // 3600}h for the span a sustained absence "
           f"reads back over,")
-    print(f"  and the rest to leave 3 readings standing. Prune to the span alone and "
+    print(f"  and the rest to leave 3 watchers standing. Prune to the span alone and "
           f"the witness\n  count falls below the grade: the Concern becomes a Notice "
           f"with nothing saying why.")
 
@@ -1036,6 +1106,236 @@ def standing_ground() -> None:
           f"{late.substrate_disavowal(did, now).disavowed}")
 
 
+def founding_edges() -> None:
+    """What stood behind a founding guardian edge (D27).
+
+    D15 made every *post-founding* guardian change carry its evidence. Founding
+    derivations carried nothing, and that was a gate evasion rather than a cosmetic
+    asymmetry: D23's grounded rule exempts a machine roll the moment any edge is
+    guarded, so one asserted edge — a sentence, costing a confederate's signature —
+    bought a whole cluster out of naming a ground.
+    """
+    print("\n--- what stood behind a founding edge (D27) ----------------------")
+    t0 = e.now_seconds() - 10 * DAY
+    founded = t0 + DAY
+
+    def cluster(n=3):
+        nodes = [Signer.generate() for _ in range(n)]
+        _p, _q, did = e.generate_keypair()
+        return nodes, did
+
+    def charter(nodes, did, derivations, guardian, anchor=None):
+        """Ratify a machine roll whose edges are described by `derivations`."""
+        proposal = e.propose_charter(
+            did,
+            "the operators",
+            "answers to what it did not author",
+            member_dids=[s.did for s in nodes],
+            substrate_anchor=anchor.did if anchor is not None else None,
+            derivations=derivations,
+            proposed_at=t0,
+        )
+        arch = e.Archive()
+        ratify_charter(
+            arch, proposal, nodes[:2], founded_at=founded,
+            guardians=[guardian], anchor=anchor,
+        )
+        arch.verify_all()  # the signatures were never the problem
+        return arch
+
+    def refusal(arch):
+        return arch.authority_violations()[0][1]
+
+    def observation(did, nodes, guardian, observer):
+        """One signed reading of the whole cluster, as a monitor would take it."""
+        return e.sign_observation(
+            did, observer.did, observer.priv,
+            [(s.did, 0.9, guardian.did, None) for s in nodes],
+            observed_at=t0 - 10,
+        )
+
+    # 1. An edge asserted with nothing offered for it — refused one record later in
+    #    the same log since D15, and until now waved through at founding.
+    nodes, did = cluster()
+    guardian = Signer.generate()
+    bare = charter(nodes, did, [(s.did, guardian.did) for s in nodes], guardian)
+    print(f"an edge claimed and nothing offered:\n  {refusal(bare)}")
+
+    # 2. THE MEASURED HOLE. Declared honestly as unobserved — which post-founding is
+    #    sound, because there it can only ever weaken a record. Here it would buy the
+    #    anchor exemption, so the asymmetry inverts and the claim earns nothing.
+    nodes, did = cluster()
+    unbacked = charter(
+        nodes, did,
+        [(s.did, guardian.did, None, "no monitor had run at founding") for s in nodes],
+        guardian,
+    )
+    print(f"claimed, and honestly unobserved:\n  {refusal(unbacked)}")
+    print(f"  grade: grounding={unbacked.founding_legitimacy(did).grounding} — before "
+          f"this slice both passes were green and it read Guarded")
+
+    # 3. The bootstrap path stays open: real guardians nobody has looked at yet, and
+    #    a ground written down. This is the accepted cost of the rule.
+    nodes, did = cluster()
+    ground = Signer.generate()
+    named = charter(
+        nodes, did,
+        [(s.did, guardian.did, None, "no monitor had run at founding") for s in nodes],
+        guardian, anchor=ground,
+    )
+    named.check_authority()
+    print(f"the same cluster naming a ground: chartered, "
+          f"grounding={named.founding_legitimacy(did).grounding}")
+
+    # 4. Measured while building the slice, and the reason the rule is about *who
+    #    looked*: a founder signed a real observation of its own cluster's edges and
+    #    the charter graded Guarded with no anchor, both passes green. That is the
+    #    closure shape D23 refused for the anchor and D25 for a successor, reaching
+    #    the evidence this time — a polity vouching for its own ground.
+    nodes, did = cluster()
+    inside = observation(did, nodes, guardian, nodes[0])
+    self_seen = charter(
+        nodes, did, [(s.did, guardian.did, inside, None) for s in nodes], guardian
+    )
+    print(f"a founder observing its own cluster:\n  {refusal(self_seen)}")
+    print(f"  grade: grounding={self_seen.founding_legitimacy(did).grounding} — the "
+          f"observation stays in the log, it just cannot credit the exemption")
+
+    # 5. The control on that: same charter, same edges, only the observer differs.
+    nodes, did = cluster()
+    outside = observation(did, nodes, guardian, Signer.generate())
+    watched = charter(
+        nodes, did, [(s.did, guardian.did, outside, None) for s in nodes], guardian
+    )
+    watched.check_authority()
+    print(f"an outside monitor looking at the same edges: chartered with no anchor, "
+          f"grounding={watched.founding_legitimacy(did).grounding}")
+
+    # 6. A guardian observing the edge it is about to accept counts, and that is a
+    #    judgment call rather than an oversight. It is not on the roll, it co-signs
+    #    either way, and what it asserts by observing is its own answerability — a
+    #    burden taken up, not a credit awarded. Interest disqualifies praise, not an
+    #    admission (D24).
+    nodes, did = cluster()
+    accepted = observation(did, nodes, guardian, guardian)
+    owned = charter(
+        nodes, did, [(s.did, guardian.did, accepted, None) for s in nodes], guardian
+    )
+    owned.check_authority()
+    print(f"the guardian itself vouching for what it accepts: "
+          f"grounding={owned.founding_legitimacy(did).grounding} — the keyed human "
+          f"outside the roll IS the ground")
+
+
+def who_was_watching() -> None:
+    """Who was doing the watching, and who will say so (D28).
+
+    D15 and D27 each closed a hole in guardian evidence and each named D24's
+    independence attestation as the successor for what was left — that the evidence is
+    still one observer's perspectival reading. Measured, the successor did not reach:
+    its coherence gate demands the subject be a *reader of the boundary*, and an
+    observer is not one. The same measurement found the sharper case, and it points
+    OUTWARD: a stranger can manufacture the Concern that crosses to kith-covenant.
+    """
+    print("\n--- who was watching, and who will say so (D28) ------------------")
+    now = e.now_seconds()
+    t0 = now - 20 * DAY
+
+    def polity_of(n=3):
+        nodes = [Signer.generate() for _ in range(n)]
+        _p, _q, did = e.generate_keypair()
+        arch = e.Archive()
+        ratify_charter(
+            arch,
+            e.propose_charter(did, "the long watch",
+                              "answers to what it did not author",
+                              member_dids=[s.did for s in nodes], proposed_at=t0),
+            nodes[:2], founded_at=t0 + 60,
+        )
+        return arch, did, nodes
+
+    def absence(arch, did, nodes, watchers, human):
+        """A guardian unattended for ten days, watched three times by `watchers`."""
+        machine = nodes[2].did
+        designate_derived(arch, did, machine, nodes[:2], guardian=human,
+                          unbacked_reason="demo: no monitor reading",
+                          decided_at=t0 + 120)
+        stale = now - 10 * DAY
+        for i, at in enumerate((stale, now - 2 * DAY, now - DAY)):
+            record_observation(arch, did, watchers[i % len(watchers)],
+                               [(machine, 0.9, human.did, stale)], observed_at=at)
+        arch.verify_all()
+        arch.check_authority()
+        w = arch.observation_window(did, since=0, as_of=now)
+        roll = arch.charter_state(did, as_of=now).members
+        cand = founding_candidate(
+            [(d, 0.9, human.did if d == machine else None, None, d == machine)
+             for d in roll])
+        report = cohesion_report(
+            roll, cand, window=w, as_of=now,
+            observers=arch.independent_observation(did, as_of=now),
+        )
+        return machine, w, report
+
+    # 1. THE MEASURED HOLE. One key, three filings, and nothing to do with the polity.
+    arch, did, nodes = polity_of()
+    solo = Signer.generate()
+    human = Signer.generate()
+    machine, w, report = absence(arch, did, nodes, [solo], human)
+    print(f"one stranger's key, filing three times: readings={w.readings_for(machine)}, "
+          f"watchers={w.watchers_for(machine)}")
+    print(f"  sustained absences={report.sustained_absences}, erosion={report.erosion} "
+          f"— before D28 this read 3 witnesses and crossed to KC as a Concern")
+
+    # 2. The control: three keys really are three watchers, and the escalation is real.
+    arch3, did3, nodes3 = polity_of()
+    trio = [Signer.generate() for _ in range(3)]
+    human3 = Signer.generate()
+    machine3, w3, report3 = absence(arch3, did3, nodes3, trio, human3)
+    print(f"three distinct monitors: watchers={w3.watchers_for(machine3)}, "
+          f"sustained absences={report3.sustained_absences}, erosion={report3.erosion}")
+    print(f"  watchers lens (distinct, vouched, contested): {report3.watchers}")
+
+    # 3. D24's record could not speak about a monitor at all — the successor that did
+    #    not reach. The generalized one can, and only about a monitor that has spoken.
+    #    Filed against the first polity, which is done being read: an unauthorized
+    #    record stays in the log, so the refusal has to be shown somewhere it can.
+    silent = Signer.generate()
+    attest_observer_independence(arch, did, silent.did, Signer.generate(),
+                                 basis="I know them", attested_at=now)
+    arch.verify_all()  # the signature was never the problem
+    print(f"vouching for a monitor that has never spoken:\n  "
+          f"{arch.authority_violations()[0][1]}")
+
+    # 4. Vouching for one that has. An outsider counts; a founder does not.
+    attest_observer_independence(arch3, did3, trio[0].did, nodes3[0],
+                                 basis="one of us knows them", attested_at=now)
+    attest_observer_independence(arch3, did3, trio[1].did, Signer.generate(),
+                                 basis="separate operator, separate funding",
+                                 attested_at=now)
+    arch3.check_authority()
+    ind = arch3.independent_observation(did3, as_of=now)
+    print(f"a founder vouches for one monitor, an outsider for another: "
+          f"vouched={len(ind.observers)}, unvouched={len(ind.unvouched)}")
+
+    report3 = cohesion_report(
+        arch3.charter_state(did3, as_of=now).members,
+        founding_candidate([(d, 0.9, None, None, False)
+                            for d in arch3.charter_state(did3, as_of=now).members]),
+        window=w3, as_of=now, observers=ind,
+    )
+    print(f"  the lens moves: watchers={report3.watchers} — and the erosion level "
+          f"does NOT,\n  because a polity that vouches for nobody must not thereby "
+          f"become unwatchable")
+
+    # 5. A voucher is for a party IN A CAPACITY. The same key read no boundary here,
+    #    so its observer voucher buys it nothing as a reader.
+    readers = arch3.reader_independence(did3, as_of=now)
+    print(f"the same monitor as a boundary READER: "
+          f"attested={readers.is_attested(trio[1].did)} — vouching is for a "
+          f"relationship, not an identity")
+
+
 if __name__ == "__main__":
     main()
     ratified_split()
@@ -1043,6 +1343,8 @@ if __name__ == "__main__":
     attributable_boundary()
     standing_ground()
     independent_readers()
+    founding_edges()
+    who_was_watching()
     machine_polity()
     pruning(*watched_absence())
     retention()

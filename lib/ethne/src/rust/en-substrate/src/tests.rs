@@ -17,7 +17,7 @@
 use en_archive::Archive;
 use en_charter::{
     charter_state, check_authority, verify_all, BoundarySource, CharterEntry, Commitment,
-    Substrate, SubstrateReading,
+    GuardianEvidence, MemberReading, Observation, Substrate, SubstrateReading,
 };
 use en_core::{keys, Alg, DidKey, PrivKey, Signed, Timestamp};
 
@@ -69,6 +69,7 @@ fn manual_founding_end_to_end_without_at() {
         vec![Commitment { key: "mutual-aid".into(), description: "aid among members".into() }],
         0.0,
         vec![],
+        None,
         t(50),
     );
     assert_eq!(proposal.proposed_members.len(), 3);
@@ -115,6 +116,7 @@ fn reputation_filter_trims_low_reputation_candidates_from_the_roll() {
         vec![],
         0.5,
         vec![],
+        None,
         t(50),
     );
     assert_eq!(proposal.proposed_members, vec![keep_a, keep_b]);
@@ -168,7 +170,7 @@ fn an_unguarded_machine_is_ratified_as_the_unguarded_derivation_it_is() {
         ],
         substrate: Some(substrate()),
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
+    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
 
     assert_eq!(proposal.proposed_members.len(), 3, "all three are on the roll");
     // TWO derivations, and one of them is unguarded — the state that makes D15's
@@ -195,7 +197,7 @@ fn a_guardian_on_a_non_derived_member_does_not_invent_a_derivation() {
         members: vec![cand(&member, Some(0.9), false, Some(&operator))],
         substrate: Some(substrate()),
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
+    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
     assert_eq!(proposal.proposed_members.len(), 1);
     assert!(proposal.proposed_derivations.is_empty());
 }
@@ -215,10 +217,10 @@ fn an_unrated_candidate_fails_a_demanded_floor_but_clears_no_floor_at_all() {
         substrate: Some(substrate()),
     };
 
-    let demanded = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], t(50));
+    let demanded = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], None, t(50));
     assert_eq!(demanded.proposed_members, vec![rated_ok.clone()], "unrated fails a floor");
 
-    let no_floor = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
+    let no_floor = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
     assert_eq!(no_floor.proposed_members.len(), 2, "0.0 demands nothing");
 }
 
@@ -231,7 +233,7 @@ fn an_unrated_machine_trimmed_by_a_floor_takes_its_derivation_with_it() {
         members: vec![cand(&unrated_machine, None, true, None)],
         substrate: Some(substrate()),
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], t(50));
+    let proposal = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], None, t(50));
     assert!(proposal.proposed_members.is_empty());
     assert!(proposal.proposed_derivations.is_empty());
 }
@@ -289,6 +291,7 @@ fn the_floor_records_whoever_it_trims_and_why() {
         vec![],
         0.5,
         vec![read_by(&candidate, &polity)],
+        None,
         t(50),
     );
     assert_eq!(prop.proposed_members, vec![keep]);
@@ -308,7 +311,7 @@ fn a_floor_that_demands_nothing_excludes_nobody() {
     let a = id().1;
     let b = id().1;
     let candidate = rated(&[(a, Some(0.9)), (b, None)]);
-    let prop = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
+    let prop = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
     assert_eq!(prop.proposed_members.len(), 2);
     assert!(prop.attestation.exclusions.is_empty());
     assert!(prop.attestation.accounts_for(2));
@@ -331,6 +334,7 @@ fn deliberate_narrowing_is_a_first_class_act() {
         keep,
         "founding on the older rite",
         vec![],
+        None,
         t(50),
     );
     assert_eq!(prop.proposed_members.len(), 3);
@@ -359,7 +363,7 @@ fn selecting_someone_the_boundary_never_showed_is_ignored() {
     let mut keep = vec![seen[0].clone()];
     keep.push(id().1); // never in the candidate
 
-    let prop = candidate.propose_selecting(id().1, substrate(), vec![], &keep, "chosen", vec![], t(50));
+    let prop = candidate.propose_selecting(id().1, substrate(), vec![], &keep, "chosen", vec![], None, t(50));
     assert_eq!(prop.proposed_members, vec![seen[0].clone()]);
     assert_eq!(prop.attestation.candidate_size, 3);
     assert_eq!(prop.attestation.exclusions.len(), 2);
@@ -377,7 +381,7 @@ fn a_convener_asserted_boundary_says_so_forever() {
     let prop = provider
         .founding_candidate()
         .unwrap()
-        .propose(id().1, substrate(), vec![], 0.0, vec![], t(50));
+        .propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
     assert_eq!(prop.attestation.source, BoundarySource::ConvenerAsserted);
 }
 
@@ -404,6 +408,7 @@ fn a_proposal_drawn_from_a_substrate_reading_says_so() {
         vec![],
         0.0,
         vec![reading],
+        None,
         t(50),
     );
     assert!(prop.attestation.source.is_read());
@@ -411,4 +416,107 @@ fn a_proposal_drawn_from_a_substrate_reading_says_so() {
     assert_eq!(prop.attestation.source.readings()[0].payload.reader, reader);
     assert_eq!(prop.attestation.source.readings()[0].payload.polity, polity);
     assert_eq!(prop.attestation.corroborating_readers(&prop.proposed_members), vec![reader]);
+}
+
+// --- D27: the provider offers only backing that will count -------------------
+
+/// A signed observation of `edges`, taken by `observer` — a monitor's act, which the
+/// provider never performs and never holds a key for.
+fn observed_by(
+    polity: &DidKey,
+    observer: &(PrivKey, DidKey),
+    edges: &[(&DidKey, Option<&DidKey>)],
+) -> Signed<Observation> {
+    let ob = Observation {
+        polity: polity.clone(),
+        observer: observer.1.clone(),
+        observed_at: t(40),
+        readings: edges
+            .iter()
+            .map(|(m, g)| MemberReading {
+                member: (*m).clone(),
+                reputation: 0.9,
+                guardian: g.cloned(),
+                attested_at: None,
+            })
+            .collect(),
+        opaque_boundary: false,
+    };
+    Signed::build(ob, &[(observer.1.as_str(), &observer.0)]).unwrap()
+}
+
+#[test]
+fn a_proposal_backs_the_edges_an_outside_monitor_saw() {
+    // The whole live path in one test: the provider reads the cluster, a monitor
+    // outside it signs what it saw, and the proposal carries that evidence on exactly
+    // the edges it covers. The unseen edge is not dressed up — it says outright that
+    // nothing backed it.
+    let polity = id().1;
+    let seen = id().1;
+    let unseen = id().1;
+    let operator = id().1;
+    let monitor = id();
+    let candidate = FoundingCandidate {
+        members: vec![cand(&seen, Some(0.9), true, Some(&operator)), cand(&unseen, Some(0.9), true, Some(&operator))],
+        substrate: Some(substrate()),
+    };
+    let ob = observed_by(&polity, &monitor, &[(&seen, Some(&operator))]);
+    let proposal =
+        candidate.propose(polity.clone(), substrate(), vec![], 0.0, vec![], Some(ob), t(50));
+
+    let of = |m: &DidKey| {
+        proposal.proposed_derivations.iter().find(|d| &d.member == m).unwrap().clone()
+    };
+    assert!(matches!(of(&seen).evidence, Some(GuardianEvidence::Observed(_))));
+    match of(&unseen).evidence {
+        Some(GuardianEvidence::Unbacked { reason }) => {
+            assert!(reason.contains("no reading showing"), "{reason}")
+        }
+        other => panic!("expected an unbacked edge, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_proposal_does_not_dress_up_an_observation_from_inside() {
+    // The provider knows the charter will refuse to credit a founder's own
+    // observation, so it does not mint one that looks backed and behaves unbacked. The
+    // operator reading the proposal is told why, here, rather than at ratification.
+    let polity = id().1;
+    let machine = id();
+    let operator = id().1;
+    let candidate = FoundingCandidate {
+        members: vec![cand(&machine.1, Some(0.9), true, Some(&operator))],
+        substrate: Some(substrate()),
+    };
+    // The member observes its own polity.
+    let ob = observed_by(&polity, &machine, &[(&machine.1, Some(&operator))]);
+    let proposal =
+        candidate.propose(polity, substrate(), vec![], 0.0, vec![], Some(ob), t(50));
+    match &proposal.proposed_derivations[0].evidence {
+        Some(GuardianEvidence::Unbacked { reason }) => {
+            assert!(reason.contains("from inside the polity"), "{reason}")
+        }
+        other => panic!("expected an unbacked edge, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_proposal_from_an_unobserved_cluster_says_nobody_looked() {
+    // The common live case, and the honest default: no monitor has run, so every
+    // claimed edge is declared unbacked and the cluster must name a ground.
+    let polity = id().1;
+    let machine = id().1;
+    let operator = id().1;
+    let candidate = FoundingCandidate {
+        members: vec![cand(&machine, Some(0.9), true, Some(&operator))],
+        substrate: Some(substrate()),
+    };
+    let proposal =
+        candidate.propose(polity, substrate(), vec![], 0.0, vec![], None, t(50));
+    match &proposal.proposed_derivations[0].evidence {
+        Some(GuardianEvidence::Unbacked { reason }) => {
+            assert!(reason.contains("no observation was taken"), "{reason}")
+        }
+        other => panic!("expected an unbacked edge, got {other:?}"),
+    }
 }

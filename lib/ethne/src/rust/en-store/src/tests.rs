@@ -169,8 +169,14 @@ fn appending_after_a_compaction_still_reloads_correctly() {
 
 #[test]
 fn a_second_store_over_the_same_file_cannot_append_from_a_stale_cursor() {
-    // Two writers is a host error, but it must fail loudly rather than interleave
-    // segments into a log that never existed.
+    // What this test asserted before D30 is worth recording, because it passed for the
+    // wrong reason for the whole of D20's life. Its comment claimed two writers "must
+    // fail loudly", and its assertions were `save(..).unwrap()` and
+    // `assert!(out.rewrote)` — i.e. it asserted the stale writer's rewrite SUCCEEDING.
+    // It looked harmless only because both writers saved the *same* compacted archive,
+    // so the overwrite happened to replace the log with identical content and nothing
+    // was visibly lost. Give the two writers different content, as two live hosts have,
+    // and the same code path is silent data loss.
     let path = scratch("two-writers");
     let mut first = FileStore::new(&path);
     let mut a = filled(4);
@@ -182,12 +188,25 @@ fn a_second_store_over_the_same_file_cannot_append_from_a_stale_cursor() {
     a = compact(&a, 2);
     ArchiveStore::<Rec>::save(&mut first, &a).unwrap();
 
-    // `second` still believes generation 0; saving the compacted log rewrites rather
-    // than appending, so the file is never left holding both.
-    let out = ArchiveStore::<Rec>::save(&mut second, &a).unwrap();
-    assert!(out.rewrote);
+    // `second` still believes generation 0 index 4, and storage is at generation 1
+    // index 2. Both branches are wrong from here — an append forks the log, a rewrite
+    // discards entries already durable — so the only answer is a refusal.
+    let err = ArchiveStore::<Rec>::save(&mut second, &a).unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("another writer has been here"), "{msg}");
+    assert!(msg.contains("generation 0 index 4"), "names what it believed: {msg}");
+    assert!(msg.contains("generation 1 index 2"), "names what is there: {msg}");
+
+    // And the refusal changed nothing: the first writer's log is intact.
     let mut reader = FileStore::new(&path);
     assert_eq!(seqs(&reader.load().unwrap()), vec![2, 3]);
+
+    // The way out is to look again, which is the only honest thing a stale writer can
+    // do — and then it is current.
+    let fresh: Archive<Rec> = second.load().unwrap();
+    assert_eq!(seqs(&fresh), vec![2, 3]);
+    let out = ArchiveStore::<Rec>::save(&mut second, &fresh).unwrap();
+    assert!(!out.wrote_anything(), "nothing new to say");
 }
 
 // --- durability --------------------------------------------------------------
@@ -353,6 +372,479 @@ fn the_store_owns_the_cursor_so_a_caller_cannot_hold_a_stale_one() {
     let compacted = compact(&a, 3);
     ArchiveStore::<Rec>::save(&mut s, &compacted).unwrap();
     assert_eq!(s.cursor(), Some(Cursor { generation: 1, index: 2 }));
+}
+
+// --- D30: two writers ----------------------------------------------------------
+//
+// Every test in this section is one of the failures measured against the pre-D30 code,
+// turned into the assertion that it cannot happen again. The outcomes are in the
+// design record; what matters here is that each one was real.
+
+#[test]
+fn two_writers_appending_cannot_fork_the_log() {
+    // MEASURED: both saves returned Ok, and the file became UNLOADABLE — "segment
+    // starts at 5 but this log ends at 7". `recover()` reported 0 bytes, because the
+    // file was not torn (every line was complete) but forked, so a polity's archive
+    // was left permanently unreadable with no way back.
+    let path = scratch("fork-appends");
+    let mut seed = FileStore::new(&path);
+    ArchiveStore::<Rec>::save(&mut seed, &filled(5)).unwrap();
+
+    let mut host_a = FileStore::new(&path);
+    let mut host_b = FileStore::new(&path);
+    let la: Archive<Rec> = host_a.load().unwrap();
+    let lb: Archive<Rec> = host_b.load().unwrap();
+    assert_eq!(host_a.cursor(), host_b.cursor(), "both start from the same belief");
+
+    // Each host does its own work, as two live hosts do.
+    let mut wa = la.clone();
+    wa.append(Rec { seq: 100 }).unwrap();
+    wa.append(Rec { seq: 101 }).unwrap();
+    let mut wb = lb.clone();
+    wb.append(Rec { seq: 200 }).unwrap();
+
+    ArchiveStore::<Rec>::save(&mut host_a, &wa).unwrap();
+    let err = ArchiveStore::<Rec>::save(&mut host_b, &wb).unwrap_err();
+    assert!(format!("{err}").contains("another writer has been here"), "{err}");
+
+    // The point of the refusal: storage still loads, and holds exactly one writer's log.
+    let mut reader = FileStore::new(&path);
+    let back: Archive<Rec> = reader.load().unwrap();
+    assert_eq!(seqs(&back), vec![0, 1, 2, 3, 4, 100, 101]);
+}
+
+#[test]
+fn a_stale_compaction_cannot_discard_committed_entries() {
+    // MEASURED, and the one that mattered most because it was SILENT: A appended two
+    // entries and fsynced them; B, which had never seen them, pruned and therefore
+    // rewrote. B's save returned Ok(rewrote), the reload succeeded and was well-formed,
+    // and A's entries were gone. Worse, A's cursor still read generation 0 index 7, so
+    // A's next save reported `Nothing` and never re-wrote them. This is D20's own
+    // failure — a compaction quietly losing signed records — across writers instead of
+    // across cursors.
+    let path = scratch("stale-compaction");
+    let mut seed = FileStore::new(&path);
+    ArchiveStore::<Rec>::save(&mut seed, &filled(5)).unwrap();
+
+    let mut host_a = FileStore::new(&path);
+    let mut host_b = FileStore::new(&path);
+    let la: Archive<Rec> = host_a.load().unwrap();
+    let lb: Archive<Rec> = host_b.load().unwrap();
+
+    let mut wa = la.clone();
+    wa.append(Rec { seq: 100 }).unwrap();
+    wa.append(Rec { seq: 101 }).unwrap();
+    ArchiveStore::<Rec>::save(&mut host_a, &wa).unwrap();
+
+    // B prunes, which forces the rewrite branch — the one that replaces the whole file.
+    let wb = compact(&lb, 2);
+    let err = ArchiveStore::<Rec>::save(&mut host_b, &wb).unwrap_err();
+    assert!(format!("{err}").contains("discard entries that are already durable"), "{err}");
+
+    let mut reader = FileStore::new(&path);
+    let back: Archive<Rec> = reader.load().unwrap();
+    assert!(seqs(&back).contains(&100), "the durable entries survive: {:?}", seqs(&back));
+    assert!(seqs(&back).contains(&101));
+}
+
+#[test]
+fn a_store_that_has_never_looked_refuses_to_overwrite_a_log() {
+    // The case no compare-against-my-cursor can catch, because there is no cursor: a
+    // store that has never loaded has no belief to check. Refusing on the *absence* of
+    // a belief is what closes it, and the rule stands on its own — a store may not
+    // overwrite a log it has never read.
+    let path = scratch("never-looked");
+    let mut first = FileStore::new(&path);
+    ArchiveStore::<Rec>::save(&mut first, &filled(4)).unwrap();
+
+    let mut fresh = FileStore::new(&path);
+    let err = ArchiveStore::<Rec>::save(&mut fresh, &filled(2)).unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("never read"), "{msg}");
+    assert!(msg.contains("Call load() first"), "says what to do: {msg}");
+
+    let mut reader = FileStore::new(&path);
+    assert_eq!(seqs(&reader.load().unwrap()), vec![0, 1, 2, 3]);
+}
+
+#[test]
+fn a_first_run_that_looked_before_writing_is_not_a_fork() {
+    // The reference host caught this one, which is the case for having a reference host:
+    // `load` on a path that does not exist yet legitimately reports a zero-entry log,
+    // and the compare-and-swap must read that as agreeing with absent storage rather
+    // than as storage having been emptied. Getting it wrong refused a polity its
+    // founding save — the crate's stated promise that a first run needs no special case.
+    let path = scratch("first-run");
+    let mut s = FileStore::new(&path);
+    let empty: Archive<Rec> = s.load().unwrap();
+    assert!(empty.is_empty());
+    assert_eq!(s.cursor(), Some(Cursor { generation: 0, index: 0 }));
+    assert_eq!(s.stored_end().unwrap(), None, "and storage really is absent");
+
+    let mut a = empty;
+    a.append(Rec { seq: 0 }).unwrap();
+    let out = ArchiveStore::<Rec>::save(&mut s, &a).unwrap();
+    assert!(out.wrote_anything());
+
+    // The emptying it must NOT be confused with: a store that had written a real log
+    // and comes back to find nothing.
+    let mut a = filled(4);
+    ArchiveStore::<Rec>::save(&mut s, &a).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    a.append(Rec { seq: 40 }).unwrap();
+    let err = ArchiveStore::<Rec>::save(&mut s, &a).unwrap_err();
+    assert!(format!("{err}").contains("emptied underneath"), "{err}");
+}
+
+#[test]
+fn concurrent_rewrites_do_not_share_a_temp_file() {
+    // MEASURED: with a fixed `<path>.tmp`, two rewrites opened the same temporary file,
+    // both wrote into it, and raced the rename. The winner's save returned
+    // Err(rename: ENOENT) while its bytes were what storage held; the loser's returned
+    // Ok with a byte count for a log that was gone. Both reports were wrong, in
+    // opposite directions, and storage loaded cleanly so nothing found out.
+    //
+    // The assertion is therefore not "one of them wins" but "whoever reports success
+    // describes what is actually there".
+    let path = scratch("concurrent-rewrite");
+    let fat: Archive<Rec> = {
+        let mut a = Archive::new();
+        for i in 0..2000 {
+            a.append(Rec { seq: 900_000 + i }).unwrap();
+        }
+        a
+    };
+    let thin = filled(2000);
+
+    let pa = path.clone();
+    let pb = path.clone();
+    let t1 = std::thread::spawn(move || ArchiveStore::<Rec>::save(&mut FileStore::new(&pa), &fat));
+    let t2 = std::thread::spawn(move || ArchiveStore::<Rec>::save(&mut FileStore::new(&pb), &thin));
+    let ra = t1.join().unwrap();
+    let rb = t2.join().unwrap();
+
+    // Exactly one may succeed: the other is refused, either by the lock or — if it got
+    // there first — by having nothing to say about a log it never read.
+    assert!(ra.is_ok() != rb.is_ok(), "one writer, not two: {ra:?} / {rb:?}");
+    let winner = ra.as_ref().or(rb.as_ref()).unwrap();
+
+    let mut reader = FileStore::new(&path);
+    let back: Archive<Rec> = reader.load().unwrap();
+    assert_eq!(back.len(), 2000);
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().len() as usize,
+        winner.bytes,
+        "the successful save must describe what storage actually holds"
+    );
+
+    // No litter: the temporary name is unique per call and cleaned up either way.
+    let dir = path.parent().unwrap();
+    let stem = path.file_name().unwrap().to_string_lossy().to_string();
+    let leftovers: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.starts_with(&format!("{stem}.tmp")))
+        .collect();
+    assert!(leftovers.is_empty(), "temp files left behind: {leftovers:?}");
+}
+
+#[test]
+fn a_claimed_store_refuses_a_second_writer() {
+    // A host that claims at boot finds out then, rather than at its first save — which
+    // is the refusal a supervisor can act on.
+    let path = scratch("claimed");
+    let mut host = FileStore::new(&path);
+    host.claim().unwrap();
+    assert!(host.is_claimed());
+    host.claim().unwrap(); // idempotent
+    ArchiveStore::<Rec>::save(&mut host, &filled(3)).unwrap();
+
+    let mut second = FileStore::new(&path);
+    let err = second.claim().unwrap_err();
+    assert!(format!("{err}").contains("another writer holds"), "{err}");
+
+    // A reader is never blocked by a claim — the log is evidence, and reading it must
+    // not depend on who is writing.
+    let mut reader = FileStore::new(&path);
+    let back: Archive<Rec> = reader.load().unwrap();
+    assert_eq!(seqs(&back), vec![0, 1, 2]);
+
+    // Releasing hands the log over without the holder having to exit.
+    host.release();
+    assert!(!host.is_claimed());
+    second.claim().unwrap();
+}
+
+#[test]
+fn a_forked_log_reconciles_without_forgetting_an_entry() {
+    // The repair for a log already forked — from two writers before D30, or from a
+    // restored backup, or an rsync. Build the fork by hand, since the store now refuses
+    // to create one.
+    let path = scratch("reconcile");
+    let mut seed = FileStore::new(&path);
+    let base = filled(5);
+    ArchiveStore::<Rec>::save(&mut seed, &base).unwrap();
+
+    let mut wa = base.clone();
+    wa.append(Rec { seq: 100 }).unwrap();
+    wa.append(Rec { seq: 101 }).unwrap();
+    let mut wb = base.clone();
+    wb.append(Rec { seq: 200 }).unwrap();
+
+    let seg_a = wa.dump_json_since(base.cursor()).unwrap();
+    let seg_b = wb.dump_json_since(base.cursor()).unwrap();
+    let mut forked = std::fs::read_to_string(&path).unwrap();
+    forked.push_str(&seg_a);
+    forked.push('\n');
+    forked.push_str(&seg_b);
+    forked.push('\n');
+    std::fs::write(&path, &forked).unwrap();
+
+    // Confirm the fork is what a load actually cannot survive, so the repair is not
+    // being demonstrated against a healthy log.
+    let mut broken = FileStore::new(&path);
+    let err = ArchiveStore::<Rec>::load(&mut broken).unwrap_err();
+    assert!(format!("{err}").contains("already applied"), "{err}");
+    assert_eq!(broken.recover().unwrap(), 0, "recover knows torn tails, not forked ones");
+
+    let mut store = FileStore::new(&path);
+    let report = ArchiveStore::<Rec>::reconcile(&mut store).unwrap();
+    assert!(report.was_forked());
+    assert_eq!(report.segments_orphaned, 1);
+    assert_eq!(report.entries_moved, 1, "the orphaned writer's one entry");
+    assert_eq!(report.entries_already_present, 0);
+    assert!(report.bytes > 0);
+
+    // NOTHING IS FORGOTTEN, and no CID changed — the entries are content-addressed, so
+    // a receipt naming any of them still resolves.
+    let mut reader = FileStore::new(&path);
+    let back: Archive<Rec> = reader.load().unwrap();
+    assert_eq!(seqs(&back), vec![0, 1, 2, 3, 4, 100, 101, 200]);
+    for cid in cids(&wa).iter().chain(cids(&wb).iter()) {
+        assert!(cids(&back).contains(cid), "a CID went missing: {cid}");
+    }
+    assert_eq!(report.cids_moved, cids(&wb)[5..].to_vec(), "and it says which moved");
+
+    // The log is one base segment again, so the fork is gone from the record too, and
+    // the store can be written normally from here.
+    assert_eq!(std::fs::read_to_string(&path).unwrap().lines().count(), 1);
+    let mut more = back.clone();
+    more.append(Rec { seq: 300 }).unwrap();
+    assert!(ArchiveStore::<Rec>::save(&mut store, &more).unwrap().wrote_anything());
+}
+
+#[test]
+fn reconciling_a_healthy_log_moves_nothing() {
+    let path = scratch("reconcile-healthy");
+    let mut s = FileStore::new(&path);
+    let mut a = filled(4);
+    ArchiveStore::<Rec>::save(&mut s, &a).unwrap();
+    a.append(Rec { seq: 9 }).unwrap();
+    ArchiveStore::<Rec>::save(&mut s, &a).unwrap();
+
+    let report = ArchiveStore::<Rec>::reconcile(&mut s).unwrap();
+    assert!(!report.was_forked());
+    assert_eq!(report.entries_moved, 0);
+    assert!(report.cids_moved.is_empty());
+
+    let mut reader = FileStore::new(&path);
+    let back: Archive<Rec> = reader.load().unwrap();
+    assert_eq!(cids(&back), cids(&a), "CID for CID, order included");
+}
+
+#[test]
+fn reconciling_is_idempotent() {
+    // A segment replayed twice moves nothing: the duplicate is rejected by CID.
+    let path = scratch("reconcile-twice");
+    let mut seed = FileStore::new(&path);
+    let base = filled(3);
+    ArchiveStore::<Rec>::save(&mut seed, &base).unwrap();
+    let mut wb = base.clone();
+    wb.append(Rec { seq: 77 }).unwrap();
+    let seg = wb.dump_json_since(base.cursor()).unwrap();
+
+    let mut raw = std::fs::read_to_string(&path).unwrap();
+    raw.push_str(&format!("{seg}\n{seg}\n"));
+    std::fs::write(&path, &raw).unwrap();
+
+    let mut store = FileStore::new(&path);
+    let report = ArchiveStore::<Rec>::reconcile(&mut store).unwrap();
+    // The first copy applies where it claims to; the second is the orphan, and every
+    // entry in it is already held under the same CID. So nothing MOVES — the whole of
+    // the duplicate segment is recognised rather than re-appended.
+    assert_eq!(report.segments_orphaned, 1);
+    assert_eq!(report.entries_moved, 0);
+    assert_eq!(report.entries_already_present, 1, "the replay is recognised, not doubled");
+    let mut reader = FileStore::new(&path);
+    assert_eq!(seqs(&reader.load().unwrap()), vec![0, 1, 2, 77]);
+
+    let again = ArchiveStore::<Rec>::reconcile(&mut store).unwrap();
+    assert!(!again.was_forked());
+}
+
+#[test]
+fn the_tail_read_finds_the_end_without_loading_the_log() {
+    let path = scratch("tail");
+    let mut s = FileStore::new(&path);
+    assert_eq!(s.stored_end().unwrap(), None, "an absent store ends nowhere");
+
+    let mut a = filled(5);
+    ArchiveStore::<Rec>::save(&mut s, &a).unwrap();
+    assert_eq!(s.stored_end().unwrap(), Some(Cursor { generation: 0, index: 5 }));
+
+    a.append(Rec { seq: 50 }).unwrap();
+    ArchiveStore::<Rec>::save(&mut s, &a).unwrap();
+    assert_eq!(s.stored_end().unwrap(), Some(Cursor { generation: 0, index: 6 }));
+
+    let compacted = compact(&a, 4);
+    ArchiveStore::<Rec>::save(&mut s, &compacted).unwrap();
+    assert_eq!(s.stored_end().unwrap(), Some(Cursor { generation: 1, index: 2 }));
+
+    // And it agrees with the store's own cursor at every step, which is the property
+    // the compare-and-swap rests on.
+    assert_eq!(s.stored_end().unwrap(), s.cursor());
+}
+
+#[test]
+fn the_tail_read_crosses_a_chunk_boundary() {
+    // The backward scan reads 8 KiB at a time; a segment longer than that must still
+    // yield its header, or a busy log would silently read as ending in the wrong place.
+    let path = scratch("tail-big");
+    let mut s = FileStore::new(&path);
+    let a = filled(3);
+    ArchiveStore::<Rec>::save(&mut s, &a).unwrap();
+
+    let mut big = a.clone();
+    for i in 0..1_500 {
+        big.append(Rec { seq: 1_000 + i }).unwrap();
+    }
+    let out = ArchiveStore::<Rec>::save(&mut s, &big).unwrap();
+    assert!(out.bytes > 8 * 1024, "the tail segment must exceed one chunk ({})", out.bytes);
+    assert_eq!(s.stored_end().unwrap(), Some(Cursor { generation: 0, index: 1_503 }));
+}
+
+#[test]
+fn a_torn_tail_is_named_by_the_tail_read_too() {
+    // One voice for an interrupted write, wherever it is noticed.
+    let path = scratch("tail-torn");
+    let mut s = FileStore::new(&path);
+    ArchiveStore::<Rec>::save(&mut s, &filled(3)).unwrap();
+    let raw = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(&path, &raw[..raw.len() - 10]).unwrap();
+
+    let err = FileStore::new(&path).stored_end().unwrap_err();
+    assert!(format!("{err}").contains("torn tail"), "{err}");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_refuses_the_same_two_writers() {
+    // MEASURED before D30, and the finding that shaped the slice: SQLite's own file
+    // locking prevented NEITHER failure. Interleaved appends still forked the segment
+    // sequence into a log that would not load, and a stale writer's compaction still
+    // discarded another writer's committed entries with every call returning Ok. So the
+    // fix could not be a lock — it had to be the protocol, in the layer both backends
+    // share.
+    use crate::SqliteStore;
+
+    // Interleaved appends.
+    let path = scratch("sqlite-fork.db");
+    {
+        let mut seed = SqliteStore::open(&path).unwrap();
+        ArchiveStore::<Rec>::save(&mut seed, &filled(5)).unwrap();
+        let mut a = SqliteStore::open(&path).unwrap();
+        let mut b = SqliteStore::open(&path).unwrap();
+        let la: Archive<Rec> = a.load().unwrap();
+        let lb: Archive<Rec> = b.load().unwrap();
+        let mut wa = la.clone();
+        wa.append(Rec { seq: 100 }).unwrap();
+        let mut wb = lb.clone();
+        wb.append(Rec { seq: 200 }).unwrap();
+        ArchiveStore::<Rec>::save(&mut a, &wa).unwrap();
+        let err = ArchiveStore::<Rec>::save(&mut b, &wb).unwrap_err();
+        assert!(format!("{err}").contains("another writer has been here"), "{err}");
+        let mut r = SqliteStore::open(&path).unwrap();
+        let back: Archive<Rec> = r.load().unwrap();
+        assert_eq!(seqs(&back), vec![0, 1, 2, 3, 4, 100], "still loads");
+    }
+
+    // A stale compaction.
+    let path2 = scratch("sqlite-stale.db");
+    {
+        let mut seed = SqliteStore::open(&path2).unwrap();
+        ArchiveStore::<Rec>::save(&mut seed, &filled(5)).unwrap();
+        let mut a = SqliteStore::open(&path2).unwrap();
+        let mut b = SqliteStore::open(&path2).unwrap();
+        let la: Archive<Rec> = a.load().unwrap();
+        let lb: Archive<Rec> = b.load().unwrap();
+        let mut wa = la.clone();
+        wa.append(Rec { seq: 100 }).unwrap();
+        ArchiveStore::<Rec>::save(&mut a, &wa).unwrap();
+        let wb = compact(&lb, 2);
+        let err = ArchiveStore::<Rec>::save(&mut b, &wb).unwrap_err();
+        assert!(format!("{err}").contains("already durable"), "{err}");
+        let mut r = SqliteStore::open(&path2).unwrap();
+        let back: Archive<Rec> = r.load().unwrap();
+        assert!(seqs(&back).contains(&100), "{:?}", seqs(&back));
+    }
+
+    for p in [&path, &path2] {
+        for suffix in ["", "-wal", "-shm"] {
+            let mut q = p.clone().into_os_string();
+            q.push(suffix);
+            let _ = std::fs::remove_file(q);
+        }
+    }
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn both_backends_refuse_and_repair_identically() {
+    // The differential property, extended to D30: a fork looks the same to both
+    // backends and repairs to the same log, so neither can drift into its own idea of
+    // when a write is safe.
+    use crate::SqliteStore;
+
+    let file_path = scratch("differential-fork");
+    let db_path = scratch("differential-fork.db");
+
+    let base = filled(4);
+    let mut wb = base.clone();
+    wb.append(Rec { seq: 55 }).unwrap();
+    let orphan = wb.dump_json_since(base.cursor()).unwrap();
+
+    // Same fork, built into each backend's storage in its own terms.
+    {
+        let mut f = FileStore::new(&file_path);
+        ArchiveStore::<Rec>::save(&mut f, &base).unwrap();
+        let mut raw = std::fs::read_to_string(&file_path).unwrap();
+        raw.push_str(&format!("{orphan}\n{orphan}\n"));
+        std::fs::write(&file_path, raw).unwrap();
+    }
+    let mut db = SqliteStore::open(&db_path).unwrap();
+    ArchiveStore::<Rec>::save(&mut db, &base).unwrap();
+    db.insert_segment_for_test(&orphan).unwrap();
+    db.insert_segment_for_test(&orphan).unwrap();
+
+    let mut f = FileStore::new(&file_path);
+    let fr = ArchiveStore::<Rec>::reconcile(&mut f).unwrap();
+    let dr = ArchiveStore::<Rec>::reconcile(&mut db).unwrap();
+    assert_eq!(fr.segments_orphaned, dr.segments_orphaned);
+    assert_eq!(fr.entries_moved, dr.entries_moved);
+    assert_eq!(fr.entries_already_present, dr.entries_already_present);
+    assert_eq!(fr.cids_moved, dr.cids_moved);
+
+    let from_file: Archive<Rec> = FileStore::new(&file_path).load().unwrap();
+    let from_db: Archive<Rec> = db.load().unwrap();
+    assert_eq!(cids(&from_file), cids(&from_db));
+    assert_eq!(f.stored_end().unwrap(), db.stored_end().unwrap());
+
+    for suffix in ["", "-wal", "-shm"] {
+        let mut q = db_path.clone().into_os_string();
+        q.push(suffix);
+        let _ = std::fs::remove_file(q);
+    }
 }
 
 // --- measurement ---------------------------------------------------------------

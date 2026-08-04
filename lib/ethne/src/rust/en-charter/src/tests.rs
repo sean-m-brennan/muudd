@@ -96,11 +96,76 @@ impl Polity {
         CharterEntry::PolityChartered(Signed::build(charter, &self.signers(ratifiers)).unwrap())
     }
 
+    /// A signed observation showing exactly `derived`'s guardian edges, taken before
+    /// the founding — what D27 requires a claimed founding edge to carry.
+    fn founding_observation(
+        &self,
+        derived: &[(usize, Option<&(PrivKey, DidKey)>)],
+    ) -> Signed<Observation> {
+        let (sk, observer) = id();
+        let ob = Observation {
+            polity: self.polity.clone(),
+            observer: observer.clone(),
+            observed_at: t(40),
+            readings: derived
+                .iter()
+                .map(|(m, g)| MemberReading {
+                    member: self.ids[*m].1.clone(),
+                    reputation: 0.9,
+                    guardian: g.map(|g| g.1.clone()),
+                    attested_at: None,
+                })
+                .collect(),
+            opaque_boundary: false,
+        };
+        Signed::build(ob, &[(observer.as_str(), &sk)]).unwrap()
+    }
+
+    /// Founding derivations whose claimed edges are **backed** by one observation
+    /// (D27). The default for tests that are about something other than backing.
+    /// Every member ratifies, so every member holds the substrate. This is what a
+    /// fixture means when it says "a healthy polity of n": since **D29** ratifying is
+    /// what inducts a founding member, a partial ratification leaves members on the
+    /// roll who carry no deliberative weight, hold no office and witness no rite —
+    /// correct, and not what most of these tests are about.
+    fn all_ratify(&self) -> Vec<usize> {
+        (0..self.ids.len()).collect()
+    }
+
+    /// [`Self::charter`] ratified by the whole roll.
+    fn charter_seasoned(&self, founding: Vec<Commitment>) -> CharterEntry {
+        self.charter(&self.all_ratify(), founding)
+    }
+
+    /// [`Self::charter_derived`] ratified by the whole roll.
+    fn charter_derived_seasoned(
+        &self,
+        founding: Vec<Commitment>,
+        derived: &[(usize, Option<&(PrivKey, DidKey)>)],
+    ) -> CharterEntry {
+        self.charter_derived(&self.all_ratify(), founding, derived)
+    }
+
     fn charter_derived(
         &self,
         ratifiers: &[usize],
         founding: Vec<Commitment>,
         derived: &[(usize, Option<&(PrivKey, DidKey)>)],
+    ) -> CharterEntry {
+        let ob = self.founding_observation(derived);
+        self.charter_derived_with(ratifiers, founding, derived, |m, g| Derivation {
+            member: m,
+            guardian: Some(g),
+            evidence: Some(GuardianEvidence::Observed(Box::new(ob.clone()))),
+        })
+    }
+
+    fn charter_derived_with(
+        &self,
+        ratifiers: &[usize],
+        founding: Vec<Commitment>,
+        derived: &[(usize, Option<&(PrivKey, DidKey)>)],
+        mut guarded: impl FnMut(DidKey, DidKey) -> Derivation,
     ) -> CharterEntry {
         let prop = FoundingProposal::convener_asserted(
             self.polity.clone(),
@@ -109,9 +174,12 @@ impl Polity {
             self.roll(),
             derived
                 .iter()
-                .map(|(m, g)| Derivation {
-                    member: self.ids[*m].1.clone(),
-                    guardian: g.map(|g| g.1.clone()),
+                .map(|(m, g)| {
+                    let member = self.ids[*m].1.clone();
+                    match g {
+                        Some(g) => guarded(member, g.1.clone()),
+                        None => Derivation::unguarded(member),
+                    }
                 })
                 .collect(),
             t(50),
@@ -341,6 +409,7 @@ impl Polity {
     }
 
     /// A guardian record with an explicit signer set, for the rejection cases.
+    #[allow(clippy::too_many_arguments)]
     fn guardian_raw(
         &self,
         kind: GuardianKind,
@@ -349,17 +418,41 @@ impl Polity {
         deciders: &[usize],
         at: i64,
         signers: &[(&str, &PrivKey)],
+        evidence: Option<GuardianEvidence>,
     ) -> CharterEntry {
         let gc = GuardianChange {
             polity: self.polity.clone(),
             kind,
             member: self.ids[member].1.clone(),
             guardian: guardian.cloned(),
+            evidence,
             rationale: "r".into(),
             deciders: self.dids(deciders),
             decided_at: t(at),
         };
         CharterEntry::GuardianChanged(Signed::build(gc, signers).unwrap())
+    }
+
+    /// A signed observation showing `member` guarded by `guardian` at `at`, of the
+    /// shape a guardian change carries as its substrate evidence (D15).
+    fn edge_seen(
+        &self,
+        observer: &(PrivKey, DidKey),
+        member: usize,
+        guardian: Option<&DidKey>,
+        at: i64,
+    ) -> GuardianEvidence {
+        let CharterEntry::Observed(signed) =
+            self.observe(observer, at, &[(member, guardian, Some(at - 10))])
+        else {
+            unreachable!("observe builds an Observed entry")
+        };
+        GuardianEvidence::Observed(Box::new(signed))
+    }
+
+    /// The override: no monitor has reported, and the record says so.
+    fn edge_unbacked(reason: &str) -> GuardianEvidence {
+        GuardianEvidence::Unbacked { reason: reason.into() }
     }
 
     /// Designate a member a derived party: the `deciders` co-sign at a majority and
@@ -370,6 +463,7 @@ impl Polity {
         guardian: Option<&(PrivKey, DidKey)>,
         deciders: &[usize],
         at: i64,
+        evidence: Option<GuardianEvidence>,
     ) -> CharterEntry {
         let mut signers = self.signers(deciders);
         if let Some(g) = guardian {
@@ -382,6 +476,7 @@ impl Polity {
             deciders,
             at,
             &signers,
+            evidence,
         )
     }
 
@@ -392,22 +487,25 @@ impl Polity {
         incoming: &(PrivKey, DidKey),
         deciders: &[usize],
         at: i64,
+        evidence: Option<GuardianEvidence>,
     ) -> CharterEntry {
         let mut signers = self.signers(deciders);
         signers.push((incoming.1.as_str(), &incoming.0));
-        self.guardian_raw(GuardianKind::Rotate, member, Some(&incoming.1), deciders, at, &signers)
+        self.guardian_raw(
+            GuardianKind::Rotate, member, Some(&incoming.1), deciders, at, &signers, evidence,
+        )
     }
 
     /// The guardian steps away on their own signature (no deciders).
     fn release_by_guardian(&self, member: usize, guardian: &(PrivKey, DidKey), at: i64) -> CharterEntry {
         let signers = vec![(guardian.1.as_str(), &guardian.0)];
-        self.guardian_raw(GuardianKind::Release, member, None, &[], at, &signers)
+        self.guardian_raw(GuardianKind::Release, member, None, &[], at, &signers, None)
     }
 
     /// The roll records at a majority that the human is gone.
     fn release_by_roll(&self, member: usize, deciders: &[usize], at: i64) -> CharterEntry {
         let signers = self.signers(deciders);
-        self.guardian_raw(GuardianKind::Release, member, None, deciders, at, &signers)
+        self.guardian_raw(GuardianKind::Release, member, None, deciders, at, &signers, None)
     }
 
     /// An envoy record with an explicit signer set and public key, for the
@@ -469,6 +567,7 @@ impl Polity {
         member: &DidKey,
         kind: AffirmationKind,
         witnesses: &[usize],
+        movements: Vec<Cid>,
         at: i64,
         signers: &[(&str, &PrivKey)],
     ) -> CharterEntry {
@@ -477,26 +576,114 @@ impl Polity {
             member: member.clone(),
             kind,
             witnesses: self.dids(witnesses),
+            movements,
             affirmed_at: t(at),
         };
         CharterEntry::MemberAffirmed(Signed::build(af, signers).unwrap())
     }
 
+    /// Perform the five movements of `member`'s rite (design **D29**), attended by
+    /// `attending`, one second apart from `start`. Returns the movement CIDs in order,
+    /// which the completion must cite.
+    fn rite(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        attending: &[usize],
+        start: i64,
+    ) -> Vec<Cid> {
+        let mut cids = Vec::new();
+        for (i, movement) in self.movements(a, start).into_iter().enumerate() {
+            cids.push(self.movement(a, member, attending, movement, start + i as i64));
+        }
+        cids
+    }
+
+    /// The five movements a valid rite recites, read off the polity's own charter as it
+    /// stands — the substrate it names, the commitments in force, the anchor if any.
+    /// A fixture that hardcoded these would be testing the coherence rules against
+    /// itself.
+    fn movements(&self, a: &Archive<CharterEntry>, at: i64) -> Vec<Movement> {
+        let st = charter_state(a, &self.polity, t(at));
+        let sub = st.substrate.clone().expect("the polity is chartered");
+        vec![
+            Movement::Substrate { names: sub.name.clone() },
+            Movement::Fallenness,
+            Movement::Recognition,
+            Movement::CommonVirtue {
+                commits_to: st.commitments.iter().map(|c| c.key.clone()).collect(),
+            },
+            Movement::NonUltimacy { names_anchor: sub.anchor.clone() },
+        ]
+    }
+
+    /// Append one movement of `member`'s rite and return its CID.
+    fn movement(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        attending: &[usize],
+        movement: Movement,
+        at: i64,
+    ) -> Cid {
+        let rm = RiteMovement {
+            polity: self.polity.clone(),
+            member: member.1.clone(),
+            movement,
+            statement: "as we have received it".into(),
+            attending: self.dids(attending),
+            recited_at: t(at),
+        };
+        let mut signers = self.signers(attending);
+        if !signers.iter().any(|(d, _)| *d == member.1.as_str()) {
+            signers.push((member.1.as_str(), &member.0));
+        }
+        a.append(CharterEntry::RiteMovementRecorded(
+            Signed::build(rm, &signers).unwrap(),
+        ))
+        .unwrap()
+    }
+
     /// Induct `member` — `&p.ids[i]` for a founding member, or an outside identity
-    /// already admitted to the roll. The roll `witnesses` co-sign and the inductee
-    /// co-signs its own participation.
-    fn induct(&self, member: &(PrivKey, DidKey), witnesses: &[usize], at: i64) -> CharterEntry {
+    /// already admitted to the roll: perform the rite `witnesses` attend, then append
+    /// the completion citing it. Returns the completion's CID.
+    ///
+    /// The rite runs over the five seconds before `at`, so a caller that only cares
+    /// about the completion does not have to schedule the movements.
+    fn induct(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        witnesses: &[usize],
+        at: i64,
+    ) -> Cid {
+        let movements = self.rite(a, member, witnesses, at - 5);
+        self.induct_citing(a, member, witnesses, movements, at)
+    }
+
+    /// As [`Self::induct`], with the citation supplied — for the cases where what the
+    /// completion claims about its rite is the thing under test.
+    fn induct_citing(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        witnesses: &[usize],
+        movements: Vec<Cid>,
+        at: i64,
+    ) -> Cid {
         let mut signers = self.signers(witnesses);
         if !signers.iter().any(|(d, _)| *d == member.1.as_str()) {
             signers.push((member.1.as_str(), &member.0));
         }
-        self.affirm(&member.1, AffirmationKind::Induction, witnesses, at, &signers)
+        let entry =
+            self.affirm(&member.1, AffirmationKind::Induction, witnesses, movements, at, &signers);
+        a.append(entry).unwrap()
     }
 
     /// `member` renews their affirmation (self-signed, no witnesses).
     fn reaffirm(&self, member: &(PrivKey, DidKey), at: i64) -> CharterEntry {
         let signers = [(member.1.as_str(), &member.0)];
-        self.affirm(&member.1, AffirmationKind::ReAffirmation, &[], at, &signers)
+        self.affirm(&member.1, AffirmationKind::ReAffirmation, &[], vec![], at, &signers)
     }
 }
 
@@ -600,14 +787,14 @@ fn remove_needs_more_than_a_majority() {
     // Reject: majority (2 of 3) is not enough to remove.
     let p = Polity::new(3);
     let mut reject = Archive::new();
-    reject.append(p.charter(&[0, 1], vec![commit("a")])).unwrap();
+    reject.append(p.charter_seasoned(vec![commit("a")])).unwrap();
     reject.append(p.amend(AmendmentKind::Add, "b", &[0, 1], 200)).unwrap();
     reject.append(p.amend(AmendmentKind::Remove, "b", &[0, 1], 300)).unwrap();
     assert!(reasons(&reject).iter().any(|m| m.contains("Remove needs more than a majority")));
 
     // Accept (separate archive): all three remove it.
     let mut accept = Archive::new();
-    accept.append(p.charter(&[0, 1], vec![commit("a")])).unwrap();
+    accept.append(p.charter_seasoned(vec![commit("a")])).unwrap();
     accept.append(p.amend(AmendmentKind::Add, "b", &[0, 1], 200)).unwrap();
     accept.append(p.amend(AmendmentKind::Remove, "b", &[0, 1, 2], 300)).unwrap();
     verify_all(&accept).unwrap();
@@ -749,23 +936,41 @@ fn admit_at_majority_with_consent_grows_the_roll() {
 }
 
 #[test]
-fn admit_makes_the_roll_live_for_later_quorums() {
-    // The ripple test: once a 4th member is admitted, a commitment Add that met
-    // the old majority (2 of 3) now fails the grown roll's majority (3 of 4).
+fn induction_not_admission_makes_the_roll_live_for_later_quorums() {
+    // The ripple test, corrected by **D29**: what moves a later quorum is the point at
+    // which a new member acquires the substrate, not the point at which they join the
+    // roll. Admission alone leaves the bar where it was — the joiner carries no weight
+    // yet — and that is the whole difference between being on the roll and holding what
+    // the polity is.
     let p = Polity::new(3);
     let joiner = id();
 
+    // Admitted and not inducted: the bar is still a majority of the three founders.
+    let mut admitted = Archive::new();
+    admitted.append(p.charter_seasoned(vec![commit("a")])).unwrap();
+    admitted.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
+    admitted.append(p.amend(AmendmentKind::Add, "b", &[0, 1], 300)).unwrap();
+    verify_all(&admitted).unwrap();
+    check_authority(&admitted).expect("2 of the 3 who hold the substrate is a majority");
+
+    // Once the joiner is inducted the weighted roll is four, so two no longer carry it.
     let mut reject = Archive::new();
-    reject.append(p.charter(&[0, 1], vec![commit("a")])).unwrap();
+    reject.append(p.charter_seasoned(vec![commit("a")])).unwrap();
     reject.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
+    p.induct(&mut reject, &joiner, &[0, 1], 250);
     reject.append(p.amend(AmendmentKind::Add, "b", &[0, 1], 300)).unwrap();
     verify_all(&reject).unwrap();
-    assert!(reasons(&reject).iter().any(|m| m.contains("Add needs a majority (>= 3)")));
+    assert!(
+        reasons(&reject).iter().any(|m| m.contains("Add needs a majority (>= 3)")),
+        "got: {:?}",
+        reasons(&reject)
+    );
 
-    // With three of the now-four members, the Add is authorized.
+    // With three of the now-four inducted members, the Add is authorized.
     let mut accept = Archive::new();
-    accept.append(p.charter(&[0, 1], vec![commit("a")])).unwrap();
+    accept.append(p.charter_seasoned(vec![commit("a")])).unwrap();
     accept.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
+    p.induct(&mut accept, &joiner, &[0, 1], 250);
     accept.append(p.amend(AmendmentKind::Add, "b", &[0, 1, 2], 300)).unwrap();
     verify_all(&accept).unwrap();
     check_authority(&accept).expect("Add at the grown-roll majority is authorized");
@@ -810,7 +1015,7 @@ fn voluntary_departure_self_signed_shrinks_the_roll() {
     // From a roll of 4, a member may leave (→ 3, which can still self-govern).
     let p = Polity::new(4);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2], vec![commit("a")])).unwrap(); // majority(4) = 3
+    a.append(p.charter_seasoned(vec![commit("a")])).unwrap(); // majority(4) = 3
     a.append(p.depart(3, 200)).unwrap();
 
     verify_all(&a).expect("the departing member's signature is valid");
@@ -853,7 +1058,7 @@ fn expel_at_majority_plus_one_shrinks_the_roll() {
     // Roll of 5; majority(5) + 1 = 4 deciders, target excluded.
     let p = Polity::new(5);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.expel(4, &[0, 1, 2, 3], 200)).unwrap();
 
     verify_all(&a).unwrap();
@@ -870,13 +1075,13 @@ fn expel_rejections() {
 
     // Only a bare majority (3 of 5) — Expel needs majority + 1 = 4.
     let mut sub = Archive::new();
-    sub.append(p.charter(&[0, 1, 2], vec![])).unwrap();
+    sub.append(p.charter_seasoned(vec![])).unwrap();
     sub.append(p.expel(4, &[0, 1, 2], 200)).unwrap();
     assert!(reasons(&sub).iter().any(|m| m.contains("Expel needs more than a majority (>= 4)")));
 
     // The target cannot be among the deciders.
     let mut selfexpel = Archive::new();
-    selfexpel.append(p.charter(&[0, 1, 2], vec![])).unwrap();
+    selfexpel.append(p.charter_seasoned(vec![])).unwrap();
     selfexpel.append(p.expel(4, &[0, 1, 3, 4], 200)).unwrap();
     assert!(reasons(&selfexpel).iter().any(|m| m.contains("cannot be among the deciders")));
 }
@@ -914,12 +1119,15 @@ fn no_membership_change_or_amendment_after_dissolution() {
 
 #[test]
 fn dissolution_majority_uses_the_live_roll() {
-    // Grow the roll to 4, then a 2-of-4 dissolution is sub-majority (needs 3).
+    // Grow the roll to 4 and induct the newcomer, then a 2-of-4 dissolution is
+    // sub-majority (needs 3). Since D29 the majority is of the members who hold the
+    // substrate, so the induction is what makes the fourth member count.
     let p = Polity::new(3);
     let joiner = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1], 250);
     a.append(p.dissolve(&[], &[0, 1], 300)).unwrap();
     verify_all(&a).unwrap();
     assert!(reasons(&a).iter().any(|m| m.contains("dissolution needs a majority of the roll (>= 3)")));
@@ -929,7 +1137,7 @@ fn dissolution_majority_uses_the_live_roll() {
 fn confer_at_majority_with_consent_grants_the_office() {
     let p = Polity::new(3);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.confer(Office::Convener, 2, &[0, 1], 200)).unwrap(); // majority(3) = 2, holder 2 consents
 
     verify_all(&a).expect("deciders + holder signed");
@@ -945,7 +1153,7 @@ fn confer_at_majority_with_consent_grants_the_office() {
 fn resign_lapses_the_office() {
     let p = Polity::new(3);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.confer(Office::CharterKeeper, 2, &[0, 1], 200)).unwrap();
     a.append(p.resign(Office::CharterKeeper, 2, 300)).unwrap();
 
@@ -958,7 +1166,7 @@ fn resign_lapses_the_office() {
 fn revoke_at_majority_removes_the_office() {
     let p = Polity::new(3);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.confer(Office::Convener, 2, &[0, 1], 200)).unwrap();
     a.append(p.revoke_office(Office::Convener, 2, &[0, 1], 300)).unwrap(); // holder 2 excluded
 
@@ -973,13 +1181,13 @@ fn confer_rejections() {
 
     // Sub-majority deciders.
     let mut sub = Archive::new();
-    sub.append(p.charter(&[0, 1], vec![])).unwrap();
+    sub.append(p.charter_seasoned(vec![])).unwrap();
     sub.append(p.confer(Office::Convener, 2, &[0], 200)).unwrap();
     assert!(reasons(&sub).iter().any(|m| m.contains("conferral needs a majority (>= 2)")));
 
     // Already holds the office.
     let mut dup = Archive::new();
-    dup.append(p.charter(&[0, 1], vec![])).unwrap();
+    dup.append(p.charter_seasoned(vec![])).unwrap();
     dup.append(p.confer(Office::Convener, 2, &[0, 1], 200)).unwrap();
     dup.append(p.confer(Office::Convener, 2, &[0, 1], 300)).unwrap();
     assert!(reasons(&dup).iter().any(|m| m.contains("already held")));
@@ -996,7 +1204,7 @@ fn confer_rejections() {
     };
     let no_consent = CharterEntry::OfficeChanged(Signed::build(oc, &p.signers(&[0, 1])).unwrap());
     let mut nc = Archive::new();
-    nc.append(p.charter(&[0, 1], vec![])).unwrap();
+    nc.append(p.charter_seasoned(vec![])).unwrap();
     nc.append(no_consent).unwrap();
     verify_all(&nc).expect("the deciders' signatures are valid");
     assert!(reasons(&nc).iter().any(|m| m.contains("plus the holder (consent)")));
@@ -1078,7 +1286,7 @@ fn an_office_lapses_when_its_holder_leaves_the_roll() {
     // Roll of 4 so the departure clears the self-govern floor.
     let p = Polity::new(4);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2], vec![])).unwrap(); // majority(4) = 3
+    a.append(p.charter_seasoned(vec![])).unwrap(); // majority(4) = 3
     a.append(p.confer(Office::CharterKeeper, 3, &[0, 1, 2], 200)).unwrap();
     assert!(office_state(&a, &p.polity, t(250)).holds(&p.ids[3].1, &Office::CharterKeeper));
 
@@ -1093,7 +1301,7 @@ fn an_office_lapses_when_its_holder_leaves_the_roll() {
 fn multiple_holders_and_a_custom_office() {
     let p = Polity::new(3);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     // Two co-conveners.
     a.append(p.confer(Office::Convener, 0, &[0, 1], 200)).unwrap();
     a.append(p.confer(Office::Convener, 1, &[0, 1], 210)).unwrap();
@@ -1126,19 +1334,28 @@ fn office_change_after_dissolution_is_rejected() {
     assert!(reasons(&a).iter().any(|m| m.contains("after its dissolution")));
 }
 
+/// Ratifying the charter *is* a founding member's induction — and only the
+/// ratifiers'. A founding needs a majority, so a listed member who never signed is on
+/// the roll and un-inducted (**D29**). Until this was measured, the seed read the
+/// founding roll and handed the substrate to whoever was listed: a roll of 7 ratified
+/// by 4 reported 7 inducted, dated to an instant three of them were absent from.
 #[test]
-fn founding_members_are_inducted_at_founding() {
-    // Ratifying the charter *is* their induction — no record needed.
+fn ratifiers_are_inducted_at_founding_and_the_rest_of_the_roll_is_not() {
     let p = Polity::new(3);
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
 
     let st = affirmation_state(&a, &p.polity, t(300));
-    assert_eq!(st.entries.len(), 3);
-    assert!(st.entries.iter().all(|e| e.inducted));
-    assert!(st.entries.iter().all(|e| e.last_affirmed_at == Some(t(100))));
-    assert!(st.is_inducted(&p.ids[2].1));
+    assert_eq!(st.entries.len(), 3, "all three are on the roll");
+    assert!(st.is_inducted(&p.ids[0].1));
+    assert!(st.is_inducted(&p.ids[1].1));
     assert_eq!(st.last_affirmed(&p.ids[0].1), Some(t(100)));
+    assert_eq!(st.last_affirmed(&p.ids[1].1), Some(t(100)));
+    // NEGATIVE CONTROL on the old arithmetic: member 2 was listed and signed
+    // nothing, so it holds no substrate and carries no affirmation date.
+    assert!(!st.is_inducted(&p.ids[2].1), "a non-ratifier is not inducted by fiat");
+    assert_eq!(st.last_affirmed(&p.ids[2].1), None);
+    assert_eq!(st.entries.iter().filter(|e| e.inducted).count(), 2);
 }
 
 #[test]
@@ -1146,7 +1363,7 @@ fn an_admitted_member_is_uninducted_until_the_roll_receives_them() {
     let p = Polity::new(3);
     let joiner = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
 
     // On the roll, but the substrate has not been transmitted yet.
@@ -1156,7 +1373,7 @@ fn an_admitted_member_is_uninducted_until_the_roll_receives_them() {
     assert_eq!(before.last_affirmed(&joiner.1), None);
 
     // Roll of 4 now, so induction needs 3 witnesses.
-    a.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     verify_all(&a).expect("signatures valid");
     check_authority(&a).expect("roll-witnessed induction authorized");
 
@@ -1186,9 +1403,9 @@ fn stale_members_lists_the_uninducted_and_the_lapsed() {
     verify_all(&a).unwrap();
     check_authority(&a).unwrap();
 
-    // At t = 1000 with a 500-second cadence: 0 and 1 are fresh (100s ago),
-    // member 2 last affirmed at founding (900s ago), and the joiner was never
-    // inducted at all.
+    // At t = 1000 with a 500-second cadence: 0 and 1 are fresh (100s ago), while
+    // member 2 (a listed founder who never ratified) and the joiner are both stale
+    // for the *same* reason — never inducted, so nothing to be fresh about.
     let stale = affirmation_state(&a, &p.polity, t(1000)).stale_members(500, t(1000));
     assert!(!stale.contains(&p.ids[0].1));
     assert!(!stale.contains(&p.ids[1].1));
@@ -1196,10 +1413,11 @@ fn stale_members_lists_the_uninducted_and_the_lapsed() {
     assert!(stale.contains(&joiner.1));
     assert_eq!(stale.len(), 2);
 
-    // A cadence long enough to cover the whole history leaves only the
-    // un-inducted member stale.
+    // A cadence long enough to cover the whole history leaves exactly the
+    // un-inducted stale, and being un-inducted is not a cadence question: no
+    // cadence, however lax, makes a member who never received the substrate fresh.
     let lax = affirmation_state(&a, &p.polity, t(1000)).stale_members(5_000, t(1000));
-    assert_eq!(lax, vec![joiner.1.clone()]);
+    assert_eq!(lax, vec![p.ids[2].1.clone(), joiner.1.clone()]);
 }
 
 #[test]
@@ -1207,59 +1425,83 @@ fn induction_rejections() {
     let p = Polity::new(3);
     let joiner = id();
 
-    // Sub-majority witnesses: the roll is 4, so 3 must witness.
+    // Sub-majority witnesses. Three founders hold the substrate and the inductee does
+    // not count toward its own reception, so two must witness and one is short.
     let mut sub = Archive::new();
-    sub.append(p.charter(&[0, 1], vec![])).unwrap();
+    sub.append(p.charter_seasoned(vec![])).unwrap();
     sub.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    sub.append(p.induct(&joiner, &[0, 1], 300)).unwrap();
+    p.induct(&mut sub, &joiner, &[0], 300);
     verify_all(&sub).expect("signatures valid");
-    assert!(reasons(&sub).iter().any(|m| m.contains("majority of the roll to witness (>= 3)")));
+    assert!(
+        reasons(&sub).iter().any(|m| m.contains("majority of the inducted roll to witness (>= 2)")),
+        "got: {:?}",
+        reasons(&sub)
+    );
 
     // Someone who was never admitted cannot be inducted.
     let mut outsider = Archive::new();
-    outsider.append(p.charter(&[0, 1], vec![])).unwrap();
-    outsider.append(p.induct(&joiner, &[0, 1], 300)).unwrap();
+    outsider.append(p.charter_seasoned(vec![])).unwrap();
+    p.induct(&mut outsider, &joiner, &[0, 1], 300);
     assert!(reasons(&outsider).iter().any(|m| m.contains("affirmation by a non-member")));
 
-    // A founding member is already inducted by ratification.
+    // A *ratifier* is already inducted by ratification.
     let mut founder = Archive::new();
-    founder.append(p.charter(&[0, 1], vec![])).unwrap();
-    founder.append(p.induct(&p.ids[2], &[0, 1], 300)).unwrap();
+    founder.append(p.charter_seasoned(vec![])).unwrap();
+    p.induct(&mut founder, &p.ids[0], &[0, 1], 300);
     assert!(reasons(&founder).iter().any(|m| m.contains("already-inducted")));
+
+    // But a listed founding member who never ratified MAY be inducted, and this is
+    // the honest state D29 opened up: on the roll, substrate not yet received. The
+    // fixture above used exactly this member to test the already-inducted rule,
+    // which is how the seeding defect stayed invisible.
+    let mut latecomer = Archive::new();
+    // Ratified by two of three on purpose: member 2 is the listed-but-unsigned founder.
+    latecomer.append(p.charter(&[0, 1], vec![])).unwrap();
+    p.induct(&mut latecomer, &p.ids[2], &[0, 1], 300);
+    assert!(
+        reasons(&latecomer).is_empty(),
+        "a non-ratifying founder is inducted like anyone else: {:?}",
+        reasons(&latecomer)
+    );
 
     // Nor can a member be inducted twice.
     let mut twice = Archive::new();
-    twice.append(p.charter(&[0, 1], vec![])).unwrap();
+    twice.append(p.charter_seasoned(vec![])).unwrap();
     twice.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    twice.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
-    twice.append(p.induct(&joiner, &[0, 1, 2], 400)).unwrap();
+    p.induct(&mut twice, &joiner, &[0, 1, 2], 300);
+    p.induct(&mut twice, &joiner, &[0, 1, 2], 400);
     assert!(reasons(&twice).iter().any(|m| m.contains("already-inducted")));
 
     // The inductee must co-sign: the community receives them, and they participate.
     let mut silent = Archive::new();
-    silent.append(p.charter(&[0, 1], vec![])).unwrap();
+    silent.append(p.charter_seasoned(vec![])).unwrap();
     silent.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    silent.append(p.affirm(
-        &joiner.1,
-        AffirmationKind::Induction,
-        &[0, 1, 2],
-        300,
-        &p.signers(&[0, 1, 2]),
-    ))
-    .unwrap();
+    let movements = p.rite(&mut silent, &joiner, &[0, 1], 250);
+    silent
+        .append(p.affirm(
+            &joiner.1,
+            AffirmationKind::Induction,
+            &[0, 1],
+            movements,
+            300,
+            &p.signers(&[0, 1]),
+        ))
+        .unwrap();
     verify_all(&silent).expect("the witnesses' signatures are valid");
     assert!(reasons(&silent).iter().any(|m| m.contains("witnesses plus the inductee")));
 
     // A witness must be a current member.
     let mut stranger = Archive::new();
-    stranger.append(p.charter(&[0, 1], vec![])).unwrap();
+    stranger.append(p.charter_seasoned(vec![])).unwrap();
     stranger.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
     let outside = id();
+    let movements = p.rite(&mut stranger, &joiner, &[0, 1], 250);
     let af = Affirmation {
         polity: p.polity.clone(),
         member: joiner.1.clone(),
         kind: AffirmationKind::Induction,
         witnesses: vec![p.ids[0].1.clone(), p.ids[1].1.clone(), outside.1.clone()],
+        movements,
         affirmed_at: t(300),
     };
     let mut signers = p.signers(&[0, 1]);
@@ -1287,7 +1529,14 @@ fn reaffirmation_rejections() {
     let mut witnessed = Archive::new();
     witnessed.append(p.charter(&[0, 1], vec![])).unwrap();
     witnessed
-        .append(p.affirm(&p.ids[0].1, AffirmationKind::ReAffirmation, &[1], 300, &p.signers(&[0])))
+        .append(p.affirm(
+            &p.ids[0].1,
+            AffirmationKind::ReAffirmation,
+            &[1],
+            vec![],
+            300,
+            &p.signers(&[0]),
+        ))
         .unwrap();
     assert!(reasons(&witnessed).iter().any(|m| m.contains("records no witnesses")));
 
@@ -1295,7 +1544,14 @@ fn reaffirmation_rejections() {
     let mut proxy = Archive::new();
     proxy.append(p.charter(&[0, 1], vec![])).unwrap();
     proxy
-        .append(p.affirm(&p.ids[0].1, AffirmationKind::ReAffirmation, &[], 300, &p.signers(&[1])))
+        .append(p.affirm(
+            &p.ids[0].1,
+            AffirmationKind::ReAffirmation,
+            &[],
+            vec![],
+            300,
+            &p.signers(&[1]),
+        ))
         .unwrap();
     verify_all(&proxy).expect("the other member's signature is valid");
     assert!(reasons(&proxy).iter().any(|m| m.contains("exactly the affirming member")));
@@ -1331,16 +1587,18 @@ fn majority_thresholds() {
 
 // --- D14: the Inductor presides over the rite, defeasibly --------------------
 //
-// Roll of 7 throughout (6 founders + an admitted joiner): majority(7) = 4, so the
-// roll's override bar is 5 and there are enough founding witnesses to reach it
-// without the Inductor.
+// Roll of 7 throughout (6 founders + an admitted joiner), and since **D29** the bar is
+// a majority of the *inducted* roll — the six founders, because the inductee does not
+// count toward its own reception. majority(6) = 4, so the roll's override bar is 5, and
+// the arithmetic these tests describe is unchanged.
 
-/// Charter a polity of 6, admit `joiner`, and (optionally) confer the Inductor.
+/// Charter a polity of 6 (all ratifying, so all hold the substrate), admit `joiner`,
+/// and (optionally) confer the Inductor.
 fn presided(inductor: Option<usize>) -> (Polity, (PrivKey, DidKey), Archive<CharterEntry>) {
     let p = Polity::new(6);
     let joiner = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2, 3], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1, 2, 3], 200)).unwrap();
     if let Some(i) = inductor {
         // Roll of 7 now, so a conferral needs 4 deciders.
@@ -1352,7 +1610,7 @@ fn presided(inductor: Option<usize>) -> (Polity, (PrivKey, DidKey), Archive<Char
 #[test]
 fn an_inductor_among_the_witnesses_authorizes_at_a_plain_majority() {
     let (p, joiner, mut a) = presided(Some(0));
-    a.append(p.induct(&joiner, &[0, 1, 2, 3], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2, 3], 300);
     verify_all(&a).unwrap();
     check_authority(&a).expect("the Inductor presided at a majority");
 }
@@ -1362,7 +1620,7 @@ fn without_the_inductor_a_plain_majority_no_longer_suffices() {
     let (p, joiner, mut a) = presided(Some(0));
     // Four witnesses is a majority of the roll of 7, and would have authorized the
     // induction before the office was conferred — see the vacant-office case below.
-    a.append(p.induct(&joiner, &[1, 2, 3, 4], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[1, 2, 3, 4], 300);
     verify_all(&a).unwrap();
     assert!(reasons(&a).iter().any(|m| m.contains("Inductor other than the inductee")));
 }
@@ -1372,7 +1630,7 @@ fn the_roll_may_induct_without_the_inductor_at_its_own_higher_bar() {
     // The whole point of a *defeasible* gate: an officer raises the bar for the
     // rite and can never block it, so the roll stays sovereign (D12).
     let (p, joiner, mut a) = presided(Some(0));
-    a.append(p.induct(&joiner, &[1, 2, 3, 4, 5], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[1, 2, 3, 4, 5], 300);
     verify_all(&a).unwrap();
     check_authority(&a).expect("majority + 1 is the roll's override");
 }
@@ -1380,7 +1638,7 @@ fn the_roll_may_induct_without_the_inductor_at_its_own_higher_bar() {
 #[test]
 fn a_vacant_inductor_leaves_the_majority_rule_untouched() {
     let (p, joiner, mut a) = presided(None);
-    a.append(p.induct(&joiner, &[1, 2, 3, 4], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[1, 2, 3, 4], 300);
     verify_all(&a).unwrap();
     check_authority(&a).expect("no office held, so a majority witnesses as before");
 }
@@ -1391,7 +1649,7 @@ fn an_inductor_who_has_left_the_roll_does_not_preside() {
     let (p, joiner, mut a) = presided(Some(5));
     a.append(p.depart(5, 260)).unwrap();
     // Roll of 6 now, so a majority is 4 — and the departed Inductor gates nothing.
-    a.append(p.induct(&joiner, &[1, 2, 3, 4], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[1, 2, 3, 4], 300);
     verify_all(&a).unwrap();
     check_authority(&a).expect("a lapsed holding does not preside");
 }
@@ -1400,30 +1658,46 @@ fn an_inductor_who_has_left_the_roll_does_not_preside() {
 fn any_one_of_several_inductors_suffices() {
     let (p, joiner, mut a) = presided(Some(0));
     a.append(p.confer(Office::Inductor, 5, &[0, 1, 2, 3], 260)).unwrap();
-    a.append(p.induct(&joiner, &[2, 3, 4, 5], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[2, 3, 4, 5], 300);
     verify_all(&a).unwrap();
     check_authority(&a).expect("the second Inductor presided");
 }
 
+/// D14 refused an inductee presiding over their own reception. **D29 makes that
+/// unreachable**, and by a stronger rule: an office may only be conferred on a member
+/// who holds the substrate, and an inductee by definition does not yet. So the case
+/// D14's clause was written for cannot be constructed — the conferral is refused before
+/// any rite begins.
+///
+/// The clause is kept (see `authority.rs`) rather than deleted, on the same reasoning
+/// as the KC self-CID exclusion: it is the rule's own statement of what it means, and
+/// a later change that allowed re-induction would need it again.
 #[test]
-fn the_inductee_cannot_preside_over_their_own_reception() {
+fn the_inductee_cannot_be_made_an_inductor_at_all() {
     let p = Polity::new(6);
     let joiner = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2, 3], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1, 2, 3], 200)).unwrap();
-    // The joiner is the polity's only Inductor — and the one being inducted.
+    // The polity tries to make its newest member — not yet inducted — its Inductor.
     a.append(p.confer_on(Office::Inductor, &joiner, &[0, 1, 2, 3], 250)).unwrap();
+    verify_all(&a).unwrap();
+    assert!(
+        reasons(&a).iter().any(|m| m.contains("has not been \n                                 inducted")
+            || m.contains("has not been inducted")),
+        "got: {:?}",
+        reasons(&a)
+    );
 
-    let mut own = a.clone();
-    own.append(p.induct(&joiner, &[1, 2, 3, 4], 300)).unwrap();
-    assert!(reasons(&own).iter().any(|m| m.contains("Inductor other than the inductee")));
-
-    // The roll's override still gets them in.
+    // And with no Inductor effectively held, the plain majority receives them.
     let mut over = a;
-    over.append(p.induct(&joiner, &[1, 2, 3, 4, 5], 300)).unwrap();
+    p.induct(&mut over, &joiner, &[1, 2, 3, 4], 300);
     verify_all(&over).unwrap();
-    check_authority(&over).expect("the roll may receive them without a presider");
+    let left: Vec<String> = reasons(&over)
+        .into_iter()
+        .filter(|m| !m.contains("inducted; an office"))
+        .collect();
+    assert!(left.is_empty(), "the induction itself is authorized: {left:?}");
 }
 
 // --- D14: the EnvoyAuthorizer's delegated authority --------------------------
@@ -1432,7 +1706,7 @@ fn the_inductee_cannot_preside_over_their_own_reception() {
 fn with_authorizer(officer: Option<usize>) -> (Polity, Archive<CharterEntry>) {
     let p = Polity::new(5);
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     if let Some(i) = officer {
         a.append(p.confer(Office::EnvoyAuthorizer, i, &[0, 1, 2], 200)).unwrap();
     }
@@ -1648,10 +1922,11 @@ fn a_guardian_must_consent_to_the_founding() {
             substrate(),
             vec![],
             p.roll(),
-            vec![Derivation {
-            member: p.ids[1].1.clone(),
-            guardian: Some(human.1.clone()),
-        }],
+            vec![Derivation::unbacked(
+            p.ids[1].1.clone(),
+            human.1.clone(),
+            "not what this test is about",
+        )],
             t(50),
         );
     let charter = prop.ratify(p.dids(&[0, 1]), t(100)).unwrap();
@@ -1675,8 +1950,12 @@ fn founding_derivation_rejections() {
             vec![],
             p.roll(),
             vec![
-            Derivation { member: p.ids[1].1.clone(), guardian: Some(p.ids[2].1.clone()) },
-            Derivation { member: p.ids[2].1.clone(), guardian: None },
+            Derivation::unbacked(
+                p.ids[1].1.clone(),
+                p.ids[2].1.clone(),
+                "not what this test is about",
+            ),
+            Derivation::unguarded(p.ids[2].1.clone()),
         ],
             t(50),
         );
@@ -1696,7 +1975,7 @@ fn founding_derivation_rejections() {
             substrate(),
             vec![],
             p.roll(),
-            vec![Derivation { member: outsider.1.clone(), guardian: None }],
+            vec![Derivation::unguarded(outsider.1.clone())],
             t(50),
         );
     let charter = prop.ratify(p.dids(&[0, 1]), t(100)).unwrap();
@@ -1708,21 +1987,108 @@ fn founding_derivation_rejections() {
     assert!(reasons(&stranger).iter().any(|m| m.contains("not in the membership roll")));
 }
 
+/// MEASUREMENT (D15 co-signing slice, step 1) — kept as the regression test.
+///
+/// Why a `GuardianChange` must **carry** its substrate evidence rather than cite it.
+///
+/// D17 lets a polity drop observations, by a signed act with a receipt, and
+/// `apply_prunings` really removes them (a new generation, not a tombstone). So an
+/// authority rule that resolved a cited observation CID would hold a record
+/// authorized today and unauthorized after a *legitimate* housekeeping pruning —
+/// authority would stop being a property of the log and start being a property of
+/// when you looked. Measured here: after pruning, the observation is gone from the
+/// archive entirely, which is exactly what a citation would dangle against.
+///
+/// Same shape as D20's finding that D17's incremental save and its own compaction did
+/// not compose. Carried evidence (the D22 pattern) has no such interaction: a copy
+/// inside a record cannot be pruned without breaking the record's own signature.
+#[test]
+fn a_cited_observation_would_not_survive_a_legitimate_pruning() {
+    let p = Polity::new(3);
+    let monitor = id();
+    let human = id();
+    let mut a = Archive::new();
+    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.confer(Office::CharterKeeper, 0, &[0, 1], 50)).unwrap();
+    // An observation showing member 2's guardian — the evidence a rule would want.
+    a.append(p.observe(&monitor, 100, &[(2, Some(&human.1), Some(90))])).unwrap();
+    // The change carries its own copy of that evidence.
+    a.append(p.designate(2, Some(&human), &[0, 1], 200,
+                         Some(p.edge_seen(&monitor, 2, Some(&human.1), 100)))).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+
+    let observations = |arch: &Archive<CharterEntry>| {
+        arch.iter().filter(|(_, e)| matches!(e, CharterEntry::Observed(_))).count()
+    };
+    assert_eq!(observations(&a), 1, "the evidence is in the log to begin with");
+
+    // A CharterKeeper prunes past D17's 30-day settling horizon — an authorized act.
+    const SETTLED: i64 = 2_592_000 + 150 + 10;
+    a.append(p.prune(&a, 150, &[0], SETTLED)).unwrap();
+    check_authority(&a).expect("the pruning is itself authorized");
+    let compacted = apply_prunings(&a, &p.polity, t(SETTLED)).unwrap();
+
+    assert_eq!(
+        observations(&compacted), 0,
+        "MEASURED: the observation a citation would point at is gone after a \
+         legitimate pruning — so the evidence must travel inside the record"
+    );
+    assert_eq!(observations(&a), 1, "the pre-compaction log is untouched by the read");
+    // And the guardian change is still there and still authorized, which is what
+    // carrying the evidence has to preserve.
+    verify_all(&compacted).unwrap();
+    check_authority(&compacted).expect("the guardian change survives the pruning");
+}
+
+/// MEASUREMENT (step 1) — the unbacked edge, kept as the regression test.
+///
+/// A guardian edge could be chartered with **nothing in the log showing it**: no
+/// observation, no reading, no substrate evidence of any kind, and both passes green.
+/// The corpus asserted this as correct — `designate_rotate_and_release_move_the_edge`
+/// designates and rotates with no observation anywhere and says "designate, rotate
+/// and release all authorized". Five tests move a guardian edge and none of them
+/// records an observation.
+///
+/// That is one level up from the hole D15 itself turned out to have (a chartered rule
+/// with no feed), and the same shape as `substrate.anchor` in D23 and KC's
+/// `source_commitment`: a rule whose evidence nothing supplies, asserted correct by a
+/// passing test.
+#[test]
+fn an_edge_the_substrate_never_showed_is_refused() {
+    let p = Polity::new(3);
+    let human = id();
+    let mut a = Archive::new();
+    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    // No observation anywhere, and no declared override: nothing has ever reported
+    // that `human` guards 2.
+    a.append(p.designate(2, Some(&human), &[0, 1], 200, None)).unwrap();
+    verify_all(&a).expect("crypto-intact either way");
+    let violations = authority_violations(&a);
+    assert!(
+        violations.iter().any(|(_, why)| why.contains("substrate")),
+        "MEASURED: authorized before the evidence rule existed. Violations: {violations:?}"
+    );
+}
+
 #[test]
 fn designate_rotate_and_release_move_the_edge() {
     let p = Polity::new(3);
+    let monitor = id();
     let first = id();
     let second = id();
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
 
-    a.append(p.designate(2, Some(&first), &[0, 1], 200)).unwrap();
+    a.append(p.designate(2, Some(&first), &[0, 1], 200,
+                         Some(p.edge_seen(&monitor, 2, Some(&first.1), 150)))).unwrap();
     assert_eq!(
         guardian_state(&a, &p.polity, t(250)).guardian_of(&p.ids[2].1),
         Some(&Some(first.1.clone()))
     );
 
-    a.append(p.rotate_guardian(2, &second, &[0, 1], 300)).unwrap();
+    a.append(p.rotate_guardian(2, &second, &[0, 1], 300,
+                               Some(p.edge_seen(&monitor, 2, Some(&second.1), 250)))).unwrap();
     assert_eq!(
         guardian_state(&a, &p.polity, t(350)).guardian_of(&p.ids[2].1),
         Some(&Some(second.1.clone()))
@@ -1743,10 +2109,12 @@ fn designate_rotate_and_release_move_the_edge() {
 #[test]
 fn the_roll_may_record_that_a_guardian_is_gone() {
     let p = Polity::new(3);
+    let monitor = id();
     let human = id();
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
-    a.append(p.designate(2, Some(&human), &[0, 1], 200)).unwrap();
+    a.append(p.designate(2, Some(&human), &[0, 1], 200,
+                         Some(p.edge_seen(&monitor, 2, Some(&human.1), 150)))).unwrap();
     a.append(p.release_by_roll(2, &[0, 1], 300)).unwrap();
     verify_all(&a).unwrap();
     check_authority(&a).expect("the roll may record a vanished human at a majority");
@@ -1771,6 +2139,9 @@ fn guardian_change_rejections() {
             &[0, 1],
             200,
             &p.signers(&[0, 1]),
+            // The override, not real evidence: these fixtures test *other* rules, and
+            // the evidence check runs first, so a missing one would mask them.
+            Some(Polity::edge_unbacked("rejection fixture")),
         ))
         .unwrap();
     assert!(reasons(&unsigned).iter().any(|m| m.contains("plus the named guardian")));
@@ -1778,31 +2149,37 @@ fn guardian_change_rejections() {
     // Nothing may guard itself.
     let mut selfish = base.clone();
     selfish
-        .append(p.designate(2, Some(&(p.ids[2].0.clone(), p.ids[2].1.clone())), &[0, 1], 200))
+        .append(p.designate(2, Some(&(p.ids[2].0.clone(), p.ids[2].1.clone())), &[0, 1], 200,
+                            Some(Polity::edge_unbacked("rejection fixture"))))
         .unwrap();
     assert!(reasons(&selfish).iter().any(|m| m.contains("its own guardian")));
 
     // Rotation presupposes a designation, and must name the incoming guardian.
     let mut early = base.clone();
-    early.append(p.rotate_guardian(2, &human, &[0, 1], 200)).unwrap();
+    early.append(p.rotate_guardian(2, &human, &[0, 1], 200,
+                                   Some(Polity::edge_unbacked("rejection fixture")))).unwrap();
     assert!(reasons(&early).iter().any(|m| m.contains("not a designated derived party")));
 
     // No second designation for the same member.
     let mut twice = base.clone();
-    twice.append(p.designate(2, Some(&human), &[0, 1], 200)).unwrap();
-    twice.append(p.designate(2, Some(&other), &[0, 1], 300)).unwrap();
+    twice.append(p.designate(2, Some(&human), &[0, 1], 200,
+                             Some(Polity::edge_unbacked("rejection fixture")))).unwrap();
+    twice.append(p.designate(2, Some(&other), &[0, 1], 300,
+                             Some(Polity::edge_unbacked("rejection fixture")))).unwrap();
     assert!(reasons(&twice).iter().any(|m| m.contains("already designated")));
 
     // A release of an edge that is already absent says nothing.
     let mut empty = base.clone();
-    empty.append(p.designate(2, None, &[0, 1], 200)).unwrap();
+    // No guardian named, so no edge is claimed and no evidence may be carried.
+    empty.append(p.designate(2, None, &[0, 1], 200, None)).unwrap();
     empty.append(p.release_by_roll(2, &[0, 1], 300)).unwrap();
     assert!(reasons(&empty).iter().any(|m| m.contains("already absent")));
 
     // A machine cannot be rotated onto another machine.
     let mut looped = base;
-    looped.append(p.designate(1, None, &[0, 1], 200)).unwrap();
-    looped.append(p.designate(2, Some(&human), &[0, 1], 300)).unwrap();
+    looped.append(p.designate(1, None, &[0, 1], 200, None)).unwrap();
+    looped.append(p.designate(2, Some(&human), &[0, 1], 300,
+                              Some(Polity::edge_unbacked("rejection fixture")))).unwrap();
     looped
         .append(p.guardian_raw(
             GuardianKind::Rotate,
@@ -1811,9 +2188,131 @@ fn guardian_change_rejections() {
             &[0, 1],
             400,
             &p.signers(&[0, 1]),
+            Some(Polity::edge_unbacked("rejection fixture")),
         ))
         .unwrap();
     assert!(reasons(&looped).iter().any(|m| m.contains("cannot guard a machine")));
+}
+
+/// The substrate-evidence rule (D15), case by case. Each rejection names the rule it
+/// trips, and each is paired with the authorizing case — a gate that refused
+/// everything would pass the rejections and mean nothing.
+#[test]
+fn guardian_evidence_rejections_and_the_cases_that_pass() {
+    let p = Polity::new(3);
+    let monitor = id();
+    let human = id();
+    let other = id();
+    let mut base = Archive::new();
+    base.append(p.charter(&[0, 1], vec![])).unwrap();
+
+    // The authorizing case: an observation showing exactly this edge, seen before the
+    // decision, signed by its observer.
+    let mut good = base.clone();
+    good.append(p.designate(2, Some(&human), &[0, 1], 200,
+                            Some(p.edge_seen(&monitor, 2, Some(&human.1), 150)))).unwrap();
+    verify_all(&good).unwrap();
+    check_authority(&good).expect("evidence showing the claimed edge authorizes it");
+
+    // The override authorizes too, and says why.
+    let mut declared = base.clone();
+    declared.append(p.designate(2, Some(&human), &[0, 1], 200,
+                                Some(Polity::edge_unbacked("bootstrap: no monitor yet")))).unwrap();
+    check_authority(&declared).expect("a declared override authorizes");
+
+    // ...but not an unexplained one.
+    let mut silent = base.clone();
+    silent.append(p.designate(2, Some(&human), &[0, 1], 200,
+                              Some(Polity::edge_unbacked("   ")))).unwrap();
+    assert!(reasons(&silent).iter().any(|m| m.contains("must say why")));
+
+    // Evidence showing a different guardian argues against the claim.
+    let mut wrong = base.clone();
+    wrong.append(p.designate(2, Some(&human), &[0, 1], 200,
+                             Some(p.edge_seen(&monitor, 2, Some(&other.1), 150)))).unwrap();
+    assert!(reasons(&wrong).iter().any(|m| m.contains("not the claimed")));
+
+    // Evidence showing no guardian at all is not evidence of one.
+    let mut none_seen = base.clone();
+    none_seen.append(p.designate(2, Some(&human), &[0, 1], 200,
+                                 Some(p.edge_seen(&monitor, 2, None, 150)))).unwrap();
+    assert!(reasons(&none_seen).iter().any(|m| m.contains("with no guardian")));
+
+    // Evidence about a different member says nothing about this one.
+    let mut elsewhere = base.clone();
+    elsewhere.append(p.designate(2, Some(&human), &[0, 1], 200,
+                                 Some(p.edge_seen(&monitor, 1, Some(&human.1), 150)))).unwrap();
+    assert!(reasons(&elsewhere).iter().any(|m| m.contains("carries no reading for")));
+
+    // A reading cannot back a decision it postdates: evidence is what was seen
+    // before the polity decided, not a justification assembled afterwards.
+    let mut after = base.clone();
+    after.append(p.designate(2, Some(&human), &[0, 1], 200,
+                             Some(p.edge_seen(&monitor, 2, Some(&human.1), 300)))).unwrap();
+    assert!(reasons(&after).iter().any(|m| m.contains("after the change decided")));
+
+    // A release claims the edge is *gone*; evidence of one present argues the
+    // opposite, and D16 says an absent reading is not evidence of absence either.
+    let mut released = base.clone();
+    released.append(p.designate(2, Some(&human), &[0, 1], 200,
+                                Some(p.edge_seen(&monitor, 2, Some(&human.1), 150)))).unwrap();
+    released
+        .append(p.guardian_raw(
+            GuardianKind::Release, 2, None, &[0, 1], 300, &p.signers(&[0, 1]),
+            Some(p.edge_seen(&monitor, 2, Some(&human.1), 250)),
+        ))
+        .unwrap();
+    assert!(reasons(&released).iter().any(|m| m.contains("claims the edge is gone")));
+
+    // Carried evidence may not be put in somebody else's mouth, exactly as a
+    // standalone observation may not.
+    let mut forged = base;
+    let CharterEntry::Observed(signed) =
+        p.observe_signed(&monitor, 150, &[(2, Some(&human.1), Some(140))],
+                         &[(other.1.as_str(), &other.0)])
+    else {
+        unreachable!()
+    };
+    forged
+        .append(p.designate(2, Some(&human), &[0, 1], 200,
+                            Some(GuardianEvidence::Observed(Box::new(signed)))))
+        .unwrap();
+    assert!(reasons(&forged).iter().any(|m| m.contains("signed by exactly its observer")));
+}
+
+/// **The control that proves carrying beats citing.** The observation the evidence was
+/// copied from is pruned by an authorized act, `apply_prunings` removes it, and the
+/// guardian change still verifies and is still authorized — because its evidence never
+/// lived in the log to begin with. A citation would have dangled here; the measurement
+/// that established this is `a_cited_observation_would_not_survive_a_legitimate_pruning`.
+#[test]
+fn carried_evidence_survives_the_pruning_of_its_source() {
+    let p = Polity::new(3);
+    let monitor = id();
+    let human = id();
+    let mut a = Archive::new();
+    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.confer(Office::CharterKeeper, 0, &[0, 1], 50)).unwrap();
+    a.append(p.observe(&monitor, 100, &[(2, Some(&human.1), Some(90))])).unwrap();
+    a.append(p.designate(2, Some(&human), &[0, 1], 200,
+                         Some(p.edge_seen(&monitor, 2, Some(&human.1), 100)))).unwrap();
+    check_authority(&a).unwrap();
+
+    const SETTLED: i64 = 2_592_000 + 150 + 10;
+    a.append(p.prune(&a, 150, &[0], SETTLED)).unwrap();
+    let compacted = apply_prunings(&a, &p.polity, t(SETTLED)).unwrap();
+    assert_eq!(
+        compacted.iter().filter(|(_, e)| matches!(e, CharterEntry::Observed(_))).count(),
+        0,
+        "the source observation is gone from the log"
+    );
+    verify_all(&compacted).expect("the carried copy still verifies");
+    check_authority(&compacted).expect("and still backs the edge it was carried for");
+    // The edge itself is unchanged by the housekeeping.
+    assert_eq!(
+        guardian_state(&compacted, &p.polity, t(SETTLED)).guardian_of(&p.ids[2].1),
+        Some(&Some(human.1.clone()))
+    );
 }
 
 #[test]
@@ -1821,8 +2320,10 @@ fn a_designation_lapses_off_the_roll_and_revives_on_return() {
     let p = Polity::new(4);
     let human = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2], vec![])).unwrap();
-    a.append(p.designate(3, Some(&human), &[0, 1, 2], 200)).unwrap();
+    let monitor = id();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.designate(3, Some(&human), &[0, 1, 2], 200,
+                         Some(p.edge_seen(&monitor, 3, Some(&human.1), 150)))).unwrap();
     assert!(guardian_state(&a, &p.polity, t(250)).is_derived(&p.ids[3].1));
 
     a.append(p.depart(3, 300)).unwrap();
@@ -1844,7 +2345,7 @@ fn a_machine_majority_polity_refuses_an_office_for_an_unguarded_machine() {
     let human = id();
     let mut a = Archive::new();
     // Two of three are machines: machine-majority. Member 2 answers to nobody.
-    a.append(p.charter_derived(&[0, 1], vec![], &[(1, Some(&human)), (2, None)])).unwrap();
+    a.append(p.charter_derived_seasoned(vec![], &[(1, Some(&human)), (2, None)])).unwrap();
     a.append(p.confer(Office::Convener, 2, &[0, 1], 200)).unwrap();
     verify_all(&a).unwrap();
     assert!(reasons(&a).iter().any(|m| m.contains("derived member with no guardian")));
@@ -1860,8 +2361,10 @@ fn the_same_conferral_is_authorized_once_a_guardian_answers_for_it() {
     let first = id();
     let second = id();
     let mut a = Archive::new();
-    a.append(p.charter_derived(&[0, 1], vec![], &[(1, Some(&first)), (2, None)])).unwrap();
-    a.append(p.rotate_guardian(2, &second, &[0, 1], 200)).unwrap();
+    let monitor = id();
+    a.append(p.charter_derived_seasoned(vec![], &[(1, Some(&first)), (2, None)])).unwrap();
+    a.append(p.rotate_guardian(2, &second, &[0, 1], 200,
+                               Some(p.edge_seen(&monitor, 2, Some(&second.1), 150)))).unwrap();
     a.append(p.confer(Office::Convener, 2, &[0, 1], 300)).unwrap();
     verify_all(&a).unwrap();
     check_authority(&a).expect("an unguarded machine given a human may hold office");
@@ -1876,7 +2379,7 @@ fn a_guarded_machine_may_hold_office_in_a_machine_majority_polity() {
     let p = Polity::new(3);
     let human = id();
     let mut a = Archive::new();
-    a.append(p.charter_derived(&[0, 1], vec![], &[(1, Some(&human)), (2, Some(&human))])).unwrap();
+    a.append(p.charter_derived_seasoned(vec![], &[(1, Some(&human)), (2, Some(&human))])).unwrap();
     a.append(p.confer(Office::Convener, 2, &[0, 1], 200)).unwrap();
     verify_all(&a).unwrap();
     check_authority(&a).expect("a machine with a human behind it may hold office");
@@ -1889,7 +2392,7 @@ fn the_office_rule_is_conditional_on_machine_majority() {
     // its guardian assembly, not because machines are second class.
     let p = Polity::new(5);
     let mut a = Archive::new();
-    a.append(p.charter_derived(&[0, 1, 2], vec![], &[(4, None)])).unwrap();
+    a.append(p.charter_derived_seasoned(vec![], &[(4, None)])).unwrap();
     a.append(p.confer(Office::Convener, 4, &[0, 1, 2], 200)).unwrap();
     verify_all(&a).unwrap();
     check_authority(&a).expect("one machine among five is not machine-majority");
@@ -1901,14 +2404,14 @@ fn machine_majority_is_a_majority_of_the_roll() {
     // Roll of 5, majority 3: two machines is not machine-majority, three is.
     let p = Polity::new(5);
     let mut two = Archive::new();
-    two.append(p.charter_derived(&[0, 1, 2], vec![], &[(3, None), (4, None)])).unwrap();
+    two.append(p.charter_derived_seasoned(vec![], &[(3, None), (4, None)])).unwrap();
     assert!(!guardian_state(&two, &p.polity, t(200)).is_machine_majority(5));
     two.append(p.confer(Office::Convener, 3, &[0, 1, 2], 200)).unwrap();
     check_authority(&two).expect("two of five leaves the rule dormant");
 
     let mut three = Archive::new();
     three
-        .append(p.charter_derived(&[0, 1, 2], vec![], &[(2, None), (3, None), (4, None)]))
+        .append(p.charter_derived_seasoned(vec![], &[(2, None), (3, None), (4, None)]))
         .unwrap();
     assert!(guardian_state(&three, &p.polity, t(200)).is_machine_majority(5));
     three.append(p.confer(Office::Convener, 3, &[0, 1, 2], 200)).unwrap();
@@ -1922,13 +2425,13 @@ fn decay_trends_track_the_affirmation_series_and_its_gaps() {
     let p = Polity::new(3);
     let joiners: Vec<(PrivKey, DidKey)> = (0..2).map(|_| id()).collect();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiners[0], &[0, 1], 200)).unwrap();
     // Roll of 4: an induction needs 3 witnesses.
-    a.append(p.induct(&joiners[0], &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiners[0], &[0, 1, 2], 300);
     a.append(p.admit(&joiners[1], &[0, 1, 2], 400)).unwrap();
     // Roll of 5: 3 witnesses again, but one fewer turns out than could.
-    a.append(p.induct(&joiners[1], &[0, 1, 2], 900)).unwrap();
+    p.induct(&mut a, &joiners[1], &[0, 1, 2], 900);
     a.append(p.reaffirm(&joiners[0], 1500)).unwrap();
     check_authority(&a).expect("the series is authorized");
 
@@ -1949,7 +2452,7 @@ fn a_widening_gap_needs_two_gaps_to_compare_against() {
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    a.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     assert_eq!(decay_trends(&a, &p.polity, t(400)).latest_gap_widening(), None);
 
     a.append(p.reaffirm(&joiner, 400)).unwrap();
@@ -1969,9 +2472,9 @@ fn a_steady_cadence_is_not_widening() {
     let p = Polity::new(3);
     let joiner = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    a.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     for at in [400i64, 500, 600] {
         a.append(p.reaffirm(&joiner, at)).unwrap();
     }
@@ -1993,7 +2496,7 @@ fn the_median_rule_absorbs_a_single_long_interval() {
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    a.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     for at in [400i64, 5400, 5500] {
         a.append(p.reaffirm(&joiner, at)).unwrap();
     }
@@ -2014,7 +2517,7 @@ fn the_rolling_gap_reading_goes_quiet_once_the_drift_becomes_the_baseline() {
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    a.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     // Induction at 300 is itself an affirmation point, so the first gap is 300->400.
     for at in [400i64, 800, 1200, 1600] {
         a.append(p.reaffirm(&joiner, at)).unwrap();
@@ -2042,7 +2545,7 @@ fn the_pinned_gap_reading_needs_two_gaps_and_agrees_on_a_steady_cadence() {
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    a.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     a.append(p.reaffirm(&joiner, 400)).unwrap();
     assert_eq!(
         decay_trends(&a, &p.polity, t(500)).gap_widening_since_founding(),
@@ -2063,10 +2566,10 @@ fn a_witness_decline_needs_two_inductions() {
     let p = Polity::new(6);
     let joiners: Vec<(PrivKey, DidKey)> = (0..2).map(|_| id()).collect();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2, 3], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiners[0], &[0, 1, 2, 3], 200)).unwrap();
     // Roll of 7, majority 4 — but five turn out to receive the first joiner.
-    a.append(p.induct(&joiners[0], &[0, 1, 2, 3, 4], 300)).unwrap();
+    p.induct(&mut a, &joiners[0], &[0, 1, 2, 3, 4], 300);
     assert!(
         !decay_trends(&a, &p.polity, t(400)).witness_count_declined(),
         "one induction is not a trend"
@@ -2074,7 +2577,7 @@ fn a_witness_decline_needs_two_inductions() {
 
     a.append(p.admit(&joiners[1], &[0, 1, 2, 3], 400)).unwrap();
     // Roll of 8, majority 5: the bare minimum turns out this time.
-    a.append(p.induct(&joiners[1], &[0, 1, 2, 3, 4], 500)).unwrap();
+    p.induct(&mut a, &joiners[1], &[0, 1, 2, 3, 4], 500);
     check_authority(&a).unwrap();
     let t_ = decay_trends(&a, &p.polity, t(600));
     assert_eq!(t_.inductions().len(), 2);
@@ -2086,13 +2589,13 @@ fn fewer_witnesses_than_the_first_induction_is_a_decline() {
     let p = Polity::new(6);
     let joiners: Vec<(PrivKey, DidKey)> = (0..2).map(|_| id()).collect();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2, 3], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.admit(&joiners[0], &[0, 1, 2, 3], 200)).unwrap();
     // Six of the roll of seven receive the first joiner...
-    a.append(p.induct(&joiners[0], &[0, 1, 2, 3, 4, 5], 300)).unwrap();
+    p.induct(&mut a, &joiners[0], &[0, 1, 2, 3, 4, 5], 300);
     a.append(p.admit(&joiners[1], &[0, 1, 2, 3], 400)).unwrap();
     // ...and only the bare majority of eight receives the second.
-    a.append(p.induct(&joiners[1], &[0, 1, 2, 3, 4], 500)).unwrap();
+    p.induct(&mut a, &joiners[1], &[0, 1, 2, 3, 4], 500);
     check_authority(&a).expect("both inductions are authorized");
 
     let t_ = decay_trends(&a, &p.polity, t(600));
@@ -2126,7 +2629,7 @@ fn trends_are_read_as_of_a_moment() {
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    a.append(p.induct(&joiner, &[0, 1, 2], 300)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     a.append(p.reaffirm(&joiner, 900)).unwrap();
 
     let early = decay_trends(&a, &p.polity, t(400));
@@ -2230,6 +2733,43 @@ fn an_unattended_span_distinguishes_never_watched_from_never_present() {
     // And the per-member evidence of watching is per member.
     assert_eq!(w.readings_for(&p.ids[2].1), 2);
     assert_eq!(w.readings_for(&p.ids[0].1), 0);
+    // Two filings, one monitor — and since D28 the two numbers say different things.
+    assert_eq!(w.watchers_for(&p.ids[2].1), 1);
+    assert_eq!(w.watchers_for(&p.ids[0].1), 0);
+}
+
+#[test]
+fn three_filings_by_one_key_are_one_watcher() {
+    // **THE MEASURED HOLE, half one.** `en-cohesion` escalates a sustained absence to
+    // `Concern` — the grade that crosses to kith-covenant as a conduct record — on a
+    // span plus a witness count, and D19 justified that count as "evidence that
+    // somebody was watching". It counted filings. One key, three filings, and a
+    // stranger with no relationship to the polity manufactured the escalation for the
+    // price of one keypair.
+    let p = Polity::new(3);
+    let solo = id();
+    let g = id();
+    let mut a = Archive::new();
+    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    for k in 0..3 {
+        a.append(p.observe(&solo, 1000 + k * 2 * 86_400, &[(0, Some(&g.1), Some(1000))]))
+            .unwrap();
+    }
+    check_authority(&a).unwrap();
+    let w = observation_window(&a, &p.polity, t(0), t(1000 + 10 * 86_400));
+    assert_eq!(w.readings_for(&p.ids[0].1), 3, "three filings, as it says");
+    assert_eq!(w.watchers_for(&p.ids[0].1), 1, "and one party's word");
+
+    // The control: the same three filings from three keys really are three watchers.
+    let mut b = Archive::new();
+    b.append(p.charter(&[0, 1], vec![])).unwrap();
+    for k in 0..3 {
+        let m = id();
+        b.append(p.observe(&m, 1000 + k * 2 * 86_400, &[(0, Some(&g.1), Some(1000))]))
+            .unwrap();
+    }
+    let w = observation_window(&b, &p.polity, t(0), t(1000 + 10 * 86_400));
+    assert_eq!(w.watchers_for(&p.ids[0].1), 3);
 }
 
 #[test]
@@ -2305,11 +2845,11 @@ fn compaction_preserves_every_governing_record() {
     let joiner = id();
     let monitor = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.amend(AmendmentKind::Add, "k", &[0, 1], 100)).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 150)).unwrap();
     a.append(p.confer(Office::CharterKeeper, 0, &[0, 1, 2], 160)).unwrap();
-    a.append(p.induct(&joiner, &[0, 1, 2], 170)).unwrap();
+    p.induct(&mut a, &joiner, &[0, 1, 2], 170);
     a.append(p.observe(&monitor, 180, &[(2, None, Some(170))])).unwrap();
     // The roll grew to four with the admission, so a majority is three.
     a.append(p.prune(&a, 500, &[0, 1, 2], 600)).unwrap();
@@ -2405,7 +2945,7 @@ fn a_departed_keeper_no_longer_prunes() {
     let p = Polity::new(5);
     let monitor = id();
     let mut a = Archive::new();
-    a.append(p.charter(&[0, 1, 2], vec![])).unwrap();
+    a.append(p.charter_seasoned(vec![])).unwrap();
     a.append(p.confer(Office::CharterKeeper, 4, &[0, 1, 2], 100)).unwrap();
     a.append(p.observe(&monitor, 200, &[(3, None, Some(190))])).unwrap();
     a.append(p.depart(4, 300)).unwrap();
@@ -2618,15 +3158,32 @@ fn an_attendance_stamp_may_not_postdate_the_observation_reporting_it() {
 
 /// A polity with `n` observations spaced `spacing` apart starting at `first`, and a
 /// `CharterKeeper` so the officer route is available where the horizon allows it.
+///
+/// **Three monitors, rotating** (**D28**). This fixture used one monitor filing
+/// repeatedly, which satisfied a floor whose entire justification was "somebody was
+/// watching" — three of these tests were green while asserting exactly the hole D28
+/// closes. The single-monitor case now has its own test, where it belongs.
 fn observed_polity(n: usize, first: i64, spacing: i64) -> (Polity, Archive<CharterEntry>) {
+    let monitors: Vec<(PrivKey, DidKey)> = (0..3).map(|_| id()).collect();
+    observed_by(&monitors, n, first, spacing)
+}
+
+/// `observed_polity`, with the watching rotated over whichever monitors are given —
+/// one of them for the case where a lone actor files over and over.
+fn observed_by(
+    monitors: &[(PrivKey, DidKey)],
+    n: usize,
+    first: i64,
+    spacing: i64,
+) -> (Polity, Archive<CharterEntry>) {
     let p = Polity::new(3);
-    let monitor = id();
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.confer(Office::CharterKeeper, 0, &[0, 1], 50)).unwrap();
     for i in 0..n {
         let at = first + spacing * i as i64;
-        a.append(p.observe(&monitor, at, &[(2, None, Some(at - 10))])).unwrap();
+        let m = &monitors[i % monitors.len()];
+        a.append(p.observe(m, at, &[(2, None, Some(at - 10))])).unwrap();
     }
     (p, a)
 }
@@ -2639,7 +3196,7 @@ fn policy(retain: i64, min_dropped: usize) -> RetentionPolicy {
         retain_seconds: retain,
         min_dropped,
         live_measure_seconds: 60,
-        min_witness_readings: 0,
+        min_witness_watchers: 0,
     }
 }
 
@@ -2754,7 +3311,7 @@ fn the_horizon_never_crosses_the_live_measure_floor() {
         retain_seconds: 1,
         min_dropped: 1,
         live_measure_seconds: 7200,
-        min_witness_readings: 0,
+        min_witness_watchers: 0,
     };
     let r = prune_recommendation(&a, &p.polity, &pol, as_of).unwrap();
     assert_eq!(r.seconds_retained, 7200, "floored at the live-measure span");
@@ -2851,7 +3408,7 @@ fn the_witness_floor_holds_back_the_horizon_the_duration_floor_would_allow() {
     let (p, a) = observed_polity(5, 60 * DAY, DAY);
 
     // Duration alone would take the horizon to 70 days, dropping all five.
-    let loose = RetentionPolicy { min_witness_readings: 0, ..RetentionPolicy::default() };
+    let loose = RetentionPolicy { min_witness_watchers: 0, ..RetentionPolicy::default() };
     let r = prune_recommendation(&a, &p.polity, &policy_with(&loose, 1), as_of).unwrap();
     assert_eq!(r.dropped, 5, "every reading of this member would go");
 
@@ -2883,21 +3440,47 @@ fn the_witness_floor_pins_a_log_that_stopped() {
 }
 
 #[test]
+fn a_lone_monitor_filing_forever_never_frees_the_horizon() {
+    // **D28, and the reason the fixture above had to change.** Two hundred filings by
+    // one key used to clear a floor of three, because the floor counted filings. It
+    // counts watchers now, so a lone monitor pins the horizon however long it keeps
+    // going: there is exactly one party's word about this member, and dropping any of
+    // it leaves the same one party's word.
+    let as_of = t(100 * DAY);
+    let d = RetentionPolicy { min_dropped: 1, ..RetentionPolicy::default() };
+    let solo = vec![id()];
+    let (p, a) = observed_by(&solo, 200, 1000, 43_400);
+    assert!(
+        prune_recommendation(&a, &p.polity, &d, as_of).is_none(),
+        "one watcher is one watcher, 200 filings or not"
+    );
+
+    // The control: the same 200 filings spread over three monitors free it at once.
+    let three: Vec<(PrivKey, DidKey)> = (0..3).map(|_| id()).collect();
+    let (p, a) = observed_by(&three, 200, 1000, 43_400);
+    assert!(prune_recommendation(&a, &p.polity, &d, as_of).is_some());
+}
+
+#[test]
 fn the_most_sparsely_watched_member_binds_the_witness_floor() {
-    // The count is per member because `readings_for` is per member: a member the
+    // The count is per member because `watchers_for` is per member: a member the
     // monitors mention rarely has thin evidence, and thinning it further is the clip
     // this read-model refuses.
     let p = Polity::new(4);
-    let monitor = id();
+    let monitors: Vec<(PrivKey, DidKey)> = (0..3).map(|_| id()).collect();
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.confer(Office::CharterKeeper, 0, &[0, 1], 50)).unwrap();
-    // Member 2 watched ten times late; member 3 only three times, and early.
+    // Member 3 seen by all three monitors, but only early. Member 2 watched ten times
+    // late — and the *watching* is what binds, so member 3 is the sparse one only
+    // because their evidence is old, not because it is thin.
     for i in 0..3 {
-        a.append(p.observe(&monitor, 1000 + 100 * i, &[(3, None, Some(900))])).unwrap();
+        a.append(p.observe(&monitors[i as usize], 1000 + 100 * i, &[(3, None, Some(900))]))
+            .unwrap();
     }
     for i in 0..10 {
-        a.append(p.observe(&monitor, 50 * DAY + 100 * i, &[(2, None, Some(900))])).unwrap();
+        let m = &monitors[(i as usize) % 3];
+        a.append(p.observe(m, 50 * DAY + 100 * i, &[(2, None, Some(900))])).unwrap();
     }
     let as_of = t(100 * DAY);
     let d = RetentionPolicy { min_dropped: 1, ..RetentionPolicy::default() };
@@ -2905,7 +3488,7 @@ fn the_most_sparsely_watched_member_binds_the_witness_floor() {
             "the thinly-watched member has no reading to spare, so nothing goes");
 
     // Switch the floor off and the duration floor would happily drop all thirteen.
-    let loose = RetentionPolicy { min_witness_readings: 0, ..RetentionPolicy::default() };
+    let loose = RetentionPolicy { min_witness_watchers: 0, ..RetentionPolicy::default() };
     let r = prune_recommendation(&a, &p.polity, &policy_with(&loose, 1), as_of).unwrap();
     assert_eq!(r.dropped, 13);
 }
@@ -3486,7 +4069,7 @@ fn charter_grounded(
         p.roll(),
         derived
             .iter()
-            .map(|m| Derivation { member: p.ids[*m].1.clone(), guardian: None })
+            .map(|m| Derivation::unguarded(p.ids[*m].1.clone()))
             .collect(),
         t(50),
     );
@@ -3651,11 +4234,8 @@ fn the_padding_dodge_does_not_work() {
         vec![],
         p.roll(),
         (0..3)
-            .map(|m| Derivation { member: p.ids[m].1.clone(), guardian: None })
-            .chain(std::iter::once(Derivation {
-                member: outsider.1.clone(),
-                guardian: None,
-            }))
+            .map(|m| Derivation::unguarded(p.ids[m].1.clone()))
+            .chain(std::iter::once(Derivation::unguarded(outsider.1.clone())))
             .collect(),
         t(50),
     );
@@ -3902,15 +4482,29 @@ fn attest(
     kind: IndependenceKind,
     at: i64,
 ) -> CharterEntry {
-    let a = ReaderIndependenceAttestation {
+    attest_role(polity, reader, AttestedRole::BoundaryReader, attester, signer, kind, at)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn attest_role(
+    polity: &DidKey,
+    subject: &DidKey,
+    role: AttestedRole,
+    attester: &(PrivKey, DidKey),
+    signer: &(PrivKey, DidKey),
+    kind: IndependenceKind,
+    at: i64,
+) -> CharterEntry {
+    let a = IndependenceAttestation {
         polity: polity.clone(),
-        reader: reader.clone(),
+        subject: subject.clone(),
+        role,
         attesting_party: attester.1.clone(),
         kind,
         basis: "distinct operator, separate funding".into(),
         attested_at: t(at),
     };
-    CharterEntry::ReaderIndependenceAttested(
+    CharterEntry::IndependenceAttested(
         Signed::build(a, &[(signer.1.as_str(), &signer.0)]).unwrap(),
     )
 }
@@ -4338,4 +4932,952 @@ fn a_dissolution_naming_nobody_is_still_fine() {
     a.append(p.dissolve(&[], &[0, 1, 2], 400)).unwrap();
     check_authority(&a).unwrap();
     assert!(charter_state(&a, &p.polity, t(500)).successors.is_empty());
+}
+
+
+// ---- D27: the founding edge must show what stood behind it ----
+//
+// D15 made every *post-founding* guardian change carry evidence. Founding
+// derivations carried nothing, and the measurement said that was a gate evasion
+// rather than a cosmetic asymmetry: D23's grounded rule turns on whether any edge is
+// guarded, so one asserted edge exempted a whole machine cluster from naming a
+// ground.
+
+/// A charter whose derivations are built by `mk`, so a test can hand in evidence
+/// that is missing, forged, or about the wrong edge.
+fn charter_with_derivations(
+    p: &Polity,
+    sub: Substrate,
+    derivations: Vec<Derivation>,
+    consenting: &[&(PrivKey, DidKey)],
+) -> CharterEntry {
+    let all: Vec<usize> = (0..p.ids.len()).collect();
+    let prop = FoundingProposal::convener_asserted(
+        p.polity.clone(),
+        sub,
+        vec![],
+        p.roll(),
+        derivations,
+        t(50),
+    );
+    let charter = prop.ratify(p.dids(&all), t(100)).unwrap();
+    let mut signers = p.signers(&all);
+    for c in consenting {
+        signers.push((c.1.as_str(), &c.0));
+    }
+    CharterEntry::PolityChartered(Signed::build(charter, &signers).unwrap())
+}
+
+#[test]
+fn a_founding_edge_claimed_with_no_evidence_is_refused() {
+    // The bare asymmetry: an edge asserted with nothing offered for it, which is
+    // exactly what D15 refuses one record later in the same log.
+    let p = Polity::new(3);
+    let g = id();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        vec![Derivation { member: p.ids[0].1.clone(), guardian: Some(g.1.clone()), evidence: None }],
+        &[&g],
+    ));
+    assert!(sole_violation(&a).contains("no substrate evidence"));
+}
+
+#[test]
+fn an_unbacked_founding_edge_cannot_ground_a_machine_roll() {
+    // **THE MEASURED HOLE.** Three machines, two answering to nobody, one claimed
+    // edge, no anchor. Before this slice: `verify_all` and `check_authority` both
+    // green, `founding_legitimacy` grading `Guarded`. A polity raised its own ground
+    // by writing one sentence — the shape D21 and D22 each had to delete.
+    let p = Polity::new(3);
+    let g = id();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        vec![
+            Derivation::unbacked(p.ids[0].1.clone(), g.1.clone(), "nobody looked"),
+            Derivation::unguarded(p.ids[1].1.clone()),
+            Derivation::unguarded(p.ids[2].1.clone()),
+        ],
+        &[&g],
+    ));
+    verify_all(&a).unwrap();
+    let why = sole_violation(&a);
+    assert!(why.contains("must name a substrate anchor"), "{why}");
+    // And the refusal says *which* shortfall this is, not the no-edges-at-all one.
+    assert!(why.contains("self-declared"), "{why}");
+}
+
+#[test]
+fn an_unbacked_founding_edge_grades_bare_not_guarded() {
+    // The grade moves with the gate. A human is on the roll here, so the charter is
+    // legal and nothing is refused — which is why the grade has to carry the news.
+    let p = Polity::new(3);
+    let g = id();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        vec![Derivation::unbacked(p.ids[0].1.clone(), g.1.clone(), "no monitor had run")],
+        &[&g],
+    ));
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Bare
+    );
+}
+
+#[test]
+fn an_unbacked_machine_roll_charters_once_it_names_an_anchor() {
+    // The bootstrap case, and the reason the rule is accounting rather than
+    // prohibition: guardians who are real but unobserved name a ground until a
+    // monitor has run, then move the edge with a backed change.
+    let p = Polity::new(3);
+    let g = id();
+    let ground = id();
+    let sub = Substrate {
+        name: "the operators".into(),
+        statement: "answers to what it did not author".into(),
+        anchor: Some(ground.1.clone()),
+    };
+    let all: Vec<usize> = (0..3).collect();
+    let prop = FoundingProposal::convener_asserted(
+        p.polity.clone(),
+        sub,
+        vec![],
+        p.roll(),
+        (0..3)
+            .map(|m| Derivation::unbacked(p.ids[m].1.clone(), g.1.clone(), "no monitor had run"))
+            .collect(),
+        t(50),
+    );
+    let charter = prop.ratify(p.dids(&all), t(100)).unwrap();
+    let mut signers = p.signers(&all);
+    signers.push((g.1.as_str(), &g.0));
+    signers.push((ground.1.as_str(), &ground.0));
+    let a = archive_of(CharterEntry::PolityChartered(
+        Signed::build(charter, &signers).unwrap(),
+    ));
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Anchored
+    );
+}
+
+#[test]
+fn a_backed_founding_edge_needs_no_anchor() {
+    // The positive case: a monitor ran over the cluster before the founding and the
+    // charter carries what it saw. Every machine answers to a named human who
+    // co-signed, so the polity is grounded the way D15 models it.
+    let p = Polity::new(3);
+    let g = id();
+    let a = archive_of(p.charter_derived(
+        &[0, 1, 2],
+        vec![],
+        &[(0, Some(&g)), (1, Some(&g)), (2, Some(&g))],
+    ));
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Guarded
+    );
+}
+
+#[test]
+fn founding_evidence_offered_for_no_edge_is_refused() {
+    // A machine chartered as answering to nobody claims nothing, so there is nothing
+    // for evidence to be evidence *of*. Refused rather than ignored: a field carried
+    // and read by no rule is what D22's `BoundarySource` and D23's `anchor` both were.
+    let p = Polity::new(3);
+    let g = id();
+    let ob = p.founding_observation(&[(0, Some(&g))]);
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        vec![Derivation {
+            member: p.ids[0].1.clone(),
+            guardian: None,
+            evidence: Some(GuardianEvidence::Observed(Box::new(ob))),
+        }],
+        &[],
+    ));
+    assert!(sole_violation(&a).contains("claims no guardian edge"));
+}
+
+#[test]
+fn an_unbacked_founding_edge_must_say_why() {
+    // The override is permitted because it is a *statement*. An empty reason is the
+    // assertion again with the accounting stripped off.
+    let p = Polity::new(3);
+    let g = id();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        vec![Derivation::unbacked(p.ids[0].1.clone(), g.1.clone(), "   ")],
+        &[&g],
+    ));
+    assert!(sole_violation(&a).contains("must say why"));
+}
+
+#[test]
+fn a_founding_observation_about_another_edge_backs_nothing() {
+    // The evidence has to show *this* edge. An observation of the same member under a
+    // different guardian is a real signed reading and still says nothing about the
+    // claim the charter is making.
+    let p = Polity::new(3);
+    let claimed = id();
+    let seen = id();
+    let ob = p.founding_observation(&[(0, Some(&seen))]);
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        vec![Derivation::observed(p.ids[0].1.clone(), claimed.1.clone(), ob)],
+        &[&claimed],
+    ));
+    let why = sole_violation(&a);
+    assert!(why.contains("not the claimed"), "{why}");
+}
+
+#[test]
+fn a_forged_founding_guardian_observation_is_refused() {
+    // The crypto pass reaches the carried observation, as it does for a post-founding
+    // change: signer label says one party, the key is another's. Otherwise the D27
+    // rule and the grounded rule would both be reading a forgery.
+    let p = Polity::new(3);
+    let g = id();
+    let (attacker_sk, _) = id();
+    let (_, victim) = id();
+    let ob = Observation {
+        polity: p.polity.clone(),
+        observer: victim.clone(),
+        observed_at: t(40),
+        readings: vec![MemberReading {
+            member: p.ids[0].1.clone(),
+            reputation: 0.9,
+            guardian: Some(g.1.clone()),
+            attested_at: None,
+        }],
+        opaque_boundary: false,
+    };
+    let forged = Signed::build(ob, &[(victim.as_str(), &attacker_sk)]).unwrap();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        vec![Derivation::observed(p.ids[0].1.clone(), g.1.clone(), forged)],
+        &[&g],
+    ));
+    assert!(verify_all(&a).is_err());
+}
+
+#[test]
+fn a_forged_founding_boundary_reading_is_refused() {
+    // **A second defect, measured while building the first.** The authority pass
+    // requires a reading's signer set to equal the reader it names — but that is the
+    // signer *label*, and nothing was verifying the signature. Measured: a reading
+    // signed with an attacker's key and labelled with a victim's DID passed
+    // `verify_all` and `check_authority` both, and graded the founding `Substrate`.
+    // D22 exists because a reading nobody signed cannot be told apart from a reading
+    // nobody took, and an unverified signature is exactly a reading nobody signed.
+    let p = Polity::new(3);
+    let (attacker_sk, _) = id();
+    let (_, victim) = id();
+    let r = SubstrateReading {
+        polity: p.polity.clone(),
+        reader: victim.clone(),
+        read_at: t(40),
+        members: p.roll(),
+        opaque_boundary: false,
+    };
+    let forged = Signed::build(r, &[(victim.as_str(), &attacker_sk)]).unwrap();
+    let prop = FoundingProposal {
+        polity: p.polity.clone(),
+        substrate: substrate(),
+        founding_commitments: vec![],
+        proposed_members: p.roll(),
+        proposed_derivations: vec![],
+        attestation: BoundaryAttestation::read(vec![forged], vec![]),
+        proposed_at: t(50),
+    };
+    let charter = prop.ratify(p.dids(&[0, 1, 2]), t(100)).unwrap();
+    let a = archive_of(CharterEntry::PolityChartered(
+        Signed::build(charter, &p.signers(&[0, 1, 2])).unwrap(),
+    ));
+    assert!(verify_all(&a).is_err());
+}
+
+#[test]
+fn a_founder_cannot_observe_its_own_polity_into_ground() {
+    // **Measured while building D27, and the reason the rule is about who looked.**
+    // Requiring a signed observation was not enough on its own: a member of the roll
+    // signed one about the cluster's own edges, the guardian co-signed as always, and
+    // the charter graded `Guarded` with no anchor, both passes green. A polity
+    // vouching for its own ground — the closure D23 refused for the anchor and D25 for
+    // a successor, reaching the evidence this time.
+    let p = Polity::new(3);
+    let g = id();
+    let (sk0, did0) = (p.ids[0].0.clone(), p.ids[0].1.clone());
+    let ob = Observation {
+        polity: p.polity.clone(),
+        observer: did0.clone(),
+        observed_at: t(40),
+        readings: (0..3)
+            .map(|m| MemberReading {
+                member: p.ids[m].1.clone(),
+                reputation: 0.9,
+                guardian: Some(g.1.clone()),
+                attested_at: None,
+            })
+            .collect(),
+        opaque_boundary: false,
+    };
+    let signed = Signed::build(ob, &[(did0.as_str(), &sk0)]).unwrap();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        (0..3)
+            .map(|m| Derivation::observed(p.ids[m].1.clone(), g.1.clone(), signed.clone()))
+            .collect(),
+        &[&g],
+    ));
+    // The observation is real evidence and stays in the log — it is only barred from
+    // crediting the exemption, exactly as D24 grades an interested reader.
+    verify_all(&a).unwrap();
+    let why = sole_violation(&a);
+    assert!(why.contains("must name a substrate anchor"), "{why}");
+    assert!(why.contains("3 rest on an observation taken from inside"), "{why}");
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Bare
+    );
+}
+
+#[test]
+fn an_outside_monitor_grounds_what_a_founder_could_not() {
+    // The same charter, the same edges, and the only change is who looked. This is the
+    // control on the rule above: without it the two tests would be indistinguishable.
+    let p = Polity::new(3);
+    let g = id();
+    let (sk, outsider) = id();
+    let ob = Observation {
+        polity: p.polity.clone(),
+        observer: outsider.clone(),
+        observed_at: t(40),
+        readings: (0..3)
+            .map(|m| MemberReading {
+                member: p.ids[m].1.clone(),
+                reputation: 0.9,
+                guardian: Some(g.1.clone()),
+                attested_at: None,
+            })
+            .collect(),
+        opaque_boundary: false,
+    };
+    let signed = Signed::build(ob, &[(outsider.as_str(), &sk)]).unwrap();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        (0..3)
+            .map(|m| Derivation::observed(p.ids[m].1.clone(), g.1.clone(), signed.clone()))
+            .collect(),
+        &[&g],
+    ));
+    verify_all(&a).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Guarded
+    );
+}
+
+#[test]
+fn a_guardian_may_observe_the_edge_it_accepts() {
+    // The judgment call, stated as a test so it is not mistaken for an oversight. A
+    // guardian is never on the roll, co-signs the founding either way, and what it
+    // asserts by observing is its own answerability — a burden taken up, not a credit
+    // awarded. The keyed human outside the roll IS the ground here, which is D23's
+    // picture of `Guarded`.
+    let p = Polity::new(3);
+    let g = id();
+    let ob = Observation {
+        polity: p.polity.clone(),
+        observer: g.1.clone(),
+        observed_at: t(40),
+        readings: (0..3)
+            .map(|m| MemberReading {
+                member: p.ids[m].1.clone(),
+                reputation: 0.9,
+                guardian: Some(g.1.clone()),
+                attested_at: None,
+            })
+            .collect(),
+        opaque_boundary: false,
+    };
+    let signed = Signed::build(ob, &[(g.1.as_str(), &g.0)]).unwrap();
+    let a = archive_of(charter_with_derivations(
+        &p,
+        substrate(),
+        (0..3)
+            .map(|m| Derivation::observed(p.ids[m].1.clone(), g.1.clone(), signed.clone()))
+            .collect(),
+        &[&g],
+    ));
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Guarded
+    );
+}
+
+// ---- D28: the watcher, not the filing ----------------------------------------
+//
+// D15 and D27 each closed a hole in guardian evidence and each named D24's
+// independence attestation as the successor for what remained. Measured, it did not
+// reach — its coherence gate demanded the subject be a reader of the boundary — and
+// the same measurement found the sharper case, which points OUTWARD: a stranger with
+// one keypair could manufacture the Concern that crosses to kith-covenant.
+
+/// A polity with `n` machines all answering to `guardian`, their founding edges backed
+/// by `observer`'s signed observation. Returns the archive and the observer's DID.
+fn charter_watched_by(
+    p: &Polity,
+    observer: &(PrivKey, DidKey),
+    guardian: &(PrivKey, DidKey),
+) -> Archive<CharterEntry> {
+    let ob = Observation {
+        polity: p.polity.clone(),
+        observer: observer.1.clone(),
+        observed_at: t(40),
+        readings: p
+            .ids
+            .iter()
+            .map(|(_, m)| MemberReading {
+                member: m.clone(),
+                reputation: 0.9,
+                guardian: Some(guardian.1.clone()),
+                attested_at: None,
+            })
+            .collect(),
+        opaque_boundary: false,
+    };
+    let ob = Signed::build(ob, &[(observer.1.as_str(), &observer.0)]).unwrap();
+    archive_of(charter_with_derivations(
+        p,
+        substrate(),
+        p.ids
+            .iter()
+            .map(|(_, m)| Derivation {
+                member: m.clone(),
+                guardian: Some(guardian.1.clone()),
+                evidence: Some(GuardianEvidence::Observed(Box::new(ob.clone()))),
+            })
+            .collect(),
+        &[guardian],
+    ))
+}
+
+#[test]
+fn a_monitor_the_polity_never_heard_from_cannot_be_vouched_for() {
+    // **THE MEASURED HOLE, half two.** D24's record refused this outright — an
+    // observer is not a reader of the boundary — so the successor D15 and D27 both
+    // named could not speak about the party they were naming it for.
+    let p = Polity::new(3);
+    let g = id();
+    let watcher = id();
+    let a = charter_watched_by(&p, &watcher, &g);
+    let silent = id();
+    let outsider = id();
+
+    let mut bad = a.clone();
+    bad.append(attest_role(
+        &p.polity,
+        &silent.1,
+        AttestedRole::Observer,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    verify_all(&bad).unwrap();
+    let why = sole_violation(&bad);
+    assert!(why.contains("is not an observer of"), "{why}");
+
+    // And a monitor that HAS spoken can be. The pair is what makes the rule mean
+    // "speak before you are vouched for" rather than "observers may not be vouched
+    // for at all", which is what D24 said by accident.
+    let mut ok = a.clone();
+    ok.append(attest_role(
+        &p.polity,
+        &watcher.1,
+        AttestedRole::Observer,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    check_authority(&ok).unwrap();
+    assert!(observer_independence(&ok, &p.polity, t(600)).is_attested(watcher.1.as_str()));
+}
+
+#[test]
+fn a_voucher_is_for_a_party_in_a_capacity() {
+    // The same key, vouched for as an observer, is not thereby vouched for as a
+    // reader — and the buckets are per role rather than per key. What an outsider can
+    // speak to is a relationship, not an identity in the abstract.
+    let p = Polity::new(3);
+    let g = id();
+    let watcher = id();
+    let outsider = id();
+    let mut a = charter_watched_by(&p, &watcher, &g);
+    a.append(attest_role(
+        &p.polity,
+        &watcher.1,
+        AttestedRole::Observer,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+    assert!(observer_independence(&a, &p.polity, t(600)).is_attested(watcher.1.as_str()));
+    assert!(
+        !reader_independence(&a, &p.polity, t(600)).is_attested(watcher.1.as_str()),
+        "an observer voucher must not leak into the reader bucket"
+    );
+}
+
+#[test]
+fn a_founder_vouching_for_the_monitor_does_not_count() {
+    // D24's stake rule, unchanged and applied to the new role: the founders are
+    // precisely the interested party. Recorded, reported, not credited.
+    let p = Polity::new(3);
+    let g = id();
+    let watcher = id();
+    let mut a = charter_watched_by(&p, &watcher, &g);
+    a.append(attest_role(
+        &p.polity,
+        &watcher.1,
+        AttestedRole::Observer,
+        &p.ids[0],
+        &p.ids[0],
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+    let ind = observer_independence(&a, &p.polity, t(600));
+    assert!(!ind.is_attested(watcher.1.as_str()), "a founder's praise buys nothing");
+    assert_eq!(ind.interested_attesters.len(), 1, "and is recorded rather than destroyed");
+
+    // A founder's WARNING counts, though — interest disqualifies praise, not a
+    // warning, and a founder breaking ranks is the most informative source there is.
+    a.append(attest_role(
+        &p.polity,
+        &watcher.1,
+        AttestedRole::Observer,
+        &p.ids[1],
+        &p.ids[1],
+        IndependenceKind::Controlled,
+        600,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+    assert!(observer_independence(&a, &p.polity, t(700)).is_contested(watcher.1.as_str()));
+}
+
+#[test]
+fn a_chartered_ground_reports_whether_anyone_vouched_for_its_monitor() {
+    // D27 required the founding observer to be outside the polity and deliberately did
+    // not ask WHO — requiring a vouched-for monitor at founding would refuse newness,
+    // the line D24 drew. So the grade stays and this reports the residue.
+    let p = Polity::new(3);
+    let g = id();
+    let watcher = id();
+    let mut a = charter_watched_by(&p, &watcher, &g);
+    check_authority(&a).unwrap();
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Guarded,
+        "the grade does not move — that is the whole point"
+    );
+    let before = independent_grounding(&a, &p.polity, t(600));
+    assert_eq!(before.unvouched_edges.len(), 3);
+    assert!(!before.any(), "nobody has said a word about this monitor");
+
+    let outsider = id();
+    a.append(attest_role(
+        &p.polity,
+        &watcher.1,
+        AttestedRole::Observer,
+        &outsider,
+        &outsider,
+        IndependenceKind::Independent,
+        500,
+    ))
+    .unwrap();
+    check_authority(&a).unwrap();
+    let after = independent_grounding(&a, &p.polity, t(600));
+    assert_eq!(after.vouched_edges.len(), 3);
+    assert!(after.unvouched_edges.is_empty());
+    assert_eq!(
+        founding_legitimacy(&a, &p.polity).unwrap().grounding,
+        SubstrateGrounding::Guarded,
+        "and it still does not move: founding_legitimacy reads the charter alone"
+    );
+}
+
+#[test]
+fn a_monitor_carried_as_founding_evidence_counts_as_having_observed() {
+    // The equivalence the authority pass and the read-model both draw: a monitor whose
+    // observation the charter CARRIED has observed this polity as surely as one that
+    // filed an entry of its own. Without it, exactly the monitors D27 made
+    // load-bearing would be the ones nobody could vouch for.
+    let p = Polity::new(3);
+    let g = id();
+    let watcher = id();
+    let a = charter_watched_by(&p, &watcher, &g);
+    let seen = independent_observation(&a, &p.polity, t(600));
+    assert_eq!(seen.unvouched.len(), 1);
+    assert_eq!(seen.unvouched[0].as_str(), watcher.1.as_str());
+    assert_eq!(seen.count(), 0, "observed is not vouched for");
+}
+
+#[test]
+fn a_chorus_of_minted_monitors_is_independently_vouched_for_by_nobody() {
+    // D24's chorus, one tier along. Distinct keys ARE distinct watchers — that is
+    // arithmetic and the count is honest — so the lens is what carries the news that
+    // the distinctness may be worth nothing.
+    let p = Polity::new(3);
+    let g = id();
+    let mut a = archive_of(p.charter(&[0, 1, 2], vec![]));
+    for k in 0..5 {
+        let minted = id();
+        a.append(p.observe(&minted, 1000 + k * 86_400, &[(0, Some(&g.1), Some(1000))]))
+            .unwrap();
+    }
+    check_authority(&a).unwrap();
+    let w = observation_window(&a, &p.polity, t(0), t(1000 + 10 * 86_400));
+    assert_eq!(w.watchers_for(&p.ids[0].1), 5, "five keys are five watchers");
+    let seen = independent_observation(&a, &p.polity, t(1000 + 10 * 86_400));
+    assert_eq!(seen.count(), 0, "and not one of them has an outsider's word behind it");
+    assert_eq!(seen.unvouched.len(), 5);
+}
+
+/// D29 — the rite has movements, and the substrate is required of those who govern.
+///
+/// Both halves were measured before either was written: an induction record carried
+/// witnesses and one timestamp, so a rite held over a week and one performed in a
+/// second were identical records; and `inducted` was read at exactly one site, so a
+/// roll of three inducted founders plus six who never were let the six confer an
+/// office on one of their own, amend the commitments, expel a founder, and preside
+/// over a newcomer's induction — every pass green.
+mod rite {
+    use super::*;
+
+    /// A polity of 3, all ratifying (so all hold the substrate), plus an admitted
+    /// joiner who does not.
+    fn admitted() -> (Polity, (PrivKey, DidKey), Archive<CharterEntry>) {
+        let p = Polity::new(3);
+        let joiner = id();
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
+        (p, joiner, a)
+    }
+
+    fn ok(a: &Archive<CharterEntry>) {
+        verify_all(a).expect("signatures valid");
+        check_authority(a).expect("expected authorized");
+    }
+    fn refused(a: &Archive<CharterEntry>, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let rs = reasons(a);
+        assert!(rs.iter().any(|m| m.contains(needle)), "expected {needle:?}, got: {rs:?}");
+    }
+
+    #[test]
+    fn a_rite_is_recited_and_then_completed() {
+        let (p, joiner, mut a) = admitted();
+        let cids = p.rite(&mut a, &joiner, &[0, 1], 250);
+        assert_eq!(cids.len(), 5, "five movements, one record each");
+        // Before the completion the rite is open and the member holds nothing.
+        let open = rite_state(&a, &p.polity, t(280));
+        assert_eq!(open.len(), 1);
+        assert!(open[0].all_movements_recited());
+        assert_eq!(open[0].completed_at, None, "an open rite is not an induction");
+        assert!(!affirmation_state(&a, &p.polity, t(280)).is_inducted(&joiner.1));
+
+        p.induct_citing(&mut a, &joiner, &[0, 1], cids, 300);
+        ok(&a);
+        assert!(affirmation_state(&a, &p.polity, t(310)).is_inducted(&joiner.1));
+        let done = rite_state(&a, &p.polity, t(310));
+        assert_eq!(done[0].completed_at, Some(t(300)));
+        assert_eq!(done[0].span_seconds(), Some(4), "the rite's own cost in time");
+    }
+
+    #[test]
+    fn movements_may_not_be_skipped_or_repeated() {
+        let (p, joiner, mut a) = admitted();
+        // Straight to movement 2 with no rite open.
+        let mut skip = a.clone();
+        p.movement(&mut skip, &joiner, &[0, 1], Movement::Fallenness, 250);
+        refused(&skip, "with no rite open");
+
+        // Movement 1, then movement 3.
+        p.movement(&mut a, &joiner, &[0, 1], Movement::Substrate { names: substrate().name }, 250);
+        let mut jump = a.clone();
+        p.movement(&mut jump, &joiner, &[0, 1], Movement::Recognition, 251);
+        refused(&jump, "may not be skipped or repeated");
+
+        // Movement 2 twice.
+        p.movement(&mut a, &joiner, &[0, 1], Movement::Fallenness, 251);
+        let mut twice = a.clone();
+        p.movement(&mut twice, &joiner, &[0, 1], Movement::Fallenness, 252);
+        refused(&twice, "may not be skipped or repeated");
+    }
+
+    #[test]
+    fn a_movement_is_checked_for_coherence_with_the_charter_and_never_for_content() {
+        let (p, joiner, a) = admitted();
+        // Movement 1 must name the chartered substrate.
+        let mut wrong = a.clone();
+        p.movement(
+            &mut wrong,
+            &joiner,
+            &[0, 1],
+            Movement::Substrate { names: "some other ground".into() },
+            250,
+        );
+        refused(&wrong, "but the charter's is");
+
+        // Movement 4 must commit to what is in force, as a set.
+        let mut partial = a.clone();
+        let cid1 = p.movement(
+            &mut partial,
+            &joiner,
+            &[0, 1],
+            Movement::Substrate { names: substrate().name },
+            250,
+        );
+        let _ = cid1;
+        p.movement(&mut partial, &joiner, &[0, 1], Movement::Fallenness, 251);
+        p.movement(&mut partial, &joiner, &[0, 1], Movement::Recognition, 252);
+        let mut extra = partial.clone();
+        p.movement(
+            &mut extra,
+            &joiner,
+            &[0, 1],
+            Movement::CommonVirtue { commits_to: vec!["something-we-prefer".into()] },
+            253,
+        );
+        refused(&extra, "commitments in force");
+
+        // Movement 5 must name the chartered anchor — here, none.
+        let mut anchored = partial.clone();
+        p.movement(
+            &mut anchored,
+            &joiner,
+            &[0, 1],
+            Movement::CommonVirtue { commits_to: vec![] },
+            253,
+        );
+        let (_, invented) = id();
+        p.movement(
+            &mut anchored,
+            &joiner,
+            &[0, 1],
+            Movement::NonUltimacy { names_anchor: Some(invented) },
+            254,
+        );
+        refused(&anchored, "does not name the anchor the charter names");
+
+        // And the words themselves are never read — only their presence.
+        let mut empty = a.clone();
+        let rm = RiteMovement {
+            polity: p.polity.clone(),
+            member: joiner.1.clone(),
+            movement: Movement::Substrate { names: substrate().name },
+            statement: "   ".into(),
+            attending: p.dids(&[0, 1]),
+            recited_at: t(250),
+        };
+        let mut signers = p.signers(&[0, 1]);
+        signers.push((joiner.1.as_str(), &joiner.0));
+        empty
+            .append(CharterEntry::RiteMovementRecorded(
+                Signed::build(rm, &signers).unwrap(),
+            ))
+            .unwrap();
+        refused(&empty, "a movement is performed, not listed");
+    }
+
+    #[test]
+    fn the_substrate_is_transmitted_by_those_who_hold_it() {
+        // Two of three ratify, so member 2 is on the roll and holds nothing.
+        let p = Polity::new(3);
+        let joiner = id();
+        let mut a = Archive::new();
+        a.append(p.charter(&[0, 1], vec![])).unwrap();
+        a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
+        p.movement(&mut a, &joiner, &[0, 1, 2], Movement::Substrate { names: substrate().name }, 250);
+        refused(&a, "is not inducted; the substrate is");
+    }
+
+    /// D28's arithmetic, one record over: five movements signed by disjoint groups is
+    /// a rite nobody attended, so only those present throughout may witness.
+    #[test]
+    fn a_witness_must_have_attended_every_movement() {
+        let p = Polity::new(5);
+        let joiner = id();
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(p.admit(&joiner, &[0, 1, 2], 200)).unwrap();
+        // Members 0 and 1 attend throughout; member 2 shows up for the last movement.
+        let mut cids = Vec::new();
+        for (i, m) in p.movements(&a, 250).into_iter().enumerate() {
+            let attending: &[usize] = if i == 4 { &[0, 1, 2] } else { &[0, 1] };
+            cids.push(p.movement(&mut a, &joiner, attending, m, 250 + i as i64));
+        }
+        let rites = rite_state(&a, &p.polity, t(300));
+        assert_eq!(rites[0].attended_throughout().len(), 2, "member 2 came late");
+
+        // Citing member 2 as a witness is refused, even though they signed a movement.
+        let mut late = a.clone();
+        p.induct_citing(&mut late, &joiner, &[0, 1, 2], cids.clone(), 300);
+        refused(&late, "did not attend every movement");
+
+        // A majority of the five who hold the substrate is three, and only two were
+        // there throughout — so this rite cannot be completed at all.
+        p.induct_citing(&mut a, &joiner, &[0, 1], cids, 300);
+        refused(&a, "majority of the inducted roll to witness");
+    }
+
+    #[test]
+    fn an_induction_must_cite_its_own_rite_in_order() {
+        let (p, joiner, mut a) = admitted();
+        let other = id();
+        a.append(p.admit(&other, &[0, 1], 210)).unwrap();
+        let mine = p.rite(&mut a, &joiner, &[0, 1], 250);
+        let theirs = p.rite(&mut a, &other, &[0, 1], 260);
+
+        let mut borrowed = a.clone();
+        p.induct_citing(&mut borrowed, &joiner, &[0, 1], theirs, 300);
+        refused(&borrowed, "must cite the five movements of its own rite");
+
+        let mut shuffled = a.clone();
+        let mut out_of_order = mine.clone();
+        out_of_order.swap(0, 4);
+        p.induct_citing(&mut shuffled, &joiner, &[0, 1], out_of_order, 300);
+        refused(&shuffled, "in order");
+
+        let mut short = a.clone();
+        p.induct_citing(&mut short, &joiner, &[0, 1], mine[..4].to_vec(), 300);
+        refused(&short, "must cite the five movements");
+
+        // And a completion cannot predate the rite it completes.
+        let mut early = a;
+        p.induct_citing(&mut early, &joiner, &[0, 1], mine, 251);
+        refused(&early, "dated before the last movement");
+    }
+
+    /// A rite begun and left unfinished must not lock a member out forever, so
+    /// movement 1 always opens a new one.
+    #[test]
+    fn an_abandoned_rite_does_not_deadlock_the_member() {
+        let (p, joiner, mut a) = admitted();
+        p.movement(&mut a, &joiner, &[0, 1], Movement::Substrate { names: substrate().name }, 250);
+        p.movement(&mut a, &joiner, &[0, 1], Movement::Fallenness, 251);
+        // Begun again from the top, months later.
+        let cids = p.rite(&mut a, &joiner, &[0, 1], 900);
+        p.induct_citing(&mut a, &joiner, &[0, 1], cids, 1000);
+        ok(&a);
+
+        let rites = rite_state(&a, &p.polity, t(1100));
+        assert_eq!(rites.len(), 2, "the abandoned attempt is part of the record");
+        assert_eq!(rites[0].movements.len(), 2);
+        assert_eq!(rites[0].completed_at, None);
+        assert!(rites[1].all_movements_recited());
+        assert!(rites[1].completed_at.is_some());
+    }
+
+    #[test]
+    fn a_rite_reports_the_attendees_it_lost() {
+        let p = Polity::new(5);
+        let joiner = id();
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(p.admit(&joiner, &[0, 1, 2], 200)).unwrap();
+        // Four turn out for the naming of the substrate; three by the end.
+        let mut cids = Vec::new();
+        for (i, m) in p.movements(&a, 250).into_iter().enumerate() {
+            let attending: &[usize] = if i == 0 { &[0, 1, 2, 3] } else { &[0, 1, 2] };
+            cids.push(p.movement(&mut a, &joiner, attending, m, 250 + i as i64));
+        }
+        p.induct_citing(&mut a, &joiner, &[0, 1, 2], cids, 300);
+        ok(&a);
+        let rites = rite_state(&a, &p.polity, t(310));
+        assert_eq!(rites[0].attrition(), 1, "one attendee drifted away mid-rite");
+        assert_eq!(rites[0].attended_throughout().len(), 3);
+    }
+
+    // --- F1: the substrate is required of those who govern --------------------
+
+    #[test]
+    fn the_uninducted_carry_no_weight() {
+        // Three founders hold the substrate; three admitted members do not, and even
+        // together they cannot amend, expel, or confer.
+        let p = Polity::new(3);
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![commit("mutual-aid")])).unwrap();
+        let joiners: Vec<(PrivKey, DidKey)> = (0..3).map(|_| id()).collect();
+        for (i, j) in joiners.iter().enumerate() {
+            a.append(p.admit(j, &[0, 1], 200 + i as i64)).unwrap();
+        }
+        ok(&a);
+
+        let deciders: Vec<DidKey> = joiners.iter().map(|(_, d)| d.clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            joiners.iter().map(|(k, d)| (d.as_str(), k)).collect();
+        let am = CommitmentAmendment {
+            polity: p.polity.clone(),
+            kind: AmendmentKind::Add,
+            commitment: commit("whatever-we-prefer"),
+            rationale: "r".into(),
+            deciders,
+            decided_at: t(300),
+        };
+        let mut bad = a.clone();
+        bad.append(CharterEntry::CommitmentAmended(
+            Signed::build(am, &pairs).unwrap(),
+        ))
+        .unwrap();
+        refused(&bad, "Add needs a majority (>= 2), got 0");
+
+        // The same act by the members who hold the substrate is authorized.
+        let mut good = a;
+        good.append(p.amend(AmendmentKind::Add, "shared-watch", &[0, 1], 300)).unwrap();
+        ok(&good);
+    }
+
+    #[test]
+    fn an_office_needs_the_substrate_and_revives_when_it_arrives() {
+        let (p, joiner, mut a) = admitted();
+        // Conferral on a member who holds nothing is refused outright.
+        let mut early = a.clone();
+        early.append(p.confer_on(Office::Convener, &joiner, &[0, 1], 250)).unwrap();
+        refused(&early, "an office is the polity acting through a member");
+
+        // Once inducted, the identical conferral goes through.
+        let cids = p.rite(&mut a, &joiner, &[0, 1], 250);
+        p.induct_citing(&mut a, &joiner, &[0, 1], cids, 300);
+        a.append(p.confer_on(Office::Convener, &joiner, &[0, 1, 2], 350)).unwrap();
+        ok(&a);
+        let offices = office_state(&a, &p.polity, t(400));
+        assert!(offices.holders(&Office::Convener).contains(&&joiner.1));
+    }
 }

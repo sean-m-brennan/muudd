@@ -37,6 +37,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use kc_ceremony::inter::{ExaminerRegistry, InterCommunityWitnessRecord, SponsorshipRecord};
 use kc_commons::{is_second_class_level, sanction_rank, CommonsSanction, SanctionLevel, UsageRecord};
 use kc_conduct::DecisionClass;
 use kc_constitution::{AmendmentKind, CompactIncapableAmendment, FastCadenceAmendment};
@@ -129,9 +130,192 @@ impl Default for ObserverCaps {
     }
 }
 
+/// Below this active-pool size the §2 examining pool-share rule does not bite, for
+/// the same reason as the §8 observer floor: a small compact must be able to staff
+/// the examining function even when one community necessarily supplies a majority.
+pub const DEFAULT_EXAMINER_POOL_FLOOR: usize = 5;
+
+/// Maximum length in seconds of a single examining term (§2). Shorter than the
+/// observer term: `capture_resistance.md` §7 calls a standing admissions cadre "the
+/// single most capturable body in the compact", and the gate is at its weakest
+/// exactly where the entering party is least known. Half a year.
+pub const DEFAULT_EXAMINER_MAX_TERM_SECONDS: i64 = 182 * 24 * 3600;
+
+/// Minimum sit-out in seconds between an examining term that has ended and a
+/// re-nomination to the pool (§2 rotation, mirroring §8). Ninety days.
+pub const DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS: i64 = 90 * 24 * 3600;
+
+/// Minimum number of distinct seated examiners that must witness an admission into a
+/// standing compact (§2 cross-community composition). Three, as for a mediation
+/// panel: `capture_resistance.md` §7 asks that the credentialing function be rotated
+/// and composed "like the mediator pool it resembles".
+pub const DEFAULT_EXAMINER_PANEL_MIN: usize = 3;
+
+/// §2 examining-pool caps: the capture-resistance limits on who may conduct
+/// anti-spiral-feature credentialing. Structurally the same as [`ObserverCaps`] and
+/// enforced by the same rules ([`check_roster_caps`]), but a distinct type — the two
+/// are separately tunable policies, and a caller that swapped them should not compile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExaminerCaps {
+    /// Active-pool size at or above which the no-majority pool-share rule bites.
+    pub pool_floor: usize,
+    /// Maximum length (seconds) of a single examining term.
+    pub max_term_seconds: i64,
+    /// Minimum sit-out (seconds) between a prior term's end and a re-nomination.
+    pub rotation_period_seconds: i64,
+    /// Distinct seated examiners an admission into a standing compact must carry.
+    pub panel_min: usize,
+}
+
+impl Default for ExaminerCaps {
+    fn default() -> Self {
+        Self {
+            pool_floor: DEFAULT_EXAMINER_POOL_FLOOR,
+            max_term_seconds: DEFAULT_EXAMINER_MAX_TERM_SECONDS,
+            rotation_period_seconds: DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS,
+            panel_min: DEFAULT_EXAMINER_PANEL_MIN,
+        }
+    }
+}
+
 /// The number of failed-then-re-violated restoration cycles that a *normal*
 /// anathema designation must cite (bounded_conflict.md condition 1).
 const DESIGNATION_CYCLE_FLOOR: usize = 3;
+
+/// Is `community` inside a probation window at instant `at`?
+///
+/// The §2 probation predicate, and the *single* representation of the window
+/// arithmetic. Two windows count, per `capture_resistance.md` "Probation as the
+/// load-bearing record" and `exit_and_succession.md` §"Re-entry after expulsion":
+///
+/// - a received sponsorship whose stake still rides on this community's conduct
+///   (`SponsorshipRecord::in_probation`), and
+/// - a completed re-entry before its `probation_until` — a re-entered actor does
+///   not return to clean-slate status.
+///
+/// `kc-reputation::derive_standing` calls this rather than re-deriving it, so the
+/// standing a dashboard reports and the window an authority rule enforces cannot
+/// drift apart. Precedence (an active designation overriding, probation applying
+/// only to an admitted community) stays in reputation, where standing lives; only
+/// the window is here, where the authority pass can reach it.
+pub fn probationary_at(archive: &InMemoryArchive, community: &DidKey, at: Timestamp) -> bool {
+    probationary_at_excluding(archive, community, at, None)
+}
+
+/// As [`probationary_at`], ignoring one record: the one currently being authorized.
+///
+/// A record may not be de-weighted by a probation window that it itself opens. A
+/// re-entry's `completed_at` is the exact instant its own post-re-entry window
+/// begins, so without this exclusion the petitioner would be dropped from the
+/// quorum of the very act it is party to — the record would refuse itself. Mirrors
+/// the `self_cid` skip in [`authorize_observer_registry`].
+///
+/// A sponsorship opens the *entrant's* window while speaking for the *sponsor*, so
+/// it is only self-referential when a community vouches for itself, which
+/// [`authorize_sponsorship`] refuses on its own grounds.
+fn probationary_at_excluding(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    at: Timestamp,
+    exclude: Option<&Cid>,
+) -> bool {
+    for (cid, entry) in archive.iter() {
+        if exclude == Some(cid) {
+            continue;
+        }
+        match entry {
+            ArchiveEntry::SponsorshipVouched(s) => {
+                if &s.payload.entrant_community == community && s.payload.in_probation(at) {
+                    return true;
+                }
+            }
+            ArchiveEntry::ReEntryCompleted(s) => {
+                let r = &s.payload;
+                if &r.petitioner == community
+                    && r.completed_at <= at
+                    && at < r.probation_until
+                {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// How many of `dids` carry deliberative weight at `at` — distinct communities,
+/// minus those inside a probation window (§2).
+///
+/// The *one* representation of "counting weight rather than signatures", so a
+/// component-level bar and the generic quorum cannot disagree about who counts.
+/// `exclude` skips one record in the window scan (see
+/// [`probationary_at_excluding`]); `barred` drops a community for a reason that is
+/// not probation — the subject of its own readmission.
+///
+/// It exists because the count and the *floor* are two different things and only
+/// this one is about weight: a floor that counted signatures while the grade
+/// counted weight would let the higher bar be met with weight the doctrine
+/// withholds, which is what measurement found in both contraction bars.
+fn deliberative_weight<'a>(
+    archive: &InMemoryArchive,
+    dids: impl IntoIterator<Item = &'a DidKey>,
+    at: Timestamp,
+    exclude: Option<&Cid>,
+    barred: Option<&DidKey>,
+) -> ProbationTally {
+    let mut tally = ProbationTally::default();
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    for did in dids {
+        if !seen.insert(did.as_str()) {
+            continue;
+        }
+        tally.distinct += 1;
+        if Some(did) == barred {
+            tally.barred = true;
+            continue;
+        }
+        if probationary_at_excluding(archive, did, at, exclude) {
+            tally.probationary += 1;
+            continue;
+        }
+        tally.counted += 1;
+    }
+    tally
+}
+
+/// The result of a [`deliberative_weight`] count: what was presented, what carried
+/// weight, and why the difference — an operator has to be able to tell a shortfall
+/// of signatures from a shortfall caused by probation.
+#[derive(Default)]
+struct ProbationTally {
+    /// Distinct communities presented.
+    distinct: usize,
+    /// Distinct communities carrying deliberative weight.
+    counted: usize,
+    /// How many were dropped for being inside a probation window.
+    probationary: usize,
+    /// Whether the `barred` community was among them.
+    barred: bool,
+}
+
+impl ProbationTally {
+    /// The §2 clause naming why a count fell short, or `None` when nothing was
+    /// dropped and the shortfall is an ordinary want of signatures.
+    fn because(&self) -> Option<String> {
+        let mut why: Vec<String> = Vec::new();
+        if self.probationary > 0 {
+            why.push(format!(
+                "{} of {} bound communities are probationary",
+                self.probationary, self.distinct
+            ));
+        }
+        if self.barred {
+            why.push("the subject does not count toward its own readmission".into());
+        }
+        (!why.is_empty()).then(|| format!(" ({}; §2)", why.join(", ")))
+    }
+}
 
 /// The delegate scopes allowed to sign a given record type. Root (a community
 /// signing for itself) is always authorized regardless of this set; an empty
@@ -169,7 +353,12 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         // §8. A subject community's response to an observer report; an envoy may
         // sign it. (The other §8 records are authorized by observer/panel rules.)
         ArchiveEntry::ReportResponsePublished(_) => &[Envoy],
-        ArchiveEntry::ObserverRegistryUpdated(_)
+        // §2. An examining roster is the nominating community's own act: root only,
+        // like the §8 observer registry it mirrors. A member roll joins them: naming
+        // who belongs to a community is not a thing a delegated speaker may do.
+        ArchiveEntry::ExaminerRegistryUpdated(_)
+        | ArchiveEntry::MemberRollPublished(_)
+        | ArchiveEntry::ObserverRegistryUpdated(_)
         | ArchiveEntry::ObserverReportPublished(_)
         | ArchiveEntry::WhistleblowerFiled(_)
         | ArchiveEntry::SourceRevealed(_)
@@ -299,6 +488,15 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         ArchiveEntry::ReportResponsePublished(s) => {
             Some(ra(vec![s.payload.responding_community.clone()], s.payload.responded_at, false))
         }
+        // §2. An examining roster is the nominating community speaking for itself:
+        // a first-class principal-bound act, capped by `ExaminerCaps`.
+        ArchiveEntry::ExaminerRegistryUpdated(s) => {
+            Some(ra(vec![s.payload.nominating_community.clone()], s.payload.issued_at, false))
+        }
+        // §8. A member roll is the community stating its own composition.
+        ArchiveEntry::MemberRollPublished(s) => {
+            Some(ra(vec![s.payload.community_did.clone()], s.payload.published_at, false))
+        }
         // Observer reports and whistleblower records are authorized by the
         // observer / reception-panel rules, not principal binding.
         ArchiveEntry::ObserverReportPublished(_)
@@ -396,6 +594,8 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::CommonsRegistered(s) => dids(s),
         ArchiveEntry::UsageAccounted(s) => dids(s),
         ArchiveEntry::SanctionApplied(s) => dids(s),
+        ArchiveEntry::ExaminerRegistryUpdated(s) => dids(s),
+        ArchiveEntry::MemberRollPublished(s) => dids(s),
         ArchiveEntry::ObserverRegistryUpdated(s) => dids(s),
         ArchiveEntry::ObserverReportPublished(s) => dids(s),
         ArchiveEntry::ReportResponsePublished(s) => dids(s),
@@ -418,7 +618,7 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
 
 /// The nominating community of `mediator_did` if it is an active registered
 /// mediator at `at`, else `None`.
-fn mediator_home(
+pub(crate) fn mediator_home(
     archive: &InMemoryArchive,
     mediator_did: &str,
     at: Timestamp,
@@ -435,9 +635,429 @@ fn mediator_home(
     None
 }
 
+/// §2 sponsor rule: a community inside its own probation window may not vouch for an
+/// entrant.
+///
+/// This is the withholding with teeth against capture move 7. Without it the
+/// admissions chain is self-feeding — a community admitted this second may vouch for
+/// the next, so a faction of one grows by one entrant per ceremony and every
+/// admission is procedurally clean (`capture_resistance.md` §7, "the vector is slower
+/// than any other in this catalogue and harder to see").
+///
+/// Refusal rather than de-weighting, unlike the quorum domains: a vouch *is* an
+/// exercise of deliberative weight in admissions and nothing counts vouches, so a
+/// vouch that carried no weight would be an inert record. What a sponsor stakes is
+/// standing it has not yet earned.
+fn authorize_sponsorship(
+    archive: &InMemoryArchive,
+    s: &SponsorshipRecord,
+) -> KcResult<()> {
+    // A vouch is another community's testimony about your operative practice; there
+    // is no such thing as vouching for yourself, and the sponsor-stake mechanism
+    // (`capture_resistance.md` §7 "Sponsor stake") is empty if the stake and the
+    // conduct it rides on belong to the same community.
+    if s.sponsor_community == s.entrant_community {
+        return Err(KcError::Authority(format!(
+            "community {} vouched for itself; a sponsorship stakes another \
+             community's standing on the entrant's conduct (§2)",
+            s.sponsor_community.as_str()
+        )));
+    }
+    if probationary_at(archive, &s.sponsor_community, s.sponsored_at) {
+        return Err(KcError::Authority(format!(
+            "sponsor {} is itself probationary at {}; a probationary community carries \
+             no deliberative weight in admissions (§2)",
+            s.sponsor_community.as_str(),
+            s.sponsored_at
+        )));
+    }
+    Ok(())
+}
+
+/// §2 admission rule: an entrant joining a standing compact must be admitted by a
+/// quorum of communities that are *already in that compact* and carrying deliberative
+/// weight.
+///
+/// `capture_resistance.md` §7: "Admission and readmission validate only with
+/// multi-community quorum signatures … No AU-region's faction, and no single sponsor
+/// cluster, can admit alone." Before this rule an admission carried no structural
+/// requirement at all beyond two participants, and because the entrant is itself a
+/// participant and co-signs, **one sitting member plus the entrant sealed an
+/// admission** — measured, and kept as
+/// `tests::admissions_integrity::measure_faction_of_one_seats_entrants_unopposed`.
+///
+/// Three things make the rule hold rather than merely read well:
+///
+/// - **The admitted set is derived, never declared.** A participant counts as sitting
+///   only because an earlier record in this archive says so. A field on the record
+///   asserting who was already a member would be unenforceable — a lesson from
+///   ethne D21/D22, where a self-declared founding boundary could be edited to
+///   promote its own grade. The evidence is the source.
+/// - **Insertion order is authoritative, not `witnessed_at`.** Priors are the records
+///   that precede this one in the append-only log, so authorizing an earlier
+///   admission never "sees" a later one and no admission can be retroactively
+///   legitimized by one appended afterward. Same choice, for the same reason, as
+///   [`current_rung`].
+/// - **Compact formation is exempt.** The first record for a `compact_label` has no
+///   sitting members to draw a quorum from; its participants are founders, not
+///   entrants. All 10 admission records that existed in this tree before the rule
+///   were formations, so the exemption is also what keeps it from being a rewrite of
+///   the corpus.
+///
+/// The quorum is stricter than the generic second-class one in two ways: it counts
+/// only participants already in the compact (so the entrant cannot supply its own
+/// admitting signature) and it drops probationary ones (§2's first withholding —
+/// which is what stops each new entrant from immediately amplifying the faction that
+/// admitted it).
+///
+/// *Honest limit:* `compact_label` is a self-declared string, so a mislabelled record
+/// reads as the formation of some other compact. It cannot forge this compact's roll
+/// and a consumer reading by label never sees it — accountability, not prevention.
+fn authorize_inter_witness(
+    archive: &InMemoryArchive,
+    rec: &InterCommunityWitnessRecord,
+    signers: &[&str],
+    self_cid: &Cid,
+    quorum_threshold: usize,
+    caps: ExaminerCaps,
+) -> KcResult<()> {
+    let mut sitting: BTreeSet<&str> = BTreeSet::new();
+    for (cid, e) in archive.iter() {
+        if cid == self_cid {
+            break; // insertion order: never look past the record being authorized
+        }
+        if let ArchiveEntry::InterCommunityWitness(s) = e {
+            if s.payload.compact_label != rec.compact_label {
+                continue;
+            }
+            for p in &s.payload.participants {
+                sitting.insert(p.as_str());
+            }
+        }
+    }
+    if sitting.is_empty() {
+        return Ok(()); // compact formation: these are founders
+    }
+
+    // Sponsor stake, with teeth. Every entrant must arrive vouched for by a sitting
+    // member that carries weight.
+    //
+    // This is what makes the probation withholding load-bearing rather than opt-in.
+    // A probation window only opens when somebody stakes standing on an entrant, so
+    // without this rule a faction could admit entrant after entrant while never
+    // vouching for any of them, and there would be no probationary community to
+    // de-weight — measured, and kept as
+    // `tests::admissions_integrity::measure_admission_without_a_sponsor_is_refused`
+    // (5 of 5 unsponsored admissions were authorized). `capture_resistance.md` §7:
+    // "The vouching structure already specified in the inter-community layer is given
+    // teeth: a sponsor's standing rides on the entrant's conduct through the
+    // probationary period."
+    //
+    // The vouch must already be in the log (insertion order again), which is also the
+    // order `recognition_protocols.md` describes: the sponsor speaks for the candidate
+    // before the compact seals the admission.
+    for p in &rec.participants {
+        if sitting.contains(p.as_str()) {
+            continue; // a sitting member is not an entrant and needs no sponsor
+        }
+        let mut sponsored = false;
+        for (cid, e) in archive.iter() {
+            if cid == self_cid {
+                break;
+            }
+            if let ArchiveEntry::SponsorshipVouched(s) = e {
+                let v = &s.payload;
+                if &v.entrant_community == p
+                    && sitting.contains(v.sponsor_community.as_str())
+                    && !probationary_at_excluding(
+                        archive,
+                        &v.sponsor_community,
+                        v.sponsored_at,
+                        Some(self_cid),
+                    )
+                {
+                    sponsored = true;
+                    break;
+                }
+            }
+        }
+        if !sponsored {
+            return Err(KcError::Authority(format!(
+                "entrant {} is admitted to '{}' with no sponsor among the sitting \
+                 communities carrying weight; a sponsor's standing must ride on the \
+                 entrant's conduct (§2 sponsor stake)",
+                p.as_str(),
+                rec.compact_label
+            )));
+        }
+    }
+
+    let mut admitting: BTreeSet<&str> = BTreeSet::new();
+    let mut probationary = 0usize;
+    for p in &rec.participants {
+        if !sitting.contains(p.as_str()) {
+            continue; // an entrant does not admit itself
+        }
+        if probationary_at_excluding(archive, p, rec.witnessed_at, Some(self_cid)) {
+            probationary += 1;
+            continue;
+        }
+        admitting.insert(p.as_str());
+    }
+    if admitting.len() < quorum_threshold {
+        let because = if probationary > 0 {
+            format!(
+                ", {probationary} sitting participant(s) probationary and so carrying \
+                 no weight in admissions"
+            )
+        } else {
+            String::new()
+        };
+        return Err(KcError::Authority(format!(
+            "admission into '{}' has an admitting quorum of {} sitting communities, \
+             need >= {} ({} participants, {} sitting{}; §2)",
+            rec.compact_label,
+            admitting.len(),
+            quorum_threshold,
+            rec.participants.len(),
+            sitting.len(),
+            because
+        )));
+    }
+
+    // The examining panel: the signers who hold an active examining seat, seated by a
+    // community that is itself sitting and carrying weight. Not *every* signer must be
+    // an examiner — unlike a mediation decision, this record is jointly the entrant's
+    // act and the compact's — but enough of them must be, from enough communities.
+    let mut panel: BTreeSet<&str> = BTreeSet::new();
+    let mut panel_homes: BTreeMap<String, usize> = BTreeMap::new();
+    for signer in signers {
+        let Some(home) = examiner_home(archive, signer, rec.witnessed_at) else {
+            continue;
+        };
+        if !sitting.contains(home.as_str()) {
+            continue; // an entrant's own examiner does not examine the entrant
+        }
+        if probationary_at_excluding(archive, &home, rec.witnessed_at, Some(self_cid)) {
+            continue;
+        }
+        if panel.insert(*signer) {
+            *panel_homes.entry(home.as_str().to_string()).or_insert(0) += 1;
+        }
+    }
+    if panel.len() < caps.panel_min {
+        return Err(KcError::Authority(format!(
+            "admission into '{}' was examined by {} seated examiner(s), need >= {} \
+             (§2 credentialing panel)",
+            rec.compact_label,
+            panel.len(),
+            caps.panel_min
+        )));
+    }
+    // Cross-community composition. Two distinct seating communities always; and once
+    // the compact is large enough for the pool-share rule to bite at all, no single
+    // community may supply a majority of the panel either — a panel one community
+    // dominates is the standing admissions cadre wearing a rotation schedule.
+    if panel_homes.len() < 2 {
+        return Err(KcError::Authority(format!(
+            "admission into '{}' was examined by a panel from a single community, {} \
+             (§2 cross-community composition)",
+            rec.compact_label,
+            panel_homes.keys().next().map(String::as_str).unwrap_or("none")
+        )));
+    }
+    let pool_total: usize =
+        active_roster_shares(&rosters_of(archive, RosterKind::Examiner), rec.witnessed_at)
+            .values()
+            .sum();
+    if pool_total >= caps.pool_floor {
+        if let Some((community, held)) = panel_homes.iter().max_by_key(|(_, n)| **n) {
+            if 2 * held > panel.len() {
+                return Err(KcError::Authority(format!(
+                    "community {} supplied {}/{} of the panel examining an admission \
+                     into '{}', a majority (§2 cross-community composition)",
+                    community,
+                    held,
+                    panel.len(),
+                    rec.compact_label
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// §2 mediator-selection rule: a probationary community may not nominate mediators.
+///
+/// The second of the doctrine's three withholdings. Seating a mediator is the
+/// selection act, and `capture_resistance.md` §7 withholds weight in "mediator
+/// selection" for the same reason it withholds it in admissions — otherwise each
+/// admitted entrant immediately amplifies the faction that admitted it, here by
+/// staffing the pool that decides its disputes.
+fn authorize_mediator_registry(
+    archive: &InMemoryArchive,
+    reg: &kc_mediation::MediatorRegistry,
+) -> KcResult<()> {
+    if probationary_at(archive, &reg.nominating_community, reg.issued_at) {
+        return Err(KcError::Authority(format!(
+            "community {} is probationary at {}; a probationary community carries no \
+             deliberative weight in mediator selection (§2)",
+            reg.nominating_community.as_str(),
+            reg.issued_at
+        )));
+    }
+    // The encryption key must not be the signing key. §8 custody seals a share of a
+    // whistleblower's identity to this key by key agreement; if it is the same key the
+    // mediator signs with, the separation the field exists to provide is gone and the
+    // registration says otherwise on its face.
+    for e in &reg.entries {
+        if e.encryption_pubkey.bytes == e.mediator_pubkey.bytes {
+            return Err(KcError::Authority(format!(
+                "mediator {} is registered with its signing key as its encryption key: \
+                 custody sealing would then reuse one key for two primitives",
+                e.mediator_did
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The encryption key each active registered mediator's §8 custody shares must be
+/// sealed to, at `at`. Later registrations from the same community supersede earlier
+/// ones, so this follows the same resolution the panel rules use.
+///
+/// Public because a filer sealing custody and the authority pass checking it must use
+/// one definition — the same reason `insider_keys` is public.
+pub fn mediator_encryption_keys(
+    archive: &InMemoryArchive,
+    at: Timestamp,
+) -> BTreeMap<String, kc_core::PubKey> {
+    let mut latest: BTreeMap<String, (Timestamp, &kc_mediation::MediatorRegistry)> =
+        BTreeMap::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::MediatorRegistryUpdated(s) = e {
+            let reg = &s.payload;
+            if reg.issued_at > at {
+                continue;
+            }
+            let key = reg.nominating_community.as_str().to_string();
+            match latest.get(&key) {
+                Some((prev, _)) if *prev >= reg.issued_at => {}
+                _ => {
+                    latest.insert(key, (reg.issued_at, reg));
+                }
+            }
+        }
+    }
+    let mut out = BTreeMap::new();
+    for (_, reg) in latest.values() {
+        for entry in &reg.entries {
+            if entry.active_at(at) {
+                out.insert(entry.mediator_did.as_str().to_string(), entry.encryption_pubkey.clone());
+            }
+        }
+    }
+    out
+}
+
+/// A [`mediator_encryption_keys`] lookup shaped for [`kc_core::ThresholdCustody::seal`].
+pub fn mediator_encryption_resolver(
+    archive: &InMemoryArchive,
+    at: Timestamp,
+) -> impl Fn(&DidKey) -> KcResult<kc_core::PubKey> {
+    let keys = mediator_encryption_keys(archive, at);
+    move |did: &DidKey| {
+        keys.get(did.as_str()).cloned().ok_or_else(|| {
+            KcError::Key(format!(
+                "{did} is not an active registered mediator, so no encryption key resolves \
+                 for it: a share cannot be sealed to a custodian the archive cannot place"
+            ))
+        })
+    }
+}
+
+/// How one panel names itself in an authority error. The five panels differ only in
+/// their wording, so the wording is the parameter and the rule is not.
+struct PanelSpec<'a> {
+    /// The role phrase preceding a signer: `"panelist"`, `"injunction panelist"`.
+    role: &'a str,
+    /// How a barred home community is described: `"a party community"`.
+    barred_kind: &'a str,
+    /// The panel's name in a shortfall message: `"mediation panel"`.
+    label: &'a str,
+}
+
+/// The mediator-panel rule, shared by all five panels in the tier: every co-signer
+/// must be an active registered mediator, none may come from a `barred` community
+/// (non-overlap), the panel must span at least `panel_min` of them — and a panelist
+/// whose home community is probationary **does not count** toward that floor (§2).
+///
+/// One implementation, because the probation filter existed in the mediation panel
+/// alone and the other four counted seated panelists from probationary communities
+/// at full weight. Copying the filter four times would have left the fifth panel —
+/// whichever gets written next — to reintroduce the hole; the §2 slice made the same
+/// move for the roster caps (`check_roster_caps`).
+///
+/// The panelist may still **sit**: what is withheld is weight, not participation. It
+/// matters because seating-time refusal is not enough — a re-admitted community's
+/// earlier nominations are still live, so its mediators are already seated when its
+/// probation window opens.
+fn check_mediator_panel(
+    archive: &InMemoryArchive,
+    signers: &[&str],
+    at: Timestamp,
+    barred: &BTreeSet<String>,
+    panel_min: usize,
+    spec: PanelSpec<'_>,
+) -> KcResult<()> {
+    let mut panel: BTreeSet<&str> = BTreeSet::new();
+    let mut probationary_panelists = 0usize;
+    for signer in signers {
+        let home = match mediator_home(archive, signer, at) {
+            None => {
+                return Err(KcError::Authority(format!(
+                    "{} {signer} is not an active registered mediator",
+                    spec.role
+                )))
+            }
+            Some(home) => home,
+        };
+        if barred.contains(home.as_str()) {
+            return Err(KcError::Authority(format!(
+                "{} {signer} is from {} (non-overlap violated)",
+                spec.role, spec.barred_kind
+            )));
+        }
+        if probationary_at(archive, &home, at) {
+            probationary_panelists += 1;
+            continue;
+        }
+        panel.insert(signer);
+    }
+    if panel.len() < panel_min {
+        let because = if probationary_panelists > 0 {
+            format!(
+                " ({probationary_panelists} panelist(s) from probationary communities \
+                 carry no weight; §2)"
+            )
+        } else {
+            String::new()
+        };
+        return Err(KcError::Authority(format!(
+            "{} has {} distinct mediators, need >= {}{}",
+            spec.label,
+            panel.len(),
+            panel_min,
+            because
+        )));
+    }
+    Ok(())
+}
+
 /// The §4 panel rule for a mediation decision: every co-signer must be an active
-/// registered mediator; the panel must span at least `panel_min` of them; and no
-/// panelist may come from a party community (non-overlap).
+/// registered mediator; the panel must span at least `panel_min` of them; no
+/// panelist may come from a party community (non-overlap); and a panelist whose home
+/// community is probationary does not count toward `panel_min` (§2).
 fn authorize_decision(
     archive: &InMemoryArchive,
     decision: &MediationDecision,
@@ -453,33 +1073,22 @@ fn authorize_decision(
             )))
         }
     };
-    let at = decision.decided_at;
-    let mut panel: BTreeSet<String> = BTreeSet::new();
-    for signer in signers {
-        match mediator_home(archive, signer, at) {
-            None => {
-                return Err(KcError::Authority(format!(
-                    "panelist {signer} is not an active registered mediator"
-                )))
-            }
-            Some(home) => {
-                if home == dispute.complainant || home == dispute.respondent {
-                    return Err(KcError::Authority(format!(
-                        "panelist {signer} is from a party community (non-overlap violated)"
-                    )));
-                }
-                panel.insert((*signer).to_string());
-            }
-        }
-    }
-    if panel.len() < panel_min {
-        return Err(KcError::Authority(format!(
-            "mediation panel has {} distinct mediators, need >= {}",
-            panel.len(),
-            panel_min
-        )));
-    }
-    Ok(())
+    let barred: BTreeSet<String> = [&dispute.complainant, &dispute.respondent]
+        .iter()
+        .map(|d| d.as_str().to_string())
+        .collect();
+    check_mediator_panel(
+        archive,
+        signers,
+        decision.decided_at,
+        &barred,
+        panel_min,
+        PanelSpec {
+            role: "panelist",
+            barred_kind: "a party community",
+            label: "mediation panel",
+        },
+    )
 }
 
 /// The dispute's rung as established by the transitions that precede
@@ -581,14 +1190,23 @@ fn authorize_transition(
                 transition.to_rung
             )));
         }
-        let distinct: BTreeSet<&str> = transition.initiators.iter().map(|d| d.as_str()).collect();
+        // Weight, not signatures (§2) — the commons second-class floor's reasoning,
+        // one component over.
+        let tally = deliberative_weight(
+            archive,
+            transition.initiators.iter(),
+            transition.transitioned_at,
+            None,
+            None,
+        );
         let floor = quorum_threshold.max(2);
-        if distinct.len() < floor {
+        if tally.counted < floor {
             return Err(KcError::Authority(format!(
-                "{:?} needs >= {} distinct initiating communities, got {}",
+                "{:?} needs >= {} distinct initiating communities, got {}{}",
                 transition.to_rung,
                 floor,
-                distinct.len()
+                tally.counted,
+                tally.because().unwrap_or_default()
             )));
         }
     }
@@ -670,10 +1288,18 @@ fn authorize_designation(
                 ));
             }
             // A higher immediate quorum stands in for the collapsed cadence.
-            let distinct: BTreeSet<&str> = d.deliberators.iter().map(|x| x.as_str()).collect();
+            // §2: probationary deliberators carry no weight in designation
+            // procedures, so they do not count toward it.
+            let distinct: BTreeSet<&str> = d
+                .deliberators
+                .iter()
+                .filter(|x| !probationary_at(archive, x, d.designated_at))
+                .map(|x| x.as_str())
+                .collect();
             if distinct.len() < quorum_threshold + 1 {
                 return Err(KcError::Authority(format!(
-                    "expedited designation needs >= {} distinct communities, got {}",
+                    "expedited designation needs >= {} distinct communities carrying \
+                     deliberative weight, got {} (§2 excludes probationary deliberators)",
                     quorum_threshold + 1,
                     distinct.len()
                 )));
@@ -749,7 +1375,8 @@ fn sustained_bad_faith(archive: &InMemoryArchive, subject: &DidKey, cited: &[Cid
 
 /// §5 verifier-panel rule for a restitution completion: every co-signer is an
 /// active registered mediator, none from the obligation's subject or beneficiary
-/// community (non-overlap), and the panel spans at least `panel_min`.
+/// community (non-overlap), and the panel spans at least `panel_min` — counting
+/// weight, so a probationary home does not verify a restitution (§2).
 fn authorize_restitution_completion(
     archive: &InMemoryArchive,
     completion: &RestitutionCompletion,
@@ -765,33 +1392,22 @@ fn authorize_restitution_completion(
             )))
         }
     };
-    let at = completion.verified_at;
-    let mut panel: BTreeSet<String> = BTreeSet::new();
-    for signer in signers {
-        match mediator_home(archive, signer, at) {
-            None => {
-                return Err(KcError::Authority(format!(
-                    "restitution verifier {signer} is not an active registered mediator"
-                )))
-            }
-            Some(home) => {
-                if home == obligation.subject_community || home == obligation.beneficiary {
-                    return Err(KcError::Authority(format!(
-                        "restitution verifier {signer} is from a party community (non-overlap violated)"
-                    )));
-                }
-                panel.insert((*signer).to_string());
-            }
-        }
-    }
-    if panel.len() < panel_min {
-        return Err(KcError::Authority(format!(
-            "restitution verifier panel has {} distinct mediators, need >= {}",
-            panel.len(),
-            panel_min
-        )));
-    }
-    Ok(())
+    let barred: BTreeSet<String> = [&obligation.subject_community, &obligation.beneficiary]
+        .iter()
+        .map(|d| d.as_str().to_string())
+        .collect();
+    check_mediator_panel(
+        archive,
+        signers,
+        completion.verified_at,
+        &barred,
+        panel_min,
+        PanelSpec {
+            role: "restitution verifier",
+            barred_kind: "a party community",
+            label: "restitution verifier panel",
+        },
+    )
 }
 
 /// §5 re-entry rule: the petition answers an `Anathema` designation (never
@@ -968,14 +1584,18 @@ fn authorize_commons_sanction(
                 s.to_level
             )));
         }
-        let distinct: BTreeSet<&str> = s.imposers.iter().map(|d| d.as_str()).collect();
+        // Weight, not signatures (§2): the `max(2)` floor is *higher* than the generic
+        // quorum wherever a compact configures one below it, so it needs the same
+        // filter or it becomes the cheaper of the two routes.
+        let tally = deliberative_weight(archive, s.imposers.iter(), s.decided_at, None, None);
         let floor = quorum_threshold.max(2);
-        if distinct.len() < floor {
+        if tally.counted < floor {
             return Err(KcError::Authority(format!(
-                "{:?} needs >= {} distinct imposing communities, got {}",
+                "{:?} needs >= {} distinct imposing communities, got {}{}",
                 s.to_level,
                 floor,
-                distinct.len()
+                tally.counted,
+                tally.because().unwrap_or_default()
             )));
         }
     } else if matches!(s.decision_class, DecisionClass::SecondClass) {
@@ -1037,104 +1657,208 @@ fn authorize_observer_report(
     }
 }
 
-/// The active observer corps as of `at`, respecting registry superseding (only
-/// the latest `ObserverRegistryUpdated` per nominating community with
-/// `issued_at <= at` contributes its entries): returns `(total_active,
-/// active_nominated_by_community)`.
-fn active_observer_counts(
-    archive: &InMemoryArchive,
-    community: &DidKey,
-    at: Timestamp,
-) -> (usize, usize) {
-    let mut latest: BTreeMap<String, &ObserverRegistry> = BTreeMap::new();
-    for (_, e) in archive.iter() {
-        if let ArchiveEntry::ObserverRegistryUpdated(s) = e {
-            if s.payload.issued_at.as_second() <= at.as_second() {
-                let key = s.payload.nominating_community.as_str().to_string();
-                let supersede = latest.get(&key).is_none_or(|cur| {
-                    s.payload.issued_at.as_second() >= cur.issued_at.as_second()
-                });
-                if supersede {
-                    latest.insert(key, &s.payload);
-                }
-            }
-        }
-    }
-    let (mut total, mut this) = (0usize, 0usize);
-    for reg in latest.values() {
-        let n = reg.entries.iter().filter(|en| en.active_at(at)).count();
-        total += n;
-        if &reg.nominating_community == community {
-            this += n;
-        }
-    }
-    (total, this)
+/// Which kind of service roster: the §8 observer corps or the §2 examining pool.
+///
+/// The two are the same structure — a nominating community, an `issued_at` that
+/// supersedes its own earlier rosters, and a list of seats with validity windows —
+/// so the capture-resistance caps over them are computed once, here, rather than
+/// restated per component. `capture_resistance.md` §7 asks for exactly that: the
+/// credentialing function "rotated, witnessed, and monitored like the mediator pool
+/// it resembles".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RosterKind {
+    /// §8 observer corps (`jester_and_dissent.md` "Rotation and diversity").
+    Observer,
+    /// §2 examining pool (`capture_resistance.md` §7 "Credentialing panels by lot
+    /// and rotation").
+    Examiner,
 }
 
-/// §8 observer-registry caps (capture resistance), enforced when a roster is
-/// admitted:
-///
-/// - **Term limit.** Every entry must set `valid_until`, and the window may not
-///   exceed `caps.max_term_seconds`. No open-ended observer standing — a
-///   permanent observer corps is exactly the capture the rotation rule prevents
-///   (jester_and_dissent.md "Rotation and diversity").
-/// - **Rotation gap.** For each observer, a re-nomination must begin at least
-///   `caps.rotation_period_seconds` after the most recent *prior* term (in any
-///   other registry record) that had already ended at or before this window's
-///   start: the observer sits out (jester_and_dissent.md "rotation-period
-///   exclusion").
-/// - **Continuous-service union.** The per-window term limit is not enough on its
-///   own: overlapping re-nominations (a new window opened before the prior one
-///   ends) never trip the rotation-gap rule, so a community could chain them to
-///   keep an observer seated indefinitely. Each window is therefore merged with
-///   every prior window from which it is not separated by a full rotation sit-out
-///   (overlap or a sub-`rotation_period` gap counts as one continuous term); the
-///   merged span containing this window may not exceed `caps.max_term_seconds`.
-/// - **Pool-share.** Once the compact-wide active corps reaches `caps.pool_floor`,
-///   no single nominating community may hold a majority of it
-///   (liminal_institutions.md "No single community can dominate the pool"). Below
-///   the floor a small compact may staff the corps freely.
-fn authorize_observer_registry(
-    archive: &InMemoryArchive,
-    reg: &ObserverRegistry,
-    self_cid: &Cid,
-    caps: ObserverCaps,
-) -> KcResult<()> {
-    for entry in &reg.entries {
-        let valid_until = entry.valid_until.ok_or_else(|| {
-            KcError::Authority(format!(
-                "observer {} has an open-ended term; a bounded valid_until is required (§8 rotation)",
-                entry.observer_did.as_str()
-            ))
-        })?;
-        let term = valid_until.as_second() - entry.valid_from.as_second();
-        if term > caps.max_term_seconds {
-            return Err(KcError::Authority(format!(
-                "observer {} term {}s exceeds the maximum {}s (§8 term limit)",
-                entry.observer_did.as_str(),
-                term,
-                caps.max_term_seconds
-            )));
+impl RosterKind {
+    /// The word for one servant of this roster, used in refusal messages.
+    fn role(self) -> &'static str {
+        match self {
+            Self::Observer => "observer",
+            Self::Examiner => "examiner",
         }
-        // This observer's prior bounded windows, from every other registry record
-        // (superseding is irrelevant here — a term served is a term served).
-        let mut prior_windows: Vec<(i64, i64)> = Vec::new();
-        for (cid, e) in archive.iter() {
-            if cid == self_cid {
-                continue;
+    }
+
+    /// The protocol section whose rule a refusal is citing.
+    fn section(self) -> &'static str {
+        match self {
+            Self::Observer => "§8",
+            Self::Examiner => "§2",
+        }
+    }
+}
+
+/// One seat in a roster: who serves, and over what window.
+struct Seat<'a> {
+    did: &'a str,
+    from: Timestamp,
+    until: Option<Timestamp>,
+}
+
+impl Seat<'_> {
+    fn active_at(&self, t: Timestamp) -> bool {
+        self.from <= t && self.until.is_none_or(|end| t < end)
+    }
+}
+
+/// One roster record, normalized across kinds.
+struct Roster<'a> {
+    cid: &'a Cid,
+    community: &'a DidKey,
+    issued_at: Timestamp,
+    seats: Vec<Seat<'a>>,
+}
+
+/// Every roster of `kind` in the archive, in insertion order, normalized. The only
+/// per-kind code in the caps machinery.
+fn rosters_of(archive: &InMemoryArchive, kind: RosterKind) -> Vec<Roster<'_>> {
+    let mut out = Vec::new();
+    for (cid, e) in archive.iter() {
+        match (kind, e) {
+            (RosterKind::Observer, ArchiveEntry::ObserverRegistryUpdated(s)) => {
+                out.push(Roster {
+                    cid,
+                    community: &s.payload.nominating_community,
+                    issued_at: s.payload.issued_at,
+                    seats: s
+                        .payload
+                        .entries
+                        .iter()
+                        .map(|en| Seat {
+                            did: en.observer_did.as_str(),
+                            from: en.valid_from,
+                            until: en.valid_until,
+                        })
+                        .collect(),
+                });
             }
-            if let ArchiveEntry::ObserverRegistryUpdated(s) = e {
-                for prior in &s.payload.entries {
-                    if prior.observer_did != entry.observer_did {
-                        continue;
-                    }
-                    if let Some(pu) = prior.valid_until {
-                        prior_windows.push((prior.valid_from.as_second(), pu.as_second()));
-                    }
+            (RosterKind::Examiner, ArchiveEntry::ExaminerRegistryUpdated(s)) => {
+                out.push(Roster {
+                    cid,
+                    community: &s.payload.nominating_community,
+                    issued_at: s.payload.issued_at,
+                    seats: s
+                        .payload
+                        .entries
+                        .iter()
+                        .map(|en| Seat {
+                            did: en.examiner_did.as_str(),
+                            from: en.valid_from,
+                            until: en.valid_until,
+                        })
+                        .collect(),
+                });
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// The active roster as of `at`, per seating community, respecting superseding (only
+/// the latest roster per nominating community with `issued_at <= at` contributes its
+/// seats). The pool total is the sum; one community's share is its entry.
+fn active_roster_shares(rosters: &[Roster<'_>], at: Timestamp) -> BTreeMap<String, usize> {
+    let mut latest: BTreeMap<&str, &Roster> = BTreeMap::new();
+    for r in rosters {
+        if r.issued_at.as_second() <= at.as_second() {
+            let key = r.community.as_str();
+            let supersede = latest
+                .get(key)
+                .is_none_or(|cur| r.issued_at.as_second() >= cur.issued_at.as_second());
+            if supersede {
+                latest.insert(key, r);
+            }
+        }
+    }
+    latest
+        .values()
+        .map(|r| {
+            (
+                r.community.as_str().to_string(),
+                r.seats.iter().filter(|s| s.active_at(at)).count(),
+            )
+        })
+        .collect()
+}
+
+/// The bounded windows `did` has served in rosters of this kind other than
+/// `self_cid`. Superseding is irrelevant: a term served is a term served.
+fn prior_service_windows(
+    rosters: &[Roster<'_>],
+    did: &str,
+    self_cid: &Cid,
+) -> Vec<(i64, i64)> {
+    let mut out = Vec::new();
+    for r in rosters {
+        if r.cid == self_cid {
+            continue;
+        }
+        for seat in &r.seats {
+            if seat.did == did {
+                if let Some(until) = seat.until {
+                    out.push((seat.from.as_second(), until.as_second()));
                 }
             }
         }
-        let from = entry.valid_from.as_second();
+    }
+    out
+}
+
+/// The rotation caps on a service roster, stated once for both kinds that have them:
+///
+/// - **Term limit.** Every seat must set `valid_until`, and the window may not exceed
+///   `max_term_seconds`. No open-ended standing — a permanent corps is exactly the
+///   capture the rotation rule prevents.
+/// - **Rotation gap.** A re-nomination must begin at least `rotation_period_seconds`
+///   after the most recent *prior* term that had already ended at or before this
+///   window's start: the servant sits out.
+/// - **Continuous-service union.** The per-window term limit is not enough on its
+///   own: overlapping re-nominations (a new window opened before the prior one ends)
+///   never trip the rotation-gap rule, so a community could chain them to keep one
+///   servant seated indefinitely. Each window is therefore merged with every prior
+///   window from which it is not separated by a full rotation sit-out (overlap or a
+///   sub-`rotation_period` gap counts as one continuous term); the merged span
+///   containing this window may not exceed `max_term_seconds`.
+/// - **Pool-share.** Once the compact-wide active roster reaches `pool_floor`, no
+///   single nominating community may hold a majority of it. Below the floor a small
+///   compact may staff it freely (`liminal_institutions.md` "The mediator pool": for
+///   small compacts every community must contribute).
+fn check_roster_caps(
+    archive: &InMemoryArchive,
+    kind: RosterKind,
+    community: &DidKey,
+    issued_at: Timestamp,
+    seats: &[Seat<'_>],
+    self_cid: &Cid,
+    pool_floor: usize,
+    max_term_seconds: i64,
+    rotation_period_seconds: i64,
+) -> KcResult<()> {
+    let (role, section) = (kind.role(), kind.section());
+    let rosters = rosters_of(archive, kind);
+
+    for seat in seats {
+        let valid_until = seat.until.ok_or_else(|| {
+            KcError::Authority(format!(
+                "{role} {} has an open-ended term; a bounded valid_until is required \
+                 ({section} rotation)",
+                seat.did
+            ))
+        })?;
+        let term = valid_until.as_second() - seat.from.as_second();
+        if term > max_term_seconds {
+            return Err(KcError::Authority(format!(
+                "{role} {} term {}s exceeds the maximum {}s ({section} term limit)",
+                seat.did, term, max_term_seconds
+            )));
+        }
+        let prior_windows = prior_service_windows(&rosters, seat.did, self_cid);
+        let from = seat.from.as_second();
         let until = valid_until.as_second();
 
         // Rotation gap: the latest prior term that ended at or before this window's
@@ -1146,27 +1870,25 @@ fn authorize_observer_registry(
             .max();
         if let Some(pe) = prior_end {
             let gap = from - pe;
-            if gap < caps.rotation_period_seconds {
+            if gap < rotation_period_seconds {
                 return Err(KcError::Authority(format!(
-                    "observer {} re-nominated after a {}s gap, below the rotation period {}s (§8 rotation)",
-                    entry.observer_did.as_str(),
-                    gap,
-                    caps.rotation_period_seconds
+                    "{role} {} re-nominated after a {}s gap, below the rotation period \
+                     {}s ({section} rotation)",
+                    seat.did, gap, rotation_period_seconds
                 )));
             }
         }
 
         // Continuous-service union: merge this window with every prior window not
-        // separated from the chain by a full rotation sit-out (overlap or a
-        // sub-`rotation_period` gap connects), then bound the merged span that
-        // contains this window by the term limit. This catches overlap-extension,
-        // which the rotation-gap rule (ended-terms only) cannot see.
+        // separated from the chain by a full rotation sit-out, then bound the merged
+        // span that contains this window by the term limit. This catches
+        // overlap-extension, which the rotation-gap rule (ended terms only) cannot see.
         let mut windows = prior_windows;
         windows.push((from, until));
         windows.sort_unstable();
         let (mut cs, mut ce) = windows[0];
         for &(s, e) in windows.iter().skip(1) {
-            if s - ce < caps.rotation_period_seconds {
+            if s - ce < rotation_period_seconds {
                 ce = ce.max(e); // connected: extend the continuous-service component
             } else if cs <= from && until <= ce {
                 break; // this window's component closed before reaching it
@@ -1177,28 +1899,123 @@ fn authorize_observer_registry(
         }
         if cs <= from && until <= ce {
             let span = ce - cs;
-            if span > caps.max_term_seconds {
+            if span > max_term_seconds {
                 return Err(KcError::Authority(format!(
-                    "observer {} continuous service {}s (overlapping windows unioned) exceeds the maximum {}s (§8 term limit)",
-                    entry.observer_did.as_str(),
-                    span,
-                    caps.max_term_seconds
+                    "{role} {} continuous service {}s (overlapping windows unioned) \
+                     exceeds the maximum {}s ({section} term limit)",
+                    seat.did, span, max_term_seconds
                 )));
             }
         }
     }
 
-    let (total, this_share) =
-        active_observer_counts(archive, &reg.nominating_community, reg.issued_at);
-    if total >= caps.pool_floor && 2 * this_share > total {
+    let shares = active_roster_shares(&rosters, issued_at);
+    let total: usize = shares.values().sum();
+    let this_share = shares.get(community.as_str()).copied().unwrap_or(0);
+    if total >= pool_floor && 2 * this_share > total {
         return Err(KcError::Authority(format!(
-            "community {} would hold {}/{} of the active observer corps, a majority (§8 pool-share)",
-            reg.nominating_community.as_str(),
+            "community {} would hold {}/{} of the active {role} pool, a majority \
+             ({section} pool-share)",
+            community.as_str(),
             this_share,
             total
         )));
     }
     Ok(())
+}
+
+/// §8 observer-registry caps (capture resistance), enforced when a roster is
+/// admitted. The four rules — bounded term, rotation gap, continuous-service union,
+/// no-majority pool share — are stated in [`check_roster_caps`], which §2's examining
+/// pool shares rather than copies. Only the policy numbers are §8's own.
+fn authorize_observer_registry(
+    archive: &InMemoryArchive,
+    reg: &ObserverRegistry,
+    self_cid: &Cid,
+    caps: ObserverCaps,
+) -> KcResult<()> {
+    let seats: Vec<Seat> = reg
+        .entries
+        .iter()
+        .map(|en| Seat {
+            did: en.observer_did.as_str(),
+            from: en.valid_from,
+            until: en.valid_until,
+        })
+        .collect();
+    check_roster_caps(
+        archive,
+        RosterKind::Observer,
+        &reg.nominating_community,
+        reg.issued_at,
+        &seats,
+        self_cid,
+        caps.pool_floor,
+        caps.max_term_seconds,
+        caps.rotation_period_seconds,
+    )
+}
+
+/// §2 examining-pool caps: the same four rules as the §8 observer corps, applied to
+/// the communities that conduct anti-spiral-feature credentialing.
+///
+/// `capture_resistance.md` §7: "The examiners who conduct the anti-spiral-feature
+/// examination are drawn by lot from member communities, serve fixed terms, publish
+/// their reasoning, and rotate out, with cross-community composition requirements. A
+/// standing admissions cadre would be the single most capturable body in the compact,
+/// for the same reasons a standing mediator class would be."
+///
+/// Drawing by lot is not enforced (see `kc_ceremony::inter::examiner`); fixed terms,
+/// rotation, and composition are.
+fn authorize_examiner_registry(
+    archive: &InMemoryArchive,
+    reg: &ExaminerRegistry,
+    self_cid: &Cid,
+    caps: ExaminerCaps,
+) -> KcResult<()> {
+    // §2's first withholding reaches the examining pool too: seating examiners is
+    // a compact function, and a probationary community does not staff it.
+    if probationary_at(archive, &reg.nominating_community, reg.issued_at) {
+        return Err(KcError::Authority(format!(
+            "community {} is probationary at {}; a probationary community does not \
+             staff the examining pool (§2)",
+            reg.nominating_community.as_str(),
+            reg.issued_at
+        )));
+    }
+    let seats: Vec<Seat> = reg
+        .entries
+        .iter()
+        .map(|en| Seat {
+            did: en.examiner_did.as_str(),
+            from: en.valid_from,
+            until: en.valid_until,
+        })
+        .collect();
+    check_roster_caps(
+        archive,
+        RosterKind::Examiner,
+        &reg.nominating_community,
+        reg.issued_at,
+        &seats,
+        self_cid,
+        caps.pool_floor,
+        caps.max_term_seconds,
+        caps.rotation_period_seconds,
+    )
+}
+
+/// The community that seated `examiner_did`, if it holds an active examining seat at
+/// `at`. The §2 twin of [`mediator_home`].
+fn examiner_home(archive: &InMemoryArchive, examiner_did: &str, at: Timestamp) -> Option<DidKey> {
+    for r in rosters_of(archive, RosterKind::Examiner) {
+        for seat in &r.seats {
+            if seat.did == examiner_did && seat.active_at(at) {
+                return Some(r.community.clone());
+            }
+        }
+    }
+    None
 }
 
 /// Move-4 structured-skepticism hold: a formal action premised on a *qualifying*
@@ -1271,7 +2088,8 @@ fn authorize_report_response(archive: &InMemoryArchive, resp: &ReportResponse) -
 /// §8 mediator reception-panel rule shared by whistleblower filing and source
 /// reveal: every co-signer is an active registered mediator, none from
 /// `accused` (non-overlap), and the panel spans at least `panel_min` distinct
-/// mediators.
+/// mediators — counting weight, so a probationary home does not receive a
+/// filing (§2).
 fn authorize_reception_panel(
     archive: &InMemoryArchive,
     accused: &DidKey,
@@ -1280,55 +2098,71 @@ fn authorize_reception_panel(
     panel_min: usize,
     what: &str,
 ) -> KcResult<()> {
-    let mut panel: BTreeSet<String> = BTreeSet::new();
-    for signer in signers {
-        match mediator_home(archive, signer, at) {
-            None => {
-                return Err(KcError::Authority(format!(
-                    "{what} panelist {signer} is not an active registered mediator"
-                )))
-            }
-            Some(home) => {
-                if &home == accused {
-                    return Err(KcError::Authority(format!(
-                        "{what} panelist {signer} is from the accused community (non-overlap violated)"
-                    )));
-                }
-                panel.insert((*signer).to_string());
-            }
-        }
-    }
-    if panel.len() < panel_min {
-        return Err(KcError::Authority(format!(
-            "{what} panel has {} distinct mediators, need >= {}",
-            panel.len(),
-            panel_min
-        )));
-    }
-    Ok(())
+    let barred: BTreeSet<String> = [accused.as_str().to_string()].into_iter().collect();
+    check_mediator_panel(
+        archive,
+        signers,
+        at,
+        &barred,
+        panel_min,
+        PanelSpec {
+            role: &format!("{what} panelist"),
+            barred_kind: "the accused community",
+            label: &format!("{what} panel"),
+        },
+    )
 }
 
 /// The keys the archive can resolve as **insiders** of `community` at `at`: its root
-/// key plus every active speaker delegation it has issued.
+/// key, every active speaker delegation it has issued, and every member named on any
+/// roll it has published.
 ///
 /// Public because a source assembling a filing must use the *same* definition the
 /// authority pass will check it against; two implementations of "the insider set"
-/// would refuse every honest filing.
+/// would refuse every honest filing. A source calls this against the archive as it
+/// stands, which is exactly the prefix its own filing will be checked against — see
+/// [`insider_keys_upto`] for why that matters.
 ///
-/// This is the ring a whistleblower proves membership in. It is the accused
-/// community's *resolvable* key set, which is a real limit: kith-covenant models
-/// communities and their delegated speakers, not individual members, so an insider
-/// with no delegation cannot file. The named future feed is a member roll from the
-/// polity tier. Delegations follow the same supersession rule as `resolve_did` — the
-/// record with the greatest `issued_at <= at` wins, so an appended revocation removes
-/// a key from the ring.
+/// This is the ring a whistleblower proves membership in. Delegations follow the same
+/// supersession rule as `resolve_did` — the record with the greatest `issued_at <= at`
+/// wins, so an appended revocation removes a key from the ring. **Member rolls do
+/// not supersede**: they are unioned, so a community cannot narrow the suspect set
+/// around a source by publishing a shorter roll.
 pub fn insider_keys(
     archive: &InMemoryArchive,
     community: &DidKey,
     at: Timestamp,
 ) -> Vec<(DidKey, kc_core::PubKey)> {
+    insider_keys_upto(archive, community, at, None)
+}
+
+/// [`insider_keys`], bounded to the records appearing **before `stop_at`** in
+/// insertion order.
+///
+/// The bound is what makes the insider set a property of the log rather than of when
+/// it was read. Without it the accused community — the one party with a motive —
+/// invalidates any filing against it by appending a single delegation backdated
+/// before `filed_at` (the recomputed set no longer equals the offered ring), and
+/// narrows the suspect set around a source by backdating a revocation. Both were
+/// measured before this rule existed. Insertion order is authoritative for the same
+/// reason it is in `current_rung`: authorizing an earlier record must never "see" a
+/// later one.
+pub fn insider_keys_upto(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    at: Timestamp,
+    stop_at: Option<&Cid>,
+) -> Vec<(DidKey, kc_core::PubKey)> {
+    let stop = stop_at.map(|c| c.to_string());
+    let prefix = || {
+        archive.iter().take_while(|(cid, _)| match &stop {
+            Some(s) => cid.to_string() != *s,
+            None => true,
+        })
+    };
+
     let mut out: Vec<(DidKey, kc_core::PubKey)> = Vec::new();
-    for (_, e) in archive.iter() {
+    for (_, e) in prefix() {
         if let ArchiveEntry::CommunityIdentityPublished(s) = e {
             if &s.payload.did == community {
                 out.push((s.payload.did.clone(), s.payload.root_pubkey.clone()));
@@ -1337,7 +2171,7 @@ pub fn insider_keys(
     }
     // Latest delegation per speaker, then keep the ones live at `at`.
     let mut latest: BTreeMap<String, &kc_identity::SpeakerDelegation> = BTreeMap::new();
-    for (_, e) in archive.iter() {
+    for (_, e) in prefix() {
         if let ArchiveEntry::SpeakerDelegated(s) = e {
             let d = &s.payload;
             if &d.community_did != community || d.issued_at > at {
@@ -1359,7 +2193,74 @@ pub fn insider_keys(
             out.push((d.speaker_did.clone(), d.speaker_pubkey.clone()));
         }
     }
+    // Every member ever rolled, unioned. No supersession: a later roll that drops a
+    // name does not remove that name from the ring. Once named an insider, always
+    // one — a departed member keeps the channel they had, and the accused gains no
+    // way to shrink the set the day after somebody leaves.
+    for (_, e) in prefix() {
+        if let ArchiveEntry::MemberRollPublished(s) = e {
+            let r = &s.payload;
+            if &r.community_did != community || r.published_at > at {
+                continue;
+            }
+            for m in &r.members {
+                out.push((m.member_did.clone(), m.member_pubkey.clone()));
+            }
+        }
+    }
+    // One key, one ring position. A member may also hold a delegation, and two rolls
+    // may name the same member; a duplicated ring position would be a ring signature
+    // over a repeated key, which no rule downstream expects.
+    let mut seen: BTreeSet<Vec<u8>> = BTreeSet::new();
+    out.retain(|(_, pk)| seen.insert(pk.bytes.clone()));
     out
+}
+
+/// §8 member-roll rule: a community's statement of its own composition. Principal
+/// binding (root only — see `allowed_scopes`) already establishes *who* may publish
+/// one; these are the constraints on what it may say.
+fn authorize_member_roll(roll: &kc_identity::MemberRoll) -> KcResult<()> {
+    if roll.members.is_empty() {
+        return Err(KcError::Authority(
+            "a member roll must name at least one member".into(),
+        ));
+    }
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    for m in &roll.members {
+        if !seen.insert(m.member_did.as_str()) {
+            return Err(KcError::Authority(format!(
+                "member roll names {} twice",
+                m.member_did
+            )));
+        }
+        // The carried key must be the one the DID resolves to. Otherwise a roll
+        // names a real member against a foreign key, putting an outsider in the ring
+        // under that member's name — and the ring is what bounds a reveal.
+        match m.member_did.to_pubkey() {
+            Ok(pk) if pk.bytes == m.member_pubkey.bytes => {}
+            Ok(_) => {
+                return Err(KcError::Authority(format!(
+                    "member roll gives {} a key its DID does not resolve to",
+                    m.member_did
+                )))
+            }
+            Err(_) => {
+                return Err(KcError::Authority(format!(
+                    "member roll names {}, whose key cannot be resolved from its DID",
+                    m.member_did
+                )))
+            }
+        }
+        if m.member_did == roll.community_did {
+            return Err(KcError::Authority(
+                "a member roll may not name the community itself as a member: its root \
+                 key is already an insider, and a second entry would be a repeated ring \
+                 position"
+                    .into(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// §8 whistleblower rule: a non-party mediator reception panel of at least
@@ -1379,6 +2280,7 @@ fn authorize_whistleblower(
     wb: &WhistleblowerReport,
     signers: &[&str],
     panel_min: usize,
+    self_cid: &Cid,
 ) -> KcResult<()> {
     authorize_reception_panel(
         archive,
@@ -1394,8 +2296,10 @@ fn authorize_whistleblower(
         .verify()
         .map_err(|e| KcError::Authority(format!("whistleblower insider attestation: {e}")))?;
 
-    // The ring is exactly the accused community's insider key set.
-    let insiders = insider_keys(archive, &wb.accused_community, wb.filed_at);
+    // The ring is exactly the accused community's insider key set, as the log stood
+    // when this filing was appended. Reading the current tip instead would let the
+    // accused break its own accusations after the fact.
+    let insiders = insider_keys_upto(archive, &wb.accused_community, wb.filed_at, Some(self_cid));
     if insiders.len() < 2 {
         return Err(KcError::Authority(format!(
             "community {} has {} resolvable keys, too few for an anonymous filing (a ring of one names its signer)",
@@ -1468,6 +2372,34 @@ fn authorize_whistleblower(
             panel.len()
         )));
     }
+    // Each share must be sealed to the key its named holder is registered under.
+    //
+    // Naming the panel is not the same as sealing to it. Without this rule a filing
+    // could name exactly the reception panel and seal every share to one outsider's
+    // key: `check_shape` passed, the holder set matched, and **no** named custodian
+    // could open anything — so the reveal path was dead for good with nothing on the
+    // record to show it, and one actor held the whole secret. Judged at `filed_at`, so
+    // a later re-registration cannot retroactively invalidate an honest filing.
+    let registered = mediator_encryption_keys(archive, wb.filed_at);
+    for share in &wb.custody.sealed_shares {
+        let holder = share.holder_did.as_str();
+        match registered.get(holder) {
+            Some(pk) if pk.bytes == share.recipient_pubkey.0 => {}
+            Some(_) => {
+                return Err(KcError::Authority(format!(
+                    "the source custody share for {holder} is sealed to a key that is not its \
+                     registered encryption key, so that custodian cannot open it"
+                )))
+            }
+            None => {
+                return Err(KcError::Authority(format!(
+                    "the source custody share for {holder} names a holder with no registered \
+                     encryption key at {}",
+                    wb.filed_at
+                )))
+            }
+        }
+    }
     Ok(())
 }
 
@@ -1524,11 +2456,14 @@ fn authorize_source_reveal(
             "source reveal discloses a name the custody shares do not recover".into(),
         ));
     }
-    // The disclosed source must be someone the source could have been.
-    let ring_dids: BTreeSet<String> = insider_keys(archive, &wb.accused_community, wb.filed_at)
-        .iter()
-        .map(|(did, _)| did.as_str().to_string())
-        .collect();
+    // The disclosed source must be someone the source could have been — judged against
+    // the filing's own insider set, bounded by the filing's position in the log, not by
+    // whatever the accused has appended since.
+    let ring_dids: BTreeSet<String> =
+        insider_keys_upto(archive, &wb.accused_community, wb.filed_at, Some(&rev.report_cid))
+            .iter()
+            .map(|(did, _)| did.as_str().to_string())
+            .collect();
     if !ring_dids.contains(&preimage.identity) {
         return Err(KcError::Authority(format!(
             "source reveal names {}, who is not an insider of {}",
@@ -1568,8 +2503,11 @@ fn authorize_source_exculpation(
         )));
     }
     // Resolve the claimant among the filing's own insider set: being in the ring is
-    // both what makes the claimant implicated and where their key comes from.
-    let insiders = insider_keys(archive, &wb.accused_community, wb.filed_at);
+    // both what makes the claimant implicated and where their key comes from. Bounded
+    // by the filing's position, so a wrongly-named member's remedy cannot be closed off
+    // by the accused appending a record afterwards.
+    let insiders =
+        insider_keys_upto(archive, &wb.accused_community, wb.filed_at, Some(&exc.report_cid));
     let pubkey = insiders
         .iter()
         .find(|(did, pk)| {
@@ -1701,12 +2639,19 @@ fn authorize_incapable_amendment(
                     a.matter.key
                 )));
             }
-            let distinct: BTreeSet<&str> = a.deciders.iter().map(|d| d.as_str()).collect();
-            if distinct.len() < quorum_threshold + 1 {
+            // Counting *weight*, not signatures (§2). A bar that counted signatures
+            // while the generic quorum counted weight would be the easier of the two
+            // whenever a faction had probationary entrants to spare: the ordinary
+            // quorum met by standing members, the higher bar topped up with weight
+            // the doctrine withholds. Measured — that is exactly what happened.
+            let tally =
+                deliberative_weight(archive, a.deciders.iter(), a.decided_at, None, None);
+            if tally.counted < quorum_threshold + 1 {
                 return Err(KcError::Authority(format!(
-                    "contracting the compact-incapable list needs >= {} distinct communities, got {}",
+                    "contracting the compact-incapable list needs >= {} distinct communities, got {}{}",
                     quorum_threshold + 1,
-                    distinct.len()
+                    tally.counted,
+                    tally.because().unwrap_or_default()
                 )));
             }
         }
@@ -1729,12 +2674,14 @@ fn authorize_fast_amendment(
         ));
     }
     if a.change.is_contraction() {
-        let distinct: BTreeSet<&str> = a.deciders.iter().map(|d| d.as_str()).collect();
-        if distinct.len() < quorum_threshold + 1 {
+        // Weight, not signatures — see the compact-incapable contraction bar (§2).
+        let tally = deliberative_weight(archive, a.deciders.iter(), a.decided_at, None, None);
+        if tally.counted < quorum_threshold + 1 {
             return Err(KcError::Authority(format!(
-                "contracting the structured-fast cadence needs >= {} distinct communities, got {}",
+                "contracting the structured-fast cadence needs >= {} distinct communities, got {}{}",
                 quorum_threshold + 1,
-                distinct.len()
+                tally.counted,
+                tally.because().unwrap_or_default()
             )));
         }
     }
@@ -1775,33 +2722,18 @@ fn authorize_injunction(
         ));
     }
     let barred = injunction_barred_communities(archive, &inj.subject_community, inj.dispute_cid.as_ref());
-    let at = inj.issued_at;
-    let mut panel: BTreeSet<String> = BTreeSet::new();
-    for signer in signers {
-        match mediator_home(archive, signer, at) {
-            None => {
-                return Err(KcError::Authority(format!(
-                    "injunction panelist {signer} is not an active registered mediator"
-                )))
-            }
-            Some(home) => {
-                if barred.contains(home.as_str()) {
-                    return Err(KcError::Authority(format!(
-                        "injunction panelist {signer} is from a party community (non-overlap violated)"
-                    )));
-                }
-                panel.insert((*signer).to_string());
-            }
-        }
-    }
-    if panel.len() < panel_min {
-        return Err(KcError::Authority(format!(
-            "injunction panel has {} distinct mediators, need >= {}",
-            panel.len(),
-            panel_min
-        )));
-    }
-    Ok(())
+    check_mediator_panel(
+        archive,
+        signers,
+        inj.issued_at,
+        &barred,
+        panel_min,
+        PanelSpec {
+            role: "injunction panelist",
+            barred_kind: "a party community",
+            label: "injunction panel",
+        },
+    )
 }
 
 /// §9 challenge rule: an injunction challenge is heard by a *different* panel than
@@ -1829,38 +2761,28 @@ fn authorize_injunction_challenge(
         &injunction.subject_community,
         injunction.dispute_cid.as_ref(),
     );
-    let at = chal.decided_at;
-    let mut panel: BTreeSet<String> = BTreeSet::new();
+    // The different-panel safeguard runs first, and on every signer: sitting twice is
+    // a fault of the challenge's composition, not a want of weight, so it is refused
+    // before anything is counted.
     for signer in signers {
         if issuing.contains(signer) {
             return Err(KcError::Authority(format!(
                 "challenge panelist {signer} also sat on the issuing panel (different-panel safeguard violated)"
             )));
         }
-        match mediator_home(archive, signer, at) {
-            None => {
-                return Err(KcError::Authority(format!(
-                    "challenge panelist {signer} is not an active registered mediator"
-                )))
-            }
-            Some(home) => {
-                if barred.contains(home.as_str()) {
-                    return Err(KcError::Authority(format!(
-                        "challenge panelist {signer} is from a party community (non-overlap violated)"
-                    )));
-                }
-                panel.insert((*signer).to_string());
-            }
-        }
     }
-    if panel.len() < panel_min {
-        return Err(KcError::Authority(format!(
-            "challenge panel has {} distinct mediators, need >= {}",
-            panel.len(),
-            panel_min
-        )));
-    }
-    Ok(())
+    check_mediator_panel(
+        archive,
+        signers,
+        chal.decided_at,
+        &barred,
+        panel_min,
+        PanelSpec {
+            role: "challenge panelist",
+            barred_kind: "a party community",
+            label: "challenge panel",
+        },
+    )
 }
 
 /// Home communities that supplied a mediator to an injunction panel still in force
@@ -1969,7 +2891,14 @@ pub fn authorize(
     quorum_threshold: usize,
     panel_min: usize,
 ) -> KcResult<()> {
-    authorize_with_caps(archive, entry, quorum_threshold, panel_min, ObserverCaps::default())
+    authorize_with_caps(
+        archive,
+        entry,
+        quorum_threshold,
+        panel_min,
+        ObserverCaps::default(),
+        ExaminerCaps::default(),
+    )
 }
 
 /// Check one record's authority, gating §8 observer-registry records with
@@ -1981,6 +2910,7 @@ pub fn authorize_with_caps(
     quorum_threshold: usize,
     panel_min: usize,
     observer_caps: ObserverCaps,
+    examiner_caps: ExaminerCaps,
 ) -> KcResult<()> {
     // Mediation decisions are authorized by the panel rule, not principal binding.
     if let ArchiveEntry::MediationDecided(s) = entry {
@@ -2010,7 +2940,8 @@ pub fn authorize_with_caps(
     }
     if let ArchiveEntry::WhistleblowerFiled(s) = entry {
         let signers = signer_dids(entry);
-        return authorize_whistleblower(archive, &s.payload, &signers, panel_min);
+        let self_cid = entry.cid()?;
+        return authorize_whistleblower(archive, &s.payload, &signers, panel_min, &self_cid);
     }
     if let ArchiveEntry::SourceRevealed(s) = entry {
         let signers = signer_dids(entry);
@@ -2030,7 +2961,6 @@ pub fn authorize_with_caps(
     let allowed = allowed_scopes(entry);
     let signers = signer_dids(entry);
 
-    let mut backed: BTreeSet<String> = BTreeSet::new();
     for principal in &auth.principals {
         let ok = signers
             .iter()
@@ -2042,19 +2972,82 @@ pub fn authorize_with_caps(
                 allowed
             )));
         }
-        backed.insert(principal.as_str().to_string());
     }
 
-    if auth.second_class && backed.len() < quorum_threshold {
-        return Err(KcError::Authority(format!(
-            "second-class decision requires >= {} distinct communities, got {}",
-            quorum_threshold,
-            backed.len()
-        )));
+    // §2 probation de-weighting, in **every** domain where a multi-community quorum
+    // is what validates the act: a probationary community's principal binding still
+    // holds — it may speak — but it carries no deliberative weight toward the quorum.
+    // Principal binding above is deliberately unchanged; only the count below moves.
+    //
+    // The gate is `second_class`, not a list of record types. `capture_resistance.md`
+    // §7 enumerates admissions, mediator selection and designation procedures, but its
+    // reason is general — *"otherwise each admitted entrant immediately amplifies the
+    // faction that admitted it"* — and second-class is precisely the class of acts
+    // whose cost is compact-wide. Stating the rule as the class rather than as a list
+    // is also what keeps it true: a second-class record added later inherits the
+    // withholding instead of quietly escaping it.
+    if auth.second_class {
+        // Exclude this record from the window scan: a re-entry opens the
+        // petitioner's own probation window at its `completed_at`, and a record may
+        // not be de-weighted by a window it itself opens.
+        //
+        // *This exclusion is currently shadowed here* and no test can isolate it: the
+        // only record that opens a window for one of its own principals is a re-entry,
+        // whose petitioner the `subject` rule below already drops before the probation
+        // check runs. Measured — mutating it away fails nothing. It is kept because it
+        // is the helper's contract rather than this caller's convenience: a
+        // second-class record added later that opens a window for a principal it does
+        // *not* name as its subject would otherwise refuse itself, which is the defect
+        // §2 found the hard way. Stated rather than left as an untestable rule.
+        let self_cid = entry.cid()?;
+        // The subject of a readmission does not carry weight toward it. "No single
+        // sponsor cluster can admit alone" (`capture_resistance.md` §7) is emptiest
+        // when the cluster is the returning community itself.
+        let subject = match entry {
+            ArchiveEntry::ReEntryCompleted(s) => Some(&s.payload.petitioner),
+            _ => None,
+        };
+        let tally = deliberative_weight(
+            archive,
+            auth.principals.iter(),
+            auth.at,
+            Some(&self_cid),
+            subject,
+        );
+        if tally.counted < quorum_threshold {
+            // Name the reason precisely. A shortfall of signatures, a shortfall caused
+            // by probation, and a shortfall caused by the subject not counting toward
+            // its own readmission are three different problems with three different
+            // fixes, and the operator has to be able to tell which one this is.
+            return Err(KcError::Authority(format!(
+                "second-class decision requires >= {quorum_threshold} distinct \
+                 communities, got {}{}",
+                tally.counted,
+                tally.because().unwrap_or_default()
+            )));
+        }
     }
 
     // Component-specific structural rules (§5), after principal binding + quorum.
     match entry {
+        // §2 admissions integrity.
+        ArchiveEntry::InterCommunityWitness(s) => {
+            let self_cid = entry.cid()?;
+            authorize_inter_witness(
+                archive,
+                &s.payload,
+                &signers,
+                &self_cid,
+                quorum_threshold,
+                examiner_caps,
+            )?;
+        }
+        ArchiveEntry::SponsorshipVouched(s) => {
+            authorize_sponsorship(archive, &s.payload)?;
+        }
+        ArchiveEntry::MediatorRegistryUpdated(s) => {
+            authorize_mediator_registry(archive, &s.payload)?;
+        }
         ArchiveEntry::LadderAdvanced(s) => {
             let self_cid = entry.cid()?;
             authorize_transition(archive, &s.payload, &self_cid, quorum_threshold)?;
@@ -2078,6 +3071,13 @@ pub fn authorize_with_caps(
         ArchiveEntry::ObserverRegistryUpdated(s) => {
             let self_cid = entry.cid()?;
             authorize_observer_registry(archive, &s.payload, &self_cid, observer_caps)?;
+        }
+        ArchiveEntry::ExaminerRegistryUpdated(s) => {
+            let self_cid = entry.cid()?;
+            authorize_examiner_registry(archive, &s.payload, &self_cid, examiner_caps)?;
+        }
+        ArchiveEntry::MemberRollPublished(s) => {
+            authorize_member_roll(&s.payload)?;
         }
         ArchiveEntry::ReportResponsePublished(s) => {
             authorize_report_response(archive, &s.payload)?;
@@ -2112,9 +3112,17 @@ pub fn check_authority(
     quorum_threshold: usize,
     panel_min: usize,
     observer_caps: ObserverCaps,
+    examiner_caps: ExaminerCaps,
 ) -> KcResult<()> {
     for (_, entry) in archive.iter() {
-        authorize_with_caps(archive, entry, quorum_threshold, panel_min, observer_caps)?;
+        authorize_with_caps(
+            archive,
+            entry,
+            quorum_threshold,
+            panel_min,
+            observer_caps,
+            examiner_caps,
+        )?;
     }
     Ok(())
 }
@@ -2126,11 +3134,18 @@ pub fn authority_violations(
     quorum_threshold: usize,
     panel_min: usize,
     observer_caps: ObserverCaps,
+    examiner_caps: ExaminerCaps,
 ) -> Vec<(String, String)> {
     let mut out = vec![];
     for (cid, entry) in archive.iter() {
-        if let Err(e) = authorize_with_caps(archive, entry, quorum_threshold, panel_min, observer_caps)
-        {
+        if let Err(e) = authorize_with_caps(
+            archive,
+            entry,
+            quorum_threshold,
+            panel_min,
+            observer_caps,
+            examiner_caps,
+        ) {
             out.push((cid.to_string(), e.to_string()));
         }
     }

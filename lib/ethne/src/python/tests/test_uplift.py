@@ -12,8 +12,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-"""The three artifacts that cross to kith-covenant, as JSON: the identity handoff,
-the coherence Concern, and the two lifecycle changes (fission and fusion)."""
+"""The artifacts that cross to kith-covenant, as JSON: the identity handoff, the
+coherence Concern, the two lifecycle changes (fission and fusion), the envoy
+delegation, and the member roll."""
 from __future__ import annotations
 
 import json
@@ -22,7 +23,10 @@ import pytest
 
 import ethne as e
 from ethne.monitor import cohesion_report, founding_candidate
-from ethne.authoring import authorize_envoy, confer_office, resign_envoy
+from ethne.authoring import (
+    Signer, admit_member, authorize_envoy, confer_office, depart_member,
+    resign_envoy,
+)
 from ethne.uplift import (
     coherence_concern,
     community_identity,
@@ -32,6 +36,7 @@ from ethne.uplift import (
     fission,
     fusion,
     identity_dict,
+    member_roll,
 )
 
 
@@ -268,4 +273,65 @@ def test_a_delegation_needs_the_polity_root_key(polity):
     with pytest.raises(RuntimeError, match="does not match"):
         envoy_delegation(polity.archive, polity.did, envoy.did, other_priv, other_pub,
                          issued_at=400, as_of=400)
+
+
+# --- the member roll: KC's insider ring gets a feed --------------------------
+
+
+def test_the_roll_crosses_as_a_kc_member_roll(polity):
+    signed = identity_dict(member_roll(
+        polity.archive, polity.did, polity.priv, polity.pub,
+        as_of=300, published_at=400,
+    ))
+    payload = signed["payload"]
+    assert payload["community_did"] == polity.did
+    # Exactly the live roll, and every member carries its own verifying key.
+    on_roll = {m["member_did"] for m in payload["members"]}
+    assert on_roll == set(polity.roll(as_of=300))
+    assert all(m["member_pubkey"] for m in payload["members"])
+    assert payload["as_of"] is not None
+    # Signed by the polity root — naming who belongs is not delegable in KC.
+    assert [sig["signer_did"] for sig in signed["signatures"]] == [polity.did]
+
+
+def test_the_roll_tracks_admissions(polity):
+    joiner = Signer.generate()
+    admit_member(polity.archive, polity.did, joiner,
+                 polity.quorum(as_of=300), decided_at=350)
+    polity.archive.check_authority()
+
+    before = identity_dict(member_roll(
+        polity.archive, polity.did, polity.priv, polity.pub, as_of=300,
+    ))["payload"]["members"]
+    after = identity_dict(member_roll(
+        polity.archive, polity.did, polity.priv, polity.pub, as_of=400,
+    ))["payload"]["members"]
+    assert len(after) == len(before) + 1
+    assert joiner.did in {m["member_did"] for m in after}
+
+
+def test_a_departed_member_leaves_the_polity_roll_but_keeps_the_kc_channel(found):
+    """The one asymmetry between the tiers worth stating: ethne's roll shrinks on a
+    departure, and KC's insider ring does not. KC unions rolls rather than
+    superseding them, so a polity cannot shrink the suspect set around whoever just
+    left by re-publishing. What crosses here is the smaller roll; what KC does with
+    it is keep both.
+
+    Founded with five, because a three-member roll cannot lose anyone without
+    dropping below the self-govern floor."""
+    polity = found(5)
+    leaver = polity.founders[4]
+    depart_member(polity.archive, polity.did, leaver, decided_at=350)
+    polity.archive.check_authority()
+
+    after = identity_dict(member_roll(
+        polity.archive, polity.did, polity.priv, polity.pub, as_of=400,
+    ))["payload"]["members"]
+    assert leaver.did not in {m["member_did"] for m in after}
+
+
+def test_a_roll_needs_the_polity_root_key(polity):
+    other_priv, other_pub, _did = e.generate_keypair()
+    with pytest.raises(RuntimeError, match="does not match"):
+        member_roll(polity.archive, polity.did, other_priv, other_pub, as_of=300)
 

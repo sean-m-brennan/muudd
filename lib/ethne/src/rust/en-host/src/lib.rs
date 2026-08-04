@@ -45,8 +45,10 @@
 
 use en_archive::Archive;
 use en_charter::{
-    affirmation_state, charter_state, decay_trends, guardian_state, observation_window,
-    prune_recommendation, substrate_disavowal, CharterEntry, PruneRecommendation, RetentionPolicy,
+    rite_state,
+    affirmation_state, charter_state, decay_trends, guardian_state, independent_observation,
+    observation_window, prune_recommendation, substrate_disavowal, CharterEntry,
+    PruneRecommendation, RetentionPolicy,
 };
 use en_cohesion::{cohesion_report, CohesionInputs, CohesionReport, ErosionLevel, Thresholds};
 use en_core::{DidKey, Timestamp};
@@ -222,6 +224,12 @@ impl HostCycle {
         .unwrap_or(as_of);
         let window = observation_window(archive, polity, since, as_of);
         let ground = substrate_disavowal(archive, polity, as_of);
+        // D28 — who was doing the watching. A lens on the report, never a component:
+        // the host supplies it because the host is what holds the archive.
+        let observers = independent_observation(archive, polity, as_of);
+        // D29 — the rites, so the ceremony's own cost is gradeable rather than only
+        // its completion.
+        let rites = rite_state(archive, polity, as_of);
 
         cohesion_report(
             &state.members,
@@ -233,6 +241,8 @@ impl HostCycle {
                 trends: Some(&trends),
                 window: Some(&window),
                 ground: Some(&ground),
+                observers: Some(&observers),
+                rites: Some(&rites),
             },
             as_of,
             &self.config.thresholds,

@@ -50,7 +50,11 @@ fn substrate() -> Substrate {
 struct Fixture {
     polity: DidKey,
     ids: Vec<(PrivKey, DidKey)>,
-    monitor: (PrivKey, DidKey),
+    /// Three of them, rotated by `observe` (**D28**): the retention floor counts
+    /// distinct watchers, so a lone monitor filing repeatedly pins the horizon and
+    /// no `Prune` ever comes due.
+    monitors: Vec<(PrivKey, DidKey)>,
+    observed: usize,
     archive: Archive<CharterEntry>,
 }
 
@@ -73,16 +77,19 @@ impl Fixture {
             vec![],
             t(50),
         );
-        let ratifiers = vec![roll[0].clone(), roll[1].clone()];
-        let charter: PolityCharter = prop.ratify(ratifiers, t(100)).unwrap();
+        // The WHOLE roll ratifies. Since D29 that is what inducts them, so a
+        // fixture meaning "a healthy polity" has to say so: a listed founder who
+        // never signed is un-inducted, and transmission decay would grade this
+        // polity `Notice` for a reason none of these tests are about.
+        let charter: PolityCharter = prop.ratify(roll.clone(), t(100)).unwrap();
         let signers: Vec<(&str, &PrivKey)> =
-            vec![(ids[0].1.as_str(), &ids[0].0), (ids[1].1.as_str(), &ids[1].0)];
+            ids.iter().map(|(k, d)| (d.as_str(), k)).collect();
         let mut archive = Archive::new();
         archive
             .append(CharterEntry::PolityChartered(Signed::build(charter, &signers).unwrap()))
             .unwrap();
-        let monitor = id();
-        Fixture { polity, ids, monitor, archive }
+        let monitors = (0..3).map(|_| id()).collect();
+        Fixture { polity, ids, monitors, observed: 0, archive }
     }
 
     /// A chartered polity of `n` members grounded on a consenting substrate anchor,
@@ -105,13 +112,10 @@ impl Fixture {
             vec![],
             t(50),
         );
-        let charter: PolityCharter =
-            prop.ratify(vec![roll[0].clone(), roll[1].clone()], t(100)).unwrap();
-        let signers: Vec<(&str, &PrivKey)> = vec![
-            (f.ids[0].1.as_str(), &f.ids[0].0),
-            (f.ids[1].1.as_str(), &f.ids[1].0),
-            (ground.1.as_str(), &ground.0),
-        ];
+        let charter: PolityCharter = prop.ratify(roll.clone(), t(100)).unwrap();
+        let mut signers: Vec<(&str, &PrivKey)> =
+            f.ids.iter().map(|(k, d)| (d.as_str(), k)).collect();
+        signers.push((ground.1.as_str(), &ground.0));
         f.archive = Archive::new();
         f.archive
             .append(CharterEntry::PolityChartered(Signed::build(charter, &signers).unwrap()))
@@ -171,9 +175,11 @@ impl Fixture {
     }
 
     fn observe(&mut self, at: i64) {
+        let m = &self.monitors[self.observed % self.monitors.len()];
+        self.observed += 1;
         let record = Observation {
             polity: self.polity.clone(),
-            observer: self.monitor.1.clone(),
+            observer: m.1.clone(),
             observed_at: t(at),
             readings: vec![MemberReading {
                 member: self.ids[2].1.clone(),
@@ -183,7 +189,7 @@ impl Fixture {
             }],
             opaque_boundary: false,
         };
-        let signers = vec![(self.monitor.1.as_str(), &self.monitor.0)];
+        let signers = vec![(m.1.as_str(), &m.0)];
         self.archive
             .append(CharterEntry::Observed(Signed::build(record, &signers).unwrap()))
             .unwrap();

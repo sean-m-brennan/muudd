@@ -21,6 +21,7 @@ import pytest
 import ethne as e
 from ethne.authoring import (
     Signer,
+    attest_observer_independence,
     attest_reader_independence,
     disavow_substrate,
     dissent_boundary,
@@ -147,7 +148,10 @@ def test_induction_then_reaffirmation(polity):
     joiner = Signer.generate()
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
     # The roll is four now, so three must witness.
-    induct_member(polity.archive, polity.did, joiner, polity.founders, affirmed_at=300)
+    movements = polity.rite(joiner, polity.founders, 250)
+    induct_member(
+        polity.archive, polity.did, joiner, polity.founders, movements, affirmed_at=300
+    )
     polity.archive.verify_all()
     polity.archive.check_authority()
 
@@ -267,15 +271,16 @@ def test_unknown_amendment_kind_is_a_value_error(polity):
 
 
 def test_a_held_inductor_must_preside_or_the_roll_must_reach_a_higher_bar(found):
-    """A roll of five: majority 3, so the roll's override is 4 witnesses."""
+    """Five founders hold the substrate, so a majority is 3 and the roll's override is
+    4 witnesses. The inductee does not count toward its own reception (D29)."""
     p = found(5)
     joiner = Signer.generate()
     admit_member(p.archive, p.did, joiner, p.founders[:3], decided_at=200)
-    # Roll of six now, so conferring needs 4.
-    confer_office(p.archive, p.did, "Inductor", p.founders[0], p.founders[:4], decided_at=250)
+    confer_office(p.archive, p.did, "Inductor", p.founders[0], p.founders[:3], decided_at=250)
 
-    # Four witnesses is a majority of six, but the Inductor is not among them.
-    induct_member(p.archive, p.did, joiner, p.founders[1:5], affirmed_at=300)
+    # Three witnesses is a plain majority, but the Inductor is not among them.
+    movements = p.rite(joiner, p.founders[1:4], 250)
+    induct_member(p.archive, p.did, joiner, p.founders[1:4], movements, affirmed_at=300)
     assert any("Inductor" in m for _cid, m in p.archive.authority_violations())
 
 
@@ -285,7 +290,8 @@ def test_the_inductor_presiding_authorizes_at_a_plain_majority(found):
     admit_member(p.archive, p.did, joiner, p.founders[:3], decided_at=200)
     confer_office(p.archive, p.did, "Inductor", p.founders[0], p.founders[:4], decided_at=250)
 
-    induct_member(p.archive, p.did, joiner, p.founders[:4], affirmed_at=300)
+    movements = p.rite(joiner, p.founders[:4], 250)
+    induct_member(p.archive, p.did, joiner, p.founders[:4], movements, affirmed_at=300)
     p.archive.verify_all()
     p.archive.check_authority()
     assert p.archive.affirmation_state(p.did, as_of=350).is_inducted(joiner.did)
@@ -304,7 +310,8 @@ def test_the_roll_may_induct_without_its_inductor_at_its_own_override(found):
     admit_member(p.archive, p.did, joiner, p.founders[:4], decided_at=200)
     confer_office(p.archive, p.did, "Inductor", p.founders[0], p.founders[:4], decided_at=250)
 
-    induct_member(p.archive, p.did, joiner, p.founders[1:6], affirmed_at=300)
+    movements = p.rite(joiner, p.founders[1:6], 250)
+    induct_member(p.archive, p.did, joiner, p.founders[1:6], movements, affirmed_at=300)
     p.archive.verify_all()
     p.archive.check_authority()
     assert p.archive.affirmation_state(p.did, as_of=350).is_inducted(joiner.did)
@@ -379,13 +386,13 @@ def test_designate_rotate_and_release_move_the_edge(polity):
     first, second = Signer.generate(), Signer.generate()
 
     designate_derived(polity.archive, polity.did, machine, polity.founders[:2],
-                      guardian=first, decided_at=200)
+                      guardian=first, unbacked_reason="fixture: no monitor reading", decided_at=200)
     st = polity.archive.guardian_state(polity.did, as_of=250)
     assert st.is_derived(machine)
     assert st.guardian_of(machine) == first.did
     assert st.guarded_members() == [machine]
 
-    rotate_guardian(polity.archive, polity.did, machine, second, polity.founders[:2],
+    rotate_guardian(polity.archive, polity.did, machine, second, polity.founders[:2],unbacked_reason="fixture: no monitor reading",
                     decided_at=300)
     assert polity.archive.guardian_state(polity.did, as_of=350).guardian_of(machine) == second.did
 
@@ -407,7 +414,7 @@ def test_a_guardian_must_consent_to_the_designation(polity):
         polity.archive.designate_derived(
             polity.did, polity.founders[2].did,
             [s.did for s in polity.founders[:2]], [s.priv for s in polity.founders[:2]],
-            Signer.generate().did, None, "", 200,
+            Signer.generate().did, None, None, "fixture", "", 200,
         )
 
 
@@ -415,7 +422,7 @@ def test_the_roll_may_record_that_a_guardian_is_gone(polity):
     machine = polity.founders[2].did
     human = Signer.generate()
     designate_derived(polity.archive, polity.did, machine, polity.founders[:2],
-                      guardian=human, decided_at=200)
+                      guardian=human, unbacked_reason="fixture: no monitor reading", decided_at=200)
     release_guardian(polity.archive, polity.did, machine, deciders=polity.founders[:2],
                      decided_at=300)
     polity.archive.check_authority()
@@ -426,7 +433,7 @@ def test_a_machine_majority_polity_refuses_an_office_for_an_unguarded_machine(po
     human = Signer.generate()
     # Two of the three are machines; one answers to nobody.
     designate_derived(polity.archive, polity.did, polity.founders[1].did,
-                      polity.founders[:2], guardian=human, decided_at=200)
+                      polity.founders[:2], guardian=human, unbacked_reason="fixture: no monitor reading", decided_at=200)
     designate_derived(polity.archive, polity.did, polity.founders[2].did,
                       polity.founders[:2], decided_at=210)
     assert polity.archive.guardian_state(polity.did, as_of=250).is_machine_majority(3)
@@ -439,12 +446,12 @@ def test_a_machine_majority_polity_refuses_an_office_for_an_unguarded_machine(po
 def test_the_same_conferral_goes_through_once_a_human_answers_for_it(polity):
     human, second = Signer.generate(), Signer.generate()
     designate_derived(polity.archive, polity.did, polity.founders[1].did,
-                      polity.founders[:2], guardian=human, decided_at=200)
+                      polity.founders[:2], guardian=human, unbacked_reason="fixture: no monitor reading", decided_at=200)
     designate_derived(polity.archive, polity.did, polity.founders[2].did,
                       polity.founders[:2], decided_at=210)
     # An already-designated member acquires a guardian by rotation.
     rotate_guardian(polity.archive, polity.did, polity.founders[2].did, second,
-                    polity.founders[:2], decided_at=220)
+                    polity.founders[:2],unbacked_reason="fixture: no monitor reading", decided_at=220)
     confer_office(polity.archive, polity.did, "Convener", polity.founders[2],
                   polity.founders[:2], decided_at=300)
     polity.archive.verify_all()
@@ -463,7 +470,7 @@ def test_a_designation_lapses_off_the_roll(wide):
     human = Signer.generate()
     machine = wide.founders[3]
     designate_derived(wide.archive, wide.did, machine.did, wide.founders[:3],
-                      guardian=human, decided_at=200)
+                      guardian=human, unbacked_reason="fixture: no monitor reading", decided_at=200)
     assert wide.archive.guardian_state(wide.did, as_of=250).is_derived(machine.did)
 
     depart_member(wide.archive, wide.did, machine, decided_at=300)
@@ -1238,3 +1245,357 @@ def test_a_convener_asserted_founding_has_no_readers_to_attest(polity):
     assert dict(polity.archive.reader_independence(polity.did, 500).attesters) == {}
     assert len(polity.archive.independent_corroboration(polity.did, 500)) == 0
     assert "Independent" in e.INDEPENDENCE_KINDS
+
+
+# ---- D27: the founding edge must show what stood behind it -------------------
+
+
+def _observed_cluster(guardian, backed=True, n=3, anchor=None, observer=None):
+    """A machine cluster whose members all answer to `guardian`, with the edges
+    either backed by a signed observation or self-declared. Returns
+    `(proposal_json, polity_did, founders)`."""
+    founders = [Signer.generate() for _ in range(n)]
+    _priv, _pub, did = e.generate_keypair()
+    if backed:
+        # The monitor is somebody outside the roll unless a test says otherwise. A
+        # founder's own observation is real evidence and still cannot ground the
+        # polity that produced it.
+        who = observer if observer is not None else guardian
+        observation = e.sign_observation(
+            did,
+            who.did,
+            who.priv,
+            [(s.did, 0.9, guardian.did, None) for s in founders],
+            observed_at=PROPOSED_AT - 10,
+        )
+        derivations = [(s.did, guardian.did, observation, None) for s in founders]
+    else:
+        derivations = [
+            (s.did, guardian.did, None, "no monitor had run at founding")
+            for s in founders
+        ]
+    proposal = e.propose_charter(
+        did,
+        "the operators",
+        "answers to what it did not author",
+        member_dids=[s.did for s in founders],
+        substrate_anchor=anchor.did if anchor is not None else None,
+        derivations=derivations,
+        proposed_at=PROPOSED_AT,
+    )
+    return proposal, did, founders
+
+
+def test_a_founding_edge_claimed_with_no_evidence_is_refused():
+    # The bare pair still works for a machine answering to nobody, which claims
+    # nothing. Naming a guardian with it claims an edge and offers nothing for it.
+    guardian = Signer.generate()
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    proposal = e.propose_charter(
+        did,
+        "the operators",
+        "answers to what it did not author",
+        member_dids=[s.did for s in founders],
+        derivations=[(s.did, guardian.did) for s in founders],
+        proposed_at=PROPOSED_AT,
+    )
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, guardians=[guardian]
+    )
+    assert "no substrate evidence" in archive.authority_violations()[0][1]
+
+
+def test_an_unbacked_founding_edge_cannot_ground_a_machine_roll():
+    # The measured hole, from Python: three machines, edges claimed, nothing
+    # observed, no anchor — green on both passes before this slice, and graded
+    # `Guarded`.
+    guardian = Signer.generate()
+    proposal, _did, founders = _observed_cluster(guardian, backed=False)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, guardians=[guardian]
+    )
+    archive.verify_all()
+    why = archive.authority_violations()[0][1]
+    assert "must name a substrate anchor" in why
+    assert "self-declared" in why
+
+
+def test_an_unbacked_machine_roll_charters_once_it_names_an_anchor():
+    # The bootstrap path: real guardians nobody has observed yet name a ground.
+    guardian = Signer.generate()
+    ground = Signer.generate()
+    proposal, did, founders = _observed_cluster(guardian, backed=False, anchor=ground)
+    archive = e.Archive()
+    ratify_charter(
+        archive,
+        proposal,
+        founders[:2],
+        founded_at=FOUNDED_AT,
+        guardians=[guardian],
+        anchor=ground,
+    )
+    archive.verify_all()
+    archive.check_authority()
+    assert archive.founding_legitimacy(did).grounding == "Anchored"
+
+
+def test_a_backed_founding_edge_needs_no_anchor():
+    # And with a monitor's signed observation carried in the charter, the same
+    # cluster is grounded the way D15 models it — no anchor required.
+    guardian = Signer.generate()
+    proposal, did, founders = _observed_cluster(guardian, backed=True)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, guardians=[guardian]
+    )
+    archive.verify_all()
+    archive.check_authority()
+    assert archive.founding_legitimacy(did).grounding == "Guarded"
+
+
+def test_founding_evidence_and_an_unbacked_reason_are_exclusive():
+    # Carrying both would be saying the edge was observed and was not.
+    guardian = Signer.generate()
+    member = Signer.generate()
+    _priv, _pub, did = e.generate_keypair()
+    observation = e.sign_observation(
+        did, guardian.did, guardian.priv, [(member.did, 0.9, guardian.did, None)]
+    )
+    with pytest.raises(ValueError, match="not both"):
+        e.propose_charter(
+            did,
+            "the operators",
+            "answers to what it did not author",
+            member_dids=[member.did],
+            derivations=[(member.did, guardian.did, observation, "nobody looked")],
+            proposed_at=PROPOSED_AT,
+        )
+
+
+def test_a_founder_cannot_observe_its_own_polity_into_ground():
+    # Measured while building D27: requiring a signed observation was not enough on
+    # its own. A member of the roll signs one about the cluster's own edges and the
+    # charter graded `Guarded` with no anchor, both passes green — a polity vouching
+    # for its own ground.
+    guardian = Signer.generate()
+    founders = [Signer.generate() for _ in range(3)]
+    _priv, _pub, did = e.generate_keypair()
+    observation = e.sign_observation(
+        did,
+        founders[0].did,
+        founders[0].priv,
+        [(s.did, 0.9, guardian.did, None) for s in founders],
+        observed_at=PROPOSED_AT - 10,
+    )
+    proposal = e.propose_charter(
+        did,
+        "the operators",
+        "answers to what it did not author",
+        member_dids=[s.did for s in founders],
+        derivations=[(s.did, guardian.did, observation, None) for s in founders],
+        proposed_at=PROPOSED_AT,
+    )
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, guardians=[guardian]
+    )
+    # The observation stays in the log; it is only barred from crediting the
+    # exemption, as D24 grades an interested reader.
+    archive.verify_all()
+    why = archive.authority_violations()[0][1]
+    assert "must name a substrate anchor" in why
+    assert "taken from inside this polity" in why
+    assert archive.founding_legitimacy(did).grounding == "Bare"
+
+
+def test_an_outside_monitor_grounds_what_a_founder_could_not():
+    # The control on the test above: same charter, same edges, only the observer
+    # differs. Without it the two would be indistinguishable.
+    guardian = Signer.generate()
+    monitor = Signer.generate()
+    proposal, did, founders = _observed_cluster(guardian, observer=monitor)
+    archive = e.Archive()
+    ratify_charter(
+        archive, proposal, founders[:2], founded_at=FOUNDED_AT, guardians=[guardian]
+    )
+    archive.verify_all()
+    archive.check_authority()
+    assert archive.founding_legitimacy(did).grounding == "Guarded"
+
+
+# ---- D28: the watcher, not the filing ----------------------------------------
+
+
+def _watched_cluster(observer, guardian, n=3):
+    """A machine cluster whose founding edges are backed by `observer`'s signed
+    observation. Returns `(archive, polity_did, founders)`."""
+    founders = [Signer.generate() for _ in range(n)]
+    _priv, _pub, did = e.generate_keypair()
+    observation = e.sign_observation(
+        did, observer.did, observer.priv,
+        [(s.did, 0.9, guardian.did, None) for s in founders],
+        observed_at=PROPOSED_AT - 10,
+    )
+    proposal = e.propose_charter(
+        did,
+        "the long watch",
+        "answers to what it did not author",
+        member_dids=[s.did for s in founders],
+        derivations=[(s.did, guardian.did, observation, None) for s in founders],
+        proposed_at=PROPOSED_AT,
+    )
+    archive = e.Archive()
+    ratify_charter(archive, proposal, founders[:2], founded_at=FOUNDED_AT,
+                   guardians=[guardian])
+    archive.verify_all()
+    archive.check_authority()
+    return archive, did, founders
+
+
+def test_a_monitor_the_polity_never_heard_from_cannot_be_vouched_for():
+    # THE MEASURED HOLE, half two: D24's record refused this outright, since an
+    # observer is not a reader of the boundary — so the successor D15 and D27 both
+    # named could not speak about the party they were naming it for.
+    watcher, guardian = Signer.generate(), Signer.generate()
+    archive, did, _founders = _watched_cluster(watcher, guardian)
+    attest_observer_independence(archive, did, Signer.generate().did,
+                                 Signer.generate(), attested_at=500)
+    archive.verify_all()
+    assert "is not an observer of" in archive.authority_violations()[0][1]
+
+
+def test_a_monitor_that_has_spoken_can_be_vouched_for():
+    # The control on the test above: same call, same shape, and the only difference is
+    # that this monitor actually observed. Without it the rule would read "observers
+    # may not be vouched for", which is what D24 said by accident.
+    watcher, guardian = Signer.generate(), Signer.generate()
+    archive, did, _founders = _watched_cluster(watcher, guardian)
+    attest_observer_independence(archive, did, watcher.did, Signer.generate(),
+                                 basis="separate operator", attested_at=500)
+    archive.check_authority()
+    assert archive.observer_independence(did, as_of=600).is_attested(watcher.did)
+
+
+def test_a_voucher_is_for_a_party_in_a_capacity():
+    # An observer voucher does not leak into the reader bucket. What an outsider can
+    # speak to is a relationship, not an identity in the abstract.
+    watcher, guardian = Signer.generate(), Signer.generate()
+    archive, did, _founders = _watched_cluster(watcher, guardian)
+    attest_observer_independence(archive, did, watcher.did, Signer.generate(),
+                                 attested_at=500)
+    archive.check_authority()
+    assert archive.observer_independence(did, as_of=600).is_attested(watcher.did)
+    assert not archive.reader_independence(did, as_of=600).is_attested(watcher.did)
+
+
+def test_a_founders_praise_for_the_monitor_does_not_count_but_its_warning_does():
+    # D24's stake rule, unchanged and applied to the new role.
+    watcher, guardian = Signer.generate(), Signer.generate()
+    archive, did, founders = _watched_cluster(watcher, guardian)
+    attest_observer_independence(archive, did, watcher.did, founders[0],
+                                 attested_at=500)
+    archive.check_authority()
+    ind = archive.observer_independence(did, as_of=600)
+    assert not ind.is_attested(watcher.did)
+    assert len(ind.interested_attesters) == 1, "recorded rather than destroyed"
+
+    attest_observer_independence(archive, did, watcher.did, founders[1],
+                                 kind="Controlled", attested_at=600)
+    archive.check_authority()
+    assert archive.observer_independence(did, as_of=700).is_contested(watcher.did)
+
+
+def test_the_chartered_ground_reports_whether_anyone_vouched_for_its_monitor():
+    # D27 required the founding observer to be outside the polity and deliberately did
+    # not ask WHO. The grade stays where it is; this reports the residue.
+    watcher, guardian = Signer.generate(), Signer.generate()
+    archive, did, _founders = _watched_cluster(watcher, guardian)
+    assert archive.founding_legitimacy(did).grounding == "Guarded"
+    before = archive.independent_grounding(did, as_of=600)
+    assert len(before.unvouched_edges) == 3 and not before.any
+
+    attest_observer_independence(archive, did, watcher.did, Signer.generate(),
+                                 attested_at=500)
+    archive.check_authority()
+    after = archive.independent_grounding(did, as_of=600)
+    assert len(after.vouched_edges) == 3 and not after.unvouched_edges
+    assert archive.founding_legitimacy(did).grounding == "Guarded", \
+        "founding_legitimacy reads the charter alone; attestations accrue afterwards"
+
+
+# --- D29: the rite has movements, and the substrate is required ---------------
+
+
+def test_a_rite_is_recited_movement_by_movement(found):
+    """The rite is a process the log shows happening, not only a result it reports."""
+    p = found(3)
+    joiner = Signer.generate()
+    admit_member(p.archive, p.did, joiner, p.founders[:2], decided_at=200)
+
+    movements = p.rite(joiner, p.founders[:2], 250)
+    assert len(movements) == 5
+
+    # Recited but not completed: the rite is open and the member holds nothing.
+    rites = p.archive.rite_state(p.did, as_of=280)
+    assert len(rites) == 1
+    member, recited, span, completed, throughout, attrition = rites.rites[0]
+    assert member == joiner.did and recited == 5 and completed is None
+    assert span == 4 and len(throughout) == 2 and attrition == 0
+    assert rites.abandoned == 1
+    assert not p.archive.affirmation_state(p.did, 280).is_inducted(joiner.did)
+
+    induct_member(p.archive, p.did, joiner, p.founders[:2], movements, affirmed_at=300)
+    p.archive.verify_all()
+    p.archive.check_authority()
+    assert p.archive.affirmation_state(p.did, 310).is_inducted(joiner.did)
+    assert p.archive.rite_state(p.did, as_of=310).abandoned == 0
+
+
+def test_a_movement_must_cohere_with_the_charter(found):
+    p = found(3)
+    joiner = Signer.generate()
+    admit_member(p.archive, p.did, joiner, p.founders[:2], decided_at=200)
+    with pytest.raises(ValueError, match="unknown movement"):
+        e.recite_movement(
+            p.archive, p.did, joiner, "Improvisation", "…", p.founders[:2],
+        )
+    # A rite that names some other ground is not this polity's rite.
+    e.recite_movement(
+        p.archive, p.did, joiner, "Substrate", "we name it", p.founders[:2],
+        names="some other ground", recited_at=250,
+    )
+    assert any(
+        "but the charter's is" in m for _cid, m in p.archive.authority_violations()
+    )
+
+
+def test_an_uninducted_member_carries_no_weight_and_holds_no_office(found):
+    """F1, measured before it was fixed: `inducted` was read by no authority rule, so
+    members who had never received the substrate could govern the polity that is
+    constituted by it."""
+    p = found(3)
+    joiners = [Signer.generate() for _ in range(3)]
+    for i, j in enumerate(joiners):
+        admit_member(p.archive, p.did, j, p.founders[:2], decided_at=200 + i)
+    p.archive.check_authority()
+
+    # Three admitted members, none inducted, cannot amend between them.
+    amend_commitment(
+        p.archive, p.did, "Add", "whatever-we-prefer", joiners, decided_at=300
+    )
+    assert any("got 0" in m for _cid, m in p.archive.authority_violations())
+
+    # Nor may one of them hold an office.
+    fresh = found(3)
+    joiner = Signer.generate()
+    admit_member(fresh.archive, fresh.did, joiner, fresh.founders[:2], decided_at=200)
+    confer_office(
+        fresh.archive, fresh.did, "Convener", joiner, fresh.founders[:2], decided_at=250
+    )
+    assert any(
+        "an office is the polity acting through a member" in m
+        for _cid, m in fresh.archive.authority_violations()
+    )

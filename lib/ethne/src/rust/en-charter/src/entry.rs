@@ -42,8 +42,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::record::{
     Affirmation, BoundaryDissent, CharterDissolution, CommitmentAmendment, EnvoyAuthorization,
-    GuardianChange, MembershipChange, Observation, ObservationPruning, OfficeChange, PolityCharter,
-    ReaderIndependenceAttestation, SubstrateDisavowal,
+    GuardianChange, GuardianEvidence, MembershipChange, Observation, ObservationPruning,
+    OfficeChange, PolityCharter, RiteMovement,
+    IndependenceAttestation, SubstrateDisavowal,
 };
 
 /// An entry in a polity's charter log.
@@ -68,6 +69,9 @@ pub enum CharterEntry {
     EnvoyAuthorized(Signed<EnvoyAuthorization>),
     /// A member's induction into or re-affirmation of the substrate.
     MemberAffirmed(Signed<Affirmation>),
+    /// One movement of one member's induction rite — the rite as it happens, rather
+    /// than only its completion (design **D29**).
+    RiteMovementRecorded(Signed<RiteMovement>),
     /// What one monitor saw at one instant — perspectival evidence, not a decision.
     Observed(Signed<Observation>),
     /// A ratified dropping of observations older than a horizon, with a receipt for
@@ -82,11 +86,12 @@ pub enum CharterEntry {
     /// asserts rather than decides, survives dissolution, and changes no
     /// reconstructed state: the substrate is genesis-immutable.
     SubstrateDisavowed(Signed<SubstrateDisavowal>),
-    /// A third party's account of whether a named reader of the founding is an
-    /// independent principal (design **D24**). Evidence about the founding, like
-    /// `BoundaryDissented` and `SubstrateDisavowed`: it changes no state, survives
-    /// dissolution, and is counted by a lens rather than enforced by a rule.
-    ReaderIndependenceAttested(Signed<ReaderIndependenceAttestation>),
+    /// A third party's account of whether a named party behind the polity — a
+    /// founding boundary reader, or since **D28** a monitor whose observations it is
+    /// graded on — is an independent principal (design **D24**). Evidence about the
+    /// polity, like `BoundaryDissented` and `SubstrateDisavowed`: it changes no state,
+    /// survives dissolution, and is counted by a lens rather than enforced by a rule.
+    IndependenceAttested(Signed<IndependenceAttestation>),
     /// The deliberate winding-up of the polity (terminal; may name successors).
     CharterDissolved(Signed<CharterDissolution>),
 }
@@ -102,10 +107,11 @@ impl CharterEntry {
             CharterEntry::GuardianChanged(s) => &s.signatures,
             CharterEntry::EnvoyAuthorized(s) => &s.signatures,
             CharterEntry::MemberAffirmed(s) => &s.signatures,
+            CharterEntry::RiteMovementRecorded(s) => &s.signatures,
             CharterEntry::Observed(s) => &s.signatures,
             CharterEntry::BoundaryDissented(s) => &s.signatures,
             CharterEntry::SubstrateDisavowed(s) => &s.signatures,
-            CharterEntry::ReaderIndependenceAttested(s) => &s.signatures,
+            CharterEntry::IndependenceAttested(s) => &s.signatures,
             CharterEntry::ObservationsPruned(s) => &s.signatures,
             CharterEntry::CharterDissolved(s) => &s.signatures,
         };
@@ -122,10 +128,11 @@ impl CharterEntry {
             CharterEntry::GuardianChanged(s) => &s.payload.polity,
             CharterEntry::EnvoyAuthorized(s) => &s.payload.polity,
             CharterEntry::MemberAffirmed(s) => &s.payload.polity,
+            CharterEntry::RiteMovementRecorded(s) => &s.payload.polity,
             CharterEntry::Observed(s) => &s.payload.polity,
             CharterEntry::BoundaryDissented(s) => &s.payload.polity,
             CharterEntry::SubstrateDisavowed(s) => &s.payload.polity,
-            CharterEntry::ReaderIndependenceAttested(s) => &s.payload.polity,
+            CharterEntry::IndependenceAttested(s) => &s.payload.polity,
             CharterEntry::ObservationsPruned(s) => &s.payload.polity,
             CharterEntry::CharterDissolved(s) => &s.payload.polity,
         }
@@ -142,10 +149,11 @@ impl Entry for CharterEntry {
             CharterEntry::GuardianChanged(_) => "GuardianChanged",
             CharterEntry::EnvoyAuthorized(_) => "EnvoyAuthorized",
             CharterEntry::MemberAffirmed(_) => "MemberAffirmed",
+            CharterEntry::RiteMovementRecorded(_) => "RiteMovementRecorded",
             CharterEntry::Observed(_) => "Observed",
             CharterEntry::BoundaryDissented(_) => "BoundaryDissented",
             CharterEntry::SubstrateDisavowed(_) => "SubstrateDisavowed",
-            CharterEntry::ReaderIndependenceAttested(_) => "ReaderIndependenceAttested",
+            CharterEntry::IndependenceAttested(_) => "IndependenceAttested",
             CharterEntry::ObservationsPruned(_) => "ObservationsPruned",
             CharterEntry::CharterDissolved(_) => "CharterDissolved",
         }
@@ -161,17 +169,56 @@ pub fn didkey_resolver(did: &str) -> Option<PubKey> {
 /// Verify one entry's signatures (CID match + every signature valid).
 pub fn verify_entry(entry: &CharterEntry) -> KcResult<()> {
     match entry {
-        CharterEntry::PolityChartered(s) => s.verify(didkey_resolver),
+        // A charter carries two kinds of evidence signed by somebody other than its
+        // ratifiers, and both are verified here (D27).
+        //
+        // **D22's boundary readings.** The authority pass requires a reading's signer
+        // set to equal the reader it names — but that is the signer *label*, and
+        // nothing was ever checking the signature itself. Measured: a reading signed
+        // with an attacker's key and labelled with a victim's DID passed `verify_all`
+        // and `check_authority` both. The comment on the `GuardianChanged` arm below
+        // asserted this was already handled; it was not. D22 exists because "a reading
+        // nobody signed cannot be told apart from a reading nobody took", and an
+        // unverified signature is exactly a reading nobody signed.
+        //
+        // **D27's founding guardian evidence**, for the same reason the
+        // `GuardianChanged` arm verifies its own: otherwise the grounded rule and the
+        // `Guarded` grade read a forgery.
+        CharterEntry::PolityChartered(s) => {
+            s.verify(didkey_resolver)?;
+            for rd in s.payload.attestation.source.readings() {
+                rd.verify(didkey_resolver)?;
+            }
+            for d in &s.payload.derivations {
+                if let Some(GuardianEvidence::Observed(ob)) = &d.evidence {
+                    ob.verify(didkey_resolver)?;
+                }
+            }
+            Ok(())
+        }
         CharterEntry::CommitmentAmended(s) => s.verify(didkey_resolver),
         CharterEntry::MembershipChanged(s) => s.verify(didkey_resolver),
         CharterEntry::OfficeChanged(s) => s.verify(didkey_resolver),
-        CharterEntry::GuardianChanged(s) => s.verify(didkey_resolver),
+        // The carried substrate evidence is signed by its observer, so it is
+        // verified here alongside the record's own signatures — otherwise a record
+        // could carry an observation nobody actually signed and still pass the crypto
+        // pass, leaving the authority rule reading a forgery. (D22's carried readings
+        // are checked the same way since D27 — when this comment was first written
+        // they were not, which is what D27's measurement caught.)
+        CharterEntry::GuardianChanged(s) => {
+            s.verify(didkey_resolver)?;
+            if let Some(GuardianEvidence::Observed(ob)) = &s.payload.evidence {
+                ob.verify(didkey_resolver)?;
+            }
+            Ok(())
+        }
         CharterEntry::EnvoyAuthorized(s) => s.verify(didkey_resolver),
         CharterEntry::MemberAffirmed(s) => s.verify(didkey_resolver),
+        CharterEntry::RiteMovementRecorded(s) => s.verify(didkey_resolver),
         CharterEntry::Observed(s) => s.verify(didkey_resolver),
         CharterEntry::BoundaryDissented(s) => s.verify(didkey_resolver),
         CharterEntry::SubstrateDisavowed(s) => s.verify(didkey_resolver),
-        CharterEntry::ReaderIndependenceAttested(s) => s.verify(didkey_resolver),
+        CharterEntry::IndependenceAttested(s) => s.verify(didkey_resolver),
         CharterEntry::ObservationsPruned(s) => s.verify(didkey_resolver),
         CharterEntry::CharterDissolved(s) => s.verify(didkey_resolver),
     }

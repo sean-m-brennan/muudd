@@ -14,7 +14,7 @@
 
 """The upward interface: what a polity hands to kith-covenant.
 
-Three artifacts cross the boundary, and nothing else:
+These artifacts cross the boundary, and nothing else:
 
 1. **The handoff** — `community_identity` turns a chartered polity into a
    self-signed `CommunityIdentity` KC can recognize.
@@ -24,6 +24,12 @@ Three artifacts cross the boundary, and nothing else:
 3. **A lifecycle change** — `fission` (one polity ratifies a split into N) and
    `fusion` (N polities ratify a merger into one). KC sees new communities seeking
    recognition and old ones going quiet; it learns no new vocabulary.
+4. **An envoy** — `envoy_delegation` turns whoever the polity has authorized to
+   speak for it into a KC `SpeakerDelegation`. The one artifact an *office*
+   produces, and only while the authorization is still in force.
+5. **The member roll** — `member_roll` publishes who belongs, which is what makes
+   KC's anonymous whistleblower channel real. KC models communities and speakers,
+   not members; this tier models members.
 
 Every artifact crosses as **JSON**, which a KC-side consumer appends to its own
 log verbatim; each function here has a `*_dict` twin that parses it for
@@ -74,6 +80,33 @@ def envoy_delegation(
     whose authorization expired is an error, not a delegation."""
     return archive.envoy_delegation(
         polity_did, envoy_did, root_priv, root_pub, issued_at, as_of
+    )
+
+
+def member_roll(
+    archive,
+    polity_did: str,
+    root_priv: bytes,
+    root_pub: bytes,
+    as_of: Optional[int] = None,
+    published_at: Optional[int] = None,
+) -> str:
+    """KC's `MemberRoll` (JSON) for this polity — the border artifact that gives it a
+    real anonymous whistleblower channel.
+
+    KC models communities and the speakers they delegate, so without a roll an insider
+    holding no delegation is not in the §8 insider ring at all, and a polity that has
+    delegated nobody has no anonymous channel. This tier is what models membership, so
+    it is the feed. The roll is read from the log as of `as_of` — the founding roll
+    plus admissions minus departures — and each member's verifying key comes from its
+    own `did:key`.
+
+    KC **unions** rolls rather than superseding them: publishing a later, shorter roll
+    removes nobody, so a member who has left keeps the channel they had. Republish
+    whenever the roll grows. The polity itself is dropped from its own roll (its root
+    key is already an insider), and a roll with no one else on it is an error."""
+    return archive.member_roll(
+        polity_did, root_priv, root_pub, as_of, published_at
     )
 
 
@@ -165,4 +198,5 @@ __all__ = [
     "fission",
     "fusion",
     "identity_dict",
+    "member_roll",
 ]

@@ -11,6 +11,9 @@ en-core = { workspace = true }
 en-charter = { workspace = true }
 en-substrate = { workspace = true }
 en-cohesion = { workspace = true }
+# No §8 source-protection crypto here. The opt-out lives in the workspace entry, not
+# on this line: a member's `default-features = false` is ignored for an inherited
+# dependency, and cargo unifies features, so one default-on edge would re-enable it.
 kc-core = { workspace = true }
 # The ONE crate in the ethne workspace permitted a KC-record dependency. Confining
 # it here keeps every other en-* crate kc-core-only (KC ⟂ ethne below this line).

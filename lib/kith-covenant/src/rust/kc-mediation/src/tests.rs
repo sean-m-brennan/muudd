@@ -31,9 +31,11 @@ fn did() -> DidKey {
 #[test]
 fn mediator_entry_validity_window() {
     let (_, pk) = keys::generate(Alg::Ed25519).unwrap();
+    let (_, enc) = keys::generate(Alg::Ed25519).unwrap();
     let e = MediatorEntry {
         mediator_did: DidKey::from_pubkey(&pk).unwrap(),
         mediator_pubkey: pk,
+        encryption_pubkey: enc,
         valid_from: t(100),
         valid_until: Some(t(200)),
     };
@@ -46,9 +48,11 @@ fn mediator_entry_validity_window() {
 #[test]
 fn mediator_entry_open_ended() {
     let (_, pk) = keys::generate(Alg::Ed25519).unwrap();
+    let (_, enc) = keys::generate(Alg::Ed25519).unwrap();
     let e = MediatorEntry {
         mediator_did: DidKey::from_pubkey(&pk).unwrap(),
         mediator_pubkey: pk,
+        encryption_pubkey: enc,
         valid_from: t(100),
         valid_until: None,
     };

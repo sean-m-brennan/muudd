@@ -54,6 +54,7 @@ from kith_covenant import (
     delegate_speaker, insider_ring, attest_insider, file_whistleblower,
     open_source_share, reveal_source, exculpate_source, reputation_of,
     observer_dashboard, now_seconds,
+    new_member, publish_member_roll, insider_set_size,
 )
 
 _DAY = 86400
@@ -110,25 +111,39 @@ def main() -> int:
     # --- Whistleblower: an anonymous insider, a threshold-held identity ----
     panel = _mediator_pool(arch, ("Med-A", "Med-B", "Med-C"), t0)
     # The accused community's insiders are the keys the archive can resolve for it:
-    # its root key plus its live speaker delegations. Two crew members hold
-    # delegations, so a filing by either is hidden among three keys.
+    # its root key, its live speaker delegations, and everyone on any member roll it
+    # has published. Two crew members hold delegations, so a filing by either is
+    # hidden among three keys.
     crew7 = delegate_speaker(arch, subject, "Reciter", issued_at=t0 - 10)
     crew9 = delegate_speaker(arch, subject, "Reciter", issued_at=t0 - 10)
+    print(f"\nInsider ring on delegations alone: "
+          f"{insider_set_size(arch, subject.did, at=t0 + 300)} keys.")
+    # The member roll widens it. Six more crew hold no delegation at all, so before
+    # the roll not one of them could file — which is what the polity tier's roll is
+    # for. Rolls are unioned, never superseded, so a later roll only ever widens this,
+    # and a member who leaves keeps the channel they had.
+    crew = [new_member() for _ in range(6)]
+    publish_member_roll(arch, subject, crew, as_of=t0 - 10)
     ring = insider_ring(arch, subject.did, at=t0 + 300)
-    print(f"\nInsider ring for the accused: {len(ring)} keys "
-          f"(root + {len(ring) - 1} delegated speakers).")
+    print(f"Insider ring after the member roll: {len(ring)} keys "
+          f"(root + 2 delegated speakers + {len(crew)} members).")
 
     # The source's step, performed alone: ring-sign an attestation and commit to its
     # own identity. The packet goes to the panel out of band; the key never does.
     claim = "coerced labor in the maintenance rota, unredressed internally"
     packet = attest_insider(arch, subject.did, crew7, claim, filed_at=t0 + 300)
-    # The panel's step: seal the identity so 2 of the 3 are needed to name it.
+    # The panel's step: seal the identity so 2 of the 3 are needed to name it. No keys
+    # are passed — each share is sealed to the encryption key its holder is *registered*
+    # under, resolved from the archive. Naming a custodian is not sealing to them, and a
+    # filing that gets that wrong is refused rather than left quietly unopenable.
     wb = file_whistleblower(
         arch, subject.did, claim, reception_panel=panel,
         attestation=packet, threshold=2,
     )
     arch.verify_all()
     arch.check_authority()
+    print(f"Custody: {len(panel)} shares, each sealed to its holder's registered "
+          f"encryption key (distinct from the key it signs with), 2 needed to name.")
     v = reputation_of(arch, subject.did, as_of=t0 + 500)
     summary = v.whistleblower_reports_against[0]
     print(f"Whistleblower reports against subject: {len(v.whistleblower_reports_against)} "

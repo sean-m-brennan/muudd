@@ -7,7 +7,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-kc-core = { workspace = true }
+kc-core = { workspace = true, features = ["source-protection"] }
 serde = { workspace = true }
 
 [dev-dependencies]

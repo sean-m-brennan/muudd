@@ -64,8 +64,108 @@ pub struct Substrate {
 /// `guardian: None` is a **real chartered state** — a machine with nobody behind
 /// it — not a missing value. Recording it honestly is what lets the office rule
 /// bite: in a machine-majority polity such a member may hold no office.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// **The founding edge must show what stood behind it (design D27).** D15 made every
+/// *post-founding* [`GuardianChange`] carry [`GuardianEvidence`]; founding
+/// derivations carried nothing, and that was a gate evasion rather than a cosmetic
+/// gap. D23 refuses a wholly machine roll that names no ground, but the rule turns on
+/// *no edge being guarded* — so one asserted edge, with a single co-signing
+/// confederate and nothing observed, exempted the whole cluster. Measured before the
+/// slice: three machines, two answering to nobody, one claimed edge, no anchor, both
+/// passes green, grading `Guarded`.
+///
+/// So `evidence` is required exactly when this derivation *claims* an edge, and
+/// [`Unbacked`](GuardianEvidence::Unbacked) does **not** count as guarding at
+/// founding. That last part is not an inconsistency with the post-founding rule but
+/// the reason the post-founding rule is safe: `Unbacked` is sound there because it can
+/// only ever weaken a record. Here it would buy exemption from the anchor rule, which
+/// would make a self-declaration *strengthening* — the shape D21 and D22 each deleted.
+/// A bootstrap cluster whose guardians are real but unobserved names an anchor until a
+/// monitor has run, and may then move the edge with a backed [`GuardianChange`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Derivation {
+    pub member: DidKey,
+    pub guardian: Option<DidKey>,
+    /// What the substrate showed behind this edge, or a declared override saying
+    /// nothing did. Required when `guardian` is `Some`, refused when it is `None` —
+    /// a machine chartered as answering to nobody claims no edge, so there is
+    /// nothing for evidence to be evidence *of*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<GuardianEvidence>,
+}
+
+impl Derivation {
+    /// A derivation claiming no edge: a chartered machine that answers to nobody.
+    pub fn unguarded(member: DidKey) -> Self {
+        Self { member, guardian: None, evidence: None }
+    }
+
+    /// A derivation whose edge the substrate was seen to show.
+    pub fn observed(member: DidKey, guardian: DidKey, ob: Signed<Observation>) -> Self {
+        Self {
+            member,
+            guardian: Some(guardian),
+            evidence: Some(GuardianEvidence::Observed(Box::new(ob))),
+        }
+    }
+
+    /// A derivation whose edge nothing backed, saying so. Does not count as guarding
+    /// at founding — see the type docs.
+    pub fn unbacked(member: DidKey, guardian: DidKey, reason: impl Into<String>) -> Self {
+        Self {
+            member,
+            guardian: Some(guardian),
+            evidence: Some(GuardianEvidence::Unbacked { reason: reason.into() }),
+        }
+    }
+
+    /// Whether this edge is backed by an observation somebody outside the polity
+    /// took — the predicate D23's grounded rule and the `Guarded` grade both turn
+    /// on, defined once so the two cannot drift.
+    ///
+    /// **The observer may not be the polity or anyone on its roll.** Measured while
+    /// building D27: requiring a signed observation was not enough on its own, since
+    /// a founder signed one about the cluster's own edges and the charter graded
+    /// `Guarded` with no anchor, both passes green. That is the closure shape D23
+    /// refused for the anchor and D25 refused for a successor, reaching the evidence
+    /// this time — a polity vouching for its own ground.
+    ///
+    /// A named **guardian** observing the edge it is about to accept does count, and
+    /// that is a judgment call rather than an oversight. A guardian is not on the
+    /// roll (a machine cannot guard a machine), it co-signs the founding either way,
+    /// and what it asserts by observing is its own answerability — a burden taken up,
+    /// not a credit awarded. In that case the keyed human outside the roll *is* the
+    /// ground, which is precisely D23's picture of `Guarded`. Interest disqualifies
+    /// praise, not a warning, and not an admission (**D24**).
+    pub fn is_backed(&self, polity: &DidKey, on_roll: impl Fn(&str) -> bool) -> bool {
+        self.guardian.is_some()
+            && match &self.evidence {
+                Some(GuardianEvidence::Observed(ob)) => {
+                    let who = &ob.payload.observer;
+                    who != polity && !on_roll(who.as_str())
+                }
+                _ => false,
+            }
+    }
+
+    /// This derivation as an effective-state edge, dropping the per-record evidence.
+    pub fn edge(&self) -> DerivedEdge {
+        DerivedEdge { member: self.member.clone(), guardian: self.guardian.clone() }
+    }
+}
+
+/// A member's *effective* derived-party edge: who it is, and the human it answers to
+/// as of some point in the log.
+///
+/// Distinct from [`Derivation`] deliberately. A `Derivation` is one **record's** claim
+/// and carries the evidence offered for it; an edge is the **state** you get by
+/// folding the charter together with every later [`GuardianChange`], where
+/// per-record evidence has no meaning. [`GuardianState`](crate::GuardianState) held
+/// `Derivation` only because that happened to be the pair type, and carrying an
+/// `evidence` field there that is always `None` would be one more field present and
+/// read by nothing — the thing D22's `BoundarySource` and D23's `anchor` both were.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DerivedEdge {
     pub member: DidKey,
     pub guardian: Option<DidKey>,
 }
@@ -335,7 +435,7 @@ pub struct Commitment {
 /// only [`FoundingProposal::ratify`] (members co-signing) turns a proposal into a
 /// [`PolityCharter`]. A proposal is never appended to the archive; only the
 /// ratified charter is.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FoundingProposal {
     /// The polity's root DID — the persistent entity the charter founds.
     pub polity: DidKey,
@@ -429,7 +529,7 @@ impl FoundingProposal {
 /// roll (the whole proposed boundary becomes members); `ratifiers` are the
 /// members who actively consented and must have co-signed the record. A majority
 /// of the roll must ratify (enforced by the authority pass).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PolityCharter {
     pub polity: DidKey,
     pub substrate: Substrate,
@@ -737,11 +837,47 @@ impl GuardianKind {
     }
 }
 
+/// **What the substrate showed** behind a claimed guardian edge (design **D15**).
+///
+/// D15 charters the node→guardian edge, and the cohesion monitor measures what the
+/// substrate reports *against* that charter — so an edge the substrate never showed
+/// leaves the measure comparing a ratified claim to nothing. Before this, exactly
+/// that was authorized: five tests moved a guardian edge, none recorded an
+/// observation, and the corpus asserted the result correct. The same shape as
+/// `substrate.anchor` in D23 and kith-covenant's `source_commitment` — a rule whose
+/// evidence nothing supplied.
+///
+/// **Carried, not cited.** The evidence travels inside the record rather than as a
+/// CID pointing at an [`Observation`] in the log, because D17 lets a polity *drop*
+/// observations by a signed act and [`apply_prunings`](crate::apply_prunings) really
+/// removes them. A citation would leave a record authorized today and unauthorized
+/// after legitimate housekeeping — authority would stop being a property of the log
+/// and become a property of when you looked. Measured, and kept as
+/// `a_cited_observation_would_not_survive_a_legitimate_pruning`. Carrying is the D22
+/// pattern (`Substrate` carries its readings for the same reason) and has no such
+/// interaction: a copy inside a record cannot be pruned without breaking the
+/// record's own signature.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum GuardianEvidence {
+    /// The signed observation whose reading for this member showed this guardian.
+    /// Its signature is checked by `verify_all` along with the record's own.
+    Observed(Box<Signed<Observation>>),
+    /// **Nothing backed this edge, and the record says so.** The override, for
+    /// bootstrap and offline authoring where no monitor has yet reported.
+    ///
+    /// Self-declared, and safe only because of an asymmetry: it can never
+    /// *strengthen* a record, only disclose that no reading stood behind it. A
+    /// faction gains nothing by claiming less than it has, which is why the field
+    /// D21/D22 found unenforceable elsewhere is sound here. `reason` may not be
+    /// empty — an unexplained override is the thing this exists to prevent.
+    Unbacked { reason: String },
+}
+
 /// A change to a member's derived-party designation or its guardian edge — the
 /// node→guardian relation's lifecycle after founding (design **D15**). Founding
 /// derivations live in the [`PolityCharter`]; every later designation, rotation and
 /// release is one of these.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GuardianChange {
     pub polity: DidKey,
     pub kind: GuardianKind,
@@ -751,6 +887,16 @@ pub struct GuardianChange {
     /// `Designate` (a machine may be chartered with nobody behind it), and always
     /// `None` for a `Release`.
     pub guardian: Option<DidKey>,
+    /// What the substrate showed behind the edge — required exactly when an edge is
+    /// *claimed* (a `Designate` naming a guardian, or any `Rotate`) and forbidden
+    /// otherwise.
+    ///
+    /// A `Release` carries none deliberately: it claims an edge is *gone*, and D16
+    /// is explicit that a member absent from an observation's readings was not
+    /// observed, which is not the same as having no guardian. Absence evidence is a
+    /// different object and is not faked here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<GuardianEvidence>,
     pub rationale: String,
     /// The members deciding the change; they must co-sign. May be empty for a
     /// `Release` signed by the departing guardian alone.
@@ -825,6 +971,84 @@ pub enum AffirmationKind {
     ReAffirmation,
 }
 
+/// One movement of the recognition rite (design **D29**).
+///
+/// The five movements are `recognition_protocols.md`'s, which places them at exactly
+/// this tier: *"each candidate member community performs the five-movement rite on its
+/// own envoys and representative machines… the five movements carry their full content
+/// at this layer"*. Order is semantic, and each variant carries only what its own
+/// movement can be held to — so a rule cannot check the wrong field, and a movement
+/// that names nothing checkable says so in the type.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Movement {
+    /// **1 — the naming of the substrate.** `names` must be the chartered substrate's
+    /// name: a rite that recites some other ground is not this polity's rite. The
+    /// *content* of the naming is the `statement`, which no rule reads.
+    Substrate { names: String },
+    /// **2 — the acknowledgment of fallenness.** Nothing checkable: no rule can read
+    /// contrition, and pretending otherwise would be the hollowest kind of gate.
+    Fallenness,
+    /// **3 — the recognition of the other.** Also nothing checkable, for the same
+    /// reason. At this tier "the other" is the rest of the roll, who are present.
+    Recognition,
+    /// **4 — the commitment to the common virtues.** `commits_to` must be exactly the
+    /// polity's in-force commitment keys at that instant — committing to yesterday's
+    /// commitments, or to a subset one finds congenial, is not this commitment.
+    CommonVirtue { commits_to: Vec<String> },
+    /// **5 — the submission of the polity itself.** `names_anchor` must match the
+    /// charter: the named anchor where there is one, and `None` where the charter is
+    /// `Bare` (D23's honest state — a polity may have no keyed ground, and the
+    /// movement is still performed).
+    NonUltimacy { names_anchor: Option<DidKey> },
+}
+
+impl Movement {
+    /// The movement's place in the sequence, 1–5. Order is semantic: the substrate is
+    /// named before anything is said about the people under it.
+    pub fn order(&self) -> u8 {
+        match self {
+            Movement::Substrate { .. } => 1,
+            Movement::Fallenness => 2,
+            Movement::Recognition => 3,
+            Movement::CommonVirtue { .. } => 4,
+            Movement::NonUltimacy { .. } => 5,
+        }
+    }
+
+    /// How many movements a complete rite has.
+    pub const COUNT: u8 = 5;
+}
+
+/// One movement of one member's induction rite, signed by the inductee and everyone
+/// attending it (design **D29**).
+///
+/// Until D29 the tier recorded an induction's *completion* and nothing else, so a rite
+/// performed over a week with an officer presiding and one performed in a second by a
+/// majority signing a blank produced identical records. The movements are what the
+/// rite actually consists of, and recording them separately is what lets the log show
+/// a rite **in progress**, a rite **abandoned**, and how many of the witnesses were
+/// there for the whole of it.
+///
+/// A `Substrate` movement always opens a rite, and opening one abandons whatever was
+/// in progress for that member; every other movement must be the immediate successor
+/// of the last one recorded. So a rite cannot be interleaved, cannot skip, and cannot
+/// deadlock a member forever on an abandoned attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RiteMovement {
+    pub polity: DidKey,
+    /// The member being inducted. They recite, so they sign.
+    pub member: DidKey,
+    pub movement: Movement,
+    /// What was said, in the polity's own terms. Required to be non-empty — a
+    /// movement is *performed*, and an empty one was not — but never read: the tier
+    /// checks that the rite happened, never whether it was meant.
+    pub statement: String,
+    /// The members present for this movement, who co-sign it. They must be inducted:
+    /// the substrate is transmitted by those who hold it.
+    pub attending: Vec<DidKey>,
+    pub recited_at: Timestamp,
+}
+
 /// A member affirming the polity's substrate — the "transmission" half of
 /// longevity (design §5): induction brings a new member into the substrate, and
 /// re-affirmation renews it. Admission (a [`MembershipChange`]) puts someone on
@@ -840,7 +1064,21 @@ pub struct Affirmation {
     /// For an `Induction`, the roll members who witness (receive) the inductee;
     /// they co-sign alongside the inductee. Empty for a `ReAffirmation` (the
     /// member is the sole signer).
+    ///
+    /// Since **D29** a witness counts only if they attended **every** movement of the
+    /// rite. Otherwise a week-long ceremony is five records with disjoint signers and
+    /// nobody actually attended it — D28's arithmetic, one record over: count the
+    /// people present, not the signatures collected.
     pub witnesses: Vec<DidKey>,
+    /// For an `Induction`, the [`RiteMovement`] records this completes, in order
+    /// (design **D29**). Empty for a `ReAffirmation`.
+    ///
+    /// **Cited, not carried** — the opposite of D15/D27's rule for guardian evidence,
+    /// and for the reason that rule exists: a citation is unsafe when what it points
+    /// at can be *pruned*, and `is_prunable` matches nothing but an observation. A
+    /// movement record cannot vanish, so citing it is sound; and citing is what puts
+    /// the rite in the log as it happens, which carrying it inline would hide.
+    pub movements: Vec<Cid>,
     pub affirmed_at: Timestamp,
 }
 
@@ -892,9 +1130,37 @@ pub enum IndependenceKind {
     Controlled,
 }
 
-/// A third party's account of whether a named reader of a founding is an
-/// *independent* principal (design **D24**, closing the residue **D22** named as its
-/// own successor).
+/// Which kind of party an [`IndependenceAttestation`] speaks about (design **D28**).
+///
+/// The two roles are the same claim about the same kind of party — "is this key its
+/// own principal?" — so they share one record and one set of counting rules. What
+/// differs is only the coherence gate: each role is checkable against a different
+/// part of the log, and a subject who appears in neither is a party the record has
+/// never heard of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum AttestedRole {
+    /// A reader who signed a reading behind the founding boundary (**D22**/**D24**).
+    /// Checkable against the charter's own attestation.
+    BoundaryReader,
+    /// A monitor who has filed an [`Observation`] about this polity, or whose
+    /// observation was carried as guardian evidence (**D16**/**D27**). Checkable
+    /// against the log up to the filing.
+    Observer,
+}
+
+impl AttestedRole {
+    /// How the role reads in a refusal.
+    pub fn noun(self) -> &'static str {
+        match self {
+            AttestedRole::BoundaryReader => "a reader of",
+            AttestedRole::Observer => "an observer of",
+        }
+    }
+}
+
+/// A third party's account of whether a named party behind a founding — a boundary
+/// reader, or a monitor whose observations the polity is graded on — is an
+/// *independent* principal (design **D24**, generalized to observers by **D28**).
 ///
 /// **Why this exists.** D22 made a boundary's reading attributable: signed by the
 /// reader it names, bound to that founding. What it could not do is tell one reader
@@ -907,6 +1173,18 @@ pub enum IndependenceKind {
 /// kith-covenant hit this exactly, for capture move 1, and its
 /// `InterpreterIndependenceAttestation` is the shape borrowed here: an outside party
 /// vouches, and the lens counts the vouching rather than the self-declaration.
+///
+/// **Why it covers observers too (D28).** D15 and D27 each closed a hole in guardian
+/// evidence and each named *this record* as the successor for what was left — that
+/// the evidence is still one observer's perspectival reading. Measured, the successor
+/// did not reach: the coherence gate demanded the subject be a *reader of the
+/// boundary*, and an observer is not one, so filing about a monitor was refused
+/// outright. The same measurement found the sharper case. A confederate observer,
+/// on nobody's roll and costing one keypair, signs an observation showing any
+/// guardian edge it likes and the machine cluster grades `Guarded` with no anchor —
+/// and, filing three times, manufactures the sustained-absence `Concern` that crosses
+/// to kith-covenant. **The attack points outward as well as inward**, which the
+/// residue's wording never said.
 ///
 /// **What it does and does not buy.** It does not prove independence, and nothing
 /// here adjudicates the claim. It moves the cost of faking corroboration from one key
@@ -922,15 +1200,23 @@ pub enum IndependenceKind {
 /// `CommunityIdentity` derived from that charter — where **governing acts** die with
 /// it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReaderIndependenceAttestation {
-    /// The founding whose reader is being vouched for or challenged.
+pub struct IndependenceAttestation {
+    /// The founding whose reader, or the polity whose observer, is being vouched for
+    /// or challenged.
     pub polity: DidKey,
-    /// The reader in question. Must actually appear among the founding's readings —
-    /// an attestation about a reader the charter never carried is incoherent with the
-    /// record it claims to be about, and is refused.
-    pub reader: DidKey,
+    /// The party in question. Must actually appear in the record in the named
+    /// [`role`](Self::role) — among the founding's readings for a `BoundaryReader`,
+    /// among the observations filed before this one for an `Observer`. An attestation
+    /// about a party the log has never carried is incoherent with the record it claims
+    /// to be about, and is refused.
+    pub subject: DidKey,
+    /// Which capacity the subject is being spoken about in. A key may hold both roles
+    /// for the same polity, and a voucher for one is not a voucher for the other:
+    /// vouching is always for a *party in a capacity*, since what an outsider can
+    /// speak to is a relationship, not an identity in the abstract.
+    pub role: AttestedRole,
     /// Who is speaking. Must be the sole signer. Counts toward independence only when
-    /// it is neither the polity, nor the reader itself, nor anyone on the founding
+    /// it is neither the polity, nor the subject itself, nor anyone on the founding
     /// roll — the founders being precisely the interested party. An interested
     /// attestation is still **recorded**, and reported separately: refusing it would
     /// destroy a fact somebody asserted, while crediting it would be the sockpuppet

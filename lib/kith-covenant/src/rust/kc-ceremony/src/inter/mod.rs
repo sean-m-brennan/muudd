@@ -15,6 +15,7 @@
 */
 
 mod anti_spiral;
+mod examiner;
 mod runner;
 mod sponsorship;
 mod witness_record;
@@ -26,6 +27,7 @@ pub use anti_spiral::{
     AntiSpiralFeature, AntiSpiralFeatureClaim, EvidenceKind, EvidenceRef, FeatureAcceptance,
     REQUIRED_FEATURES,
 };
+pub use examiner::{ExaminerEntry, ExaminerRegistry};
 pub use runner::{InterCredentialingOutcome, InterCredentialingRunner, ParticipantContext};
 pub use sponsorship::SponsorshipRecord;
 pub use witness_record::{

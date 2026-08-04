@@ -75,7 +75,12 @@ pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 proptest = "1.5"
 
 # Internal workspace crates
-kc-core = { path = "src/rust/kc-core" }
+# `default-features = false` here, NOT in the member crates: a member's
+# `default-features = false` is silently IGNORED when the dependency is inherited with
+# `workspace = true` and the workspace entry does not specify it (cargo warns, and says
+# it may become a hard error). Crates needing the §8 source-protection crypto opt in
+# with `features = ["source-protection"]`.
+kc-core = { path = "src/rust/kc-core", default-features = false }
 kc-identity = { path = "src/rust/kc-identity" }
 kc-ceremony = { path = "src/rust/kc-ceremony" }
 kc-conduct = { path = "src/rust/kc-conduct" }

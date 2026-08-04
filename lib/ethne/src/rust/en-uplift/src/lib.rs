@@ -35,6 +35,12 @@
 //!    *office* produces (design **D14**): the authorization is granted inside the
 //!    polity by its `EnvoyAuthorizer` or its roll, and only an authorization still
 //!    in force can cross. See [`envoy_delegation`].
+//! 5. **Member roll** — the polity's membership becomes a KC `MemberRoll`, which is
+//!    what makes KC's §8 anonymous whistleblower channel real. KC models communities
+//!    and their delegated speakers, so before this an insider holding no delegation
+//!    was not in the ring at all and a polity that had delegated nobody had no
+//!    channel. This tier is the thing that *does* model membership, so it is the
+//!    feed. See [`member_roll`].
 //!
 //! # Why this crate exists (the confined coupling)
 //!
@@ -57,7 +63,7 @@ use en_cohesion::{CohesionReport, ErosionLevel};
 use en_core::{DidKey, KcError, KcResult, PrivKey, PubKey, Signed, Timestamp};
 use kc_conduct::{ConductBearing, ConductKind, ConductRecord, DecisionClass, Severity};
 use kc_core::{CommunityIdentity, SuccessorLink};
-use kc_identity::{DelegationScope, SpeakerDelegation};
+use kc_identity::{DelegationScope, MemberRoll, RollMember, SpeakerDelegation};
 
 /// The handoff: turn a ratified [`PolityCharter`] into a self-signed
 /// [`CommunityIdentity`] KC can recognize. The polity's root keypair is supplied
@@ -134,6 +140,70 @@ pub fn envoy_delegation(
         expires_at: standing.expires_at,
         revoked_at: None,
     };
+    Signed::build(payload, &[(charter.polity.as_str(), root_priv)])
+}
+
+/// The member roll: turn the polity's current membership into a KC [`MemberRoll`],
+/// signed by the polity root.
+///
+/// `members` is the roll as `en_charter::charter_state` computes it — the founding
+/// roll plus admissions minus departures. Every ethne member is a `did:key`, so each
+/// member's verifying key comes straight out of its own DID; nothing else needs to
+/// travel, and a roll cannot name a member against a key that is not theirs.
+///
+/// This is what gives a polity a real anonymous channel inside KC. Two consequences
+/// of KC's side are worth knowing before publishing one:
+///
+/// - **The roll only ever widens KC's insider ring.** KC unions rolls rather than
+///   superseding them, so publishing a later, shorter roll removes nobody. Departures
+///   recorded here do not close the channel of whoever left. That is deliberate on
+///   KC's side — the alternative would let an accused polity shrink the suspect set
+///   around a member the day after they resigned.
+/// - **A roll is the polity speaking about itself.** KC checks that the publisher is
+///   the community named, and nothing more; it cannot audit this tier's charter. The
+///   `as_of` instant is carried as provenance for exactly that reason.
+///
+/// Errors if the charter's polity DID does not match the supplied root key (the same
+/// guard as [`community_identity`]), if `members` is empty (KC refuses an empty
+/// roll), or if any member's DID does not resolve to a key.
+pub fn member_roll(
+    charter: &PolityCharter,
+    members: &[DidKey],
+    root_priv: &PrivKey,
+    root_pub: PubKey,
+    as_of: Timestamp,
+    published_at: Timestamp,
+) -> KcResult<Signed<MemberRoll>> {
+    let derived = DidKey::from_pubkey(&root_pub)?;
+    if charter.polity != derived {
+        return Err(KcError::InvalidDid(format!(
+            "charter polity {} does not match the supplied root key (DID {derived})",
+            charter.polity
+        )));
+    }
+    if members.is_empty() {
+        return Err(KcError::Authority(format!(
+            "polity {} has an empty roll, and an empty member roll is not a roll",
+            charter.polity
+        )));
+    }
+    let mut out = Vec::with_capacity(members.len());
+    for m in members {
+        // The polity itself is a member of no roll: its root key is already an insider
+        // in KC's eyes, and a second entry would be a repeated ring position.
+        if m == &charter.polity {
+            continue;
+        }
+        out.push(RollMember { member_did: m.clone(), member_pubkey: m.to_pubkey()? });
+    }
+    if out.is_empty() {
+        return Err(KcError::Authority(format!(
+            "polity {} has no members besides itself",
+            charter.polity
+        )));
+    }
+    let payload =
+        MemberRoll { community_did: charter.polity.clone(), members: out, as_of, published_at };
     Signed::build(payload, &[(charter.polity.as_str(), root_priv)])
 }
 
@@ -1053,5 +1123,87 @@ mod tests {
             envoy_delegation(&charter, &envoys, &envoy, &other_sk, other_pk, time::now())
                 .unwrap_err();
         assert!(matches!(err, KcError::InvalidDid(_)), "got {err:?}");
+    }
+
+    // --- border artifact #6: the member roll ---------------------------------
+
+    fn members(n: usize) -> Vec<DidKey> {
+        (0..n)
+            .map(|_| {
+                let (_, pk) = keypair();
+                DidKey::from_pubkey(&pk).unwrap()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_polity_roll_becomes_a_kc_member_roll() {
+        let (charter, root_sk, root_pk) = chartered_polity();
+        let roll = members(4);
+        let as_of = time::now();
+
+        let signed =
+            member_roll(&charter, &roll, &root_sk, root_pk, as_of, as_of).unwrap();
+
+        assert_eq!(signed.payload.community_did, charter.polity);
+        assert_eq!(signed.payload.members.len(), 4);
+        assert_eq!(signed.payload.as_of, as_of);
+        // Every member's key is the one its own DID resolves to — nothing else has to
+        // travel, and KC refuses a roll where that does not hold.
+        for (m, did) in signed.payload.members.iter().zip(&roll) {
+            assert_eq!(&m.member_did, did);
+            assert_eq!(m.member_pubkey, did.to_pubkey().unwrap());
+        }
+        assert_eq!(signed.signatures.len(), 1);
+        assert_eq!(signed.signatures[0].signer_did, charter.polity.as_str());
+        signed.verify(en_charter::didkey_resolver).expect("root signature valid");
+    }
+
+    #[test]
+    fn a_roll_cannot_be_published_with_another_polity_root_key() {
+        let (charter, _, _) = chartered_polity();
+        let (other_sk, other_pk) = keypair();
+        let as_of = time::now();
+
+        let err = member_roll(&charter, &members(2), &other_sk, other_pk, as_of, as_of)
+            .unwrap_err();
+        assert!(matches!(err, KcError::InvalidDid(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn an_empty_roll_does_not_cross_the_boundary() {
+        // KC refuses an empty roll, so emitting one would only produce a record that
+        // cannot be authorized. Refuse it here, where the error can say why.
+        let (charter, root_sk, root_pk) = chartered_polity();
+        let as_of = time::now();
+
+        let err = member_roll(&charter, &[], &root_sk, root_pk, as_of, as_of).unwrap_err();
+        assert!(matches!(err, KcError::Authority(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn the_polity_itself_is_dropped_from_its_own_roll() {
+        // KC refuses a roll naming the community, because its root key is already an
+        // insider and a second entry would repeat a ring position.
+        let (charter, root_sk, root_pk) = chartered_polity();
+        let mut roll = members(2);
+        roll.push(charter.polity.clone());
+        let as_of = time::now();
+
+        let signed =
+            member_roll(&charter, &roll, &root_sk, root_pk, as_of, as_of).unwrap();
+        assert_eq!(signed.payload.members.len(), 2);
+        assert!(!signed.payload.members.iter().any(|m| m.member_did == charter.polity));
+    }
+
+    #[test]
+    fn a_roll_of_only_the_polity_itself_is_refused() {
+        let (charter, root_sk, root_pk) = chartered_polity();
+        let roll = vec![charter.polity.clone()];
+        let as_of = time::now();
+
+        let err =
+            member_roll(&charter, &roll, &root_sk, root_pk, as_of, as_of).unwrap_err();
+        assert!(matches!(err, KcError::Authority(_)), "got {err:?}");
     }
 }

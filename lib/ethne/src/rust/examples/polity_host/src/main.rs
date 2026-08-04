@@ -52,6 +52,7 @@ struct Args {
     step: i64,
     start: i64,
     follow: bool,
+    second_writer: bool,
     path: PathBuf,
 }
 
@@ -62,6 +63,7 @@ impl Args {
             step: 10 * DAY,
             start: 200 * DAY,
             follow: false,
+            second_writer: false,
             path: std::env::temp_dir().join("polity_host_demo.log"),
         };
         let argv: Vec<String> = std::env::args().skip(1).collect();
@@ -69,12 +71,16 @@ impl Args {
         while i < argv.len() {
             match argv[i].as_str() {
                 "--follow" => a.follow = true,
+                "--second-writer" => a.second_writer = true,
                 "--ticks" => { i += 1; a.ticks = argv[i].parse().expect("--ticks N") }
                 "--step" => { i += 1; a.step = argv[i].parse().expect("--step SECONDS") }
                 "--start" => { i += 1; a.start = argv[i].parse().expect("--start SECONDS") }
                 "--path" => { i += 1; a.path = PathBuf::from(&argv[i]) }
                 "--help" | "-h" => {
-                    println!("polity_host [--ticks N] [--step S] [--start S] [--path P] [--follow]");
+                    println!(
+                        "polity_host [--ticks N] [--step S] [--start S] [--path P] \
+                         [--follow] [--second-writer]"
+                    );
                     std::process::exit(0);
                 }
                 other => panic!("unknown argument: {other}"),
@@ -145,6 +151,7 @@ impl Keys {
                     member: did.clone(),
                     kind: AffirmationKind::ReAffirmation,
                     witnesses: vec![],
+                    movements: vec![],
                     affirmed_at: at,
                 };
                 Ok(CharterEntry::MemberAffirmed(Signed::build(record, &[(did.as_str(), sk)])?))
@@ -164,8 +171,12 @@ impl Keys {
             vec![],
             at,
         );
-        let charter = prop.ratify(self.deciders(), at)?;
-        let signers = self.decider_signers();
+        // The whole roll ratifies, which since D29 is what inducts them: a founder who
+        // never signed holds no substrate, so a host that ratified by bare majority
+        // would start its polity with members who carry no weight and could not renew.
+        let charter = prop.ratify(self.roll(), at)?;
+        let signers: Vec<(&str, &PrivKey)> =
+            self.members.iter().map(|(sk, did)| (did.as_str(), sk)).collect();
         Ok(CharterEntry::PolityChartered(Signed::build(charter, &signers)?))
     }
 
@@ -286,13 +297,84 @@ fn serde_json_len<T: serde::Serialize>(v: &T) -> usize {
     serde_json::to_string(v).map(|s| s.len()).unwrap_or(0)
 }
 
+/// What a second host actually meets — the D30 half of this example.
+///
+/// Two writers on one log is not a hypothetical: a supervisor that restarts a host
+/// while the old one is still alive, or a one-shot invocation run alongside a following
+/// loop, is the ordinary way it happens. Before D30 the second writer's compaction
+/// silently discarded the first's already-fsynced entries, with every call returning
+/// `Ok` and the reloaded log verifying clean.
+fn second_writer(
+    path: &std::path::Path,
+    first: &mut FileStore,
+    keys: &Keys,
+    archive: &mut Archive<CharterEntry>,
+    as_of: Timestamp,
+) -> KcResult<()> {
+    println!("\n--- a second writer arrives ---------------------------------------");
+
+    // 1. The claim. This is the refusal a supervisor can act on.
+    match FileStore::new(path).claim() {
+        Ok(()) => println!("  claim: TAKEN — which would be the bug"),
+        Err(e) => println!("  claim refused, at boot: {e}"),
+    }
+
+    // 2. And with no claim held, the compare-and-swap catches it anyway. That is the
+    //    case a lock cannot reach: a second host that ran *after* this one exited has
+    //    nothing to contend for, so there was never anything for a lock to do.
+    first.release();
+    println!("  (first host released its claim)\n");
+
+    let mut second = FileStore::new(path);
+    let borrowed: Archive<CharterEntry> = second.load()?;
+    println!("  second host loaded {} entries at {:?}", borrowed.len(), second.cursor());
+
+    // The first host moves on and makes it durable.
+    archive.append(keys.observation(as_of)?)?;
+    let out = ArchiveStore::<CharterEntry>::save(first, archive)?;
+    println!("  first host appended {} entry, fsynced ({} bytes)", out.appended, out.bytes);
+
+    // And the second host records its own work, not knowing any of that happened. Both
+    // branches are wrong from here: appending forks the log into something no one can
+    // load, and rewriting — which is what a compaction does — discards the entry the
+    // first host just made durable. The unit tests cover the rewrite branch; the demo
+    // takes the append, because that is what a healthy host does most of the time.
+    let mut theirs = borrowed.clone();
+    theirs.append(keys.observation(as_of)?)?;
+    match ArchiveStore::<CharterEntry>::save(&mut second, &theirs) {
+        Ok(o) => println!("  second host's save: {o:?} — which would be the bug"),
+        Err(e) => println!("  second host's save refused:\n    {e}"),
+    }
+
+    // And the log is intact, which is the whole point of refusing.
+    let mut reader = FileStore::new(path);
+    let back: Archive<CharterEntry> = reader.load()?;
+    en_charter::verify_all(&back)?;
+    en_charter::check_authority(&back)?;
+    println!(
+        "\n  the log still loads, verifies, and holds all {} entries — including the \
+         one the second host would have discarded",
+        back.len()
+    );
+    assert_eq!(back.len(), archive.len(), "nothing durable may go missing");
+    Ok(())
+}
+
 fn main() -> KcResult<()> {
     let args = Args::parse();
     let keys = Keys::new(3);
     let mut store = FileStore::new(&args.path);
     let _ = std::fs::remove_file(&args.path); // a fresh demo each run
 
+    // D30: claim the log before doing anything with it. A host that does this finds out
+    // at boot that another host is already writing, which is a refusal a supervisor can
+    // act on; without it the discovery comes at the first save. Every write is guarded
+    // either way — this only moves the discovery earlier. Released when `store` drops,
+    // including if this process is killed.
+    store.claim()?;
+
     println!("polity host — storage at {}", args.path.display());
+    println!("write lock claimed ({}.lock)", args.path.display());
     println!("{}", if args.follow {
         "following the wall clock (Ctrl-C to stop)".to_string()
     } else {
@@ -360,6 +442,11 @@ fn main() -> KcResult<()> {
         if args.follow {
             std::thread::sleep(std::time::Duration::from_secs(args.step.max(1) as u64));
         }
+    }
+
+    if args.second_writer {
+        let last = Timestamp::from_second(args.start + (args.ticks as i64) * args.step).unwrap();
+        second_writer(&args.path, &mut store, &keys, &mut archive, last)?;
     }
 
     // --- restart: what a host actually depends on ----------------------------
