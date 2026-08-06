@@ -5,9 +5,11 @@
 
 # Ethne: the polity tier
 
-**Design document.** The tier's decisions are recorded as D1-D30 below, and the
+**Design document.** The tier's decisions are recorded as D1-D31 below, and the
 questions they raised as Q1-Q9. Anything the design specifies and the code does not
-carry is in [`TODO.md`](../TODO.md).
+carry is in [`TODO.md`](../TODO.md). How the tier is built, which toolchain choices
+are deliberate, and the verification discipline the slices are held to are in
+[`architecture/build-and-toolchain.md`](architecture/build-and-toolchain.md).
 
 ## What ethne is
 
@@ -406,8 +408,10 @@ KC cannot see on its own and AT cannot decide on its own.
   the five end-to-end emitter tests. Still open, and AT's: a stopped daemon leaves
   8 subsystem processes running (ISSUES.md §2.1.3); the test kills the ones it
   caused.
-- **D26: the two carrier streams are joined here, by uuid, and `None` stays
-  honest (2026-07-30).** AT emits peer identity and peer reputation as *separate*
+- **D6: the two carrier streams are joined here, by uuid, and `None` stays
+  honest (2026-07-30).** (Filed as "D26" until 2026-08-06, which was a
+  mislabel: D26 is the member roll as a border artifact. This is the third D6
+  entry, the coupling's decoder half.) AT emits peer identity and peer reputation as *separate*
   messages (its own decision, to avoid coupling two independent processes), so
   `en-at` owns the join. Four rules, in `decode::PeerJoin`: the join key is the
   **uuid** while the ethne identity is the **signing key**, so a reputation for a
@@ -420,6 +424,18 @@ KC cannot see on its own and AT cannot decide on its own.
   the verified operator bound, becomes `None`. The join is **not** feature-gated:
   the FFI is what needs a C library, the join is where the reasoning lives, so its
   rules are unit-tested in the default build.
+
+  The join is exercised end to end over the real transport rather than only in
+  unit tests, which needed something on AT's side to play daemon:
+  `app_events_test_support.{h,c}` (in `libsrc`, called by nothing in AT itself)
+  gives a foreign consumer `at_app_test_emit_peer` and
+  `at_app_test_emit_reputation`. Sends need no queue of their own, since
+  `at_app_events_open` already calls `messaging_assign`, so a consumer that
+  opened a queue can emit *to* it and loop a synthetic event back to itself over
+  the real socket. The helpers deliberately do **not** copy the real emitter's
+  gating: see
+  [`architecture/build-and-toolchain.md`](architecture/build-and-toolchain.md),
+  "Verification practice".
 - **D7: the AT boundary is the gateway-reputation subtree (resolves Q7).** The
   candidate roll is the enumerated subtree member-roster produced by the AT
   identity process's roster capability (requestor-side BFS, privacy-opt-out-aware,
@@ -730,6 +746,13 @@ KC cannot see on its own and AT cannot decide on its own.
     the entry `entry.rs` anticipated when it said a later slice would fold cohesion
     records in. It also cost `CharterEntry` its `Eq` derive: an observation carries
     float reputations, and a total equality over those would be a lie.)
+
+    *The other half of that anticipation never happens, and the note in `entry.rs`
+    saying it would has been corrected.* `CharterEntry` carries every variant the
+    tier needs, so there is no founding-slice type left to fold in. Cohesion was
+    never going to join them either: a `CohesionReport` is **derived** from the
+    entries rather than appended alongside them, which is why it is not even
+    `Serialize`, and why adding a field to it is not a format break.
   - **Sustained absence, the exception that proves the cap.** A guardian unattended
     across the recorded window for at least `sustained_absence_seconds`, *and* seen by
     at least `sustained_absence_watchers` distinct observers (**D28**), reaches

@@ -20,8 +20,11 @@ The full architecture is in **[doc/design.md](doc/design.md)**: the gap this tie
 fills, the decoupling rule, the five responsibilities (founding and charter, substrate
 articulation, internal offices, cohesion monitoring, longevity), what it reuses from KC
 and what is new, the machine-guardian model, and the lifecycle. Design decisions are
-numbered D1-D30 there and referenced by number below. Outstanding scope is in
-[TODO.md](TODO.md).
+numbered D1-D31 there and referenced by number below. How the tier is built,
+which toolchain choices are deliberate, and the verification discipline behind
+those decisions are in
+[doc/architecture/build-and-toolchain.md](doc/architecture/build-and-toolchain.md).
+Outstanding scope is in [TODO.md](TODO.md).
 
 The Rust workspace, and the Python surface over it (D2):
 

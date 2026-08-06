@@ -510,6 +510,36 @@ and developed in
   is run continuously in the simulation environment, with
   detection latency and damage bounds as the primary metrics.
 
+**As built: continuous execution is parameter variation, not iteration.**
+The item read as though a scheduler was the missing piece, and measuring it
+found otherwise: `run_harness()` is a **constant function**, 200 consecutive
+runs returning byte-identical latency and damage for every scenario. A loop
+around it recomputes the same numbers forever. So what the harness gained was
+`HarnessParams` (whose `canonical()` reproduces the hand-authored case
+byte-for-byte, as a fixed point) and three drivers over it: `run_continuous`,
+taking seeded draws and accumulating the worst observed latency and damage per
+scenario **together with the seed that produced each**; `sweep` / `sweep_all`,
+walking one parameter through its whole declared range so that a moving bound
+becomes a reported number; and `shrink_failure`, minimizing a failing parameter
+set back toward canonical. There is no daemon and no scheduler: the calls are
+bounded and return, because the cadence belongs to the caller.
+
+That work also corrected the criteria themselves. Several were not properties of
+a detector at all but encodings of their fixture: one damage bound held only
+because a hand-written witness sequence declined on its first comparable cycle,
+so a flat prefix scored worse with **no detector at fault**, and another was
+literally its own detection threshold. "Criteria stated in advance" therefore
+became *state the **formula** in advance*, with the old constants retained as
+their canonical-case values and a regression test that restores each old
+constant and confirms it now fails. A search over 400 randomized rounds plus a
+full sweep of every declared range finds no failures, which is meaningful only
+because the machinery demonstrably can fail: the suite breaks a criterion on
+purpose and checks that the failure is caught, shrunk, and replayable from its
+seed. Demo and suite use a fixed seed, so a search can never redden the build.
+The honest limit is that a seed reproduces the *parameters* and not the key
+material, Ed25519 keys coming from the OS CSPRNG, so key-order independence is a
+test rather than an assumption.
+
 **Falsification criteria.** What observable outcomes would count as
 kith-covenant failing must be stated in advance, per component and at the
 whole-compact level: explicit design, not implicit. This is the
