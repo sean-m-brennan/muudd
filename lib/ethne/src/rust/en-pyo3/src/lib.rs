@@ -72,6 +72,7 @@ use en_store::{ArchiveStore, FileStore, Reconciled, SaveOutcome};
 use en_cohesion::{
     cohesion_report as cohesion_report_rs, CohesionInputs, CohesionReport, ErosionLevel, Thresholds,
 };
+use en_host::{DueAction, HostConfig, HostCycle};
 use en_core::{keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, Signed, Timestamp};
 use en_substrate::{FoundingCandidate, ManualFounding, MemberCandidate, SubstrateProvider};
 use en_uplift::FusionPredecessor;
@@ -1007,6 +1008,35 @@ impl PyCohesionReport {
     fn erosion(&self) -> &'static str {
         erosion_name(self.inner.erosion)
     }
+
+    /// **Which optional readings this grade was not given** (design **D31**), by the
+    /// keyword names `cohesion_report` takes.
+    ///
+    /// Every optional input reports *nothing* rather than health when absent, which is
+    /// useless to a reader who cannot tell silence from health. Empty here means the
+    /// grade saw everything, which is what `HostCycle.grade` guarantees.
+    #[getter]
+    fn omitted_readings(&self) -> Vec<&'static str> {
+        self.inner.omitted_readings.clone()
+    }
+
+    /// The measures that therefore said nothing: the consequence rather than the cause.
+    #[getter]
+    fn silent_measures(&self) -> Vec<&'static str> {
+        self.inner.silent_measures()
+    }
+
+    /// Whether any measure that **can reach `Concern`** was silent.
+    ///
+    /// `report.erosion == "None" and report.blind_to_concern` is *no news, and I was not
+    /// looking* — a distinction nothing else here can draw, since a component with
+    /// nothing to say and a component with nothing to say it *from* both contribute
+    /// nothing to the level. `rites` and `observers` never set this: rite erosion is
+    /// capped at `Notice`, and the watcher lens is read by no level at all.
+    #[getter]
+    fn blind_to_concern(&self) -> bool {
+        self.inner.blind_to_concern()
+    }
 }
 
 /// Grade the strain between a chartered roll and what the substrate currently
@@ -1136,6 +1166,336 @@ fn cohesion_report(
         &thresholds,
     );
     Ok(PyCohesionReport { inner })
+}
+
+// ---- The host's cadence (D20), bound whole (D31) -----------------------------
+
+/// How often a host attends to each duty, and on what terms (design **D20**).
+///
+/// The cadences are policy rather than charter: a polity's charter does not say how
+/// often its host wakes up. Threshold and retention overrides are the same flattened
+/// keywords `cohesion_report` and `Archive.prune_recommendation` take, because a host
+/// configured one way and a hand call configured another would be two answers to one
+/// question.
+///
+///     config = HostConfig(polity_did, cohesion_cadence_seconds=3600)
+///     cycle = HostCycle(config)
+#[pyclass(name = "HostConfig")]
+#[derive(Clone)]
+struct PyHostConfig {
+    inner: HostConfig,
+}
+
+#[pymethods]
+impl PyHostConfig {
+    #[new]
+    #[pyo3(signature = (
+        polity_did,
+        opaque_boundary=false,
+        cohesion_cadence_seconds=None,
+        retention_cadence_seconds=None,
+        save_cadence_seconds=None,
+        observation_window_seconds=None,
+        reputation_floor=None,
+        attrition_notice=None,
+        attrition_concern=None,
+        mean_reputation_notice=None,
+        mean_reputation_concern=None,
+        breach_notice=None,
+        breach_concern=None,
+        attendance_cadence_seconds=None,
+        unattended_notice=None,
+        unrated_notice=None,
+        affirmation_cadence_seconds=None,
+        affirmation_stale_notice=None,
+        affirmation_stale_concern=None,
+        guardian_lost_notice=None,
+        guardian_lost_concern=None,
+        churn_window_seconds=None,
+        churn_notice=None,
+        churn_concern=None,
+        sustained_absence_seconds=None,
+        sustained_absence_watchers=None,
+        retain_seconds=None,
+        min_dropped=None,
+        live_measure_seconds=None,
+        min_witness_watchers=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        polity_did: &str,
+        opaque_boundary: bool,
+        cohesion_cadence_seconds: Option<i64>,
+        retention_cadence_seconds: Option<i64>,
+        save_cadence_seconds: Option<i64>,
+        observation_window_seconds: Option<i64>,
+        reputation_floor: Option<f64>,
+        attrition_notice: Option<f64>,
+        attrition_concern: Option<f64>,
+        mean_reputation_notice: Option<f64>,
+        mean_reputation_concern: Option<f64>,
+        breach_notice: Option<f64>,
+        breach_concern: Option<f64>,
+        attendance_cadence_seconds: Option<i64>,
+        unattended_notice: Option<f64>,
+        unrated_notice: Option<f64>,
+        affirmation_cadence_seconds: Option<i64>,
+        affirmation_stale_notice: Option<f64>,
+        affirmation_stale_concern: Option<f64>,
+        guardian_lost_notice: Option<f64>,
+        guardian_lost_concern: Option<f64>,
+        churn_window_seconds: Option<i64>,
+        churn_notice: Option<f64>,
+        churn_concern: Option<f64>,
+        sustained_absence_seconds: Option<i64>,
+        sustained_absence_watchers: Option<usize>,
+        retain_seconds: Option<i64>,
+        min_dropped: Option<usize>,
+        live_measure_seconds: Option<i64>,
+        min_witness_watchers: Option<usize>,
+    ) -> PyResult<Self> {
+        // `HostConfig::new` derives two of its cadences from the thresholds and the
+        // retention policy, so those are settled first and the derived defaults are
+        // read back off the result rather than restated here.
+        let d = Thresholds::default();
+        let dr = RetentionPolicy::default();
+        let mut inner = HostConfig::new(parse_did(polity_did)?);
+        inner.thresholds = Thresholds {
+            reputation_floor: reputation_floor.unwrap_or(d.reputation_floor),
+            attrition_notice: attrition_notice.unwrap_or(d.attrition_notice),
+            attrition_concern: attrition_concern.unwrap_or(d.attrition_concern),
+            mean_reputation_notice: mean_reputation_notice.unwrap_or(d.mean_reputation_notice),
+            mean_reputation_concern: mean_reputation_concern
+                .unwrap_or(d.mean_reputation_concern),
+            breach_notice: breach_notice.unwrap_or(d.breach_notice),
+            breach_concern: breach_concern.unwrap_or(d.breach_concern),
+            attendance_cadence_seconds: attendance_cadence_seconds
+                .unwrap_or(d.attendance_cadence_seconds),
+            unattended_notice: unattended_notice.unwrap_or(d.unattended_notice),
+            unrated_notice: unrated_notice.unwrap_or(d.unrated_notice),
+            affirmation_cadence_seconds: affirmation_cadence_seconds
+                .unwrap_or(d.affirmation_cadence_seconds),
+            affirmation_stale_notice: affirmation_stale_notice
+                .unwrap_or(d.affirmation_stale_notice),
+            affirmation_stale_concern: affirmation_stale_concern
+                .unwrap_or(d.affirmation_stale_concern),
+            guardian_lost_notice: guardian_lost_notice.unwrap_or(d.guardian_lost_notice),
+            guardian_lost_concern: guardian_lost_concern.unwrap_or(d.guardian_lost_concern),
+            churn_window_seconds: churn_window_seconds.unwrap_or(d.churn_window_seconds),
+            churn_notice: churn_notice.unwrap_or(d.churn_notice),
+            churn_concern: churn_concern.unwrap_or(d.churn_concern),
+            sustained_absence_seconds: sustained_absence_seconds
+                .unwrap_or(d.sustained_absence_seconds),
+            sustained_absence_watchers: sustained_absence_watchers
+                .unwrap_or(d.sustained_absence_watchers),
+        };
+        inner.retention = RetentionPolicy {
+            retain_seconds: retain_seconds.unwrap_or(dr.retain_seconds),
+            min_dropped: min_dropped.unwrap_or(dr.min_dropped),
+            live_measure_seconds: live_measure_seconds.unwrap_or(dr.live_measure_seconds),
+            min_witness_watchers: min_witness_watchers.unwrap_or(dr.min_witness_watchers),
+        };
+        inner.opaque_boundary = opaque_boundary;
+        // The two derived defaults track whatever the caller just set: the grade runs at
+        // the attendance cadence (its fastest-moving input) and the window spans the
+        // retention (everything the polity chose to keep, and no more).
+        inner.cohesion_cadence_seconds =
+            cohesion_cadence_seconds.unwrap_or(inner.thresholds.attendance_cadence_seconds);
+        inner.observation_window_seconds =
+            observation_window_seconds.unwrap_or(inner.retention.retain_seconds);
+        if let Some(s) = retention_cadence_seconds {
+            inner.retention_cadence_seconds = s;
+        }
+        if let Some(s) = save_cadence_seconds {
+            inner.save_cadence_seconds = s;
+        }
+        Ok(PyHostConfig { inner })
+    }
+
+    /// The polity this host runs.
+    #[getter]
+    fn polity(&self) -> String {
+        self.inner.polity.as_str().to_string()
+    }
+
+    /// Whether the substrate's boundary is opaque, which caps attrition at `Notice`.
+    #[getter]
+    fn opaque_boundary(&self) -> bool {
+        self.inner.opaque_boundary
+    }
+
+    #[getter]
+    fn cohesion_cadence_seconds(&self) -> i64 {
+        self.inner.cohesion_cadence_seconds
+    }
+
+    #[getter]
+    fn retention_cadence_seconds(&self) -> i64 {
+        self.inner.retention_cadence_seconds
+    }
+
+    #[getter]
+    fn save_cadence_seconds(&self) -> i64 {
+        self.inner.save_cadence_seconds
+    }
+
+    #[getter]
+    fn observation_window_seconds(&self) -> i64 {
+        self.inner.observation_window_seconds
+    }
+
+    /// What the thresholds resolved to, over the same keys as `DEFAULT_THRESHOLDS`.
+    #[getter]
+    fn thresholds<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        thresholds_dict(py, &self.inner.thresholds)
+    }
+
+    /// What the retention policy resolved to, over the same keys as
+    /// `DEFAULT_RETENTION`.
+    #[getter]
+    fn retention<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        retention_dict(py, &self.inner.retention)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "HostConfig(polity={}, cohesion_cadence_seconds={}, \
+             retention_cadence_seconds={}, save_cadence_seconds={}, \
+             observation_window_seconds={})",
+            self.inner.polity.as_str(),
+            self.inner.cohesion_cadence_seconds,
+            self.inner.retention_cadence_seconds,
+            self.inner.save_cadence_seconds,
+            self.inner.observation_window_seconds,
+        )
+    }
+}
+
+/// Something the host should do now. **Returned, never performed.**
+///
+/// `kind` is `"Save"`, `"Cohesion"`, `"RaiseConcern"` or `"Prune"`. `report` carries the
+/// graded `CohesionReport` for the middle two and `recommendation` the
+/// `PruneRecommendation` for the last; exactly one of them is set, and neither is for a
+/// `Save`.
+///
+/// Raising a Concern and pruning both need keys, and the keys are the host's: the
+/// polity still ratifies its own housekeeping, and alarm-raising is signed by whoever
+/// raises it. So this is a report over a computed state and not a record.
+#[pyclass(name = "DueAction")]
+#[derive(Clone)]
+struct PyDueAction {
+    /// A short, stable name: `"Save"`, `"Cohesion"`, `"RaiseConcern"`, `"Prune"`.
+    #[pyo3(get)]
+    kind: &'static str,
+    /// The grade, for `"Cohesion"` and `"RaiseConcern"`.
+    #[pyo3(get)]
+    report: Option<PyCohesionReport>,
+    /// The terms, for `"Prune"`.
+    #[pyo3(get)]
+    recommendation: Option<PyPruneRecommendation>,
+}
+
+#[pymethods]
+impl PyDueAction {
+    fn __repr__(&self) -> String {
+        format!("DueAction({})", self.kind)
+    }
+}
+
+impl PyDueAction {
+    fn from_rs(action: DueAction) -> Self {
+        let kind = action.kind();
+        match action {
+            DueAction::Save => PyDueAction { kind, report: None, recommendation: None },
+            DueAction::Cohesion(inner) | DueAction::RaiseConcern(inner) => PyDueAction {
+                kind,
+                report: Some(PyCohesionReport { inner }),
+                recommendation: None,
+            },
+            DueAction::Prune(inner) => PyDueAction {
+                kind,
+                report: None,
+                recommendation: Some(PyPruneRecommendation { inner }),
+            },
+        }
+    }
+}
+
+/// A host's cadence state: what it last attended to, and when (design **D20**).
+///
+/// **`tick` decides and computes; the host signs and does I/O.** Nothing here writes a
+/// store, signs a record or reads a clock: `as_of` arrives like every other cadence in
+/// this tier, so the same cycle drives a simulated timeline in a test and a real one in
+/// production with identical results.
+///
+///     cycle = HostCycle(HostConfig(polity_did))
+///     for action in cycle.tick(archive, candidate, as_of=now):
+///         if action.kind == "Save":
+///             store.save(archive)
+///         elif action.kind == "RaiseConcern":
+///             record = coherence_concern(action.report, polity_did, observer)
+///
+/// `grade` is exposed in its own right because it is the assembly a caller otherwise
+/// has to know to perform: it supplies **every** read-model the archive can offer, and
+/// an omitted one makes its component report nothing rather than complain. Since
+/// **D31** a report says which readings it was given, so a hand-assembled grade is at
+/// least legible; this is how you avoid needing that.
+#[pyclass(name = "HostCycle")]
+struct PyHostCycle {
+    inner: HostCycle,
+}
+
+#[pymethods]
+impl PyHostCycle {
+    #[new]
+    fn new(config: &PyHostConfig) -> Self {
+        PyHostCycle { inner: HostCycle::new(config.inner.clone()) }
+    }
+
+    /// What is due at `as_of` (epoch seconds, default now).
+    ///
+    /// Everything is due on the first tick. A duty is marked attended when it is
+    /// *computed*, not when the host acts on the result, so ignoring a returned action
+    /// does not make the host spin on it; the next cadence recomputes. A polity that is
+    /// not yet chartered or already dissolved gets `Save` and nothing else, since the
+    /// log is what remains of it.
+    #[pyo3(signature = (archive, candidate, as_of=None))]
+    fn tick(
+        &mut self,
+        archive: &PyArchive,
+        candidate: &PyFoundingCandidate,
+        as_of: Option<i64>,
+    ) -> PyResult<Vec<PyDueAction>> {
+        let due = self.inner.tick(&archive.inner, &candidate.inner, ts_or_now(as_of)?);
+        Ok(due.into_iter().map(PyDueAction::from_rs).collect())
+    }
+
+    /// Grade cohesion with **every** read-model the archive can supply.
+    ///
+    /// The safe form of `cohesion_report`: assembling the seven readings is the part a
+    /// host would otherwise have to know to do, and omitting one is silent in the
+    /// direction of health. The returned report's `omitted_readings` is empty, and its
+    /// own test asserts so.
+    #[pyo3(signature = (archive, candidate, as_of=None))]
+    fn grade(
+        &self,
+        archive: &PyArchive,
+        candidate: &PyFoundingCandidate,
+        as_of: Option<i64>,
+    ) -> PyResult<PyCohesionReport> {
+        let inner = self.inner.grade(&archive.inner, &candidate.inner, ts_or_now(as_of)?);
+        Ok(PyCohesionReport { inner })
+    }
+
+    /// The configuration this cycle runs on.
+    #[getter]
+    fn config(&self) -> PyHostConfig {
+        PyHostConfig { inner: self.inner.config().clone() }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("HostCycle(polity={})", self.inner.config().polity.as_str())
+    }
 }
 
 // ---- Uplift: the interface to kith-covenant ---------------------------------
@@ -3308,6 +3668,7 @@ impl PyAffirmationState {
 /// signs it. The routes are reported cheapest first; both appear when both are open,
 /// because the officer route is an *alternative* to the roll and never a gate on it.
 #[pyclass(name = "PruneRecommendation")]
+#[derive(Clone)]
 struct PyPruneRecommendation {
     inner: PruneRecommendation,
 }
@@ -4164,7 +4525,15 @@ impl PyFoundingLegitimacy {
 /// `en-charter`'s own retention defaults, so the Python side never carries a second
 /// copy of them.
 fn default_retention(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
-    let d = RetentionPolicy::default();
+    retention_dict(py, &RetentionPolicy::default())
+}
+
+/// A retention policy as a dict, so `HostConfig` can report what it resolved to over
+/// the same key names the defaults use (**D31**).
+fn retention_dict<'py>(
+    py: Python<'py>,
+    d: &RetentionPolicy,
+) -> PyResult<Bound<'py, PyDict>> {
     let out = PyDict::new(py);
     out.set_item("retain_seconds", d.retain_seconds)?;
     out.set_item("min_dropped", d.min_dropped)?;
@@ -4176,7 +4545,11 @@ fn default_retention(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
 /// `en-cohesion`'s own threshold defaults, so the Python side never carries a
 /// second copy of them.
 fn default_thresholds(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
-    let d = Thresholds::default();
+    thresholds_dict(py, &Thresholds::default())
+}
+
+/// Thresholds as a dict, over the same key names the defaults use (**D31**).
+fn thresholds_dict<'py>(py: Python<'py>, d: &Thresholds) -> PyResult<Bound<'py, PyDict>> {
     let out = PyDict::new(py);
     out.set_item("reputation_floor", d.reputation_floor)?;
     out.set_item("attrition_notice", d.attrition_notice)?;
@@ -4229,6 +4602,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyAffirmationState>()?;
     m.add_class::<PyFoundingCandidate>()?;
     m.add_class::<PyCohesionReport>()?;
+    m.add_class::<PyHostConfig>()?;
+    m.add_class::<PyDueAction>()?;
+    m.add_class::<PyHostCycle>()?;
     m.add_class::<PyFissionOutcome>()?;
     m.add_class::<PyFusionOutcome>()?;
     m.add_function(wrap_pyfunction!(generate_ed25519_keypair, m)?)?;

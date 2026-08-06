@@ -351,8 +351,83 @@ pub struct CohesionReport {
     /// Not a ratio, and not comparable to the rest of this report: it is one signed
     /// act by the one key entitled to perform it.
     pub ground_disavowed: bool,
+    /// **Which optional readings this grade was not given** (design **D31**), by the
+    /// field names of [`CohesionInputs`], in that order.
+    ///
+    /// Every optional input here reports *nothing* rather than health when it is
+    /// absent, which is right for a library and useless to a reader who cannot tell
+    /// silence from health. Until this field existed the only thing standing between a
+    /// forgetful caller and a false clean bill was having gone through `en-host`, whose
+    /// `HostCycle::grade` assembles all of them. A caller off that path inherited the
+    /// hazard whole, and the Python side had no `en-host` at all.
+    ///
+    /// So the answer travels with the grade rather than with the call site. It is the
+    /// same move **D28** made for `unvouched`: absence made visible instead of read as
+    /// presence. And it is a **lens, never a gate** — a partial grade stays legitimate,
+    /// because a young polity has held no rites and a caller may deliberately want one
+    /// component. What changes is that the report can say so.
+    ///
+    /// See [`silent_measures`](Self::silent_measures) for what went quiet, and
+    /// [`blind_to_concern`](Self::blind_to_concern) for whether any of it could have
+    /// escalated.
+    pub omitted_readings: Vec<&'static str>,
     /// The graded erosion this report carries.
     pub erosion: ErosionLevel,
+}
+
+impl CohesionReport {
+    /// The measures that said nothing because their reading was absent (**D31**).
+    ///
+    /// Derived from [`omitted_readings`](Self::omitted_readings) over a fixed table, so
+    /// a reader gets the consequence rather than the cause: `guardians` missing is a
+    /// fact about the call, `guardian_edges_lost` reporting nothing is a fact about the
+    /// grade, and it is the second one that matters when the erosion reads `None`.
+    pub fn silent_measures(&self) -> Vec<&'static str> {
+        self.omitted_readings.iter().flat_map(|input| silent_for(input)).copied().collect()
+    }
+
+    /// Whether any measure that **can reach `Concern`** was silent (**D31**).
+    ///
+    /// `erosion == ErosionLevel::None && blind_to_concern()` is the honest reading of
+    /// *no news, and I was not looking* — a distinction no other field here can draw,
+    /// since a component with nothing to say and a component with nothing to say it
+    /// *from* both contribute [`ErosionLevel::None`] to the maximum.
+    ///
+    /// Which inputs qualify is a property of the levels below, not a judgement:
+    /// `guardians`, `affirmations`, `trends` and `window` each carry a component with a
+    /// `Concern` step, and `ground` reaches `Concern` alone. `rites` is capped at
+    /// `Notice`, and `observers` feeds the `watchers` lens that no level reads, so
+    /// neither of those blinds this report to anything it could have escalated on.
+    pub fn blind_to_concern(&self) -> bool {
+        self.omitted_readings.iter().any(|input| CONCERN_CAPABLE_INPUTS.contains(input))
+    }
+}
+
+/// The inputs carrying at least one component with a `Concern` step. See
+/// [`CohesionReport::blind_to_concern`].
+const CONCERN_CAPABLE_INPUTS: [&str; 5] =
+    ["guardians", "affirmations", "trends", "window", "ground"];
+
+/// What goes quiet when a given input is absent. The other half of
+/// [`CohesionReport::silent_measures`], kept beside the constant above so the two
+/// tables are read together.
+fn silent_for(input: &str) -> &'static [&'static str] {
+    match input {
+        "guardians" => &["guardian_edges_lost"],
+        // Two of them, and the second is why an absent transmission reading is worse
+        // than it looks: a polity where nobody holds the substrate can take no
+        // second-class act of its own, and this is the only thing that says so.
+        "affirmations" => &["stale_affirmations", "nobody_holds_the_substrate"],
+        "trends" => &["gap_widening", "witness_count_declined", "churn_rate"],
+        // The window is the only input that is a memory rather than a state, so losing
+        // it costs both the one absence measure permitted to escalate and D28's lens
+        // over who was watching while it lasted.
+        "window" => &["sustained_absences", "watchers"],
+        "ground" => &["ground_disavowed"],
+        "rites" => &["rite_span_shortening", "rite_attrition"],
+        "observers" => &["watchers.vouched", "watchers.contested"],
+        _ => &[],
+    }
 }
 
 fn grade(value: f64, notice: f64, concern: f64) -> ErosionLevel {
@@ -455,6 +530,42 @@ pub struct CohesionInputs<'a> {
     /// Who has vouched for the polity's monitors (D28). Feeds the `watchers` lens
     /// and nothing else: no component reads it, and no level moves on it.
     pub observers: Option<&'a IndependentObservation>,
+}
+
+impl CohesionInputs<'_> {
+    /// Which of these readings are absent, by field name and in declaration order
+    /// (**D31**). Empty when every one was supplied, which is what `en-host`'s
+    /// `HostCycle::grade` guarantees and what its own test now asserts directly.
+    ///
+    /// The names are stable: they are what
+    /// [`CohesionReport::omitted_readings`] carries and what a Python caller reads back
+    /// through the binding, so they are part of the interface rather than a debug
+    /// convenience.
+    pub fn omitted(&self) -> Vec<&'static str> {
+        let mut out = Vec::new();
+        if self.guardians.is_none() {
+            out.push("guardians");
+        }
+        if self.affirmations.is_none() {
+            out.push("affirmations");
+        }
+        if self.trends.is_none() {
+            out.push("trends");
+        }
+        if self.window.is_none() {
+            out.push("window");
+        }
+        if self.ground.is_none() {
+            out.push("ground");
+        }
+        if self.rites.is_none() {
+            out.push("rites");
+        }
+        if self.observers.is_none() {
+            out.push("observers");
+        }
+        out
+    }
 }
 
 /// Read a polity's cohesion by comparing its `chartered_roll` against the
@@ -873,6 +984,11 @@ pub fn cohesion_report(
         rite_attrition,
         nobody_holds_the_substrate,
         ground_disavowed,
+        // D31 — what this grade was not given. Taken from the inputs rather than
+        // reconstructed from the measures above, because several of them are
+        // indistinguishable from a genuine zero: `sustained_absences == 0` is either
+        // nobody absent or nothing read, and only the call knows which.
+        omitted_readings: inputs.omitted(),
         erosion,
     }
 }
@@ -2487,5 +2603,165 @@ mod tests {
         assert_eq!(with.watchers.unwrap().unvouched(), 2);
         assert_eq!(bare.erosion, with.erosion, "the lens must not move the level");
         assert_eq!(bare.sustained_absences, with.sustained_absences);
+    }
+
+    // ---- D31: a grade says what it was not given -----------------------------
+
+    /// Every optional reading, so the omission list has a zero to be measured against.
+    fn every_reading(
+        m: &DidKey,
+        seen: &ObservationWindow,
+        ground: &GroundStanding,
+        rites: &[Rite],
+        guardians: &GuardianState,
+        affirmations: &AffirmationState,
+        trends: &DecayTrends,
+        observers: &IndependentObservation,
+    ) -> CohesionReport {
+        cohesion_report(
+            &[m.clone()],
+            &guarded(&[(m.clone(), 0.9, Some(did()), Some(at(0)))]),
+            false,
+            &CohesionInputs {
+                guardians: Some(guardians),
+                affirmations: Some(affirmations),
+                trends: Some(trends),
+                window: Some(seen),
+                ground: Some(ground),
+                rites: Some(rites),
+                observers: Some(observers),
+            },
+            at(0),
+            &Thresholds::default(),
+        )
+    }
+
+    #[test]
+    fn a_grade_given_everything_omits_nothing() {
+        // The negative control, and the invariant `en-host` is now pinned to: a lens
+        // that fires on a complete call is worse than no lens.
+        let m = did();
+        let seen = window(&[(0, vec![(m.clone(), Some(0))])]);
+        let g = GroundStanding { entries: vec![] };
+        let rites = vec![rite(&m, &[(0, 2), (10, 2)], true)];
+        let guardians = chartered(&[(m.clone(), Some(did()))]);
+        let affirmations = affirmed(&[(m.clone(), true, Some(at(0)))]);
+        let tr = trends(&[10], &[2], &[]);
+        let ind =
+            IndependentObservation { observers: vec![], contested: vec![], unvouched: vec![] };
+        let r = every_reading(&m, &seen, &g, &rites, &guardians, &affirmations, &tr, &ind);
+        assert!(r.omitted_readings.is_empty(), "{:?}", r.omitted_readings);
+        assert!(r.silent_measures().is_empty());
+        assert!(!r.blind_to_concern());
+    }
+
+    #[test]
+    fn a_grade_given_nothing_names_all_seven_readings() {
+        let m = did();
+        let r = cohesion_report(
+            &[m.clone()],
+            &guarded(&[(m.clone(), 0.9, None, None)]),
+            false,
+            &CohesionInputs::default(),
+            at(0),
+            &Thresholds::default(),
+        );
+        assert_eq!(
+            r.omitted_readings,
+            ["guardians", "affirmations", "trends", "window", "ground", "rites", "observers"],
+            "declaration order, and the names are interface"
+        );
+        assert!(r.blind_to_concern());
+        // The consequence, not the cause: what a reader of the grade needs.
+        assert!(r.silent_measures().contains(&"sustained_absences"));
+        assert!(r.silent_measures().contains(&"nobody_holds_the_substrate"));
+        assert_eq!(r.erosion, ErosionLevel::None, "and it still reads clean");
+    }
+
+    #[test]
+    fn the_omission_that_hides_a_withdrawn_ground_says_so() {
+        // The measured hole, as a regression. A polity whose chartered ground has
+        // withdrawn grades `Concern` when the reading is supplied and `None` when it is
+        // not, and until D31 nothing in the second report distinguished it from health.
+        let m = did();
+        let withdrawn_ground = withdrawn(0);
+        let read = |ground| {
+            cohesion_report(
+                &[m.clone()],
+                &guarded(&[(m.clone(), 0.9, None, None)]),
+                false,
+                &CohesionInputs { ground, ..Default::default() },
+                at(DAY),
+                &Thresholds::default(),
+            )
+        };
+        let told = read(Some(&withdrawn_ground));
+        let not_told = read(None);
+        assert_eq!(told.erosion, ErosionLevel::Concern);
+        assert_eq!(not_told.erosion, ErosionLevel::None);
+        // Legibility, not prevention: the Concern is still lost. What is bought is that
+        // the second report can no longer be read as a clean bill of health.
+        assert!(not_told.omitted_readings.contains(&"ground"));
+        assert!(not_told.silent_measures().contains(&"ground_disavowed"));
+        assert!(not_told.blind_to_concern());
+        assert!(!told.omitted_readings.contains(&"ground"));
+    }
+
+    #[test]
+    fn only_a_concern_capable_reading_blinds_the_grade_to_one() {
+        // The split is a property of the levels, not a judgement, so it is asserted
+        // rather than described: rites are capped at `Notice` and the watcher lens is
+        // read by no component at all, so neither absence hides an escalation.
+        let m = did();
+        let seen = window(&[(0, vec![(m.clone(), Some(0))])]);
+        let g = GroundStanding { entries: vec![] };
+        let rites = vec![rite(&m, &[(0, 2), (10, 2)], true)];
+        let guardians = chartered(&[(m.clone(), Some(did()))]);
+        let affirmations = affirmed(&[(m.clone(), true, Some(at(0)))]);
+        let tr = trends(&[10], &[2], &[]);
+        let ind =
+            IndependentObservation { observers: vec![], contested: vec![], unvouched: vec![] };
+        let full = CohesionInputs {
+            guardians: Some(&guardians),
+            affirmations: Some(&affirmations),
+            trends: Some(&tr),
+            window: Some(&seen),
+            ground: Some(&g),
+            rites: Some(&rites),
+            observers: Some(&ind),
+        };
+        let grade_with = |inputs: &CohesionInputs| {
+            cohesion_report(
+                &[m.clone()],
+                &guarded(&[(m.clone(), 0.9, Some(did()), Some(at(0)))]),
+                false,
+                inputs,
+                at(0),
+                &Thresholds::default(),
+            )
+        };
+
+        let no_rites = grade_with(&CohesionInputs { rites: None, ..full.clone() });
+        assert_eq!(no_rites.omitted_readings, ["rites"]);
+        assert_eq!(no_rites.silent_measures(), ["rite_span_shortening", "rite_attrition"]);
+        assert!(!no_rites.blind_to_concern(), "rite erosion is capped at Notice");
+
+        let no_observers = grade_with(&CohesionInputs { observers: None, ..full.clone() });
+        assert_eq!(no_observers.silent_measures(), ["watchers.vouched", "watchers.contested"]);
+        assert!(!no_observers.blind_to_concern(), "D28's lens is read by no level");
+
+        let no_window = grade_with(&CohesionInputs { window: None, ..full.clone() });
+        assert!(no_window.blind_to_concern(), "the one absence measure that escalates");
+
+        for one in ["guardians", "affirmations", "trends", "ground"] {
+            let mut inputs = full.clone();
+            match one {
+                "guardians" => inputs.guardians = None,
+                "affirmations" => inputs.affirmations = None,
+                "trends" => inputs.trends = None,
+                _ => inputs.ground = None,
+            }
+            assert!(grade_with(&inputs).blind_to_concern(), "{one} carries a Concern step");
+        }
     }
 }

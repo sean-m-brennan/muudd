@@ -18,6 +18,10 @@ en-substrate = { workspace = true }
 en-cohesion = { workspace = true }
 en-uplift = { workspace = true }
 en-store = { workspace = true }
+# D31 — the cadenced duties, so a Python host drives the same cycle a Rust one does
+# rather than reimplementing it. Adds nothing to the graph: en-host reaches only
+# en-core / en-archive / en-charter / en-cohesion / en-substrate, all already above.
+en-host = { workspace = true }
 # The neutral base, for the KC-facing record types the uplift calls carry
 # (`CommunityIdentity`). Same dependency every en-* crate already has via en-core.
 # No §8 source-protection crypto here. The opt-out lives in the workspace entry, not

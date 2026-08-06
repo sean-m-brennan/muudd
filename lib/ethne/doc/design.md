@@ -1020,7 +1020,9 @@ KC cannot see on its own and AT cannot decide on its own.
     workspace graph is unchanged and still `kc-core`-only. Concurrent writers are a
     host error: two stores over one file fail loudly rather than interleaving, but
     nothing *locks*. And `en-host` is Rust-side only: a Python host gets `FileStore`
-    and the read-models, not the cycle.
+    and the read-models, not the cycle. (Both are closed: locking by D30's own second
+    half, and the binding by **D31**, where measuring the second one found it was never
+    about ergonomics.)
 
 - **D21: a founding says what it excluded (resolving Q1).**
   The genesis authority rule asked for a majority of `p.members.len()` (the
@@ -1869,6 +1871,80 @@ KC cannot see on its own and AT cannot decide on its own.
   SQLite check outside its transaction broke nothing, because the test's writers act
   sequentially and never contend the window. The `IMMEDIATE` placement rests on reasoning
   about that window rather than on a test that distinguishes it.
+
+- **D31: the cycle crosses to Python, and a grade says what it was not given.**
+  D30 closed with one clause still owed: *"`en-host` is Rust-side only: a Python host gets
+  `FileStore` and the read-models, not the cycle."* Read as ergonomics that was a small
+  item. Measured, it was not.
+
+  **The measured hole.** `_core` exported 48 names and none of them was the cycle, so a
+  Python host reimplemented two things: the cadence bookkeeping, which is tedious, and the
+  read-model assembly, which fails silently. `cohesion_report` takes seven optional
+  readings and each omitted one makes its component report **nothing**, which no reader
+  can tell from health. So: a healthy three-member anchored polity, three rotating
+  monitors, and its chartered ground files a `SubstrateDisavowal`, which is a `Concern`
+  alone with no threshold (D23). Through `HostCycle::grade` that is
+  `erosion=Concern, ground_disavowed=true`. Assembled the way ethne's **own Python demo**
+  assembled it, one of the seven supplied, it is `erosion=None, ground_disavowed=false`,
+  both passes green, nothing amiss anywhere in the report. Omitting `ground` alone loses
+  the escalation by itself.
+
+  **This is D23's finding #4 recurring, one level out.** That slice found that a component
+  whose input `grade` forgets reports health rather than complaining, and closed it with
+  two `en-host` tests pinning `grade`. Which means the safety lived in a *test of one
+  crate*, and every caller off that path inherited the hazard whole. The Python side had
+  no such path at all.
+
+  **(A) The report carries what it was not given.** `CohesionInputs::omitted()` names the
+  absent readings; `CohesionReport::omitted_readings` carries them, so the answer travels
+  with the grade rather than with the call site; `silent_measures()` maps them to the
+  measures that therefore said nothing, which is the consequence a reader needs rather
+  than the cause; and `blind_to_concern()` reports whether any measure that **can reach
+  Concern** was silent, so `erosion == None && blind_to_concern()` finally distinguishes
+  *no news* from *I was not looking*. This is **D28's `unvouched` move one level down**:
+  absence made visible instead of read as presence. And it is a **lens, never a gate**. A
+  partial grade stays legitimate, because a young polity has held no rites and a caller
+  comparing two readings may deliberately want one component; what changes is that the
+  report says so. Which inputs count as Concern-capable is a property of the levels and
+  not a judgement: `guardians`, `affirmations` (twice over, since
+  `nobody_holds_the_substrate` is the only thing that reports a polity unable to take a
+  second-class act of its own), `trends` via churn, `window` via sustained absence, and
+  `ground`. `rites` is capped at `Notice` and `observers` feeds a lens no level reads, so
+  neither blinds a grade to anything it could have escalated on.
+
+  **(B) The cycle itself crosses.** `en-pyo3` gains `en-host` and binds `HostConfig`,
+  `DueAction` and `HostCycle` whole. It adds nothing to the graph: `en-host` reaches only
+  crates the binding already had, and its own tree is `kc-core`-only. `tick` performs
+  nothing on the Python side either, which is D20's line held rather than restated: a
+  convenience that saved a Python host from signing would have put keys inside the
+  library on one side of the binding only. `grade` is exposed in its own right, because it
+  is the assembly a caller otherwise has to know to perform.
+
+  **(C) A Python reference host, and mirroring it found a second defect.** Writing
+  `src/python/examples/polity_host.py` against the Rust one exposed something in the Rust
+  one: **both reference hosts held a single monitor, so neither ever pruned.** D19's
+  retention floor counts distinct **watchers per member** since D28, and one monitor
+  filing every day never clears it. Measured on one log: one monitor gives
+  `prune_recommendation` `None`, three give `dropped=370`. So 40 ticks and 400
+  observations produced **0 compactions**, while the restart section printed a compaction
+  count as though it had exercised one, and the entire `Prune` arm, the rewrite branch and
+  the generation check were dead in the demo that exists to show them. D28 rotated three
+  monitors through five *test* fixtures and left the examples alone. Both hosts now
+  rotate three: three compactions, generation 3, and the round trip still agrees CID for
+  CID.
+
+  **The transferable lesson, and it is the same one twice in one slice.** A safety property
+  enforced only where it is *assembled* is not enforced; and a demo is not a test, so a
+  path a demo silently stopped taking goes unnoticed for three slices. Both were caught by
+  building the mirror rather than by reading the code.
+
+  **Honest limits.** Legibility, not prevention: a caller who omits `ground` still loses
+  the Concern, and `blind_to_concern` only lets the report be read for what it is. Nothing
+  makes a hand-assembled grade complete, because refusing a partial one would break every
+  legitimate comparison and buy nothing the report cannot now say. `SqliteStore` stays
+  Rust-only, and deliberately: binding it would put `rusqlite/bundled` and a C dependency
+  on the Python wheel's default path, against the property `cargo tree` checks. Nothing
+  new crosses to KC, and the border stays at four artifacts plus the roll.
 
 
 ## Questions and resolutions (round 2)

@@ -326,6 +326,51 @@ fn grading_supplies_every_read_model_the_archive_has() {
 }
 
 #[test]
+fn grade_omits_no_reading_and_says_so_itself() {
+    // **D31, and the assertion this crate's reason for existing never had.** Every test
+    // above checks that some particular measure came out populated, which catches a
+    // forgotten input only where a fixture happens to exercise it. The report now
+    // carries the answer directly, so the claim in this crate's own documentation --
+    // that `grade` assembles *every* read-model the archive can supply -- is checkable
+    // in one line and stays checkable as read-models are added.
+    let mut f = Fixture::new(3);
+    for i in 0..4 {
+        f.observe(200 + i * 3_600);
+    }
+    let report = f.cycle().grade(&f.archive, &f.healthy(), t(5 * DAY));
+    assert!(
+        report.omitted_readings.is_empty(),
+        "grade forgot: {:?}",
+        report.omitted_readings
+    );
+    assert!(report.silent_measures().is_empty());
+    assert!(!report.blind_to_concern(), "nothing this grade could have escalated on is dark");
+}
+
+#[test]
+fn a_hand_assembled_grade_is_what_the_omission_list_is_for() {
+    // The negative control, in the crate whose job is to make it unnecessary: the same
+    // archive graded by hand, with the ground reading left out the way a caller off the
+    // en-host path leaves it out. The level is identical to a healthy polity's, and the
+    // only thing telling the two apart is the omission list.
+    let (mut f, ground) = Fixture::new_anchored(3);
+    f.disavow(&ground, 2 * DAY);
+    let by_hand = en_cohesion::cohesion_report(
+        &en_charter::charter_state(&f.archive, &f.polity, t(3 * DAY)).members,
+        &f.healthy(),
+        false,
+        &en_cohesion::CohesionInputs::default(),
+        t(3 * DAY),
+        &en_cohesion::Thresholds::default(),
+    );
+    let by_cycle = f.cycle().grade(&f.archive, &f.healthy(), t(3 * DAY));
+    assert_eq!(by_cycle.erosion, ErosionLevel::Concern);
+    assert_eq!(by_hand.erosion, ErosionLevel::None, "the hole, unchanged");
+    assert!(by_hand.blind_to_concern(), "and now it says so");
+    assert!(by_hand.silent_measures().contains(&"ground_disavowed"));
+}
+
+#[test]
 fn grading_supplies_the_ground_reading_too() {
     // The wiring most likely to rot silently: `grade` assembles the read-models, and a
     // component whose input it forgets reports health rather than complaining. So a

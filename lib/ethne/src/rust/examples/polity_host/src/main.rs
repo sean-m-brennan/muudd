@@ -96,7 +96,14 @@ impl Args {
 struct Keys {
     polity: DidKey,
     members: Vec<(PrivKey, DidKey)>,
-    monitor: (PrivKey, DidKey),
+    /// **Three of them, rotated by `observation`.** D19's retention floor counts
+    /// distinct *watchers* per member since **D28**, so a lone monitor filing every day
+    /// pins the horizon and no `Prune` ever comes due. This example held one monitor
+    /// until D31 and its whole compaction path was dead: 40 ticks, 400 observations,
+    /// **0 compactions**, while the restart section still reported a compaction count as
+    /// though it had exercised one. Measured on the same log: one monitor gives
+    /// `prune_recommendation` `None`, three gives `dropped=370`.
+    monitors: Vec<(PrivKey, DidKey)>,
     observer: (PrivKey, DidKey),
 }
 
@@ -118,7 +125,7 @@ impl Keys {
         Keys {
             polity: id().1,
             members: (0..n).map(|_| id()).collect(),
-            monitor: id(),
+            monitors: (0..3).map(|_| id()).collect(),
             observer: id(),
         }
     }
@@ -180,10 +187,14 @@ impl Keys {
         Ok(CharterEntry::PolityChartered(Signed::build(charter, &signers)?))
     }
 
+    /// One monitor's filing, rotating over the three by the day being observed: a real
+    /// cohort of monitors files on its own schedule, and the retention floor needs
+    /// distinct watchers per member rather than one party's word repeated (**D28**).
     fn observation(&self, at: Timestamp) -> KcResult<CharterEntry> {
+        let monitor = &self.monitors[(at.as_second() / DAY) as usize % self.monitors.len()];
         let record = Observation {
             polity: self.polity.clone(),
-            observer: self.monitor.1.clone(),
+            observer: monitor.1.clone(),
             observed_at: at,
             readings: self
                 .roll()
@@ -197,7 +208,7 @@ impl Keys {
                 .collect(),
             opaque_boundary: false,
         };
-        let signers = vec![(self.monitor.1.as_str(), &self.monitor.0)];
+        let signers = vec![(monitor.1.as_str(), &monitor.0)];
         Ok(CharterEntry::Observed(Signed::build(record, &signers)?))
     }
 

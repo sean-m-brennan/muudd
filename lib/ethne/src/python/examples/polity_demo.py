@@ -48,6 +48,7 @@ from ethne.authoring import (
     reaffirm_member,
     rotate_guardian,
 )
+from ethne.host import HostConfig, HostCycle
 from ethne.monitor import (
     cohesion_report,
     founding_candidate,
@@ -183,17 +184,30 @@ def main() -> None:
     # The monitor reads both sides: what the provider observes, and — via the same
     # affirmation state printed above — whether the substrate is still being carried.
     thinned = founding_candidate([(founders[0].did, 0.8, None, None, False), (joiner.did, 0.7, None, None, False)])
-    report = cohesion_report(state.members, thinned, affirmations=affirmations, as_of=now)
+    # Through the host cycle, which is the only call that supplies **every** read-model
+    # the archive can offer. `cohesion_report` takes seven optional readings and an
+    # omitted one makes its component report *nothing*, so a hand-assembled grade is
+    # silent in the direction of health. This demo passed one of the seven until D31,
+    # and a polity whose chartered ground had withdrawn would have graded clean here.
+    cycle = HostCycle(HostConfig(polity_did))
+    report = cycle.grade(archive, thinned, as_of=now)
     print(f"cohesion: {report.observed}/{report.chartered} observed, "
           f"{report.rated_members} rated, "
           f"attrition {report.attrition:.0%}, "
           f"{report.stale_affirmations}/{report.affirming_members} lapsed on affirmation, "
           f"erosion {report.erosion}")
+    by_hand = cohesion_report(state.members, thinned, affirmations=affirmations, as_of=now)
+    print(f"  the same read with one of seven readings: erosion {by_hand.erosion}, "
+          f"blind to a Concern it could not see: {by_hand.blind_to_concern} "
+          f"({len(by_hand.omitted_readings)} readings omitted)")
 
     # D18: unrated is not failing. The SAME roll, once with no reputation reading at
     # all and once rated genuinely low, used to be indistinguishable — both landed
     # below the 0.3 failure floor and graded Concern, so a freshly founded polity
     # crossed to KC for being new.
+    # Deliberately narrow, and now legibly so: these two grades differ in exactly one
+    # thing, so they pass no readings at all rather than adding signals that would move
+    # both. `omitted_readings` says as much on each of them.
     unrated = founding_candidate([(d, None, None, None, False) for d in state.members])
     low = founding_candidate([(d, 0.2, None, None, False) for d in state.members])
     u = cohesion_report(state.members, unrated, as_of=now)

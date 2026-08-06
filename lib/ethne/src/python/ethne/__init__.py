@@ -19,7 +19,7 @@ self-governing community that stands for a substrate, acts with one voice, and
 persists across the turnover of its members. This package is a thin Pythonic
 surface over the Rust tier (`ethne._core`, built from `en-pyo3` by maturin).
 
-Four modules, following the tier's own shape:
+Five modules, following the tier's own shape:
 
 - `ethne.polity` — the charter log (`Archive`), keys, and the derived read-models.
 - `ethne.authoring` — `Signer` plus one call per charter record: found, amend,
@@ -28,6 +28,8 @@ Four modules, following the tier's own shape:
   record an observation, dissolve.
 - `ethne.monitor` — the substrate side: a `FoundingCandidate` and the
   `cohesion_report` that grades drift away from the chartered roll.
+- `ethne.host` — what a host does on a cadence: `HostCycle.tick` returns the duties
+  owed, and `HostCycle.grade` is the safe form of `cohesion_report`.
 - `ethne.uplift` — the four artifacts that cross to kith-covenant.
 
 The governing discipline shows up in the API: a proposal carries no authority, so
@@ -119,6 +121,11 @@ from ethne.monitor import (
     select_from_candidate,
     sign_reading,
     sign_observation,
+)
+from ethne.host import (
+    DueAction,
+    HostConfig,
+    HostCycle,
 )
 from ethne.uplift import (
     FissionOutcome,
@@ -214,6 +221,10 @@ __all__ = [
     "select_from_candidate",
     "sign_reading",
     "sign_observation",
+    # host
+    "DueAction",
+    "HostConfig",
+    "HostCycle",
     # uplift
     "FissionOutcome",
     "FusionOutcome",

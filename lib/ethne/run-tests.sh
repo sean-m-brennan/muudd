@@ -82,5 +82,12 @@ echo "=== cargo run -p polity_host ==="
 cargo run --quiet -p polity_host >/dev/null
 echo "  ✓ exit 0"
 
+# The same host in Python (D31), which also asserts the thing the cycle exists for:
+# a grade that went through it omitted no reading, where a hand-assembled one cannot say.
+echo
+echo "=== python src/python/examples/polity_host.py ==="
+python src/python/examples/polity_host.py >/dev/null
+echo "  ✓ exit 0"
+
 echo
 echo "=== all checks passed ==="
