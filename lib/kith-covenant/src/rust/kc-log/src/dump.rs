@@ -17,26 +17,24 @@
 //! JSON dump/load for a whole archive, and the **incremental** pair a continuously
 //! appended log actually needs.
 //!
-//! This mirrors `kc-archive`'s `dump.rs` one tier up, but generic over the entry
-//! type as the rest of `en-archive` is (decision D1). Until now ethne had no
-//! archive-level persistence at all — it existed only in the Python extension
-//! module, which meant a Rust consumer could not persist a log and a Python one
-//! re-serialized the *whole* log on every save.
+//! Both tiers had a `dump.rs`. kith-covenant's wrote the whole log, pretty-printed,
+//! with the format version as a bare `1` in the writer and a bare `1` in the reader
+//! and nothing linking them. ethne's grew the incremental half, because
+//! re-serializing an entire archive after every appended observation is quadratic
+//! over a session. This module is ethne's, generalized: one envelope format, one
+//! `DUMP_VERSION` both sides read, for both tiers.
 //!
-//! That whole-log shape is the wrong one for the observation log D16 introduced: a
-//! host recording what its monitors saw appends steadily, and re-serializing the
-//! entire archive after every observation is quadratic over a session. Hence
-//! [`Archive::dump_json_since`] and [`Archive::append_json`] — keep a cursor, write
-//! the segment past it, and fold segments back in on load.
+//! Hence [`Archive::dump_json_since`] and [`Archive::append_json`] — keep a cursor,
+//! write the segment past it, and fold segments back in on load.
 //!
-//! **A cursor is only valid within one generation** (design **D20**). Version 1 of
-//! this module took a bare `usize` and treated an index past the end as "already
-//! current", returning an empty segment. Combined with D17 pruning that was silent
-//! corruption: after a compaction the host's index exceeds the new length, so the
-//! save writes *nothing* — losing the `ObservationsPruned` record itself — while
+//! **A cursor is only valid within one generation** (ethne design **D20**). Version 1
+//! of this module took a bare `usize` and treated an index past the end as "already
+//! current", returning an empty segment. Combined with ethne's D17 pruning that was
+//! silent corruption: after a compaction the host's index exceeds the new length, so
+//! the save writes *nothing* — losing the `ObservationsPruned` record itself — while
 //! earlier segments still hold the observations it dropped. Reloading resurrected
-//! them, and because every CID the receipt named was back, the rebuilt log passed
-//! both `verify_all` and `check_authority`. Worse, with the pruning record gone the
+//! them, and because every CID the receipt named was back, the rebuilt log passed both
+//! `verify_all` and `check_authority`. Worse, with the pruning record gone the
 //! window's `pruned_before` clamp went with it and a measured absence *lengthened* —
 //! the exact failure D17's clamp exists to prevent, re-entering through storage.
 //!
@@ -52,7 +50,7 @@
 
 use std::io::{Read, Write};
 
-use en_core::{KcError, KcResult};
+use kc_core::{KcError, KcResult};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -60,9 +58,10 @@ use crate::store::{Archive, Cursor, Entry};
 
 /// The current on-disk format version.
 ///
-/// Bumped to 2 by D20, which added `generation` and `start`. Version 1 dumps still
-/// *load* (they carry no generation, so they read as generation 0 — a whole-log
-/// load, never a segment).
+/// Bumped to 2 by ethne's D20, which added `generation` and `start`. Version 1 dumps
+/// still *load* (they carry no generation, so they read as generation 0 — a whole-log
+/// load, never a segment). Version 1 is also exactly what kith-covenant wrote before
+/// this module became shared, so its existing dumps keep loading too.
 pub const DUMP_VERSION: u32 = 2;
 
 /// The serialized envelope: a version, where in the log it was cut, and the entries.
@@ -106,7 +105,8 @@ impl SegmentBounds {
 ///
 /// Deliberately in this module rather than in a caller: `dump.rs` owns the envelope
 /// format, and a second reader of it elsewhere is two things that can disagree about
-/// what a stored log means — the defect `en-store` exists to prevent, one level out.
+/// what a stored log means — the defect ethne's `en-store` exists to prevent, one
+/// level out.
 ///
 /// Accepts everything [`Archive::load_json`] and [`Archive::append_json`] accept,
 /// including the legacy bare array, so a store cannot refuse a file the archive
@@ -128,8 +128,8 @@ pub fn segment_bounds(s: &str) -> KcResult<SegmentBounds> {
 /// Every other reader of a segment checks that it belongs where it claims to, because
 /// folding one into the wrong log produces an archive that never existed. This one
 /// exists for the single case where that check has already failed and the entries must
-/// be recovered anyway: `en-store`'s repair of a log two writers forked. Getting the
-/// entries out is exactly what lets the repair keep them instead of dropping them.
+/// be recovered anyway: ethne `en-store`'s repair of a log two writers forked. Getting
+/// the entries out is exactly what lets the repair keep them instead of dropping them.
 ///
 /// Use [`Archive::append_json`] for anything else.
 pub fn segment_entries<E: DeserializeOwned>(s: &str) -> KcResult<Vec<E>> {
@@ -162,7 +162,7 @@ impl<E: Entry> Archive<E> {
     /// end.** Both mean the log was compacted underneath the host, and continuing to
     /// append segments from that point would lose whatever the compaction recorded
     /// while keeping what it dropped. The right response is a full rewrite, which is
-    /// what `en-store` does on seeing this.
+    /// what ethne's `en-store` does on seeing this.
     pub fn dump_json_since(&self, cursor: Cursor) -> KcResult<String> {
         if cursor.generation != self.generation() {
             return Err(KcError::Archive(format!(
@@ -239,9 +239,9 @@ impl<E: Entry + DeserializeOwned> Archive<E> {
     /// that never existed. Ordinary [`append`] rules still apply on top, so a segment
     /// replayed twice fails on the duplicate CID rather than doubling the log.
     ///
-    /// To combine two *independent* logs into one view — a KC-side reader holding
-    /// several communities' charters, say — use [`merge_json`] instead. That is a
-    /// different operation and says so.
+    /// To combine two *independent* logs into one view — a kith-covenant-side reader
+    /// holding several communities' charters, say — use [`merge_json`] instead. That
+    /// is a different operation and says so.
     ///
     /// [`dump_json_since`]: Archive::dump_json_since
     /// [`append`]: Archive::append
@@ -291,10 +291,11 @@ impl<E: Entry + DeserializeOwned> Archive<E> {
 /// array of entries.
 ///
 /// The bare array is what ethne's Python surface emitted before this module
-/// existed, and version 1 is what it wrote before D20 added the generation; reading
-/// all three means dumps taken then still load. Both legacy shapes report
-/// `generation: 0, start: 0` — a whole log, never a segment, which is the only thing
-/// they can honestly claim to be. Only the current version is ever *written*.
+/// existed, and version 1 is what ethne wrote before D20 added the generation and
+/// what kith-covenant wrote before this module became shared; reading all three means
+/// dumps taken then still load. Both legacy shapes report `generation: 0, start: 0` —
+/// a whole log, never a segment, which is the only thing they can honestly claim to
+/// be. Only the current version is ever *written*.
 fn read_dump<E: DeserializeOwned, R: Read>(mut r: R) -> KcResult<ArchiveDump<E>> {
     let mut raw = String::new();
     r.read_to_string(&mut raw).map_err(|e| KcError::Archive(format!("load_json read: {e}")))?;
@@ -369,6 +370,17 @@ mod tests {
         let bumped = dumped.replace("\"version\": 2", "\"version\": 99");
         let err = Archive::<TestRec>::load_json_from_str(&bumped).unwrap_err();
         assert!(matches!(err, KcError::Archive(m) if m.contains("unsupported archive version")));
+    }
+
+    #[test]
+    fn what_is_written_is_what_can_be_read() {
+        // One `DUMP_VERSION` on both sides. kith-covenant used to carry the number as
+        // a bare `1` in the writer and a bare `1` in the reader with nothing linking
+        // them, so nothing but a round-trip test stood between the two literals
+        // drifting apart.
+        let dumped = filled(3).dump_json_to_string().unwrap();
+        assert!(dumped.contains(&format!("\"version\": {DUMP_VERSION}")));
+        assert!(Archive::<TestRec>::load_json_from_str(&dumped).is_ok());
     }
 
     #[test]
@@ -494,6 +506,28 @@ mod tests {
         let back: Archive<TestRec> = Archive::load_json_from_str(&legacy).unwrap();
         assert_eq!(back.len(), 2);
         assert_eq!(back.iter().map(|(_, e)| e.seq).collect::<Vec<_>>(), vec![0, 1]);
+    }
+
+    #[test]
+    fn a_version_1_envelope_still_loads() {
+        // **The backward-compatibility test for kith-covenant's existing dumps.** Its
+        // `dump.rs` wrote `{"version": 1, "entries": [...]}` with no generation and no
+        // start; every such file must keep loading, as a whole log at generation 0.
+        let v1 = serde_json::json!({
+            "version": 1,
+            "entries": [rec(0), rec(1), rec(2)],
+        })
+        .to_string();
+        let back: Archive<TestRec> = Archive::load_json_from_str(&v1).unwrap();
+        assert_eq!(back.len(), 3);
+        assert_eq!(back.generation(), 0);
+        assert_eq!(back.cursor(), Cursor { generation: 0, index: 3 });
+        assert_eq!(back.iter().map(|(_, e)| e.seq).collect::<Vec<_>>(), vec![0, 1, 2]);
+        // And the header-only reader agrees with the full load.
+        assert_eq!(
+            segment_bounds(&v1).unwrap(),
+            SegmentBounds { generation: 0, start: 0, count: 3 }
+        );
     }
 
     #[test]

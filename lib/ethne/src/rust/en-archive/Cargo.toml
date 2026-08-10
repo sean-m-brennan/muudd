@@ -7,6 +7,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-en-core = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+# D32: the mechanism lives in `kc-log` now and this crate re-exports it. `kc-log` is
+# neutral (an append-only log over `kc-core`'s `Cid`, no governance), so this is the
+# second half of D1's "kc-core only" rule rather than a breach of it — and no `en-core`,
+# `serde` or `serde_json` edge is needed here any more.
+kc-log = { workspace = true }

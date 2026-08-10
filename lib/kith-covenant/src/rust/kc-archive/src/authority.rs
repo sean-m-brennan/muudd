@@ -34,6 +34,12 @@
 //!
 //! Revocation and expiry are honored via `SpeakerDelegation::active_at` with the
 //! same latest-issued-wins supersession the archive uses for key resolution.
+//!
+//! That last clause was true only of delegations until **D32**. The archive's four
+//! registry steps resolved a DID out of its CID-keyed entry index and took the first
+//! match, which is hash order, so a superseded roster could seat a retired key. Both
+//! halves now share one definition, `store::latest_rosters`, over the log in append
+//! order.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -932,25 +938,20 @@ pub fn mediator_encryption_keys(
     archive: &InMemoryArchive,
     at: Timestamp,
 ) -> BTreeMap<String, kc_core::PubKey> {
-    let mut latest: BTreeMap<String, (Timestamp, &kc_mediation::MediatorRegistry)> =
-        BTreeMap::new();
-    for (_, e) in archive.iter() {
-        if let ArchiveEntry::MediatorRegistryUpdated(s) = e {
-            let reg = &s.payload;
-            if reg.issued_at > at {
-                continue;
+    // One definition of "the latest roster per community", shared with the archive's own
+    // key resolution (`store::latest_rosters`) — this function and `resolve_did` used to
+    // carry the rule separately, and only this one had it.
+    let latest = crate::store::latest_rosters(
+        archive.iter().filter_map(|(_, e)| match e {
+            ArchiveEntry::MediatorRegistryUpdated(s) => {
+                Some((&s.payload.nominating_community, s.payload.issued_at, &s.payload))
             }
-            let key = reg.nominating_community.as_str().to_string();
-            match latest.get(&key) {
-                Some((prev, _)) if *prev >= reg.issued_at => {}
-                _ => {
-                    latest.insert(key, (reg.issued_at, reg));
-                }
-            }
-        }
-    }
+            _ => None,
+        }),
+        at,
+    );
     let mut out = BTreeMap::new();
-    for (_, reg) in latest.values() {
+    for reg in latest {
         for entry in &reg.entries {
             if entry.active_at(at) {
                 out.insert(entry.mediator_did.as_str().to_string(), entry.encryption_pubkey.clone());

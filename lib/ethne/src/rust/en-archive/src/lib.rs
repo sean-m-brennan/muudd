@@ -16,19 +16,24 @@
 
 //! ethne archive — an append-only, content-addressed log.
 //!
-//! This is the neutral archive *mechanism*, forked thin from `kc-archive`
-//! (decision D1) and made **generic over the entry type** rather than tied to a
-//! fixed record enum. It guarantees only append-only ordering and content
-//! addressing (blake3 of canonical CBOR, via `kc-core`). Signature verification
-//! and DID resolution are domain concerns — they depend on which records carry
-//! identity — and so live with ethne's own records in later slices, not here.
+//! **This crate is now a re-export of [`kc_log`]** (decision **D32**), which is the
+//! generic entry-agnostic archive base D1 named as "the one extraction worth doing
+//! later". Until D32 this crate held its own copy of the mechanism, forked thin from
+//! `kc-archive` and made generic; `kc-archive` has been refactored onto the same base,
+//! so the tier no longer carries the duplication D1 recorded.
 //!
-//! `kc-archive` today hardcodes kith-covenant's `ArchiveEntry` enum; refactoring
-//! *it* onto a shared generic core like this one is the extraction deferred in
-//! D1. `en-archive` gets there directly because it is new code.
+//! The name stays because the tier's crates import `en_archive::{Archive, Cursor,
+//! Entry}` and this is where a reader of the polity tier looks for its log. Nothing
+//! else remains here: the mechanism, its persistence, and its tests all live in
+//! `kc-log`.
+//!
+//! `kc-log` is neutral — an append-only log over `kc-core`'s `Cid`, with no governance
+//! in it and no dependency on any `kc-*` governance crate — so depending on it widens
+//! D1's rule from "`kc-core` only" to "`kc-core` and `kc-log`, both neutral" without
+//! touching the ethne ⟂ KC-governance boundary. Signature verification and DID
+//! resolution stay where they were: domain concerns, over ethne's own records, in
+//! `en-charter`.
 
-mod dump;
-mod store;
-
-pub use dump::{segment_bounds, segment_entries, SegmentBounds, DUMP_VERSION};
-pub use store::{Archive, Cursor, Entry};
+pub use kc_log::{
+    segment_bounds, segment_entries, Archive, Cursor, Entry, SegmentBounds, DUMP_VERSION,
+};

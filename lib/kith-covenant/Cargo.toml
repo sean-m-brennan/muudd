@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "src/rust/kc-core",
+    "src/rust/kc-log",
     "src/rust/kc-identity",
     "src/rust/kc-ceremony",
     "src/rust/kc-conduct",
@@ -81,6 +82,10 @@ proptest = "1.5"
 # it may become a hard error). Crates needing the §8 source-protection crypto opt in
 # with `features = ["source-protection"]`.
 kc-core = { path = "src/rust/kc-core", default-features = false }
+# The append-only archive mechanism, generic over the entry type. Neutral: it holds a
+# log, not governance, and the ethne polity tier depends on it by path alongside
+# `kc-core` (ethne decision D1).
+kc-log = { path = "src/rust/kc-log" }
 kc-identity = { path = "src/rust/kc-identity" }
 kc-ceremony = { path = "src/rust/kc-ceremony" }
 kc-conduct = { path = "src/rust/kc-conduct" }

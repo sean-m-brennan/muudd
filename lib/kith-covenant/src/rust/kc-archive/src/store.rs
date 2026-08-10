@@ -16,11 +16,16 @@
 
 //! In-memory archive. Append-only, indexed by entry CID. Verification walks
 //! the archive's own state to resolve signer DIDs → public keys.
+//!
+//! The append-only mechanism itself lives in [`kc_log`] (ethne decision **D32**): this
+//! crate holds the *domain* half — which records exist, how a signer's key is found,
+//! and what verification means — over a log it no longer implements twice.
 
 use std::collections::BTreeMap;
 
 use kc_core::{Cid, DidKey, KcError, KcResult, PubKey, Timestamp};
 use kc_identity::CommunityIdentity;
+use kc_log::Archive as Log;
 
 use crate::entry::ArchiveEntry;
 
@@ -34,10 +39,19 @@ pub trait Archive {
     }
 }
 
+/// The archive kith-covenant runs on: [`kc_log::Archive`] over [`ArchiveEntry`], plus
+/// this crate's DID resolution and verification.
+///
+/// Only the surface kith-covenant has a caller for is forwarded. `kc-log` also carries
+/// generation-safe cursors, incremental segments, `iter_from`, `contains` and
+/// `merge_json`, all of which the ethne polity tier uses for its observation log and
+/// none of which kith-covenant has a compaction or incremental-persistence caller for
+/// yet. Exposing them here would be API that no rule reads — the same dead-surface
+/// pattern as ethne's D23 `substrate.anchor` and this protocol's own
+/// `source_commitment`. They are one `pub fn` away when there is something to call them.
 #[derive(Debug, Default, Clone)]
 pub struct InMemoryArchive {
-    order: Vec<Cid>,
-    entries: BTreeMap<String, ArchiveEntry>,
+    log: Log<ArchiveEntry>,
 }
 
 impl InMemoryArchive {
@@ -47,16 +61,37 @@ impl InMemoryArchive {
 
     /// Append-only iterator in insertion order.
     pub fn iter(&self) -> impl Iterator<Item = (&Cid, &ArchiveEntry)> {
-        self.order
-            .iter()
-            .map(|cid| (cid, self.entries.get(&cid.to_string()).expect("index invariant")))
+        self.log.iter()
+    }
+
+    /// The underlying log, for this crate's own persistence forwarding only.
+    pub(crate) fn log(&self) -> &Log<ArchiveEntry> {
+        &self.log
+    }
+
+    /// Wrap a log loaded from a dump. Crate-private for the same reason: the log is an
+    /// implementation detail, not part of this crate's surface.
+    pub(crate) fn from_log(log: Log<ArchiveEntry>) -> Self {
+        Self { log }
     }
 
     /// Resolve a DID to a public key by scanning the archive. Scope hints
     /// (`at` time) constrain which delegations/witness entries are active.
+    ///
+    /// **Every step reads the log in append order** and, where the record kind
+    /// supersedes, applies supersession explicitly. Before D32 the four registry steps
+    /// scanned the entry index instead and took the first match they found there —
+    /// which, the index being keyed by CID, was hash order. Two registry records naming
+    /// one DID with different keys therefore resolved to an arbitrary one of them, so a
+    /// *superseded* key could still verify a signature; and `authority.rs`'s claim that
+    /// the archive resolves keys with "the same latest-issued-wins supersession" was
+    /// true only of step 2.
     fn resolve_did(&self, did: &str, at: Timestamp) -> Option<PubKey> {
-        // 1. Community root identity always resolves (no time window).
-        for entry in self.entries.values() {
+        // 1. Community root identity always resolves (no time window). Order is
+        //    immaterial here and only here: `CommunityIdentity` derives its DID from
+        //    its `root_pubkey` and `verify_self_signed` enforces the match, so every
+        //    record answering to this DID carries the same key.
+        for (_, entry) in self.iter() {
             if let ArchiveEntry::CommunityIdentityPublished(s) = entry {
                 if s.payload.did.as_str() == did {
                     return Some(s.payload.root_pubkey.clone());
@@ -70,9 +105,8 @@ impl InMemoryArchive {
         //    winning record is inactive (revoked/expired) we fall through: the
         //    same key may separately hold a witness role.
         let latest = self
-            .entries
-            .values()
-            .filter_map(|e| match e {
+            .iter()
+            .filter_map(|(_, e)| match e {
                 ArchiveEntry::SpeakerDelegated(s)
                     if s.payload.speaker_did.as_str() == did
                         && s.payload.issued_at <= at =>
@@ -87,49 +121,62 @@ impl InMemoryArchive {
                 return Some(d.speaker_pubkey.clone());
             }
         }
-        // 3. Witness registry entry active in its validity window.
-        for entry in self.entries.values() {
-            if let ArchiveEntry::WitnessRegistryUpdated(s) = entry {
-                for e in &s.payload.entries {
-                    if e.witness_did.as_str() == did
-                        && e.valid_from <= at
-                        && e.valid_until.is_none_or(|end| at < end)
-                    {
-                        return Some(e.witness_pubkey.clone());
-                    }
+        // 3. Witness registry entry active in its validity window, from the latest
+        //    roster each community had issued by `at`.
+        for reg in latest_rosters(self.iter().filter_map(|(_, e)| match e {
+            ArchiveEntry::WitnessRegistryUpdated(s) => {
+                Some((&s.payload.community_did, s.payload.issued_at, &s.payload))
+            }
+            _ => None,
+        }), at) {
+            for e in &reg.entries {
+                if e.witness_did.as_str() == did
+                    && e.valid_from <= at
+                    && e.valid_until.is_none_or(|end| at < end)
+                {
+                    return Some(e.witness_pubkey.clone());
                 }
             }
         }
         // 4. Mediator registry entry active in its validity window (§4). Lets a
         //    panel mediator's co-signature on a decision resolve.
-        for entry in self.entries.values() {
-            if let ArchiveEntry::MediatorRegistryUpdated(s) = entry {
-                for e in &s.payload.entries {
-                    if e.mediator_did.as_str() == did && e.active_at(at) {
-                        return Some(e.mediator_pubkey.clone());
-                    }
+        for reg in latest_rosters(self.iter().filter_map(|(_, e)| match e {
+            ArchiveEntry::MediatorRegistryUpdated(s) => {
+                Some((&s.payload.nominating_community, s.payload.issued_at, &s.payload))
+            }
+            _ => None,
+        }), at) {
+            for e in &reg.entries {
+                if e.mediator_did.as_str() == did && e.active_at(at) {
+                    return Some(e.mediator_pubkey.clone());
                 }
             }
         }
         // 5. Examiner registry entry active in its validity window (§2). Lets a
         //    seated examiner's signature on a credentialing record resolve.
-        for entry in self.entries.values() {
-            if let ArchiveEntry::ExaminerRegistryUpdated(s) = entry {
-                for e in &s.payload.entries {
-                    if e.examiner_did.as_str() == did && e.active_at(at) {
-                        return Some(e.examiner_pubkey.clone());
-                    }
+        for reg in latest_rosters(self.iter().filter_map(|(_, e)| match e {
+            ArchiveEntry::ExaminerRegistryUpdated(s) => {
+                Some((&s.payload.nominating_community, s.payload.issued_at, &s.payload))
+            }
+            _ => None,
+        }), at) {
+            for e in &reg.entries {
+                if e.examiner_did.as_str() == did && e.active_at(at) {
+                    return Some(e.examiner_pubkey.clone());
                 }
             }
         }
         // 6. Observer registry entry active in its validity window (§8). Lets a
         //    registered observer's signature on a report resolve.
-        for entry in self.entries.values() {
-            if let ArchiveEntry::ObserverRegistryUpdated(s) = entry {
-                for e in &s.payload.entries {
-                    if e.observer_did.as_str() == did && e.active_at(at) {
-                        return Some(e.observer_pubkey.clone());
-                    }
+        for reg in latest_rosters(self.iter().filter_map(|(_, e)| match e {
+            ArchiveEntry::ObserverRegistryUpdated(s) => {
+                Some((&s.payload.nominating_community, s.payload.issued_at, &s.payload))
+            }
+            _ => None,
+        }), at) {
+            for e in &reg.entries {
+                if e.observer_did.as_str() == did && e.active_at(at) {
+                    return Some(e.observer_pubkey.clone());
                 }
             }
         }
@@ -137,28 +184,56 @@ impl InMemoryArchive {
     }
 
     /// Look up the most recent self-certified CommunityIdentity for a community DID.
+    ///
+    /// "Most recent" means **last in append order**. It used to mean `.values().rev()`
+    /// over the CID-keyed entry index, which is descending *hash* order and unrelated
+    /// to when anything was published: measured over 200 trials with two publications
+    /// for one DID, that returned the earlier record 104 times. See `store.rs` in
+    /// `kc-log` for why the index is no longer reachable to be read that way.
     pub fn community_identity(&self, did: &DidKey) -> Option<&kc_core::Signed<CommunityIdentity>> {
-        self.entries.values().rev().find_map(|e| match e {
-            ArchiveEntry::CommunityIdentityPublished(s) if s.payload.did == *did => Some(s),
-            _ => None,
-        })
+        self.iter()
+            .filter_map(|(_, e)| match e {
+                ArchiveEntry::CommunityIdentityPublished(s) if s.payload.did == *did => Some(s),
+                _ => None,
+            })
+            .last()
     }
+}
+
+/// The latest roster each nominating community had issued by `at`, in append order.
+///
+/// One definition for all four registry kinds (§2 examiners, §4 mediators, §8
+/// observers, and the witness registry), and the same rule
+/// [`crate::authority::mediator_encryption_keys`] already applied to the mediator pool
+/// — "later registrations from the same community supersede earlier ones" — so key
+/// resolution and the panel rules cannot drift apart. On an `issued_at` tie the later
+/// append wins, which is the only tiebreak the log can offer.
+pub(crate) fn latest_rosters<'a, R: 'a>(
+    records: impl Iterator<Item = (&'a DidKey, Timestamp, &'a R)>,
+    at: Timestamp,
+) -> Vec<&'a R> {
+    let mut latest: BTreeMap<&str, (Timestamp, &'a R)> = BTreeMap::new();
+    for (community, issued_at, reg) in records {
+        if issued_at > at {
+            continue;
+        }
+        match latest.get(community.as_str()) {
+            Some((prev, _)) if *prev > issued_at => {}
+            _ => {
+                latest.insert(community.as_str(), (issued_at, reg));
+            }
+        }
+    }
+    latest.into_values().map(|(_, reg)| reg).collect()
 }
 
 impl Archive for InMemoryArchive {
     fn append(&mut self, entry: ArchiveEntry) -> KcResult<Cid> {
-        let cid = entry.cid()?;
-        let key = cid.to_string();
-        if self.entries.contains_key(&key) {
-            return Err(KcError::Archive(format!("duplicate entry: {cid}")));
-        }
-        self.entries.insert(key, entry);
-        self.order.push(cid);
-        Ok(cid)
+        self.log.append(entry)
     }
 
     fn get(&self, cid: &Cid) -> Option<&ArchiveEntry> {
-        self.entries.get(&cid.to_string())
+        self.log.get(cid)
     }
 
     fn verify(&self, cid: &Cid) -> KcResult<()> {
@@ -337,6 +412,6 @@ impl Archive for InMemoryArchive {
     }
 
     fn len(&self) -> usize {
-        self.order.len()
+        self.log.len()
     }
 }

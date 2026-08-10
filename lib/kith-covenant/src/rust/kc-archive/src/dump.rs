@@ -17,51 +17,37 @@
 //! JSON dump/load for the whole archive. Round-trips an `InMemoryArchive`
 //! via pretty-printed JSON; useful for demos, audit exports, and regression
 //! tests.
+//!
+//! The envelope format lives in [`kc_log`] (ethne decision **D32**); these are the
+//! forwarding methods, which keep the names `kc-pyo3`'s `PyArchive` and the demos
+//! already call. Two things changed with the move:
+//!
+//! - The format version is now `kc_log::DUMP_VERSION`, read from one place by both the
+//!   writer and the reader. This module used to carry it as a bare `1` in each, with
+//!   nothing linking them, so only a round-trip test stood between the two literals
+//!   drifting apart.
+//! - Dumps are written as version 2, which adds the `generation` and `start` fields a
+//!   compaction-safe cursor needs. **Existing version-1 dumps still load**: `kc-log`'s
+//!   reader accepts the `{"version": 1, "entries": [...]}` shape this module used to
+//!   write, and a bare JSON array besides.
 
 use std::io::{Read, Write};
 
-use kc_core::{KcError, KcResult};
-use serde::{Deserialize, Serialize};
+use kc_core::KcResult;
 
-use crate::entry::ArchiveEntry;
-use crate::store::{Archive, InMemoryArchive};
-
-#[derive(Serialize, Deserialize)]
-struct ArchiveDump {
-    version: u32,
-    entries: Vec<ArchiveEntry>,
-}
+use crate::store::InMemoryArchive;
 
 impl InMemoryArchive {
     pub fn dump_json<W: Write>(&self, w: W) -> KcResult<()> {
-        let dump = ArchiveDump {
-            version: 1,
-            entries: self.iter().map(|(_, e)| e.clone()).collect(),
-        };
-        serde_json::to_writer_pretty(w, &dump)
-            .map_err(|e| KcError::Archive(format!("dump_json: {e}")))
+        self.log().dump_json(w)
     }
 
     pub fn dump_json_to_string(&self) -> KcResult<String> {
-        let mut buf = Vec::new();
-        self.dump_json(&mut buf)?;
-        String::from_utf8(buf).map_err(|e| KcError::Archive(format!("dump_json utf8: {e}")))
+        self.log().dump_json_to_string()
     }
 
     pub fn load_json<R: Read>(r: R) -> KcResult<Self> {
-        let dump: ArchiveDump = serde_json::from_reader(r)
-            .map_err(|e| KcError::Archive(format!("load_json: {e}")))?;
-        if dump.version != 1 {
-            return Err(KcError::Archive(format!(
-                "unsupported archive version: {}",
-                dump.version
-            )));
-        }
-        let mut archive = Self::new();
-        for entry in dump.entries {
-            archive.append(entry)?;
-        }
-        Ok(archive)
+        Ok(Self::from_log(kc_log::Archive::load_json(r)?))
     }
 
     pub fn load_json_from_str(s: &str) -> KcResult<Self> {

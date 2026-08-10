@@ -5274,3 +5274,243 @@ mod probation_reach {
         ok(&a, &cid);
     }
 }
+
+// --- D32: append order is the resolution order ------------------------------
+//
+// Neither of these two properties had a test before the archive mechanism was
+// extracted into `kc-log`, and that is why both were broken. Nothing in this suite
+// appended two registry rosters for one community, or two identities for one DID, so
+// nothing ever asked which of them key resolution would pick — and the answer was
+// whichever the CID-keyed entry index happened to yield.
+
+mod append_order_resolution {
+    use super::*;
+    use kc_core::SuccessorLink;
+
+    /// `community_identity` documents "the most recent" publication and must mean the
+    /// last one appended.
+    ///
+    /// Before D32 it read `entries.values().rev()` — descending CID-string order, which
+    /// is unrelated to publication order. Measured over 200 trials, it returned the
+    /// **earlier** of two publications **104** times. Run over enough independent key
+    /// pairs here that hash order cannot pass by luck: at 40 trials the old code had
+    /// about a 1-in-10^12 chance of surviving.
+    #[test]
+    fn community_identity_returns_the_last_published_not_the_lowest_hashed() {
+        let now = time::now();
+        let mut wrong = 0;
+        let trials = 40;
+
+        for t in 0..trials {
+            let (root_priv, root_pub) = keys::generate(Alg::Ed25519).unwrap();
+            let did = DidKey::from_pubkey(&root_pub).unwrap();
+            let first = CommunityIdentity::new_self_signed(
+                format!("c{t}"),
+                &root_priv,
+                root_pub,
+                now,
+            )
+            .unwrap();
+
+            // A second publication for the SAME did — the did is derived from
+            // `root_pubkey`, so it must carry the same root key — this one recording a
+            // rotation. The successor chain is what a caller asking for "the most
+            // recent" identity is after.
+            let (next_priv, next_pub) = keys::generate(Alg::Ed25519).unwrap();
+            let link = Signed::build(
+                SuccessorLink {
+                    previous_did: did.clone(),
+                    new_did: DidKey::from_pubkey(&next_pub).unwrap(),
+                    new_pubkey: next_pub,
+                    rotated_at: now,
+                },
+                &[(did.as_str(), &next_priv)],
+            )
+            .unwrap();
+            let mut later_payload = first.payload.clone();
+            later_payload.successor_chain = vec![link];
+            let later = Signed::build(later_payload, &[(did.as_str(), &root_priv)]).unwrap();
+
+            let mut a = InMemoryArchive::new();
+            a.append(ArchiveEntry::CommunityIdentityPublished(first)).unwrap();
+            a.append(ArchiveEntry::CommunityIdentityPublished(later)).unwrap();
+            assert_eq!(a.len(), 2, "two distinct publications, both retained");
+
+            if a.community_identity(&did).unwrap().payload.successor_chain.is_empty() {
+                wrong += 1;
+            }
+        }
+
+        assert_eq!(wrong, 0, "returned the earlier publication in {wrong}/{trials} trials");
+    }
+
+    /// A *superseded* witness key must not verify a signature.
+    ///
+    /// The precondition is itself part of the finding: only `CommunityIdentity` binds a
+    /// DID to its pubkey (`CommunityIdentity::verify_self_signed`). Registry entries do
+    /// not, so one roster can name a witness DID with key K1 and a later roster the same
+    /// DID with K2 — and both entries can be inside their validity windows at once,
+    /// because a roster supersedes as a whole rather than retracting entries. Before D32
+    /// `resolve_did` took the first match out of the CID-keyed index, so the retired K1
+    /// still resolved, and still verified, about half the time.
+    #[test]
+    fn a_superseded_witness_key_no_longer_verifies_and_the_current_one_does() {
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        let community_did = c.signed_identity.payload.did.clone();
+        let mut a = InMemoryArchive::new();
+        seed_archive(&mut a, &c);
+
+        // The witness rotates: a second roster, issued an hour later, names the same
+        // witness DID with a new key. `mk_community`'s roster runs to now+24h, so at
+        // now+2h BOTH entries for this DID are inside their windows and only
+        // latest-issued-wins can separate them.
+        let (new_witness_priv, new_witness_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let rotated = Signed::build(
+            WitnessRegistry {
+                community_did: community_did.clone(),
+                entries: vec![WitnessEntry {
+                    witness_did: c.witness_did.clone(),
+                    witness_pubkey: new_witness_pub.clone(),
+                    role: WitnessRole::IntraCommunity,
+                    valid_from: now.checked_sub(1.hour()).unwrap(),
+                    valid_until: Some(now.checked_add(24.hours()).unwrap()),
+                }],
+                issued_at: now.checked_add(1.hour()).unwrap(),
+            },
+            &[(community_did.as_str(), &c.root_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::WitnessRegistryUpdated(rotated)).unwrap();
+
+        let at = now.checked_add(2.hours()).unwrap();
+
+        // Signed by the RETIRED key: resolution yields the current key, so the
+        // signature does not verify.
+        let stale = delegate_signed_conduct(
+            &community_did,
+            &c.witness_did,
+            &c.witness_priv,
+            at,
+            "signed by the retired witness key",
+        );
+        let stale_cid = a.append(ArchiveEntry::ConductAttested(stale)).unwrap();
+        assert!(
+            matches!(a.verify(&stale_cid), Err(KcError::SignatureInvalid)),
+            "a retired witness key must not verify"
+        );
+
+        // Signed by the CURRENT key: it does. Without this half the rule could be
+        // "refuse everything" and the test above would still pass.
+        let fresh = delegate_signed_conduct(
+            &community_did,
+            &c.witness_did,
+            &new_witness_priv,
+            at,
+            "signed by the current witness key",
+        );
+        let fresh_cid = a.append(ArchiveEntry::ConductAttested(fresh)).unwrap();
+        a.verify(&fresh_cid).expect("the current witness key must verify");
+    }
+
+    /// Supersession is per nominating community: one community rotating its roster must
+    /// not blind resolution to another community's witnesses.
+    #[test]
+    fn one_communitys_rotation_does_not_hide_anothers_roster() {
+        let now = time::now();
+        let alpha = mk_community("Alpha", now);
+        let beta = mk_community("Beta", now);
+        let mut a = InMemoryArchive::new();
+        seed_archive(&mut a, &alpha);
+        seed_archive(&mut a, &beta);
+
+        // Alpha rotates; Beta does not.
+        let (alpha_new_priv, alpha_new_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let alpha_did = alpha.signed_identity.payload.did.clone();
+        let rotated = Signed::build(
+            WitnessRegistry {
+                community_did: alpha_did.clone(),
+                entries: vec![WitnessEntry {
+                    witness_did: alpha.witness_did.clone(),
+                    witness_pubkey: alpha_new_pub,
+                    role: WitnessRole::IntraCommunity,
+                    valid_from: now.checked_sub(1.hour()).unwrap(),
+                    valid_until: Some(now.checked_add(24.hours()).unwrap()),
+                }],
+                issued_at: now.checked_add(1.hour()).unwrap(),
+            },
+            &[(alpha_did.as_str(), &alpha.root_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::WitnessRegistryUpdated(rotated)).unwrap();
+
+        let at = now.checked_add(2.hours()).unwrap();
+        let beta_did = beta.signed_identity.payload.did.clone();
+
+        // Beta's original witness key still resolves and verifies.
+        let beta_rec = delegate_signed_conduct(
+            &beta_did,
+            &beta.witness_did,
+            &beta.witness_priv,
+            at,
+            "beta's witness, unrotated",
+        );
+        let cid = a.append(ArchiveEntry::ConductAttested(beta_rec)).unwrap();
+        a.verify(&cid).expect("beta's roster is untouched by alpha's rotation");
+
+        // And Alpha's new one does too.
+        let alpha_rec = delegate_signed_conduct(
+            &alpha_did,
+            &alpha.witness_did,
+            &alpha_new_priv,
+            at,
+            "alpha's rotated witness",
+        );
+        let cid = a.append(ArchiveEntry::ConductAttested(alpha_rec)).unwrap();
+        a.verify(&cid).expect("alpha's current roster resolves");
+    }
+
+    /// A roster issued in the future must not resolve keys in the present.
+    #[test]
+    fn a_roster_not_yet_issued_does_not_resolve() {
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        let community_did = c.signed_identity.payload.did.clone();
+        let mut a = InMemoryArchive::new();
+        seed_archive(&mut a, &c);
+
+        // A roster issued well after the record we are about to verify.
+        let (future_priv, future_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let future_did = DidKey::from_pubkey(&future_pub).unwrap();
+        let ahead = Signed::build(
+            WitnessRegistry {
+                community_did: community_did.clone(),
+                entries: vec![WitnessEntry {
+                    witness_did: future_did.clone(),
+                    witness_pubkey: future_pub,
+                    role: WitnessRole::IntraCommunity,
+                    valid_from: now.checked_sub(1.hour()).unwrap(),
+                    valid_until: None,
+                }],
+                issued_at: now.checked_add(10.hours()).unwrap(),
+            },
+            &[(community_did.as_str(), &c.root_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::WitnessRegistryUpdated(ahead)).unwrap();
+
+        let at = now.checked_add(1.hour()).unwrap();
+        let rec = delegate_signed_conduct(
+            &community_did,
+            &future_did,
+            &future_priv,
+            at,
+            "signed by a witness seated by a roster not yet issued",
+        );
+        let cid = a.append(ArchiveEntry::ConductAttested(rec)).unwrap();
+        assert!(
+            matches!(a.verify(&cid), Err(KcError::Key(_))),
+            "a roster issued later than the record must not seat its signer"
+        );
+    }
+}

@@ -16,9 +16,9 @@
 
 //! The append-only, content-addressed store, generic over the entry type.
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
-use en_core::{Cid, KcError, KcResult};
+use kc_core::{Cid, KcError, KcResult};
 use serde::Serialize;
 
 /// A record that can live in an [`Archive`]: content-addressable (via canonical
@@ -42,7 +42,7 @@ pub trait Entry: Serialize + Clone {
 /// a compaction — compaction removes entries from the *middle*, so post-compaction
 /// index N is a different entry than pre-compaction index N, and a cursor past the
 /// new end reads as "already current" rather than as the error it is. Carrying the
-/// generation turns both of those into a refusal (design **D20**).
+/// generation turns both of those into a refusal (ethne design **D20**).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cursor {
     /// The archive generation this cursor was taken in.
@@ -57,21 +57,48 @@ pub struct Cursor {
 /// is stored at most once.
 ///
 /// The archive also carries a **generation**, which advances when a derived archive
-/// is built with entries *removed* (compaction — see `en_charter::apply_prunings`).
-/// Appending never advances it: within one generation the log is purely additive, so
-/// an index means the same thing throughout, which is exactly the condition
-/// incremental persistence needs.
+/// is built with entries *removed* (compaction — see ethne's
+/// `en_charter::apply_prunings`). Appending never advances it: within one generation
+/// the log is purely additive, so an index means the same thing throughout, which is
+/// exactly the condition incremental persistence needs.
+///
+/// # Append order is the only order
+///
+/// `order` is the sole source of sequence, and `entries` is an unordered index. That
+/// is deliberate, and it is the whole reason this type exists rather than each tier
+/// keeping its own: both forks previously exposed a `BTreeMap` to code in the same
+/// file, and a caller wanting "the most recent record" read the *map* instead of the
+/// log. Keyed by CID, a map's order is the hash's order — arbitrary with respect to
+/// when anything was appended. Measured on kith-covenant's `community_identity`,
+/// which documented "the most recent" and read `entries.values().rev()`: it returned
+/// the **earlier** of two publications in **104 of 200** trials.
+///
+/// So the index is a `HashMap`, which has no order to mistake for one, and the only
+/// iteration this type offers is [`iter`](Archive::iter) / [`iter_from`](Archive::iter_from),
+/// both in append order. Supersession ("latest `issued_at` wins", and the like) is a
+/// domain rule and belongs in the domain layer, stated explicitly.
+///
+/// # Why the index is keyed by `Cid` and not by its string
+///
+/// `Cid` is `Copy + Eq + Hash`, so it can key the map directly. Both forks used to
+/// key by `cid.to_string()`, which hex-encodes 32 bytes and heap-allocates a 67-byte
+/// `String` on **every** append, `get`, `contains` and iteration step — to look up an
+/// entry whose `Cid` the caller was already holding. Measured over a 5,000-entry log
+/// walked 62 times (kith-covenant has 62 non-test `iter()` sites): **211.4 ns** per
+/// entry visited in ethne's fork and **212.7 ns** in kith-covenant's, against
+/// **9.1 ns** for this shape. `append` is unaffected in relative terms — it is
+/// blake3-dominated.
 #[derive(Debug, Clone)]
 pub struct Archive<E: Entry> {
     order: Vec<Cid>,
-    entries: BTreeMap<String, E>,
+    entries: HashMap<Cid, E>,
     generation: u64,
 }
 
 // Manual `Default` so `Archive::new()` does not require `E: Default`.
 impl<E: Entry> Default for Archive<E> {
     fn default() -> Self {
-        Self { order: Vec::new(), entries: BTreeMap::new(), generation: 0 }
+        Self { order: Vec::new(), entries: HashMap::new(), generation: 0 }
     }
 }
 
@@ -84,7 +111,7 @@ impl<E: Entry> Archive<E> {
     ///
     /// Every caller that rebuilds an archive with entries dropped must start here
     /// rather than at [`new`](Archive::new), or a host's cursor from before the
-    /// compaction will still look valid. There is one such caller,
+    /// compaction will still look valid. There is one such caller, ethne's
     /// `en_charter::apply_prunings`.
     pub fn next_generation(prev: &Self) -> Self {
         Self { generation: prev.generation + 1, ..Self::default() }
@@ -111,23 +138,22 @@ impl<E: Entry> Archive<E> {
     /// Append `entry`, returning its CID. Errors on a duplicate CID.
     pub fn append(&mut self, entry: E) -> KcResult<Cid> {
         let cid = entry.cid()?;
-        let key = cid.to_string();
-        if self.entries.contains_key(&key) {
+        if self.entries.contains_key(&cid) {
             return Err(KcError::Archive(format!("duplicate entry: {cid}")));
         }
-        self.entries.insert(key, entry);
+        self.entries.insert(cid, entry);
         self.order.push(cid);
         Ok(cid)
     }
 
     /// Fetch an entry by CID.
     pub fn get(&self, cid: &Cid) -> Option<&E> {
-        self.entries.get(&cid.to_string())
+        self.entries.get(cid)
     }
 
     /// Whether an entry with this CID is present.
     pub fn contains(&self, cid: &Cid) -> bool {
-        self.entries.contains_key(&cid.to_string())
+        self.entries.contains_key(cid)
     }
 
     /// Iterate `(cid, entry)` pairs in insertion (append) order.
@@ -145,7 +171,7 @@ impl<E: Entry> Archive<E> {
     pub fn iter_from(&self, start: usize) -> impl Iterator<Item = (&Cid, &E)> {
         self.order[start.min(self.order.len())..]
             .iter()
-            .map(move |cid| (cid, self.entries.get(&cid.to_string()).expect("index invariant")))
+            .map(move |cid| (cid, self.entries.get(cid).expect("index invariant")))
     }
 
     pub fn len(&self) -> usize {
@@ -230,5 +256,98 @@ mod tests {
         let absent = Cid::of(&rec(99, "absent")).unwrap();
         assert!(a.get(&absent).is_none());
         assert!(!a.contains(&absent));
+    }
+
+    /// The measurement that chose `HashMap<Cid, E>` over `BTreeMap<String, E>`,
+    /// kept runnable so the number can be re-taken rather than trusted:
+    ///
+    /// ```text
+    /// cargo test --release -p kc-log -- --ignored --nocapture index_cost
+    /// ```
+    ///
+    /// Recorded on the machine this was built on, 5,000 entries walked 62 times (the
+    /// number of non-test `iter()` sites in kith-covenant). Measured through the two
+    /// tiers' *shipped* forks before the extraction: **211.4 ns/entry** for ethne's
+    /// `en_archive::Archive::iter()` and **212.7 ns** for
+    /// `kc_archive::InMemoryArchive::iter()`, against **9.1 ns** for this crate's
+    /// shape. This probe re-times the pair in isolation and reads a little wider —
+    /// **267.4 ns** against **7.7 ns**, 34.6x — because it indexes `order` explicitly
+    /// rather than borrowing an iterator. Either construction, the cost is the
+    /// `String`, not the map.
+    ///
+    /// `#[ignore]`d because a timing assertion in the ordinary suite is a flake; the
+    /// ordering property it protects is asserted for real in
+    /// `iteration_is_append_order_and_not_the_index_order`.
+    #[test]
+    #[ignore = "measurement, not an assertion — run with --ignored --nocapture"]
+    fn index_cost_of_keying_by_cid_versus_by_its_string() {
+        use std::collections::BTreeMap;
+        use std::time::Instant;
+
+        let n: u64 = 5_000;
+        let walks: u64 = 62;
+
+        let mut current: Archive<TestRec> = Archive::new();
+        // The shape both tiers carried before this crate: the same order vector, but an
+        // index keyed by the CID's 67-character display form.
+        let mut order: Vec<Cid> = Vec::new();
+        let mut by_string: BTreeMap<String, TestRec> = BTreeMap::new();
+        for i in 0..n {
+            let r = rec(i, "cost");
+            let cid = current.append(r.clone()).unwrap();
+            by_string.insert(cid.to_string(), r);
+            order.push(cid);
+        }
+
+        let t = Instant::now();
+        let mut acc = 0u64;
+        for _ in 0..walks {
+            for (_, e) in current.iter() {
+                acc += e.seq;
+            }
+        }
+        let cid_keyed = t.elapsed();
+
+        let t = Instant::now();
+        let mut acc2 = 0u64;
+        for _ in 0..walks {
+            for cid in &order {
+                acc2 += by_string.get(&cid.to_string()).expect("index invariant").seq;
+            }
+        }
+        let string_keyed = t.elapsed();
+        assert_eq!(acc, acc2, "both shapes must visit the same entries");
+
+        let per = |d: std::time::Duration| d.as_nanos() as f64 / (n * walks) as f64;
+        eprintln!(
+            "index cost over {n} entries x{walks} walks:\n  \
+             keyed by Cid    : {:>9.2?}  = {:>6.1} ns/entry\n  \
+             keyed by String : {:>9.2?}  = {:>6.1} ns/entry\n  \
+             ratio           : {:.1}x",
+            cid_keyed,
+            per(cid_keyed),
+            string_keyed,
+            per(string_keyed),
+            string_keyed.as_secs_f64() / cid_keyed.as_secs_f64()
+        );
+    }
+
+    #[test]
+    fn iteration_is_append_order_and_not_the_index_order() {
+        // The property both tiers' domain layers were relying on without it being
+        // stated anywhere: `iter()` follows `order`, never the entry index. With a
+        // CID-keyed index there is no other order to fall back on, which is the
+        // point — see this module's type docs for the 104/200 measurement that
+        // motivated making it explicit.
+        let mut a = Archive::new();
+        // Append in an order that is very unlikely to coincide with hash order for
+        // all 16 entries at once.
+        for i in 0..16 {
+            a.append(rec(i, "ordered")).unwrap();
+        }
+        let seqs: Vec<u64> = a.iter().map(|(_, e)| e.seq).collect();
+        assert_eq!(seqs, (0..16).collect::<Vec<u64>>());
+        // And the last entry in append order is the last one appended.
+        assert_eq!(a.iter().last().unwrap().1.seq, 15);
     }
 }

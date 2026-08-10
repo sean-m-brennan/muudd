@@ -214,3 +214,19 @@ impl ArchiveEntry {
         Cid::of(self)
     }
 }
+
+/// What lets [`kc_log::Archive`] hold these entries — the append-only,
+/// content-addressed mechanism this crate is built on (ethne decision **D32**).
+///
+/// Both methods delegate to the inherent ones above, which stay: an inherent method
+/// wins over a trait method in call syntax, so every existing `entry.kind()` and
+/// `entry.cid()` call site resolves exactly as it did before.
+impl kc_log::Entry for ArchiveEntry {
+    fn kind(&self) -> &'static str {
+        ArchiveEntry::kind(self)
+    }
+
+    fn cid(&self) -> KcResult<Cid> {
+        ArchiveEntry::cid(self)
+    }
+}

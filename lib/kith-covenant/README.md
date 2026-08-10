@@ -84,14 +84,15 @@ Three things the implementation deliberately is not:
 
 Dependencies come from conda, not pip or venv. `environment.yaml` provides `cargo`/`rustc` (conda `rust`), `maturin`, and `pytest`; `run-tests.sh` errors early with an instruction if any is missing.
 
-The Rust workspace is eight crates plus a demo:
+The Rust workspace is fifteen crates plus a demo. The principal ones:
 
 - `kc-core`: shared primitives and the `Alg` crypto enum.
+- `kc-log`: the append-only, content-addressed log, generic over the entry type — the archive *mechanism*, with generation-safe cursors and the versioned JSON dump/segment format. Neutral: no governance records and no dependency on any other `kc-*` crate, so the ethne polity tier builds its own archive on it too (ethne decision D32).
 - `kc-identity`: Ed25519 `did:key` identities, delegations, witnesses.
 - `kc-ceremony`: the two-layer recognition ceremony, five-movement recitation, and sponsorship (vouching) records.
 - `kc-conduct`: attributable, append-only conduct records (incl. the jester's pre-indictment `Concern`), seeding the escalation and reputation-ledger components.
 - `kc-mediation`: the §4 mediation slice. Per-community mediator registries (union = the pool), dispute records, and paneled decisions; the panel rule (registered, non-party, ≥ minimum) is enforced by the archive's authority pass.
-- `kc-archive`: the content-addressed, cryptographically verifiable audit commons.
+- `kc-archive`: the content-addressed, cryptographically verifiable audit commons — the typed record enum, DID-to-key resolution, verification, and the authority pass, over a `kc-log` archive.
 - `kc-reputation`: the reputation-bridge slice (lookup and standing), the capture-signal detectors, and the v0 read-only jester lenses (rejection-pattern and ceremony-cost-decay) (`analytics`).
 - `kc-pyo3`: the PyO3 bindings, built into `kith_covenant._core` by `maturin develop`.
 

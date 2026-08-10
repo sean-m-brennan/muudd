@@ -1,0 +1,20 @@
+[package]
+name = "kc-log"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# No §8 source-protection crypto: this crate holds a log, not identities. The opt-out
+# lives in the workspace entry, not on this line — a member's `default-features = false`
+# is ignored for an inherited dependency, and cargo unifies features, so one default-on
+# edge would re-enable it for every consumer. The four crates that DO need the §8 crypto
+# opt back in with `features = ["source-protection"]`.
+#
+# This matters beyond kith-covenant: the ethne polity tier depends on `kc-log` by path,
+# and an enabled edge here would undo the closure reduction ethne's own manifest buys.
+kc-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

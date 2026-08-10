@@ -88,11 +88,29 @@ def test_ceremony_archive_json_reloads_and_verifies():
     # Re-dump and confirm it's valid JSON and still loads.
     redumped = arch.dump_json()
     parsed = json.loads(redumped)
-    assert parsed["version"] == 1
+    # Version 2 since the archive mechanism moved to `kc-log`: the envelope gained the
+    # `generation` and `start` fields a compaction-safe cursor needs. Whole-log dumps are
+    # always cut at generation 0, index 0.
+    assert parsed["version"] == 2
+    assert parsed["generation"] == 0
+    assert parsed["start"] == 0
     assert len(parsed["entries"]) == r.archive_size
 
     arch2 = Archive.load_json(redumped)
     arch2.verify_all()
+
+
+def test_a_version_1_dump_still_loads():
+    """Dumps written before the mechanism moved to `kc-log` carried
+    `{"version": 1, "entries": [...]}` with no generation and no start. Every such file
+    must keep loading, or an archive exported by an older build is unreadable."""
+    r = run_two_community_ceremony("Alpha", ALPHA_MOVEMENTS, "Beta", BETA_MOVEMENTS)
+    current = json.loads(Archive.load_json(r.archive_json).dump_json())
+
+    legacy = json.dumps({"version": 1, "entries": current["entries"]})
+    reloaded = Archive.load_json(legacy)
+    assert len(reloaded) == r.archive_size
+    reloaded.verify_all()  # must not raise
 
 
 def test_ceremony_archive_entries_kinds():

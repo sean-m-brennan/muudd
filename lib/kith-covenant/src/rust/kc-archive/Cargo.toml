@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 kc-core = { workspace = true, features = ["source-protection"] }
+# The append-only, content-addressed log this crate's archive is built on (D32).
+kc-log = { workspace = true }
 kc-identity = { workspace = true }
 kc-ceremony = { workspace = true }
 kc-conduct = { workspace = true }

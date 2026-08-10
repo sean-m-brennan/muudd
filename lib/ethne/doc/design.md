@@ -186,7 +186,7 @@ the tiers decoupled (no ethne→KC-governance edge) and lets ethne run standalon
 | Concern | Dependency | Design borrowed from | Ownership |
 |---|---|---|---|
 | DID identity, signing | `kc-core` | n/a | reuse as-is |
-| Append-only content-addressed archive | `kc-core`-level base (see D1 note) | `kc-archive` mechanism | thin `en-archive` over ethne's own entry enum |
+| Append-only content-addressed archive | `kc-log` (neutral, beside `kc-core`) | n/a — shared, not borrowed | `en-archive` re-exports it; `kc-archive` is built on it too (D32) |
 | Genesis / immutable-core / asymmetric amendment | `kc-core` | `kc-constitution` shape | **new** `en-charter` (D3) |
 | Intra-community induction rite | `kc-core` | `kc-ceremony` five-Movement rite | **new** `en-*` (runs *for members*, not envoys) |
 | Ceremony-cost proxies / re-affirmation | `kc-core` | `kc-reputation` decay pattern | **new**, over ethne induction records |
@@ -292,18 +292,20 @@ KC cannot see on its own and AT cannot decide on its own.
 
 ## Architectural decisions
 
-- **D1, dependencies: `kc-core` only.** Ethne depends solely on the neutral
-  identity/crypto base; it does **not** depend on KC's governance crates. Their
+- **D1, dependencies: the neutral base only.** Ethne depends solely on kith-covenant's
+  neutral crates — `kc-core` for identity/crypto and, since **D32**, `kc-log` for the
+  append-only log; it does **not** depend on KC's governance crates. Their
   analytics are bound to KC's own `ArchiveEntry` types, so there is little to
   reuse over ethne's own records; depending on them would invert the layering
   (ethne sits below KC in the data flow) and block ethne-standalone use. Ethne
   therefore owns thin `en-*` code that borrows KC's proven designs. *Note:* the
   append-only archive **mechanism** in `kc-archive` is neutral and worth sharing,
-  but `kc-archive` today hardcodes KC's `ArchiveEntry` enum; v1 forks a thin
-  `en-archive` over ethne's own entry type. Extracting a generic entry-agnostic
-  archive base that both `kc-archive` and `en-archive` build on is the one
-  extraction worth doing, and it is not part of this design; it is carried in
-  [`TODO.md`](../TODO.md). Depending
+  but `kc-archive` hardcoded KC's `ArchiveEntry` enum; v1 forked a thin
+  `en-archive` over ethne's own entry type, and extracting a generic entry-agnostic
+  archive base that both build on was named here as the one extraction worth doing.
+  **D32 built it** as `kc-log`: `en-archive` re-exports it, `kc-archive` is a newtype
+  over it, and measuring the fork before removing it turned up a ~20x index cost in
+  both tiers and a key-resolution defect in KC. Depending
   on `kc-core` alone still meant linking KC's §8 whistleblower crypto, which the
   polity tier never calls. `kc-core` now gates its `ring` and `custody` modules behind
   a default-on `source-protection` feature, and both root manifests here set
@@ -1969,6 +1971,76 @@ KC cannot see on its own and AT cannot decide on its own.
   on the Python wheel's default path, against the property `cargo tree` checks. Nothing
   new crosses to KC, and the border stays at four artifacts plus the roll.
 
+- **D32: one archive mechanism, and append order as the only order.**
+  D1 forked a thin `en-archive` over ethne's own entry type because `kc-archive`
+  hardcodes KC's `ArchiveEntry` enum, and named the generic base both should build on as
+  "the one extraction worth doing later". It is now built: `kc-log`, a crate beside
+  `kc-core` in kith-covenant's tree, holding the `Entry` trait, `Archive<E>`, `Cursor`,
+  and the whole versioned dump/segment envelope. `en-archive` is a re-export of it and
+  `kc-archive`'s `InMemoryArchive` is a newtype over it, so the duplication D1 recorded
+  is gone. `kc-log` is neutral — a log over `kc-core`'s `Cid`, no governance records, no
+  dependency on any `kc-*` governance crate — so D1's rule reads "`kc-core` and `kc-log`,
+  both neutral"; `en-core`'s closure is unchanged at 53 crates and still carries no
+  `chacha20poly1305`.
+
+  **Measuring the fork first found two defects, and neither was the one the deferral
+  described.** D1 framed this as tidiness. It was not.
+
+  *The index cost about twenty times what it should, in both tiers.* Both forks held
+  `order: Vec<Cid>` beside `entries: BTreeMap<String, E>` keyed by `cid.to_string()` — so
+  every read hex-encoded 32 bytes and heap-allocated a 67-character `String` to find an
+  entry whose `Cid` the caller was already holding. Measured through the shipped code,
+  5,000 entries walked 62 times (the number of non-test `iter()` sites in KC):
+  **211.4 ns per entry** in `en_archive::Archive::iter()` and **212.7 ns** in
+  `kc_archive::InMemoryArchive::iter()`, against **9.1 ns** for a `HashMap<Cid, E>`.
+  `Cid` was already `Copy + Eq + Hash`, so nothing in `kc-core` had to change. The
+  measurement is kept runnable as an `#[ignore]`d test in `kc-log`.
+
+  *KC read hash order where it documented recency, and where supersession was required.*
+  `community_identity` was documented "the most recent self-certified CommunityIdentity"
+  and read `entries.values().rev()` — descending *CID-string* order, unrelated to when
+  anything was published. Over 200 trials with two publications for one DID it returned
+  the **earlier** record **104** times. The same index was scanned by `resolve_did`'s four
+  registry steps, which took the first match they found there; those rosters supersede by
+  latest `issued_at`, and `authority.rs` already claimed the archive resolved keys with
+  "the same latest-issued-wins supersession" — true only of delegations. Because only
+  `CommunityIdentity` binds a DID to its pubkey, a roster could name a witness DID with a
+  new key while the old entry was still inside its window, and the **retired key still
+  verified**. Both halves now share one definition, `store::latest_rosters`, which is the
+  rule `authority::mediator_encryption_keys` was already applying alone.
+
+  So the fix is structural rather than a patch: the base's index is a `HashMap`, which has
+  no order to mistake for one, it is private to `kc-log`, and the only iteration the type
+  offers is append-ordered. Supersession is a domain rule and is now written down as one.
+
+  **What the measurement did NOT find, recorded because the prediction was wrong.** The
+  slice predicted that KC's existing tests would turn out to have asserted the hole, the
+  way D23, D27 and D28 all did. **Not one of KC's 440 tests broke.** Nothing in the suite
+  had ever appended two rosters for one community or two identities for one DID, so
+  nothing ever asked which one key resolution would pick — which is why a coin-flip
+  answer survived. The absence of a test, not a wrong test, was the cover here. Four new
+  tests now hold it: most-recent-publication over 40 independent key pairs, a retired
+  witness key refused *and* the current one accepted, one community's rotation not
+  blinding another's roster, and a roster issued after the record it would seat.
+
+  **Judgment call, stated rather than buried.** `kc-log` also carries `cursor`,
+  `generation`, `next_generation`, `iter_from`, `dump_json_since`, `append_json`,
+  `merge_json` and `contains`, all of which this tier's observation log uses. KC has no
+  compaction and no incremental-persistence caller, so **none of them is forwarded onto
+  `InMemoryArchive`**. Exposed API that no rule reads is the dead-surface pattern D23's
+  `substrate.anchor` and KC's `source_commitment` both turned out to be; each is one
+  `pub fn` away when KC has something to call it.
+
+  **Honest limits.** KC's dump format moves from version 1 to version 2, gaining the
+  `generation` and `start` fields a compaction-safe cursor needs. Old dumps still load —
+  `read_dump` accepts the v1 envelope and the legacy bare array, asserted in both Rust and
+  Python — but a v2 dump will not load in an older build, and that is a one-way move. The
+  ordering fix is also narrower than it sounds for step 1: `CommunityIdentity` binds its
+  DID to its key, so hash order there was harmless, and only the four registry steps were
+  resolving wrongly. Finally, D20's generation protection is now asserted in `kc-log`'s
+  own tests and not independently in ethne's: removing the check fails the base's test and
+  leaves ethne's suite green.
+
 
 ## Questions and resolutions (round 2)
 
@@ -2105,8 +2177,9 @@ The tier is built up in five layers, each of which stands on its own. The order 
 part of the design: every layer proves the decoupling it inherits before the next one
 is added.
 
-1. The `ethne` workspace (D2), with `en-core` depending on `kc-core`, and a
-   thin `en-archive` over ethne's own entry enum (D1).
+1. The `ethne` workspace (D2), with `en-core` depending on `kc-core`, and
+   `en-archive` over the shared `kc-log` archive base (D1, built by D32 — it began as
+   a thin fork over ethne's own entry enum).
 2. The **`en-charter` / founding object** (D3), the keystone primitive, with the
    ratify-not-replace discipline built into its API.
 3. The `SubstrateProvider` interface and a trivial manual-founding

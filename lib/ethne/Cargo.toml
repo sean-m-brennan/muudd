@@ -56,6 +56,18 @@ pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 # ignored when the dependency is inherited with `workspace = true`.
 kc-core = { path = "../kith-covenant/src/rust/kc-core", default-features = false }
 
+# The append-only archive mechanism, generic over the entry type (decision D32, closing
+# D1's named deferral). `en-archive` re-exports this crate; `kc-archive` one tier up is
+# built on the same base, so the fork D1 recorded is gone.
+#
+# This is the second neutral kc-* crate ethne depends on, not a widening of the coupling
+# rule: `kc-log` holds a log and nothing else — no governance records, no dependency on
+# any kc-* governance crate — and it reaches `kc-core` through kith-covenant's own
+# workspace entry, which is `default-features = false`, so the §8 source-protection
+# crypto stays out of ethne's closure. Verified: `en-core`'s closure is 53 crates and
+# carries no `chacha20poly1305`.
+kc-log = { path = "../kith-covenant/src/rust/kc-log" }
+
 # KC conduct records. Decision (step 5, Concern-posture): the kc-conduct coupling
 # is confined to the single upward-facing crate `en-uplift` (the crate whose job
 # is speaking KC's language). No other ethne crate may depend on it, so KC ⟂ ethne
