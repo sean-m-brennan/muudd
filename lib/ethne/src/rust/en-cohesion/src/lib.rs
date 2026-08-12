@@ -48,8 +48,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use en_charter::{
-    AffirmationState, DecayTrends, GroundStanding, GuardianState, IndependentObservation,
-    ObservationWindow, Rite,
+    AffirmationKind, AffirmationState, DecayTrends, GroundStanding, GuardianState,
+    IndependentObservation, ObservationWindow, Rite,
 };
 use en_core::{DidKey, Timestamp};
 use en_substrate::FoundingCandidate;
@@ -329,6 +329,18 @@ pub struct CohesionReport {
     /// identical records. Capped at `Notice` like the other trends — a cheapening
     /// ceremony is a leading indicator, and what it leads to is already gradeable.
     pub rite_span_shortening: Option<bool>,
+
+    /// The same measure for **renewals** (design **D34**): whether the polity's most
+    /// recent completed re-recitation ran shorter than its first. `None` with fewer than
+    /// two, which is not `Some(false)`.
+    ///
+    /// Kept separate from `rite_span_shortening` because an induction and a renewal are
+    /// different ceremonies: one series would compare a member's reception against
+    /// another's renewal and read the difference as drift. This is also the measure that
+    /// did not exist before D34, and the one that matters most over a polity's life —
+    /// induction happens once per member, the renewal recurs forever, and it was the
+    /// recurring one that carried no cost at all.
+    pub renewal_span_shortening: Option<bool>,
     /// Rites begun and never completed, as of this reading. Not graded: nothing in the
     /// doctrine says how long a catechumenate may take, so an open rite is reported
     /// and left to a reader who knows the polity's own cadence.
@@ -424,7 +436,7 @@ fn silent_for(input: &str) -> &'static [&'static str] {
         // over who was watching while it lasted.
         "window" => &["sustained_absences", "watchers"],
         "ground" => &["ground_disavowed"],
-        "rites" => &["rite_span_shortening", "rite_attrition"],
+        "rites" => &["rite_span_shortening", "renewal_span_shortening", "rite_attrition"],
         "observers" => &["watchers.vouched", "watchers.contested"],
         _ => &[],
     }
@@ -917,16 +929,33 @@ pub fn cohesion_report(
     // Against the FIRST rite, not the median of the priors: a ceremony that thins
     // uniformly moves its own recent history, which is the failure
     // `gap_widening_since_founding` exists to catch one measure over.
-    let rite_span_shortening = match (completed.first(), completed.last()) {
-        (Some(first), Some(last)) if completed.len() >= 2 => {
-            match (first.span_seconds(), last.span_seconds()) {
-                (Some(a), Some(b)) => Some(b < a),
-                _ => None,
-            }
+    //
+    // **D34 splits the comparison by ceremony.** Inductions and renewals are not
+    // comparable as ceremonies — one happens once per member and the other recurs — so a
+    // single series would measure one member's reception against another's renewal and
+    // call the difference drift. Each is now compared against the first of its own kind.
+    let shortening_within = |kind: AffirmationKind| -> Option<bool> {
+        let of_kind: Vec<&&Rite> = completed.iter().filter(|r| r.kind == kind).collect();
+        if of_kind.len() < 2 {
+            return None;
         }
-        _ => None,
+        match (
+            of_kind.first()?.span_seconds(),
+            of_kind.last()?.span_seconds(),
+        ) {
+            (Some(a), Some(b)) => Some(b < a),
+            _ => None,
+        }
     };
-    let rite_level = if rite_span_shortening == Some(true) || rite_attrition > 0 {
+    let rite_span_shortening = shortening_within(AffirmationKind::Induction);
+    // The recurring ceremony's own cost, which before D34 did not exist to measure: a
+    // renewal carried no movements, so a polity could hold its transmission measure green
+    // forever without performing the rite once.
+    let renewal_span_shortening = shortening_within(AffirmationKind::ReAffirmation);
+    let rite_level = if rite_span_shortening == Some(true)
+        || renewal_span_shortening == Some(true)
+        || rite_attrition > 0
+    {
         ErosionLevel::Notice
     } else {
         ErosionLevel::None
@@ -980,6 +1009,7 @@ pub fn cohesion_report(
         watchers,
         rites,
         rite_span_shortening,
+        renewal_span_shortening,
         rites_abandoned,
         rite_attrition,
         nobody_holds_the_substrate,
@@ -1117,20 +1147,22 @@ mod tests {
         }
     }
 
+    /// One point in a hand-built observation window: when it was filed, and who was
+    /// seen with which attendance stamp. Named so the three helpers below state the
+    /// same shape once instead of three times.
+    type WindowPoint = (i64, Vec<(DidKey, Option<i64>)>);
+
     /// An observation window built directly: each entry is one observation at
     /// `(at, [(member, attendance stamp)])`.
     /// A window whose every filing is by a *different* observer — the ordinary case,
     /// and since D28 the one the sustained-absence grade needs.
-    fn window(points: &[(i64, Vec<(DidKey, Option<i64>)>)]) -> ObservationWindow {
+    fn window(points: &[WindowPoint]) -> ObservationWindow {
         window_by(points, &[])
     }
 
     /// `window`, but with every filing signed by the same `solo` observer when one is
     /// given: one party's word, however many times it is repeated.
-    fn window_by(
-        points: &[(i64, Vec<(DidKey, Option<i64>)>)],
-        solo: &[DidKey],
-    ) -> ObservationWindow {
+    fn window_by(points: &[WindowPoint], solo: &[DidKey]) -> ObservationWindow {
         let mut w = window_inner(points);
         if let Some(one) = solo.first() {
             for o in &mut w.observations {
@@ -1140,7 +1172,7 @@ mod tests {
         w
     }
 
-    fn window_inner(points: &[(i64, Vec<(DidKey, Option<i64>)>)]) -> ObservationWindow {
+    fn window_inner(points: &[WindowPoint]) -> ObservationWindow {
         ObservationWindow {
             observations: points
                 .iter()
@@ -2052,6 +2084,15 @@ mod tests {
     /// pool so the *same* people attend across movements. (Minting fresh DIDs per
     /// movement made every attendee read as lost, which is the measure working.)
     fn rite(member: &DidKey, spans: &[(i64, usize)], completed: bool) -> Rite {
+        rite_of(member, spans, completed, AffirmationKind::Induction)
+    }
+
+    fn rite_of(
+        member: &DidKey,
+        spans: &[(i64, usize)],
+        completed: bool,
+        kind: AffirmationKind,
+    ) -> Rite {
         let pool: Vec<DidKey> =
             (0..spans.iter().map(|(_, n)| *n).max().unwrap_or(0)).map(|_| did()).collect();
         let movements = spans
@@ -2064,6 +2105,7 @@ mod tests {
             .collect();
         Rite {
             member: member.clone(),
+            kind,
             movements,
             completed_at: completed.then(|| at_ts(spans.last().map(|s| s.0).unwrap_or(0))),
         }
@@ -2106,6 +2148,94 @@ mod tests {
         );
         assert_eq!(r.rite_span_shortening, None, "no trend from one rite");
         assert_eq!(r.erosion, ErosionLevel::None);
+    }
+
+    /// **D34** — the recurring ceremony gets its own cheapening measure, kept separate
+    /// from the induction's because the two are not comparable as ceremonies: one
+    /// happens once per member, the other forever.
+    #[test]
+    fn a_cheapening_renewal_is_measured_within_renewals() {
+        let roll: Vec<DidKey> = (0..3).map(|_| did()).collect();
+        let members: Vec<(DidKey, f64)> = roll.iter().map(|d| (d.clone(), 0.9)).collect();
+        let grade = |rites: &[Rite]| {
+            cohesion_report(
+                &roll,
+                &candidate(&members),
+                false,
+                &CohesionInputs { rites: Some(rites), ..Default::default() },
+                at(0),
+                &Thresholds::default(),
+            )
+        };
+
+        // A week-long first renewal, then a five-second one.
+        let thinning = vec![
+            rite_of(&roll[0], &[(0, 2), (604_800, 2)], true, AffirmationKind::ReAffirmation),
+            rite_of(
+                &roll[0],
+                &[(2_000_000, 2), (2_000_005, 2)],
+                true,
+                AffirmationKind::ReAffirmation,
+            ),
+        ];
+        let r = grade(&thinning);
+        assert_eq!(r.renewal_span_shortening, Some(true));
+        assert_eq!(r.rite_span_shortening, None, "no induction series to read");
+        assert_eq!(r.erosion, ErosionLevel::Notice, "capped at Notice, like D29's trends");
+
+        // The two series do not contaminate each other: a long renewal beside a
+        // shortening induction leaves each measure reading its own kind.
+        let mixed = vec![
+            rite(&roll[0], &[(0, 2), (604_800, 2)], true),
+            rite(&roll[1], &[(1_000_000, 2), (1_000_005, 2)], true),
+            rite_of(&roll[2], &[(5, 2), (10, 2)], true, AffirmationKind::ReAffirmation),
+            rite_of(
+                &roll[2],
+                &[(2_000_000, 2), (2_604_800, 2)],
+                true,
+                AffirmationKind::ReAffirmation,
+            ),
+        ];
+        let r = grade(&mixed);
+        assert_eq!(r.rite_span_shortening, Some(true), "the inductions thinned");
+        assert_eq!(r.renewal_span_shortening, Some(false), "the renewals lengthened");
+    }
+
+    /// The uniform-drift lesson, one measure over: graded against the FIRST renewal, a
+    /// ceremony that thinned once and stayed thin is still visible. Measured against its
+    /// own recent history it would go quiet, because the cheapened ceremony has become
+    /// what normal looks like — which is exactly the failure
+    /// `gap_widening_since_founding` exists to catch one measure over. (A *monotone*
+    /// decline is caught either way; the plateau is where the baselines diverge, so the
+    /// plateau is what this fixture is.)
+    #[test]
+    fn a_renewal_that_thinned_once_and_stayed_thin_is_still_visible() {
+        let roll: Vec<DidKey> = (0..2).map(|_| did()).collect();
+        let members: Vec<(DidKey, f64)> = roll.iter().map(|d| (d.clone(), 0.9)).collect();
+        // A week-long first renewal, then three at a couple of minutes each.
+        let rites: Vec<Rite> = [604_800_i64, 120, 120, 120]
+            .iter()
+            .enumerate()
+            .map(|(i, span)| {
+                let start = 1_000_000 * (i as i64 + 1);
+                rite_of(
+                    &roll[0],
+                    &[(start, 2), (start + span, 2)],
+                    true,
+                    AffirmationKind::ReAffirmation,
+                )
+            })
+            .collect();
+        let r = cohesion_report(
+            &roll,
+            &candidate(&members),
+            false,
+            &CohesionInputs { rites: Some(&rites), ..Default::default() },
+            at(0),
+            &Thresholds::default(),
+        );
+        assert_eq!(r.renewal_span_shortening, Some(true));
+        assert_eq!(r.erosion, ErosionLevel::Notice);
     }
 
     #[test]
@@ -2608,6 +2738,14 @@ mod tests {
     // ---- D31: a grade says what it was not given -----------------------------
 
     /// Every optional reading, so the omission list has a zero to be measured against.
+    // One parameter per optional reading, and that arity is the point: D31 measures
+    // what a grade was *not* given, so this fixture has to supply every optional
+    // input for the omission list to have a zero to be measured against. The obvious
+    // collapse is `CohesionInputs`, which the body already builds from these — but
+    // then a reading added to `CohesionInputs` would flow through untouched and go
+    // silently unmeasured, which is the D31 failure itself. Keeping one parameter per
+    // reading means adding one breaks this signature and someone has to look.
+    #[allow(clippy::too_many_arguments)]
     fn every_reading(
         m: &DidKey,
         seen: &ObservationWindow,
@@ -2743,7 +2881,10 @@ mod tests {
 
         let no_rites = grade_with(&CohesionInputs { rites: None, ..full.clone() });
         assert_eq!(no_rites.omitted_readings, ["rites"]);
-        assert_eq!(no_rites.silent_measures(), ["rite_span_shortening", "rite_attrition"]);
+        assert_eq!(
+            no_rites.silent_measures(),
+            ["rite_span_shortening", "renewal_span_shortening", "rite_attrition"]
+        );
         assert!(!no_rites.blind_to_concern(), "rite erosion is capped at Notice");
 
         let no_observers = grade_with(&CohesionInputs { observers: None, ..full.clone() });

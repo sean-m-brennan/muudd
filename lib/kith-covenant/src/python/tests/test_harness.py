@@ -31,16 +31,17 @@ from kith_covenant.harness import (
 
 
 def test_all_scenarios_present_all_supported():
-    """Seven capture moves plus scenario 8, the quiet polity — which is not a
-    capture move (it has no adversary) but is scored the same way. Move 7 carries
-    two scenarios: who a faction can seat, and what a seated entrant can carry."""
+    """Seven capture moves plus scenarios 8 and 9, the quiet polity and the abandoned
+    office, which are not capture moves (they have no adversary) but are scored the same
+    way. Move 7 carries two scenarios: who a faction can seat, and what a seated entrant
+    can carry."""
     report = run_harness()
-    assert report.total == 9
-    assert report.supported == 9
+    assert report.total == 10
+    assert report.supported == 10
     moves = sorted(r.move for r in report.results)
-    assert moves == [1, 2, 3, 4, 5, 6, 7, 7, 8]
+    assert moves == [1, 2, 3, 4, 5, 6, 7, 7, 8, 9]
     # Every move has a scenario, and no scenario key is duplicated.
-    assert set(moves) == {1, 2, 3, 4, 5, 6, 7, 8}
+    assert set(moves) == {1, 2, 3, 4, 5, 6, 7, 8, 9}
     keys = [r.key for r in report.results]
     assert len(set(keys)) == len(keys)
 
@@ -97,7 +98,7 @@ def test_no_scenarios_remain_unsupported():
     report = run_harness()
     unsupported = [r for r in report.results if not r.supported]
     assert unsupported == []
-    assert report.supported == report.total == 9
+    assert report.supported == report.total == 10
 
 
 def test_probationary_weight_never_carries_a_second_class_act():
@@ -164,6 +165,7 @@ _CANONICAL_DAMAGE = {
     "admissions-capture": 1,
     "probationary-weight": 0,
     "quiet-polity": 0,
+    "abandoned-office": 0,
 }
 
 

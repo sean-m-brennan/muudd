@@ -74,9 +74,39 @@ use en_cohesion::{
 };
 use en_host::{DueAction, HostConfig, HostCycle};
 use en_core::{keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, Signed, Timestamp};
-use en_substrate::{FoundingCandidate, ManualFounding, MemberCandidate, SubstrateProvider};
+use en_at::{signing_key_did, AtEvent, AtPeer, AtSubstrateProvider, MockEventSource};
+#[cfg(feature = "at-ffi")]
+use en_at::{AtLogLevel, AttachedAtDaemon, EmbeddedAtNode};
+use en_substrate::{
+    ChangeStream, FoundingCandidate, FoundingTerms, ManualFounding, MemberCandidate,
+    SubstrateChange, SubstrateProvider,
+};
 use en_uplift::FusionPredecessor;
 use kc_core::CommunityIdentity;
+
+/// One member as the Python seam carries it:
+/// `(did, reputation, guardian_did, attested_at, derived)`.
+///
+/// Named because it crosses the seam in **both** directions — it is the `members`
+/// getter's row and `founding_candidate`'s parameter row, and the two have to agree
+/// element for element. A bare tuple repeated in two signatures is a contract nothing
+/// states; this is that contract.
+///
+/// `reputation` is `None` for an unrated member (D18: the provider's epistemic state,
+/// not a low score), and `derived` with no `guardian_did` is the unguarded machine.
+type MemberRow = (String, Option<f64>, Option<String>, Option<i64>, bool);
+
+/// One induction rite as the Python seam carries it: `(member, kind, movements,
+/// began_at, completed_at, attendance, expected_movements)`.
+type RiteRow = (
+    String,
+    String,
+    usize,
+    Option<i64>,
+    Option<i64>,
+    Vec<String>,
+    usize,
+);
 
 /// Resolve a caller's evidence arguments into the record's carried evidence (D15).
 ///
@@ -254,6 +284,18 @@ fn parse_office(s: &str) -> Office {
         "EnvoyAuthorizer" => Office::EnvoyAuthorizer,
         "CharterKeeper" => Office::CharterKeeper,
         other => Office::Other(other.to_string()),
+    }
+}
+
+/// Parse an affirmation kind from its variant name — which ceremony a rite movement
+/// belongs to (**D34**).
+fn affirmation_kind(name: &str) -> PyResult<AffirmationKind> {
+    match name {
+        "Induction" => Ok(AffirmationKind::Induction),
+        "ReAffirmation" => Ok(AffirmationKind::ReAffirmation),
+        other => Err(PyValueError::new_err(format!(
+            "unknown affirmation kind '{other}': expected Induction or ReAffirmation"
+        ))),
     }
 }
 
@@ -540,7 +582,7 @@ fn now_seconds() -> i64 {
 /// with an earned reputation and an optional guardian edge) and, optionally, the
 /// substrate the provider observes. A candidate is *input to a proposal*, never
 /// an authority in itself.
-#[pyclass(name = "FoundingCandidate")]
+#[pyclass(skip_from_py_object, name = "FoundingCandidate")]
 #[derive(Clone)]
 struct PyFoundingCandidate {
     inner: FoundingCandidate,
@@ -559,7 +601,7 @@ impl PyFoundingCandidate {
     /// is whether the substrate reads the member as a machine party, independent of
     /// the guardian edge — `derived` with no guardian is the unguarded machine.
     #[getter]
-    fn members(&self) -> Vec<(String, Option<f64>, Option<String>, Option<i64>, bool)> {
+    fn members(&self) -> Vec<MemberRow> {
         self.inner
             .members
             .iter()
@@ -634,7 +676,7 @@ fn substrate_from(
 #[pyfunction]
 #[pyo3(signature = (members, substrate_name=None, substrate_statement=None, substrate_anchor=None))]
 fn founding_candidate(
-    members: Vec<(String, Option<f64>, Option<String>, Option<i64>, bool)>,
+    members: Vec<MemberRow>,
     substrate_name: Option<String>,
     substrate_statement: Option<String>,
     substrate_anchor: Option<String>,
@@ -724,13 +766,15 @@ fn propose_from_candidate(
         })?,
     };
     let proposal = candidate.inner.propose(
-        parse_did(polity_did)?,
-        substrate,
-        commitments_from(commitments),
+        FoundingTerms {
+            polity: parse_did(polity_did)?,
+            substrate,
+            founding_commitments: commitments_from(commitments),
+            readings: readings_from(readings)?,
+            observation: observation_from(observation)?,
+            proposed_at: ts_or_now(proposed_at)?,
+        },
         min_reputation,
-        readings_from(readings)?,
-        observation_from(observation)?,
-        ts_or_now(proposed_at)?,
     );
     serde_json::to_string(&proposal).map_err(json_err_to_py)
 }
@@ -786,14 +830,16 @@ fn select_from_candidate(
     };
     let keep: Vec<DidKey> = keep.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?;
     let proposal = candidate.inner.propose_selecting(
-        parse_did(polity_did)?,
-        substrate,
-        commitments_from(commitments),
+        FoundingTerms {
+            polity: parse_did(polity_did)?,
+            substrate,
+            founding_commitments: commitments_from(commitments),
+            readings: readings_from(readings)?,
+            observation: observation_from(observation)?,
+            proposed_at: ts_or_now(proposed_at)?,
+        },
         &keep,
         reason,
-        readings_from(readings)?,
-        observation_from(observation)?,
-        ts_or_now(proposed_at)?,
     );
     serde_json::to_string(&proposal).map_err(json_err_to_py)
 }
@@ -810,7 +856,7 @@ fn erosion_name(e: ErosionLevel) -> &'static str {
 
 /// How far a polity has drifted from the roll it chartered. Holds the Rust
 /// report, so `coherence_concern` sees the same values the getters show.
-#[pyclass(name = "CohesionReport")]
+#[pyclass(skip_from_py_object, name = "CohesionReport")]
 #[derive(Clone)]
 struct PyCohesionReport {
     inner: CohesionReport,
@@ -1180,7 +1226,7 @@ fn cohesion_report(
 ///
 ///     config = HostConfig(polity_did, cohesion_cadence_seconds=3600)
 ///     cycle = HostCycle(config)
-#[pyclass(name = "HostConfig")]
+#[pyclass(skip_from_py_object, name = "HostConfig")]
 #[derive(Clone)]
 struct PyHostConfig {
     inner: HostConfig,
@@ -1381,7 +1427,7 @@ impl PyHostConfig {
 /// Raising a Concern and pruning both need keys, and the keys are the host's: the
 /// polity still ratifies its own housekeeping, and alarm-raising is signed by whoever
 /// raises it. So this is a report over a computed state and not a record.
-#[pyclass(name = "DueAction")]
+#[pyclass(skip_from_py_object, name = "DueAction")]
 #[derive(Clone)]
 struct PyDueAction {
     /// A short, stable name: `"Save"`, `"Cohesion"`, `"RaiseConcern"`, `"Prune"`.
@@ -1505,7 +1551,7 @@ impl PyHostCycle {
 /// (index-aligned with them), and the predecessor's dissolution naming them all.
 ///
 /// **N-ary since design D25**, so this is the exact mirror of `FusionOutcome`.
-#[pyclass(name = "FissionOutcome", get_all)]
+#[pyclass(skip_from_py_object, name = "FissionOutcome", get_all)]
 #[derive(Clone)]
 struct PyFissionOutcome {
     successors: Vec<String>,
@@ -1515,7 +1561,7 @@ struct PyFissionOutcome {
 
 /// The bundle a fusion emits: the merged identity, plus one successor link and
 /// one dissolution per predecessor, index-aligned with the input list.
-#[pyclass(name = "FusionOutcome", get_all)]
+#[pyclass(skip_from_py_object, name = "FusionOutcome", get_all)]
 #[derive(Clone)]
 struct PyFusionOutcome {
     fused: String,
@@ -2491,7 +2537,7 @@ impl PyArchive {
     #[pyo3(signature = (
         polity_did, member_did, member_priv, movement, statement, attending_dids,
         attending_privs, names=None, commits_to=Vec::new(), names_anchor=None,
-        recited_at=None,
+        recited_at=None, kind="Induction",
     ))]
     #[allow(clippy::too_many_arguments)]
     fn recite_movement(
@@ -2507,6 +2553,7 @@ impl PyArchive {
         commits_to: Vec<String>,
         names_anchor: Option<String>,
         recited_at: Option<i64>,
+        kind: &str,
     ) -> PyResult<String> {
         let mut signers = Signers::new(attending_dids, attending_privs)?;
         let attending = parse_dids(&signers.dids)?;
@@ -2533,6 +2580,7 @@ impl PyArchive {
         let record = RiteMovement {
             polity: parse_did(polity_did)?,
             member: parse_did(member_did)?,
+            kind: affirmation_kind(kind)?,
             movement,
             statement,
             attending,
@@ -2580,14 +2628,30 @@ impl PyArchive {
         self.append(CharterEntry::MemberAffirmed(signed))
     }
 
-    /// Renew an inducted member's affirmation: self-signed, unwitnessed. The
-    /// freshness of these is what `AffirmationState.stale_members` reads.
-    #[pyo3(signature = (polity_did, member_did, member_priv, affirmed_at=None))]
+    /// Renew an inducted member's affirmation, on the **full re-recitation of the five
+    /// movements** the doctrine asks of it (**D34**).
+    ///
+    /// `movement_cids` must be the five `recite_movement` records of this member's own
+    /// re-recitation (`kind="ReAffirmation"`), in order, and `witness_dids` exactly those
+    /// who attended every one of them — which may be nobody. Attendance is recorded,
+    /// never required: the renewal is signed by the member alone, because it is precisely
+    /// the act no one else may condition.
+    ///
+    /// The freshness of these is what `AffirmationState.stale_members` reads. Before D34
+    /// this took no re-recitation at all, which made the recurring ceremony the only one
+    /// with no cost — see D34 for what that measured.
+    #[pyo3(signature = (
+        polity_did, member_did, member_priv, movement_cids, witness_dids=Vec::new(),
+        affirmed_at=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
     fn reaffirm_member(
         &mut self,
         polity_did: &str,
         member_did: &str,
         member_priv: &[u8],
+        movement_cids: Vec<String>,
+        witness_dids: Vec<String>,
         affirmed_at: Option<i64>,
     ) -> PyResult<String> {
         let signers = Signers::only(member_did, member_priv)?;
@@ -2595,8 +2659,8 @@ impl PyArchive {
             polity: parse_did(polity_did)?,
             member: parse_did(member_did)?,
             kind: AffirmationKind::ReAffirmation,
-            witnesses: vec![],
-            movements: vec![],
+            witnesses: parse_dids(&witness_dids)?,
+            movements: parse_cids(&movement_cids)?,
             affirmed_at: ts_or_now(affirmed_at)?,
         };
         let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
@@ -3234,7 +3298,7 @@ impl PyArchive {
 }
 
 /// A polity's charter state at a point in time.
-#[pyclass(name = "CharterState", get_all)]
+#[pyclass(skip_from_py_object, name = "CharterState", get_all)]
 #[derive(Clone)]
 struct PyCharterState {
     chartered: bool,
@@ -3490,7 +3554,7 @@ struct PyGuardianState {
     inner: GuardianState,
 }
 
-#[pyclass(name = "RiteState")]
+#[pyclass(skip_from_py_object, name = "RiteState")]
 #[derive(Clone)]
 struct PyRiteState {
     inner: Vec<Rite>,
@@ -3499,15 +3563,22 @@ struct PyRiteState {
 #[pymethods]
 impl PyRiteState {
     /// Every rite, oldest first, as
-    /// `(member, movements_recited, span_seconds | None, completed_at | None,
+    /// `(member, kind, movements_recited, span_seconds | None, completed_at | None,
     /// attended_throughout, attrition)`.
+    ///
+    /// `kind` is `"Induction"` or `"ReAffirmation"` (**D34**). It is carried because the
+    /// two are not comparable as ceremonies — one happens once per member and the other
+    /// recurs — so a caller measuring a rite's cost has to know which it is reading.
     #[getter]
-    fn rites(&self) -> Vec<(String, usize, Option<i64>, Option<i64>, Vec<String>, usize)> {
+    fn rites(
+        &self,
+    ) -> Vec<RiteRow> {
         self.inner
             .iter()
             .map(|r| {
                 (
                     r.member.to_string(),
+                    affirmation_kind_name(&r.kind),
                     r.movements.len(),
                     r.span_seconds(),
                     r.completed_at.map(|t| t.as_second()),
@@ -3667,7 +3738,7 @@ impl PyAffirmationState {
 /// Read-only, and advisory — `Archive.prune_recommendation` derives it, nothing
 /// signs it. The routes are reported cheapest first; both appear when both are open,
 /// because the officer route is an *alternative* to the roll and never a gate on it.
-#[pyclass(name = "PruneRecommendation")]
+#[pyclass(skip_from_py_object, name = "PruneRecommendation")]
 #[derive(Clone)]
 struct PyPruneRecommendation {
     inner: PruneRecommendation,
@@ -3763,7 +3834,7 @@ impl PyPruneRecommendation {
 /// a compaction — entries go from the middle, so the same index is a different
 /// entry, and an index past the new end used to read as "already current". Both are
 /// refusals now.
-#[pyclass(name = "Cursor")]
+#[pyclass(skip_from_py_object, name = "Cursor")]
 #[derive(Clone)]
 struct PyCursor {
     inner: Cursor,
@@ -4024,7 +4095,7 @@ impl PyFileStore {
 /// What a polity's founding rests on, derived from its charter alone (D21).
 /// What the excluded said back about a founding — one party's assertion each, and
 /// never a verdict (design **D22**).
-#[pyclass(name = "FoundingDissent")]
+#[pyclass(skip_from_py_object, name = "FoundingDissent")]
 #[derive(Clone)]
 struct PyFoundingDissent {
     inner: FoundingDissent,
@@ -4087,7 +4158,7 @@ impl PyFoundingDissent {
     }
 }
 
-#[pyclass(name = "GroundStanding")]
+#[pyclass(skip_from_py_object, name = "GroundStanding")]
 #[derive(Clone)]
 struct PyGroundStanding {
     inner: GroundStanding,
@@ -4145,7 +4216,7 @@ impl PyGroundStanding {
     }
 }
 
-#[pyclass(name = "ReaderIndependence")]
+#[pyclass(skip_from_py_object, name = "ReaderIndependence")]
 #[derive(Clone)]
 struct PyReaderIndependence {
     inner: ReaderIndependence,
@@ -4205,7 +4276,7 @@ impl PyReaderIndependence {
     }
 }
 
-#[pyclass(name = "IndependentCorroboration")]
+#[pyclass(skip_from_py_object, name = "IndependentCorroboration")]
 #[derive(Clone)]
 struct PyIndependentCorroboration {
     inner: IndependentCorroboration,
@@ -4252,7 +4323,7 @@ impl PyIndependentCorroboration {
     }
 }
 
-#[pyclass(name = "IndependentObservation")]
+#[pyclass(skip_from_py_object, name = "IndependentObservation")]
 #[derive(Clone)]
 struct PyIndependentObservation {
     inner: IndependentObservation,
@@ -4307,7 +4378,7 @@ impl PyIndependentObservation {
     }
 }
 
-#[pyclass(name = "IndependentGrounding")]
+#[pyclass(skip_from_py_object, name = "IndependentGrounding")]
 #[derive(Clone)]
 struct PyIndependentGrounding {
     inner: IndependentGrounding,
@@ -4574,7 +4645,562 @@ fn thresholds_dict<'py>(py: Python<'py>, d: &Thresholds) -> PyResult<Bound<'py, 
     Ok(out)
 }
 
-#[pymodule]
+// ---- The autonomous_trust substrate adapter (decision D33) -------------------
+//
+// **Why the FOLD crosses this seam and not the peer type.** The adapter's readings could
+// already be reached by hand: a Python host received AT's wire fields and built the roll
+// itself through `founding_candidate(members=[...])`. Measuring that reimplementation
+// against the Rust fold over one mixed feed found it right about the member count, the
+// departure, the ordering and every reputation — and wrong on exactly two fields, both on
+// the same peer, both toward health: it reported a `guardian` DID and an `attested_at`
+// stamp for a node whose `operator_bound` was FALSE.
+//
+// Those two fields are gated in Rust (`AtPeer::guardian_did`, `AtPeer::attended_at`)
+// because an attendance stamp on a node whose operator credential never verified attests
+// to nothing. The gate is invisible from outside, so the hand-built roll read an
+// **unguarded machine as guarded and attended** — defeating the office rule D15 exists
+// for, fabricating D8's human-above-machine anchor out of a key AT declined to vouch for,
+// and handing the cohesion monitor a freshness stamp with nothing behind it. Nothing in
+// the output looked wrong. That is the D31 shape exactly.
+//
+// So this surface takes **wire fields**, never an assembled peer: `observe_peer` accepts
+// what AT sends and the Rust fold applies the gates. There is deliberately no Python
+// object whose `guardian` or `attested_at` a caller can set, which makes the measured
+// divergence unrepresentable rather than merely documented.
+
+/// One movement of the observed substrate — the delta stream design **D16** reads.
+///
+/// `kind` is a short stable name and the payload getters are `None` where they do not
+/// apply, the same shape as [`PyDueAction`]:
+///
+/// | `kind` | carries |
+/// |---|---|
+/// | `"MemberAppeared"` | `member`, `to_reputation`, `guardian`, `attested_at`, `derived` |
+/// | `"MemberVanished"` | `member` |
+/// | `"ReputationChanged"` | `member`, `from_reputation`, `to_reputation` |
+/// | `"GuardianEdgeChanged"` | `member`, `guardian` (`None` = the edge went away) |
+/// | `"AttendanceStamped"` | `member`, `attested_at` |
+/// | `"BoundaryOpacityChanged"` | `opaque` |
+#[pyclass(skip_from_py_object, name = "SubstrateChange")]
+#[derive(Clone)]
+struct PySubstrateChange {
+    #[pyo3(get)]
+    kind: &'static str,
+    #[pyo3(get)]
+    member: Option<String>,
+    #[pyo3(get)]
+    from_reputation: Option<f64>,
+    #[pyo3(get)]
+    to_reputation: Option<f64>,
+    #[pyo3(get)]
+    guardian: Option<String>,
+    #[pyo3(get)]
+    attested_at: Option<i64>,
+    #[pyo3(get)]
+    derived: Option<bool>,
+    #[pyo3(get)]
+    opaque: Option<bool>,
+}
+
+#[pymethods]
+impl PySubstrateChange {
+    fn __repr__(&self) -> String {
+        match &self.member {
+            Some(m) => format!("SubstrateChange({}, {m})", self.kind),
+            None => format!("SubstrateChange({})", self.kind),
+        }
+    }
+}
+
+impl PySubstrateChange {
+    fn blank(kind: &'static str) -> Self {
+        PySubstrateChange {
+            kind,
+            member: None,
+            from_reputation: None,
+            to_reputation: None,
+            guardian: None,
+            attested_at: None,
+            derived: None,
+            opaque: None,
+        }
+    }
+
+    fn from_rs(change: SubstrateChange) -> Self {
+        match change {
+            SubstrateChange::MemberAppeared(m) => PySubstrateChange {
+                member: Some(m.did.to_string()),
+                to_reputation: m.reputation,
+                guardian: m.guardian.as_ref().map(|g| g.to_string()),
+                attested_at: m.attested_at.map(|t| t.as_second()),
+                derived: Some(m.derived),
+                ..Self::blank("MemberAppeared")
+            },
+            SubstrateChange::MemberVanished(did) => PySubstrateChange {
+                member: Some(did.to_string()),
+                ..Self::blank("MemberVanished")
+            },
+            SubstrateChange::ReputationChanged { member, from, to } => PySubstrateChange {
+                member: Some(member.to_string()),
+                from_reputation: from,
+                to_reputation: to,
+                ..Self::blank("ReputationChanged")
+            },
+            SubstrateChange::GuardianEdgeChanged { member, guardian } => PySubstrateChange {
+                member: Some(member.to_string()),
+                guardian: guardian.as_ref().map(|g| g.to_string()),
+                ..Self::blank("GuardianEdgeChanged")
+            },
+            SubstrateChange::AttendanceStamped { member, attested_at } => PySubstrateChange {
+                member: Some(member.to_string()),
+                attested_at: Some(attested_at.as_second()),
+                ..Self::blank("AttendanceStamped")
+            },
+            SubstrateChange::BoundaryOpacityChanged { opaque } => PySubstrateChange {
+                opaque: Some(opaque),
+                ..Self::blank("BoundaryOpacityChanged")
+            },
+        }
+    }
+}
+
+/// Which event source an [`PyAtProvider`] is folding. One Python class either way, so a
+/// caller's code does not change shape when a deployment swaps a replayed view for a live
+/// daemon — only the constructor does.
+enum AtBacking {
+    Mock(AtSubstrateProvider<MockEventSource>),
+    #[cfg(feature = "at-ffi")]
+    Attached(AtSubstrateProvider<AttachedAtDaemon>),
+    #[cfg(feature = "at-ffi")]
+    Embedded(AtSubstrateProvider<EmbeddedAtNode>),
+}
+
+/// Dispatch a `&mut`/`&` expression over whichever source is behind the provider.
+macro_rules! on_backing {
+    ($self:expr, |$p:ident| $body:expr) => {
+        match &$self.inner {
+            AtBacking::Mock($p) => $body,
+            #[cfg(feature = "at-ffi")]
+            AtBacking::Attached($p) => $body,
+            #[cfg(feature = "at-ffi")]
+            AtBacking::Embedded($p) => $body,
+        }
+    };
+}
+macro_rules! on_backing_mut {
+    ($self:expr, |$p:ident| $body:expr) => {
+        match &mut $self.inner {
+            AtBacking::Mock($p) => $body,
+            #[cfg(feature = "at-ffi")]
+            AtBacking::Attached($p) => $body,
+            #[cfg(feature = "at-ffi")]
+            AtBacking::Embedded($p) => $body,
+        }
+    };
+}
+
+/// The autonomous_trust substrate provider (decisions **D5**–**D8**): it folds an AT
+/// event stream into the observed gateway-reputation subtree and presents it as a
+/// substrate a polity can be chartered from.
+///
+/// A bare `AtProvider()` folds a **replayed** view — the events you hand it — which is
+/// what offline founding and tests use, and needs no autonomous_trust linkage at all.
+/// The live couplings (`attached`, `attached_existing`, `embedded`) exist only in an
+/// `at-ffi` build; ask [`at_ffi_available`] rather than catching an exception.
+///
+///     p = AtProvider()
+///     p.observe_peer(node_pubkey, reputation=0.83, operator_bound=True,
+///                    guardian_pubkey=op_pubkey, operator_attested_at=now)
+///     for change in p.changes():          # folds, then drains
+///         ...
+///     candidate = p.founding_candidate()
+///
+/// The provider only *reports* what AT observes and never confers standing: a candidate
+/// is input to a proposal ("ratify emergence, do not replace it").
+///
+/// # Threading
+///
+/// In an `at-ffi` build this class is **thread-bound**: it may only be used from the
+/// thread that created it, and PyO3 raises if another touches it. That is not a
+/// conservative choice, it is the truth about the object — `AttachedAtDaemon` and
+/// `EmbeddedAtNode` hold raw C handles and are neither `Send` nor `Sync`, so a provider
+/// that could be handed to another thread would be lying about the daemon. The default
+/// build has no such handles and no such restriction, which is why the attribute is
+/// applied per-feature rather than always: a restriction appears exactly where the thing
+/// causing it does.
+#[cfg_attr(feature = "at-ffi", pyclass(name = "AtProvider", unsendable))]
+#[cfg_attr(not(feature = "at-ffi"), pyclass(name = "AtProvider"))]
+struct PyAtProvider {
+    inner: AtBacking,
+}
+
+#[pymethods]
+impl PyAtProvider {
+    /// A provider over a replayed event feed, with no articulated substrate.
+    #[new]
+    #[pyo3(signature = (substrate_name=None, substrate_statement=None, substrate_anchor=None))]
+    fn new(
+        substrate_name: Option<String>,
+        substrate_statement: Option<String>,
+        substrate_anchor: Option<String>,
+    ) -> PyResult<Self> {
+        let substrate = substrate_from(substrate_name, substrate_statement, substrate_anchor)?;
+        let src = MockEventSource::new();
+        Ok(PyAtProvider {
+            inner: AtBacking::Mock(match substrate {
+                Some(s) => AtSubstrateProvider::with_substrate(src, s),
+                None => AtSubstrateProvider::new(src),
+            }),
+        })
+    }
+
+    /// Queue an observation of a peer in the subtree, **as AT reports it**.
+    ///
+    /// Every argument is a wire field, and the reductions stay on this side of the seam:
+    /// `guardian_pubkey` becomes a guardian DID and `operator_attested_at` an attendance
+    /// stamp **only when `operator_bound` is true**, because a guardian key or an
+    /// attendance stamp on a node whose operator credential never verified attests to
+    /// nothing (**D8**). Passing them with `operator_bound=False` is not an error and not
+    /// ignored input — it is exactly what AT sends for an unverified node, and the roll
+    /// must read it as the unguarded machine it is.
+    #[pyo3(signature = (signing_pubkey, reputation=None, rank=0, operator_bound=false,
+                        guardian_pubkey=None, operator_attested_at=None))]
+    fn observe_peer(
+        &mut self,
+        signing_pubkey: Vec<u8>,
+        reputation: Option<f64>,
+        rank: i32,
+        operator_bound: bool,
+        guardian_pubkey: Option<Vec<u8>>,
+        operator_attested_at: Option<i64>,
+    ) -> PyResult<()> {
+        let peer = AtPeer {
+            signing_pubkey,
+            reputation,
+            rank,
+            operator_bound,
+            guardian_pubkey,
+            operator_attested_at: operator_attested_at.map(ts).transpose()?,
+        };
+        self.queue(AtEvent::PeerObserved(peer), "observe_peer")
+    }
+
+    /// Queue a peer's departure from the observed subtree.
+    ///
+    /// Only a replayed or synthesized view can express this: nothing in AT ever removes an
+    /// entry from its peer table, so a live feed is upsert-only and grades absence by
+    /// staleness instead (which is what `cohesion_report` already does).
+    fn depart_peer(&mut self, signing_pubkey: Vec<u8>) -> PyResult<()> {
+        self.queue(AtEvent::PeerDeparted { signing_pubkey }, "depart_peer")
+    }
+
+    /// Queue notice that part of the observed boundary is an intentional private edge.
+    /// Informational: privacy is not incompleteness, and the members behind an opaque edge
+    /// are simply absent from the roll rather than counted as unreachable.
+    fn boundary_private(&mut self) -> PyResult<()> {
+        self.queue(AtEvent::BoundaryPrivate, "boundary_private")
+    }
+
+    /// Poll the source and fold everything it returns into the view, returning how many
+    /// events were applied. Call before reading unless you are using `changes()`, which
+    /// folds as part of its contract.
+    fn refresh(&mut self) -> PyResult<usize> {
+        on_backing_mut!(self, |p| p.refresh()).map_err(en_err_to_py)
+    }
+
+    /// Fold whatever is queued, then drain the movements that fold produced.
+    ///
+    /// The two steps are one call deliberately: a caller that polled without folding, or
+    /// folded without draining, would silently lose movements — and a lost movement is
+    /// indistinguishable from a quiet substrate. Draining is not repeatable; the same
+    /// change is never reported twice.
+    fn changes(&mut self) -> PyResult<Vec<PySubstrateChange>> {
+        let changes = on_backing_mut!(self, |p| p.changes()).map_err(en_err_to_py)?;
+        Ok(changes.into_iter().map(PySubstrateChange::from_rs).collect())
+    }
+
+    /// The candidate roll as the substrate currently reads it, ordered by DID.
+    fn founding_candidate(&self) -> PyResult<PyFoundingCandidate> {
+        let inner = on_backing!(self, |p| p.founding_candidate()).map_err(en_err_to_py)?;
+        Ok(PyFoundingCandidate { inner })
+    }
+
+    /// A member's earned reputation, or `None` for no reading — which is *unrated*, not
+    /// *rated low* (**D18**), and also covers a peer this provider has never seen.
+    fn member_reputation(&self, did: &str) -> PyResult<Option<f64>> {
+        let d = parse_did(did)?;
+        Ok(on_backing!(self, |p| p.member_reputation(&d)))
+    }
+
+    /// Whether an intentional private/opaque boundary edge has been observed.
+    fn has_private_boundary(&self) -> bool {
+        on_backing!(self, |p| p.has_private_boundary())
+    }
+
+    /// How many members are currently in the observed subtree view.
+    fn observed_len(&self) -> usize {
+        on_backing!(self, |p| p.observed_len())
+    }
+
+    fn __len__(&self) -> usize {
+        self.observed_len()
+    }
+
+    fn __repr__(&self) -> String {
+        let kind = match &self.inner {
+            AtBacking::Mock(_) => "replayed",
+            #[cfg(feature = "at-ffi")]
+            AtBacking::Attached(_) => "attached",
+            #[cfg(feature = "at-ffi")]
+            AtBacking::Embedded(_) => "embedded",
+        };
+        format!("AtProvider({kind}, {} observed)", self.observed_len())
+    }
+
+    // --- the at-ffi half: present only in a build that linked autonomous_trust -----
+
+    /// Attach to a running autonomous_trust daemon by opening its queues (**D6**).
+    #[cfg(feature = "at-ffi")]
+    #[staticmethod]
+    #[pyo3(signature = (q_in, q_out=None, substrate_name=None, substrate_statement=None,
+                        substrate_anchor=None))]
+    fn attached(
+        q_in: &str,
+        q_out: Option<&str>,
+        substrate_name: Option<String>,
+        substrate_statement: Option<String>,
+        substrate_anchor: Option<String>,
+    ) -> PyResult<Self> {
+        let src = AttachedAtDaemon::open(q_in, q_out).map_err(en_err_to_py)?;
+        let substrate = substrate_from(substrate_name, substrate_statement, substrate_anchor)?;
+        Ok(PyAtProvider {
+            inner: AtBacking::Attached(match substrate {
+                Some(s) => AtSubstrateProvider::with_substrate(src, s),
+                None => AtSubstrateProvider::new(src),
+            }),
+        })
+    }
+
+    /// Attach using the queue this process has already been assigned (**D6**).
+    #[cfg(feature = "at-ffi")]
+    #[staticmethod]
+    #[pyo3(signature = (q_out=None, substrate_name=None, substrate_statement=None,
+                        substrate_anchor=None))]
+    fn attached_existing(
+        q_out: Option<&str>,
+        substrate_name: Option<String>,
+        substrate_statement: Option<String>,
+        substrate_anchor: Option<String>,
+    ) -> PyResult<Self> {
+        let src = AttachedAtDaemon::open_existing(q_out).map_err(en_err_to_py)?;
+        let substrate = substrate_from(substrate_name, substrate_statement, substrate_anchor)?;
+        Ok(PyAtProvider {
+            inner: AtBacking::Attached(match substrate {
+                Some(s) => AtSubstrateProvider::with_substrate(src, s),
+                None => AtSubstrateProvider::new(src),
+            }),
+        })
+    }
+
+    /// Start an embedded autonomous_trust node and fold its out-queue (**D6**).
+    ///
+    /// **Name a `log_file` under any harness that captures stderr through a pipe.** With
+    /// none, `autonomous_trust.c` sets `NO_STDERR_REDIRECT` on the daemon *and* passes the
+    /// flag to every subsystem process it forks, so all of them keep this process's stderr
+    /// deliberately — and a harness reading that pipe to EOF never gets one while any
+    /// child holds the write end. Measured during the Rust leg: a `timeout 60` run held
+    /// the shell for ten minutes. `None` is the terminal-friendly default, and pytest is
+    /// not a terminal.
+    #[cfg(feature = "at-ffi")]
+    #[staticmethod]
+    #[pyo3(signature = (app_name, q_in, q_out, log_level=2, generate_config=false,
+                        log_file=None, substrate_name=None, substrate_statement=None,
+                        substrate_anchor=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn embedded(
+        app_name: &str,
+        q_in: &str,
+        q_out: &str,
+        log_level: i32,
+        generate_config: bool,
+        log_file: Option<&str>,
+        substrate_name: Option<String>,
+        substrate_statement: Option<String>,
+        substrate_anchor: Option<String>,
+    ) -> PyResult<Self> {
+        let level = at_log_level(log_level)?;
+        let src = EmbeddedAtNode::start_logging_to(
+            app_name,
+            q_in,
+            q_out,
+            level,
+            generate_config,
+            log_file,
+        )
+        .map_err(en_err_to_py)?;
+        let substrate = substrate_from(substrate_name, substrate_statement, substrate_anchor)?;
+        Ok(PyAtProvider {
+            inner: AtBacking::Embedded(match substrate {
+                Some(s) => AtSubstrateProvider::with_substrate(src, s),
+                None => AtSubstrateProvider::new(src),
+            }),
+        })
+    }
+
+    /// Ask the daemon for a full roster pull — the only emission that can carry an
+    /// *unrated* peer, since every change-driven one is rated by construction.
+    #[cfg(feature = "at-ffi")]
+    fn request_roster(&mut self) -> PyResult<()> {
+        match &mut self.inner {
+            AtBacking::Attached(p) => p.source_mut().request_roster().map_err(en_err_to_py),
+            AtBacking::Embedded(p) => p.source_mut().request_roster().map_err(en_err_to_py),
+            AtBacking::Mock(_) => Err(not_daemon_backed("request_roster")),
+        }
+    }
+
+    /// How many reputation readings the coupling is currently holding.
+    #[cfg(feature = "at-ffi")]
+    fn held_reputations(&self) -> PyResult<usize> {
+        match &self.inner {
+            AtBacking::Attached(p) => Ok(p.source().held_reputations()),
+            AtBacking::Embedded(p) => Ok(p.source().held_reputations()),
+            AtBacking::Mock(_) => Err(not_daemon_backed("held_reputations")),
+        }
+    }
+
+    /// Whether the embedded node's process is still alive.
+    #[cfg(feature = "at-ffi")]
+    fn alive(&mut self) -> PyResult<bool> {
+        match &mut self.inner {
+            AtBacking::Embedded(p) => Ok(p.source_mut().alive()),
+            _ => Err(not_daemon_backed("alive")),
+        }
+    }
+
+    /// Whether the embedded node has finished coming up.
+    #[cfg(feature = "at-ffi")]
+    fn ready(&mut self) -> PyResult<bool> {
+        match &mut self.inner {
+            AtBacking::Embedded(p) => Ok(p.source_mut().ready()),
+            _ => Err(not_daemon_backed("ready")),
+        }
+    }
+
+    /// Block until the embedded node is ready, or `timeout_seconds` elapses.
+    #[cfg(feature = "at-ffi")]
+    fn wait_ready(&mut self, timeout_seconds: f64) -> PyResult<bool> {
+        if !(timeout_seconds.is_finite() && timeout_seconds >= 0.0) {
+            return Err(PyValueError::new_err(
+                "timeout_seconds must be a non-negative, finite number",
+            ));
+        }
+        match &mut self.inner {
+            AtBacking::Embedded(p) => Ok(p
+                .source_mut()
+                .wait_ready(std::time::Duration::from_secs_f64(timeout_seconds))),
+            _ => Err(not_daemon_backed("wait_ready")),
+        }
+    }
+
+    /// The embedded node's process id.
+    #[cfg(feature = "at-ffi")]
+    fn pid(&self) -> PyResult<i32> {
+        match &self.inner {
+            AtBacking::Embedded(p) => Ok(p.source().pid()),
+            _ => Err(not_daemon_backed("pid")),
+        }
+    }
+}
+
+impl PyAtProvider {
+    /// Queue an event onto a replayed feed.
+    ///
+    /// Only the replayed backing accepts one, and the refusal is the honest answer rather
+    /// than a limitation: a live coupling's events come *from* the daemon, so injecting an
+    /// observation into it would fabricate a reading AT never made — which is the whole
+    /// class of mistake this seam exists to prevent.
+    fn queue(&mut self, event: AtEvent, method: &str) -> PyResult<()> {
+        // Named in the refusal below, which only exists in an at-ffi build.
+        let _ = method;
+        match &mut self.inner {
+            AtBacking::Mock(p) => {
+                p.source_mut().push(event);
+                Ok(())
+            }
+            #[cfg(feature = "at-ffi")]
+            _ => {
+                let _ = event;
+                Err(PyRuntimeError::new_err(format!(
+                    "{method}() needs a replayed-feed provider; this one folds a live \
+                     autonomous_trust feed, whose observations come from the daemon"
+                )))
+            }
+        }
+    }
+}
+
+/// Why a daemon-only method refused: the provider is folding a replayed feed. A caller
+/// error about a real method, as against a method that could only ever fail.
+#[cfg(feature = "at-ffi")]
+fn not_daemon_backed(method: &str) -> PyErr {
+    PyRuntimeError::new_err(format!(
+        "{method}() needs a daemon-backed provider; this one is folding a replayed feed \
+         (build it with AtProvider.attached(), .attached_existing() or .embedded())"
+    ))
+}
+
+/// AT's log level, by its wire number (1 Debug, 2 Info, 3 Warning, 4 Error, 5 Critical).
+#[cfg(feature = "at-ffi")]
+fn at_log_level(level: i32) -> PyResult<AtLogLevel> {
+    match level {
+        1 => Ok(AtLogLevel::Debug),
+        2 => Ok(AtLogLevel::Info),
+        3 => Ok(AtLogLevel::Warning),
+        4 => Ok(AtLogLevel::Error),
+        5 => Ok(AtLogLevel::Critical),
+        other => Err(PyValueError::new_err(format!(
+            "log_level must be 1..=5 (Debug..Critical), got {other}"
+        ))),
+    }
+}
+
+/// Whether this build linked autonomous_trust — i.e. whether the live coupling
+/// constructors `AtProvider.attached`, `.attached_existing` and `.embedded` exist.
+///
+/// **Ask this rather than catching an exception.** In a default build those constructors
+/// are absent, not present-and-failing; the replayed-feed provider is fully available
+/// either way, so most callers never need to ask at all.
+#[pyfunction]
+fn at_ffi_available() -> bool {
+    cfg!(feature = "at-ffi")
+}
+
+/// The `did:key` for a raw 32-byte Ed25519 **public** key.
+///
+/// The one mapping between an autonomous_trust identity and its ethne/kith-covenant DID:
+/// a peer's AT signing key *is* its member identity, and `did:key` embeds the key, so no
+/// registry is involved. Until D33 there was no route here at all — the only DID a Python
+/// caller could obtain came from `generate_ed25519_keypair`, for a key it had just made —
+/// so a host holding an observed peer's key had to reimplement multicodec-plus-multibase
+/// itself and had no way to know if it had got it right.
+#[pyfunction]
+fn did_from_ed25519_pubkey(pubkey: Vec<u8>) -> PyResult<String> {
+    Ok(signing_key_did(&pubkey).map_err(en_err_to_py)?.into_string())
+}
+
+// `gil_used = true` states what this module required before the pyo3 0.28 default
+// flipped. Until 0.28 a module opted *in* to free-threaded support with
+// `gil_used = false`; from 0.28 modules allow it by default and must opt out. The
+// bump would therefore have acquired a free-threaded claim silently, and nothing
+// here can test it: this sandbox's CPython 3.13.7 is a GIL build
+// (`Py_GIL_DISABLED=0`), so a free-threaded interpreter never loads the module.
+//
+// The claim is not obviously safe either. The seam hands out `FileStore`/`ArchiveStore` handles, and
+// under a free-threaded interpreter two Python threads reach one of those with no
+// GIL serializing them. Declaring the status quo keeps the contract the tests
+// actually exercise; lifting it is a separate change that needs a free-threaded
+// interpreter to verify.
+#[pymodule(gil_used = true)]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("ALG_ED25519", "Ed25519")?;
@@ -4607,6 +5233,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyHostCycle>()?;
     m.add_class::<PyFissionOutcome>()?;
     m.add_class::<PyFusionOutcome>()?;
+    m.add_class::<PyAtProvider>()?;
+    m.add_class::<PySubstrateChange>()?;
     m.add_function(wrap_pyfunction!(generate_ed25519_keypair, m)?)?;
     m.add_function(wrap_pyfunction!(cid_of_bytes, m)?)?;
     m.add_function(wrap_pyfunction!(now_seconds, m)?)?;
@@ -4620,5 +5248,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sign_detached, m)?)?;
     m.add_function(wrap_pyfunction!(cohesion_report, m)?)?;
     m.add_function(wrap_pyfunction!(coherence_concern, m)?)?;
+    m.add_function(wrap_pyfunction!(did_from_ed25519_pubkey, m)?)?;
+    m.add_function(wrap_pyfunction!(at_ffi_available, m)?)?;
     Ok(())
 }

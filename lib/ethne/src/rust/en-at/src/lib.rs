@@ -56,7 +56,7 @@ mod tests {
     use super::*;
     use en_charter::Substrate;
     use en_core::{keys, Alg, Timestamp};
-    use en_substrate::{ChangeStream, SubstrateChange, SubstrateProvider};
+    use en_substrate::{ChangeStream, FoundingTerms, SubstrateChange, SubstrateProvider};
 
     /// A distinct ed25519 signing key per seed (deterministic across a run is
     /// not required — we only need distinct valid keys).
@@ -187,13 +187,15 @@ mod tests {
             anchor: None,
         };
         let proposal = fc.propose(
-            polity,
-            substrate,
-            vec![],
+            FoundingTerms {
+                polity,
+                substrate,
+                founding_commitments: vec![],
+                readings: vec![],
+                observation: None,
+                proposed_at: Timestamp::from_second(0).unwrap(),
+            },
             0.5,
-            vec![],
-            None,
-            Timestamp::from_second(0).unwrap(),
         );
         assert_eq!(proposal.proposed_members.len(), 2);
     }

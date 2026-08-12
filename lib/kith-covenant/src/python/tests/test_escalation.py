@@ -25,6 +25,9 @@ from kith_covenant import (
     now_seconds,
 )
 
+# §4 caps a mediator's term: a seat with no end is a permanent mediator class.
+MEDIATOR_TERM = 365 * 24 * 3600
+
 WAITING = 7 * 24 * 3600  # DEFAULT_WAITING_PERIOD_SECONDS
 MOVEMENTS = ("substrate", "fallenness", "recognition", "virtue", "non-ultimacy")
 
@@ -35,7 +38,7 @@ def _pool(arch, t0):
     for name in ("C", "D", "E"):
         c = new_identity(arch, name, t0)
         m = new_mediator()
-        register_mediators(arch, c, [m], valid_from=t0 - 10)
+        register_mediators(arch, c, [m], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
         meds.append(m)
     return meds
 
@@ -181,7 +184,7 @@ def test_restitution_party_verifier_is_unauthorized():
     meds = _pool(arch, t0)
     # The subject nominates its own mediator and seats it on the verifier panel.
     s_med = new_mediator()
-    register_mediators(arch, s, [s_med], valid_from=t0 - 10)
+    register_mediators(arch, s, [s_med], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
     ob = impose_restitution(arch, s.did, b.did, [b], "restore", imposed_at=t0 + 100)
     verify_restitution(arch, ob, [meds[0], meds[1], s_med], True, verified_at=t0 + 200)
     assert any("party community" in r for _cid, r in arch.authority_violations())

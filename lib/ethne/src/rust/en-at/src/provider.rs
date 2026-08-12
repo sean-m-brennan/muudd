@@ -201,6 +201,13 @@ impl<S: AtEventSource> AtSubstrateProvider<S> {
     pub fn source_mut(&mut self) -> &mut S {
         &mut self.source
     }
+
+    /// The event source, immutably — for a coupling's read-only accessors
+    /// (`held_reputations`, `pid`) which have no business taking `&mut` just to
+    /// reach through the provider that owns them.
+    pub fn source(&self) -> &S {
+        &self.source
+    }
 }
 
 impl<S: AtEventSource> SubstrateProvider for AtSubstrateProvider<S> {

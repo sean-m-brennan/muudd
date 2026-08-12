@@ -35,10 +35,16 @@
 //! [`SubstantiveReEngagement`] record here. The two are the same rung viewed as
 //! a label vs. as an attributable act.
 //!
-//! Deferred to later slices: the structured-skepticism protocol and
-//! protecting-powers (§4/§8), automatic decay-triggered re-engagement (kept a
-//! deliberate act on purpose), and the periodic-re-examination scheduler that
-//! would act on `Designation::reexamine_after`.
+//! [`ReexaminationConclusion`] records what a designation's mandated re-examination
+//! concluded: the attested null of the severest act the compact can take. A confirmation
+//! answers the deadline it was held for and sets the next one, so the erosion lens can
+//! tell a panel that looked and let the designation stand from a compact that forgot.
+//! Before it existed the two were the same reading, forever.
+//!
+//! Deferred to later slices: the structured-skepticism protocol (§4), automatic
+//! decay-triggered re-engagement (kept a deliberate act on purpose), and a *scheduler*
+//! that would run `Designation::reexamine_after` on a clock rather than reading it when
+//! asked, which is deployment work.
 
 mod record;
 
@@ -48,6 +54,7 @@ mod tests;
 pub use record::{
     dispute_ladder_rank, is_second_class_rung, Capability, DeliberationCycle, Designation,
     DesignationTier, DesignationUrgency, InjunctionChallenge, InjunctionConfirmation,
-    InterimInjunction, LadderTransition, ReEntry, ReEntryWitnessAttestation, RestitutionCompletion,
-    RestitutionObligation, SubstantiveReEngagement,
+    InterimInjunction, LadderTransition, ReEntry, ReEntryWitnessAttestation,
+    ReexaminationConclusion, ReexaminationOutcome, RestitutionCompletion, RestitutionObligation,
+    SubstantiveReEngagement,
 };

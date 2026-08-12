@@ -92,6 +92,38 @@ pub struct FoundingCandidate {
     pub substrate: Option<Substrate>,
 }
 
+/// Everything a founding proposal carries that is **not** the rule for who is kept.
+///
+/// The two `propose` variants differ in exactly one thing: how the boundary is drawn
+/// (a reputation floor, or a named `keep` list with a stated reason). Everything else
+/// — which polity, on what substrate, under what commitments, backed by which
+/// readings and observation, at what instant — is identical between them and is
+/// forwarded unchanged to the shared body. Carrying it as one value says that: the
+/// terms are common, and only the criterion varies.
+///
+/// It also removes the failure this shape invites. Six positional parameters, of
+/// which two are `Vec`s and one an `Option`, were re-spelled at every call site in
+/// the same order; `readings` and `observation` are both evidence about the same
+/// cluster, and transposing them was a type error only by luck.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FoundingTerms {
+    /// The polity being chartered.
+    pub polity: DidKey,
+    /// The ground it charters on.
+    pub substrate: Substrate,
+    /// Commitments the founding members undertake.
+    pub founding_commitments: Vec<Commitment>,
+    /// Signed substrate readings backing the boundary. Empty makes the attestation
+    /// a convener's assertion rather than a substrate one (design **D22**).
+    pub readings: Vec<Signed<SubstrateReading>>,
+    /// An observation of this cluster taken before the founding, backing whichever
+    /// guardian edges it actually saw (design **D27**). `None` leaves every claimed
+    /// edge `Unbacked`, which is the honest default and not a free pass.
+    pub observation: Option<Signed<Observation>>,
+    /// The instant the proposal is made.
+    pub proposed_at: Timestamp,
+}
+
 impl FoundingCandidate {
     /// This candidate as an **unsigned** [`SubstrateReading`] offered for `polity`
     /// (design **D22**).
@@ -152,16 +184,7 @@ impl FoundingCandidate {
     ///
     /// The result is still only a *proposal*: it carries no authority until the
     /// members ratify and co-sign it (`FoundingProposal::ratify`).
-    pub fn propose(
-        &self,
-        polity: DidKey,
-        substrate: Substrate,
-        founding_commitments: Vec<Commitment>,
-        min_reputation: f64,
-        readings: Vec<Signed<SubstrateReading>>,
-        observation: Option<Signed<Observation>>,
-        proposed_at: Timestamp,
-    ) -> FoundingProposal {
+    pub fn propose(&self, terms: FoundingTerms, min_reputation: f64) -> FoundingProposal {
         // An unrated candidate clears a floor of 0.0 (which demands nothing) and
         // fails any positive one, because `None` cannot support the assertion a
         // positive floor makes.
@@ -185,16 +208,7 @@ impl FoundingCandidate {
                 },
             })
             .collect();
-        self.build(
-            polity,
-            substrate,
-            founding_commitments,
-            keeps,
-            readings,
-            observation,
-            exclusions,
-            proposed_at,
-        )
+        self.build(terms, keeps, exclusions)
     }
 
     /// Draw a proposal that keeps exactly `keep`, for one stated `reason` — the
@@ -214,14 +228,9 @@ impl FoundingCandidate {
     /// [`propose`]: FoundingCandidate::propose
     pub fn propose_selecting(
         &self,
-        polity: DidKey,
-        substrate: Substrate,
-        founding_commitments: Vec<Commitment>,
+        terms: FoundingTerms,
         keep: &[DidKey],
         reason: &str,
-        readings: Vec<Signed<SubstrateReading>>,
-        observation: Option<Signed<Observation>>,
-        proposed_at: Timestamp,
     ) -> FoundingProposal {
         let kept: BTreeSet<&str> = keep.iter().map(DidKey::as_str).collect();
         let keeps = |m: &MemberCandidate| kept.contains(m.did.as_str());
@@ -231,32 +240,25 @@ impl FoundingCandidate {
             .filter(|m| !keeps(m))
             .map(|m| Exclusion { member: m.did.clone(), reason: reason.to_string() })
             .collect();
-        self.build(
-            polity,
-            substrate,
-            founding_commitments,
-            keeps,
-            readings,
-            observation,
-            exclusions,
-            proposed_at,
-        )
+        self.build(terms, keeps, exclusions)
     }
 
     /// The shared body of the two `propose` variants, so the roll, the derivations
     /// and the attestation cannot drift out of agreement about who was kept.
-    #[allow(clippy::too_many_arguments)]
     fn build(
         &self,
-        polity: DidKey,
-        substrate: Substrate,
-        founding_commitments: Vec<Commitment>,
+        terms: FoundingTerms,
         keeps: impl Fn(&MemberCandidate) -> bool,
-        readings: Vec<Signed<SubstrateReading>>,
-        observation: Option<Signed<Observation>>,
         exclusions: Vec<Exclusion>,
-        proposed_at: Timestamp,
     ) -> FoundingProposal {
+        let FoundingTerms {
+            polity,
+            substrate,
+            founding_commitments,
+            readings,
+            observation,
+            proposed_at,
+        } = terms;
         let retained = || self.members.iter().filter(|m| keeps(m));
         let proposed_members: Vec<DidKey> = retained().map(|m| m.did.clone()).collect();
         // D27 — a founding derivation that claims a guardian edge must carry what the

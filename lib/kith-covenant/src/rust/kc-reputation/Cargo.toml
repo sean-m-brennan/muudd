@@ -17,9 +17,9 @@ kc-commons = { workspace = true }
 kc-observer = { workspace = true }
 kc-constitution = { workspace = true }
 kc-provenance = { workspace = true }
+kc-mediation = { workspace = true }
 kc-principal = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
 jiff = { workspace = true }
-kc-mediation = { workspace = true }

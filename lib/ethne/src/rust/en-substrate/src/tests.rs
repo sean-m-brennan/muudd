@@ -21,7 +21,7 @@ use en_charter::{
 };
 use en_core::{keys, Alg, DidKey, PrivKey, Signed, Timestamp};
 
-use crate::{FoundingCandidate, ManualFounding, MemberCandidate, SubstrateProvider};
+use crate::{FoundingCandidate, FoundingTerms, ManualFounding, MemberCandidate, SubstrateProvider};
 
 fn t(secs: i64) -> Timestamp {
     Timestamp::from_second(secs).expect("timestamp")
@@ -64,13 +64,18 @@ fn manual_founding_end_to_end_without_at() {
 
     // 2. The polity draws the proposal it will ratify.
     let proposal = candidate.propose(
-        polity.clone(),
-        substrate(),
-        vec![Commitment { key: "mutual-aid".into(), description: "aid among members".into() }],
+        FoundingTerms {
+            polity: polity.clone(),
+            substrate: substrate(),
+            founding_commitments: vec![Commitment {
+                key: "mutual-aid".into(),
+                description: "aid among members".into(),
+            }],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
         0.0,
-        vec![],
-        None,
-        t(50),
     );
     assert_eq!(proposal.proposed_members.len(), 3);
 
@@ -111,13 +116,15 @@ fn reputation_filter_trims_low_reputation_candidates_from_the_roll() {
     let provider = ManualFounding::from_candidate(candidate);
 
     let proposal = provider.founding_candidate().unwrap().propose(
-        id().1,
-        substrate(),
-        vec![],
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
         0.5,
-        vec![],
-        None,
-        t(50),
     );
     assert_eq!(proposal.proposed_members, vec![keep_a, keep_b]);
     assert!(provider.member_reputation(&drop) == Some(0.4));
@@ -170,7 +177,17 @@ fn an_unguarded_machine_is_ratified_as_the_unguarded_derivation_it_is() {
         ],
         substrate: Some(substrate()),
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
+    let proposal = candidate.propose(
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
+        0.0,
+    );
 
     assert_eq!(proposal.proposed_members.len(), 3, "all three are on the roll");
     // TWO derivations, and one of them is unguarded — the state that makes D15's
@@ -197,7 +214,17 @@ fn a_guardian_on_a_non_derived_member_does_not_invent_a_derivation() {
         members: vec![cand(&member, Some(0.9), false, Some(&operator))],
         substrate: Some(substrate()),
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
+    let proposal = candidate.propose(
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
+        0.0,
+    );
     assert_eq!(proposal.proposed_members.len(), 1);
     assert!(proposal.proposed_derivations.is_empty());
 }
@@ -217,10 +244,30 @@ fn an_unrated_candidate_fails_a_demanded_floor_but_clears_no_floor_at_all() {
         substrate: Some(substrate()),
     };
 
-    let demanded = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], None, t(50));
+    let demanded = candidate.propose(
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
+        0.5,
+    );
     assert_eq!(demanded.proposed_members, vec![rated_ok.clone()], "unrated fails a floor");
 
-    let no_floor = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
+    let no_floor = candidate.propose(
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
+        0.0,
+    );
     assert_eq!(no_floor.proposed_members.len(), 2, "0.0 demands nothing");
 }
 
@@ -233,7 +280,17 @@ fn an_unrated_machine_trimmed_by_a_floor_takes_its_derivation_with_it() {
         members: vec![cand(&unrated_machine, None, true, None)],
         substrate: Some(substrate()),
     };
-    let proposal = candidate.propose(id().1, substrate(), vec![], 0.5, vec![], None, t(50));
+    let proposal = candidate.propose(
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
+        0.5,
+    );
     assert!(proposal.proposed_members.is_empty());
     assert!(proposal.proposed_derivations.is_empty());
 }
@@ -286,13 +343,15 @@ fn the_floor_records_whoever_it_trims_and_why() {
 
     let polity = id().1;
     let prop = candidate.propose(
-        polity.clone(),
-        substrate(),
-        vec![],
+        FoundingTerms {
+            polity: polity.clone(),
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![read_by(&candidate, &polity)],
+            observation: None,
+            proposed_at: t(50),
+        },
         0.5,
-        vec![read_by(&candidate, &polity)],
-        None,
-        t(50),
     );
     assert_eq!(prop.proposed_members, vec![keep]);
     assert!(prop.attestation.source.is_read());
@@ -311,7 +370,17 @@ fn a_floor_that_demands_nothing_excludes_nobody() {
     let a = id().1;
     let b = id().1;
     let candidate = rated(&[(a, Some(0.9)), (b, None)]);
-    let prop = candidate.propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
+    let prop = candidate.propose(
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
+        0.0,
+    );
     assert_eq!(prop.proposed_members.len(), 2);
     assert!(prop.attestation.exclusions.is_empty());
     assert!(prop.attestation.accounts_for(2));
@@ -328,14 +397,16 @@ fn deliberate_narrowing_is_a_first_class_act() {
     let keep = &all[..3];
 
     let prop = candidate.propose_selecting(
-        id().1,
-        substrate(),
-        vec![],
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
         keep,
         "founding on the older rite",
-        vec![],
-        None,
-        t(50),
     );
     assert_eq!(prop.proposed_members.len(), 3);
     assert_eq!(prop.attestation.candidate_size, 8);
@@ -363,7 +434,18 @@ fn selecting_someone_the_boundary_never_showed_is_ignored() {
     let mut keep = vec![seen[0].clone()];
     keep.push(id().1); // never in the candidate
 
-    let prop = candidate.propose_selecting(id().1, substrate(), vec![], &keep, "chosen", vec![], None, t(50));
+    let prop = candidate.propose_selecting(
+        FoundingTerms {
+            polity: id().1,
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![],
+            observation: None,
+            proposed_at: t(50),
+        },
+        &keep,
+        "chosen",
+    );
     assert_eq!(prop.proposed_members, vec![seen[0].clone()]);
     assert_eq!(prop.attestation.candidate_size, 3);
     assert_eq!(prop.attestation.exclusions.len(), 2);
@@ -381,7 +463,17 @@ fn a_convener_asserted_boundary_says_so_forever() {
     let prop = provider
         .founding_candidate()
         .unwrap()
-        .propose(id().1, substrate(), vec![], 0.0, vec![], None, t(50));
+        .propose(
+            FoundingTerms {
+                polity: id().1,
+                substrate: substrate(),
+                founding_commitments: vec![],
+                readings: vec![],
+                observation: None,
+                proposed_at: t(50),
+            },
+            0.0,
+        );
     assert_eq!(prop.attestation.source, BoundarySource::ConvenerAsserted);
 }
 
@@ -403,13 +495,15 @@ fn a_proposal_drawn_from_a_substrate_reading_says_so() {
     let reading = read_by(&candidate, &polity);
     let reader = reading.payload.reader.clone();
     let prop = candidate.propose(
-        polity.clone(),
-        substrate(),
-        vec![],
+        FoundingTerms {
+            polity: polity.clone(),
+            substrate: substrate(),
+            founding_commitments: vec![],
+            readings: vec![reading],
+            observation: None,
+            proposed_at: t(50),
+        },
         0.0,
-        vec![reading],
-        None,
-        t(50),
     );
     assert!(prop.attestation.source.is_read());
     // Attributable, which is the whole of D22: the boundary names who read it.
@@ -462,7 +556,17 @@ fn a_proposal_backs_the_edges_an_outside_monitor_saw() {
     };
     let ob = observed_by(&polity, &monitor, &[(&seen, Some(&operator))]);
     let proposal =
-        candidate.propose(polity.clone(), substrate(), vec![], 0.0, vec![], Some(ob), t(50));
+        candidate.propose(
+            FoundingTerms {
+                polity: polity.clone(),
+                substrate: substrate(),
+                founding_commitments: vec![],
+                readings: vec![],
+                observation: Some(ob),
+                proposed_at: t(50),
+            },
+            0.0,
+        );
 
     let of = |m: &DidKey| {
         proposal.proposed_derivations.iter().find(|d| &d.member == m).unwrap().clone()
@@ -491,7 +595,17 @@ fn a_proposal_does_not_dress_up_an_observation_from_inside() {
     // The member observes its own polity.
     let ob = observed_by(&polity, &machine, &[(&machine.1, Some(&operator))]);
     let proposal =
-        candidate.propose(polity, substrate(), vec![], 0.0, vec![], Some(ob), t(50));
+        candidate.propose(
+            FoundingTerms {
+                polity,
+                substrate: substrate(),
+                founding_commitments: vec![],
+                readings: vec![],
+                observation: Some(ob),
+                proposed_at: t(50),
+            },
+            0.0,
+        );
     match &proposal.proposed_derivations[0].evidence {
         Some(GuardianEvidence::Unbacked { reason }) => {
             assert!(reason.contains("from inside the polity"), "{reason}")
@@ -512,7 +626,17 @@ fn a_proposal_from_an_unobserved_cluster_says_nobody_looked() {
         substrate: Some(substrate()),
     };
     let proposal =
-        candidate.propose(polity, substrate(), vec![], 0.0, vec![], None, t(50));
+        candidate.propose(
+            FoundingTerms {
+                polity,
+                substrate: substrate(),
+                founding_commitments: vec![],
+                readings: vec![],
+                observation: None,
+                proposed_at: t(50),
+            },
+            0.0,
+        );
     match &proposal.proposed_derivations[0].evidence {
         Some(GuardianEvidence::Unbacked { reason }) => {
             assert!(reason.contains("no observation was taken"), "{reason}")

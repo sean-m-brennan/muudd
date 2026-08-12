@@ -38,6 +38,7 @@ fn mediator_entry_validity_window() {
         encryption_pubkey: enc,
         valid_from: t(100),
         valid_until: Some(t(200)),
+        trained_by: None,
     };
     assert!(!e.active_at(t(99)));
     assert!(e.active_at(t(100)));
@@ -55,6 +56,7 @@ fn mediator_entry_open_ended() {
         encryption_pubkey: enc,
         valid_from: t(100),
         valid_until: None,
+        trained_by: None,
     };
     assert!(e.active_at(t(10_000)));
 }
@@ -86,6 +88,8 @@ fn dispute_and_decision_roundtrip_json() {
         panel: vec![did(), did(), did()],
         outcome: DecisionOutcome::Settled,
         reasoning: "parties agreed".into(),
+        sealed: None,
+        arguments: vec![Cid::of_bytes(b"argument-1"), Cid::of_bytes(b"argument-2")],
         decided_at: t(600),
     };
     let json = serde_json::to_string(&decision).unwrap();

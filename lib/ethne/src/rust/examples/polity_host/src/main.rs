@@ -35,9 +35,9 @@ use std::path::PathBuf;
 
 use en_archive::Archive;
 use en_charter::{
-    apply_prunings, majority, prunable_observations, pruning_digest, Affirmation, AffirmationKind,
-    CharterEntry, Commitment, FoundingProposal, MemberReading, Observation, ObservationPruning,
-    Substrate,
+    apply_prunings, charter_state, majority, prunable_observations, pruning_digest, Affirmation,
+    AffirmationKind, CharterEntry, Commitment, FoundingProposal, MemberReading, Movement,
+    Observation, ObservationPruning, RiteMovement, Substrate,
 };
 use en_core::{keys, time, Alg, DidKey, KcResult, PrivKey, Signed, Timestamp};
 use en_host::{DueAction, HostConfig, HostCycle};
@@ -147,23 +147,70 @@ impl Keys {
             .collect()
     }
 
-    /// Every member renews their hold on the substrate. Self-signed: transmission is
-    /// something a member does, not something done to them.
-    fn reaffirmations(&self, at: Timestamp) -> KcResult<Vec<CharterEntry>> {
-        self.members
-            .iter()
-            .map(|(sk, did)| {
-                let record = Affirmation {
+    /// Every member renews their hold on the substrate. Still self-signed — transmission
+    /// is something a member does, not something done to them — but since **D34** the
+    /// renewal carries a full re-recitation of the five movements, which is what the
+    /// doctrine means by periodic re-affirmation.
+    ///
+    /// The movements must land in the log first, because the renewal cites them; and the
+    /// rite is read off the charter as it stands rather than hardcoded, or the coherence
+    /// rules refuse it. The rest of the roll attends each other's, which is **recorded
+    /// and never required**: a member with nobody willing to turn up renews alone.
+    fn reaffirm(&self, archive: &mut Archive<CharterEntry>, at: Timestamp) -> KcResult<()> {
+        let state = charter_state(archive, &self.polity, at);
+        let sub = state.substrate.clone().expect("the polity is chartered");
+        let commits: Vec<String> = state.commitments.iter().map(|c| c.key.clone()).collect();
+        let span = Movement::COUNT as i64;
+        for (sk, did) in &self.members {
+            let attending: Vec<DidKey> =
+                self.members.iter().map(|(_, d)| d.clone()).filter(|d| d != did).collect();
+            let movements = [
+                Movement::Substrate { names: sub.name.clone() },
+                Movement::Fallenness,
+                Movement::Recognition,
+                Movement::CommonVirtue { commits_to: commits.clone() },
+                Movement::NonUltimacy { names_anchor: sub.anchor.clone() },
+            ];
+            let mut cited = Vec::new();
+            for (i, movement) in movements.into_iter().enumerate() {
+                let recited_at =
+                    Timestamp::from_second(at.as_second() - span + i as i64).unwrap();
+                let record = RiteMovement {
                     polity: self.polity.clone(),
                     member: did.clone(),
                     kind: AffirmationKind::ReAffirmation,
-                    witnesses: vec![],
-                    movements: vec![],
-                    affirmed_at: at,
+                    movement,
+                    statement: "as we have received it".into(),
+                    attending: attending.clone(),
+                    recited_at,
                 };
-                Ok(CharterEntry::MemberAffirmed(Signed::build(record, &[(did.as_str(), sk)])?))
-            })
-            .collect()
+                // The reciter signs, and so does everyone attending — attendance that
+                // nobody signed for is a claim about other people.
+                let mut signers: Vec<(&str, &PrivKey)> = vec![(did.as_str(), sk)];
+                signers.extend(
+                    self.members
+                        .iter()
+                        .filter(|(_, d)| d != did)
+                        .map(|(k, d)| (d.as_str(), k)),
+                );
+                cited.push(archive.append(CharterEntry::RiteMovementRecorded(
+                    Signed::build(record, &signers)?,
+                ))?);
+            }
+            let record = Affirmation {
+                polity: self.polity.clone(),
+                member: did.clone(),
+                kind: AffirmationKind::ReAffirmation,
+                witnesses: attending,
+                movements: cited,
+                affirmed_at: at,
+            };
+            archive.append(CharterEntry::MemberAffirmed(Signed::build(
+                record,
+                &[(did.as_str(), sk)],
+            )?))?;
+        }
+        Ok(())
     }
 
     fn found(&self, at: Timestamp) -> KcResult<CharterEntry> {
@@ -431,9 +478,7 @@ fn main() -> KcResult<()> {
         // has quietly stopped. (Drop this and D13's transmission decay reaches
         // Concern on its own within a year — which it should.)
         if n % 10 == 0 {
-            for entry in keys.reaffirmations(as_of)? {
-                archive.append(entry)?;
-            }
+            keys.reaffirm(&mut archive, as_of)?;
         }
 
         for action in cycle.tick(&archive, &keys.candidate(), as_of) {

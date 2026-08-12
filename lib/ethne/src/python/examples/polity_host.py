@@ -44,11 +44,12 @@ from typing import List
 
 import ethne as e
 from ethne.authoring import (
+    MOVEMENTS,
     Signer,
     prune_observations,
     ratify_charter,
-    reaffirm_member,
     record_observation,
+    renew_member,
 )
 from ethne.host import HostConfig, HostCycle
 from ethne.monitor import founding_candidate, manual_founding
@@ -119,8 +120,23 @@ class Keys:
         )
 
     def reaffirm(self, archive, at: int) -> None:
+        """Each member renews their hold on the substrate — which since D34 means a
+        full re-recitation of the five movements, the doctrine's own requirement.
+
+        The rest of the roll attends each other's, which is recorded rather than
+        required: a member with nobody willing to turn up renews alone.
+        """
+        in_force = archive.charter_state(self.polity, as_of=at)
         for m in self.members:
-            reaffirm_member(archive, self.polity, m, affirmed_at=at)
+            renew_member(
+                archive,
+                self.polity,
+                m,
+                in_force.substrate_name,
+                [o for o in self.members if o.did != m.did],
+                commitments=[k for k, _ in in_force.commitments],
+                start=at - len(MOVEMENTS),
+            )
 
     def prune(self, archive, horizon: int, at: int):
         """Author a pruning at `horizon` on the roll-majority route, then return the

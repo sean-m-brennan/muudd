@@ -37,10 +37,32 @@ Two facts are not optional:
   The failure mode is a *bogus pass*, which is worse than a missing module: one
   slice was verified against a three-day-old build this way.
 
-`cargo clippy` is not installed in the development sandbox and cannot be installed
-there (apt cargo/rustc, no rustup). It is therefore reported as **not run**, never
-as clean; Sean re-runs it. Every acceptance claim that depends on clippy is stated
-as unverifiable here rather than assumed.
+`cargo clippy` **is** available in the development sandbox:
+`sudo apt-get install -y rust-clippy`. The apt package and the installed `rustc`
+must be the same version, both 1.85.1 here, which is also the declared floor; a
+mismatched pair refuses to run. The earlier reading, that clippy needed `rustup
+component add` and so could not be had from apt cargo/rustc, was wrong.
+
+It is worth knowing what that cost, because reporting a check as unrunnable is not
+neutral. Two `type_complexity` sites entered `kc-pyo3` during a slice that reported
+clippy as not run, and were found only once it was run. Nothing was checking.
+
+**Always pass `--all-targets`.** Without it clippy lints library targets only and
+every `#[cfg(test)]` module goes unlinted, which on this tier is most of the
+interesting code.
+
+**A count of reported warnings is not a count of warnings.** An `#[allow]` removes
+a site from the report, so a tier reads clean while holding suppressions nobody has
+revisited. Five `type_complexity` sites sat behind bare allows here and were
+invisible to every ordinary run, including the clean ones. To see what is behind a
+decision rather than what is silent, override the attributes:
+
+```bash
+cargo clippy --workspace --all-targets -- --force-warn clippy::type_complexity
+```
+
+That separates a lint class that was *fixed* from one that was *silenced*. A clean
+ordinary run cannot tell them apart, and neither can a reader of one.
 
 ## The toolchain floor
 
@@ -95,14 +117,14 @@ that the number means anything.**
 
 ## Lint policy
 
-`pyo3` is at **0.27**, migrated from 0.22 the day the warnings were raised. Sean's
-clippy run reported **71 `useless_conversion` warnings in `kc-pyo3`** and 73 in
+`pyo3` is at **0.29**. The 0.22 to 0.27 migration happened the day the warnings were
+raised, when Sean's clippy run reported **71 `useless_conversion` warnings in `kc-pyo3`** and 73 in
 `en-pyo3`, one per exported function, every span on a `PyResult<...>` return type,
 with no `.into()` in any body of ours.
 
-**The premise was verified at source level before starting**, because clippy cannot
-run in the sandbox and the changelog never mentions this fix, so searching it would
-have been inconclusive. `pyo3-macros-backend/src/quotes.rs::ok_wrap` emits the
+**The premise was verified at source level before starting**, because clippy was at
+that point believed unrunnable here and the changelog never mentions this fix, so
+searching it would have been inconclusive. `pyo3-macros-backend/src/quotes.rs::ok_wrap` emits the
 identity `map_err(Into::<PyErr>::into)` in **both** versions, spanned at
 `*output_span`, which is the function's return type and exactly where the warnings
 pointed. 0.22.6 has no suppression there; 0.27 adds
@@ -117,11 +139,47 @@ tiers**. Neither crate used `IntoPy`/`ToPyObject`, which is 0.23's real break. W
 made this its own slice rather than a version bump is the deprecation of the
 `*_bound` constructors, and there were only six.
 
-**0.29 is unblocked** by the 1.85 floor and buys only currency: 0.27 already removed
-the warning class.
+**0.27 to 0.29 was predicted to "buy only currency" and did not.** The predicted
+risk, 0.28 reworking `#[pymodule]` onto PEP 489 multi-phase initialization, was the
+non-event its own migration guide says it is. Two other things were real.
 
-The residue is **2 `type_complexity` warnings** in `kc-pyo3` on tuple-heavy returns.
-No mechanical fix; recorded rather than chased.
+*The deprecation, which the compiler does say.* 0.28 makes the automatic
+`FromPyObject` for `#[pyclass]` types that implement `Clone` opt-in, and every such
+class warns: thirty-eight in `kc-pyo3`, seventeen in `en-pyo3`. Per class the choice
+is `from_py_object` to keep the conversion or `skip_from_py_object` to drop it, and
+the deciding question is whether the class is ever converted *from* Python. Neither
+tier has a setter, a `set_all`, or a single by-value `#[pyclass]` parameter, so the
+automatic impl was dead in both and all fifty-five take `skip_from_py_object`. A
+`&T` parameter is not evidence against this: those go through pyo3's `PyRef` borrow
+path and never needed `FromPyObject`. Nearly all thirty-eight are the `*Summary` and
+`*Report` views, which the seam only ever hands out.
+
+*The contract change, which nothing warns about.* Before 0.28 a module opted **in**
+to free-threaded support with `gil_used = false`; from 0.28 modules allow it by
+default and must opt **out**. The bump therefore hands a module a free-threaded
+claim silently, with no warning marking it. Both `_core` modules now declare
+`#[pymodule(gil_used = true)]`, stating what they required before the bump rather
+than judging their thread-safety, because it cannot be tested here: the sandbox
+interpreter is a GIL build (`Py_GIL_DISABLED=0`) and never loads a module
+free-threaded. Lifting the declaration needs a free-threaded interpreter.
+
+**There is no `type_complexity` residue.** The two warnings once recorded here as
+unchased were an undercount twice over. The full run found six, and overriding the
+allows found five more that no ordinary run could report. All eleven are fixed by
+naming the concept the tuple stands for, so `--force-warn clippy::type_complexity`
+reports zero. Three of those names (`PoolSeat`, `ObserverFixture`,
+`WhistleblowerFixture`) replaced a bare `#[allow]` on a fixture sitting beside
+other fixtures that already had names, which is how a file ends up with both
+idioms and no stated preference.
+
+**The arity survivors are stated rather than folded into a clean number.**
+`--force-warn clippy::too_many_arguments` reports forty-two sites, overwhelmingly
+the `kc-pyo3` seam, where the signature *is* the Python surface. The one library
+site that was not a seam signature, `check_roster_caps`, took nine parameters of
+which the last three were the same triple all three caps types carry; it now takes
+`RosterLimits` and each caps type projects into it. The projection is one-way on
+purpose, since the three caps types are deliberately distinct so that a caller
+swapping two of them fails to compile.
 
 **The thirteen `Option::is_none_or` sites** were declined once on MSRV grounds and
 then permitted once the floor was corrected. A whole-tree sweep found **exactly

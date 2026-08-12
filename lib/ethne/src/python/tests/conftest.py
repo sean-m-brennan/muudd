@@ -70,6 +70,31 @@ class Polity:
             substrate_name="tradition", commitments=commitments, start=start,
         )
 
+    def renew(
+        self,
+        member: Signer,
+        at: int,
+        attending: Sequence[Signer] = (),
+        commitments: Sequence[str] = (),
+    ) -> str:
+        """Renew `member`'s affirmation on the full re-recitation the doctrine asks of
+        it (D34), returning the renewal's CID.
+
+        The five movements are dated `at - 5 .. at - 1` so the renewal itself lands
+        exactly on `at` and a caller's cadence assertions are unaffected. `attending`
+        defaults to nobody, which is a valid renewal: attendance is recorded, never
+        required.
+        """
+        cids = e.perform_rite(
+            self.archive, self.did, member, list(attending),
+            substrate_name="tradition", commitments=commitments, start=at - 5,
+            kind="ReAffirmation",
+        )
+        return e.reaffirm_member(
+            self.archive, self.did, member, cids,
+            witnesses=[s.did for s in attending], affirmed_at=at,
+        )
+
 
 @pytest.fixture
 def found():

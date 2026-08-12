@@ -45,19 +45,20 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use kc_ceremony::inter::{ExaminerRegistry, InterCommunityWitnessRecord, SponsorshipRecord};
 use kc_commons::{is_second_class_level, sanction_rank, CommonsSanction, SanctionLevel, UsageRecord};
-use kc_conduct::DecisionClass;
+use kc_conduct::{ActivityAttestation, AttestedFunction, DecisionClass};
 use kc_constitution::{AmendmentKind, CompactIncapableAmendment, FastCadenceAmendment};
 use kc_core::{Cid, DidKey, KcError, KcResult, Timestamp};
 use kc_escalation::{
     dispute_ladder_rank, is_second_class_rung, Designation, DesignationTier, DesignationUrgency,
-    InjunctionChallenge, InterimInjunction, LadderTransition, ReEntry, RestitutionCompletion,
+    InjunctionChallenge, InterimInjunction, LadderTransition, ReEntry, ReexaminationConclusion,
+    ReexaminationOutcome, RestitutionCompletion,
 };
 use kc_identity::DelegationScope;
-use kc_mediation::MediationDecision;
+use kc_mediation::{ArgumentRecord, ArgumentRole, MediationDecision};
 use kc_observer::{
     ObserverRegistry, ObserverReport, ReportResponse, SourceReveal, WhistleblowerReport,
 };
-use kc_provenance::EventActionInvoked;
+use kc_provenance::{EventActionInvoked, EventReport};
 
 use crate::entry::ArchiveEntry;
 use crate::store::{Archive, InMemoryArchive};
@@ -112,6 +113,51 @@ pub const DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS: i64 = 7 * 24 * 3600;
 /// are independently confirmed, the delay has served its purpose.
 pub const DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS: usize = 2;
 
+/// The earliest a sealed decision's proceedings may open on their own terms (§4): the
+/// near end of the whitepaper's "25 to 30 year mark (one generational cycle)". Years are
+/// 365 days here, as everywhere in this tier.
+pub const MIN_DECISION_SEAL_SECONDS: i64 = 25 * 365 * 24 * 3600;
+
+/// The latest (§4): the far end of the same range. A seal is bounded above as well as
+/// below because a deterministic reveal that a panel could set a century out is not a
+/// deferral of publication but the end of it.
+pub const MAX_DECISION_SEAL_SECONDS: i64 = 30 * 365 * 24 * 3600;
+
+/// The shortest hold a mediator pool may impose (§4). One hour: the doctrine calibrates
+/// the interval to the event class and puts the floor of that range at "hours to days"
+/// for most events, and a hold measured in seconds is not a delay, it is a formality
+/// that lets a pool appear to have invoked the protocol without invoking it.
+pub const MIN_INVOKED_SKEPTICISM_HOLD_SECONDS: i64 = 3600;
+
+/// The longest hold a mediator pool may impose (§4). Six months, the far end of the
+/// doctrine's "weeks or months" for high-charge events of major interpretive
+/// consequence. There is a ceiling at all because an unbounded hold is not skepticism
+/// but suppression, which is the very use the pool's own review exists to catch — and a
+/// bound a rule enforces catches it without waiting for anyone to notice.
+pub const MAX_INVOKED_SKEPTICISM_HOLD_SECONDS: i64 = 182 * 24 * 3600;
+
+/// The three limits every roster is checked against, carried as one value.
+///
+/// [`ObserverCaps`], [`MediatorCaps`] and [`ExaminerCaps`] are deliberately distinct
+/// types — separately tunable policies, and a caller that swapped two of them should
+/// not compile. But all three share exactly this triple, and it is the triple
+/// [`check_roster_caps`] enforces, so the shared *rule* gets one parameter rather
+/// than three positional numbers that each caller re-spells in the same order.
+///
+/// The projection is one-way on purpose: a `Caps` yields its `RosterLimits`, and
+/// nothing turns a `RosterLimits` back into a `Caps`. `ExaminerCaps::panel_min` has
+/// no counterpart here because it is not a roster-cap rule at all; it is checked
+/// where an admission is authorized.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RosterLimits {
+    /// Active-roster size at or above which the no-majority pool-share rule bites.
+    pub pool_floor: usize,
+    /// Maximum length (seconds) of a single term.
+    pub max_term_seconds: i64,
+    /// Minimum sit-out (seconds) between a prior term's end and a re-nomination.
+    pub rotation_period_seconds: i64,
+}
+
 /// §8 observer-corps caps: the capture-resistance limits on the observer pool
 /// (pool-share domination, term length, rotation gap). A [`Default`] carries the
 /// `DEFAULT_OBSERVER_*` policy constants; callers may tighten or relax them
@@ -132,6 +178,17 @@ impl Default for ObserverCaps {
             pool_floor: DEFAULT_OBSERVER_POOL_FLOOR,
             max_term_seconds: DEFAULT_OBSERVER_MAX_TERM_SECONDS,
             rotation_period_seconds: DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+        }
+    }
+}
+
+impl ObserverCaps {
+    /// The three roster limits, for [`check_roster_caps`].
+    pub fn limits(&self) -> RosterLimits {
+        RosterLimits {
+            pool_floor: self.pool_floor,
+            max_term_seconds: self.max_term_seconds,
+            rotation_period_seconds: self.rotation_period_seconds,
         }
     }
 }
@@ -157,6 +214,69 @@ pub const DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS: i64 = 90 * 24 * 3600;
 /// and composed "like the mediator pool it resembles".
 pub const DEFAULT_EXAMINER_PANEL_MIN: usize = 3;
 
+/// Below this active-pool size the §4 mediator pool-share rule does not bite, for the
+/// same reason as the §8 observer and §2 examiner floors. Set at **9** rather than 5:
+/// `liminal_institutions.md` puts the minimum viable pool at roughly 3*n* so that a
+/// three-person non-party panel exists for any bilateral dispute, and below that a
+/// small compact cannot staff mediation at all without one community supplying a
+/// majority. The whitepaper lists the viable band as an open question; this is a floor,
+/// not an answer to it.
+pub const DEFAULT_MEDIATOR_POOL_FLOOR: usize = 9;
+
+/// Maximum length in seconds of a single mediator nomination window (§4). Two years.
+///
+/// The doctrine is unusually direct here: mediators serve "with term limits that ensure
+/// return to the home community. The structural feature that matters is that mediators
+/// *must return home*. **A permanent mediator class is the first step toward an
+/// inquisitorial caste**" (`liminal_institutions.md` "Discernment training"). Longer
+/// than the examiner term, because the same passage wants a pool "populated by
+/// apprenticeship" and depth of judgment takes time to acquire; bounded regardless,
+/// because the caste is what the bound exists to prevent.
+pub const DEFAULT_MEDIATOR_MAX_TERM_SECONDS: i64 = 730 * 24 * 3600;
+
+/// Minimum sit-out in seconds between a mediator term that has ended and a
+/// re-nomination to the pool (§4 rotation, mirroring §8 and §2). One year — the
+/// "return home" the term limit exists for is not served by a nominal gap.
+pub const DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS: i64 = 365 * 24 * 3600;
+
+/// §4 mediator-pool caps: the capture-resistance limits on who may mediate. The same
+/// four rules as [`ObserverCaps`] and [`ExaminerCaps`], enforced by the same
+/// [`check_roster_caps`], with §4's own policy numbers.
+///
+/// The mediator pool was the **third** roster and the one wired to nothing: until this
+/// existed a community could hold nine of ten seats and staff every panel in the
+/// compact, and every mediator could be seated with no end date at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MediatorCaps {
+    /// Active-pool size at or above which the no-majority pool-share rule bites.
+    pub pool_floor: usize,
+    /// Maximum length (seconds) of a single mediator nomination window.
+    pub max_term_seconds: i64,
+    /// Minimum sit-out (seconds) between a prior term's end and a re-nomination.
+    pub rotation_period_seconds: i64,
+}
+
+impl Default for MediatorCaps {
+    fn default() -> Self {
+        Self {
+            pool_floor: DEFAULT_MEDIATOR_POOL_FLOOR,
+            max_term_seconds: DEFAULT_MEDIATOR_MAX_TERM_SECONDS,
+            rotation_period_seconds: DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS,
+        }
+    }
+}
+
+impl MediatorCaps {
+    /// The three roster limits, for [`check_roster_caps`].
+    pub fn limits(&self) -> RosterLimits {
+        RosterLimits {
+            pool_floor: self.pool_floor,
+            max_term_seconds: self.max_term_seconds,
+            rotation_period_seconds: self.rotation_period_seconds,
+        }
+    }
+}
+
 /// §2 examining-pool caps: the capture-resistance limits on who may conduct
 /// anti-spiral-feature credentialing. Structurally the same as [`ObserverCaps`] and
 /// enforced by the same rules ([`check_roster_caps`]), but a distinct type — the two
@@ -180,6 +300,17 @@ impl Default for ExaminerCaps {
             max_term_seconds: DEFAULT_EXAMINER_MAX_TERM_SECONDS,
             rotation_period_seconds: DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS,
             panel_min: DEFAULT_EXAMINER_PANEL_MIN,
+        }
+    }
+}
+
+impl ExaminerCaps {
+    /// The three roster limits, for [`check_roster_caps`].
+    pub fn limits(&self) -> RosterLimits {
+        RosterLimits {
+            pool_floor: self.pool_floor,
+            max_term_seconds: self.max_term_seconds,
+            rotation_period_seconds: self.rotation_period_seconds,
         }
     }
 }
@@ -334,7 +465,21 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         }
         ArchiveEntry::SponsorshipVouched(_) => &[Envoy],
         ArchiveEntry::ConductAttested(_) => &[Envoy],
+        // A community's account of a window in a function it holds is an ordinary
+        // act of that community, delegable exactly as a conduct record is.
+        ArchiveEntry::ActivityAttested(_) => &[Envoy],
         ArchiveEntry::DisputeFiled(_) => &[Envoy],
+        // A party's own case, delegable exactly as the dispute filing is. A panelist's
+        // argument never reaches here: `record_authority` returns `None` for it.
+        ArchiveEntry::ArgumentFiled(_) => &[Envoy],
+        // A party asking for a recusal, consenting to the panel it faces, and a
+        // community accepting or being accepted as a protecting power, are all acts a
+        // community's envoy may sign for it.
+        ArchiveEntry::RecusalRequested(_)
+        | ArchiveEntry::PanelConsentRecorded(_)
+        | ArchiveEntry::ProtectingPowerDesignated(_) => &[Envoy],
+        // A recusal decision is signed by mediators in person, never by a delegate.
+        ArchiveEntry::RecusalDecided(_) => &[],
         // §7 commons acts an envoy may sign on the community's behalf.
         ArchiveEntry::CommonsRegistered(_)
         | ArchiveEntry::UsageAccounted(_)
@@ -353,6 +498,10 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         | ArchiveEntry::EventCorroborated(_)
         | ArchiveEntry::EventActionInvoked(_)
         | ArchiveEntry::RetroactiveInterestFound(_) => &[Envoy],
+        // Move 4, the pool's own side: an invocation and a review are signed by
+        // mediators in person, never by a community's delegate, exactly as a recusal
+        // decision is. Both are authorized by a panel rule, so these sets are unused.
+        ArchiveEntry::SkepticismInvoked(_) | ArchiveEntry::SkepticismReviewed(_) => &[],
         // Move 6: a principal witness attestation / output a community authors;
         // an envoy may sign on its behalf.
         ArchiveEntry::PrincipalWitnessed(_) | ArchiveEntry::PrincipalOutputRecorded(_) => &[Envoy],
@@ -372,6 +521,7 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         // §5 escalation acts an envoy may sign on the community's behalf.
         ArchiveEntry::LadderAdvanced(_)
         | ArchiveEntry::DesignationDecided(_)
+        | ArchiveEntry::ReexaminationConcluded(_)
         | ArchiveEntry::RestitutionObligated(_)
         | ArchiveEntry::ReEntryCompleted(_)
         | ArchiveEntry::SubstantiveReEngagementInvoked(_)
@@ -384,6 +534,7 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         // These are authorized by a panel rule, not principal binding; their
         // allowed-scope sets are unused.
         | ArchiveEntry::MediationDecided(_)
+        | ArchiveEntry::DecisionUnsealed(_)
         | ArchiveEntry::RestitutionVerified(_)
         | ArchiveEntry::InjunctionIssued(_)
         | ArchiveEntry::InjunctionChallenged(_) => &[],
@@ -428,14 +579,36 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
             s.payload.recorded_at,
             matches!(s.payload.decision_class, DecisionClass::SecondClass),
         )),
+        // An attestation speaks for the community that holds the seats, and is
+        // first-class: accounting for one's own window is not a compact-level decision.
+        ArchiveEntry::ActivityAttested(s) => Some(ra(
+            vec![s.payload.attesting_community.clone()],
+            s.payload.attested_at,
+            false,
+        )),
         ArchiveEntry::MediatorRegistryUpdated(s) => {
             Some(ra(vec![s.payload.nominating_community.clone()], s.payload.issued_at, false))
         }
         ArchiveEntry::DisputeFiled(s) => {
             Some(ra(vec![s.payload.complainant.clone()], s.payload.filed_at, false))
         }
-        // MediationDecided is authorized by the panel rule (see authorize_decision).
-        ArchiveEntry::MediationDecided(_) => None,
+        // MediationDecided is authorized by the panel rule (see authorize_decision),
+        // and ArgumentFiled by its own role rule (see authorize_argument), which does the
+        // party-side principal binding itself because only one of the two roles has a
+        // community principal at all.
+        ArchiveEntry::MediationDecided(_) | ArchiveEntry::ArgumentFiled(_) => None,
+        // Opening a seal is the custodians' act, checked by its own rule below.
+        ArchiveEntry::DecisionUnsealed(_) => None,
+        // §4.2. A recusal request and a protecting-power designation are the parties'
+        // and protectors' own acts; a recusal *decision* is answered by mediators, who
+        // are people in the pool rather than communities, so it carries no principal at
+        // all. All three are checked by their own rules below.
+        // A panel consent joins them: it is the party's own act, self-signed, and its
+        // rule does the party-side binding itself (see `authorize_panel_consent`).
+        ArchiveEntry::RecusalRequested(_)
+        | ArchiveEntry::RecusalDecided(_)
+        | ArchiveEntry::PanelConsentRecorded(_)
+        | ArchiveEntry::ProtectingPowerDesignated(_) => None,
         // §5. A second-class ladder rung (collective sanctions, expulsion) gets
         // the distinct-community quorum for free via the `second_class` flag.
         ArchiveEntry::LadderAdvanced(s) => Some(ra(
@@ -445,6 +618,13 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         )),
         ArchiveEntry::DesignationDecided(s) => {
             Some(ra(s.payload.deliberators.clone(), s.payload.designated_at, true))
+        }
+        // Re-examining a designation is the same weight of act as making one, so it
+        // carries the same second-class distinct-community floor. Hard-coded rather
+        // than read off the record, the fail-safe direction (see §2's note on
+        // `ReEntry.decision_class`).
+        ArchiveEntry::ReexaminationConcluded(s) => {
+            Some(ra(s.payload.examiners.clone(), s.payload.concluded_at, true))
         }
         ArchiveEntry::RestitutionObligated(s) => Some(ra(
             s.payload.imposed_by.clone(),
@@ -556,6 +736,9 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         ArchiveEntry::RetroactiveInterestFound(s) => {
             Some(ra(vec![s.payload.finder.clone()], s.payload.found_at, false))
         }
+        // An invocation and a review are the *pool's* acts, not any community's, and
+        // are authorized by their own panel rules (see `authorize_skepticism_*`).
+        ArchiveEntry::SkepticismInvoked(_) | ArchiveEntry::SkepticismReviewed(_) => None,
         // Move 6. A principal witness attestation is the attesting community
         // speaking for itself (cross-community independence is a detector
         // filter, not an authority refusal); a principal output is the home
@@ -585,11 +768,19 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::InterCommunityNonAdmission(s) => dids(s),
         ArchiveEntry::SponsorshipVouched(s) => dids(s),
         ArchiveEntry::ConductAttested(s) => dids(s),
+        ArchiveEntry::ActivityAttested(s) => dids(s),
         ArchiveEntry::MediatorRegistryUpdated(s) => dids(s),
         ArchiveEntry::DisputeFiled(s) => dids(s),
+        ArchiveEntry::ArgumentFiled(s) => dids(s),
+        ArchiveEntry::RecusalRequested(s) => dids(s),
+        ArchiveEntry::RecusalDecided(s) => dids(s),
+        ArchiveEntry::ProtectingPowerDesignated(s) => dids(s),
+        ArchiveEntry::PanelConsentRecorded(s) => dids(s),
         ArchiveEntry::MediationDecided(s) => dids(s),
+        ArchiveEntry::DecisionUnsealed(s) => dids(s),
         ArchiveEntry::LadderAdvanced(s) => dids(s),
         ArchiveEntry::DesignationDecided(s) => dids(s),
+        ArchiveEntry::ReexaminationConcluded(s) => dids(s),
         ArchiveEntry::RestitutionObligated(s) => dids(s),
         ArchiveEntry::RestitutionVerified(s) => dids(s),
         ArchiveEntry::ReEntryCompleted(s) => dids(s),
@@ -615,6 +806,8 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::InterpreterIndependenceAttested(s) => dids(s),
         ArchiveEntry::EventReported(s) => dids(s),
         ArchiveEntry::EventCorroborated(s) => dids(s),
+        ArchiveEntry::SkepticismInvoked(s) => dids(s),
+        ArchiveEntry::SkepticismReviewed(s) => dids(s),
         ArchiveEntry::EventActionInvoked(s) => dids(s),
         ArchiveEntry::RetroactiveInterestFound(s) => dids(s),
         ArchiveEntry::PrincipalWitnessed(s) => dids(s),
@@ -903,6 +1096,8 @@ fn authorize_inter_witness(
 fn authorize_mediator_registry(
     archive: &InMemoryArchive,
     reg: &kc_mediation::MediatorRegistry,
+    self_cid: &Cid,
+    caps: MediatorCaps,
 ) -> KcResult<()> {
     if probationary_at(archive, &reg.nominating_community, reg.issued_at) {
         return Err(KcError::Authority(format!(
@@ -925,7 +1120,30 @@ fn authorize_mediator_registry(
             )));
         }
     }
-    Ok(())
+    // The four capture-resistance caps §8's observers and §2's examiners already carry.
+    // The mediator pool was the third roster and the one wired to nothing, which is how
+    // a community could hold nine of ten seats and staff every panel in the compact,
+    // and how every mediator could be seated with no end date — "a permanent mediator
+    // class is the first step toward an inquisitorial caste"
+    // (`liminal_institutions.md`).
+    let seats: Vec<Seat> = reg
+        .entries
+        .iter()
+        .map(|en| Seat {
+            did: en.mediator_did.as_str(),
+            from: en.valid_from,
+            until: en.valid_until,
+        })
+        .collect();
+    check_roster_caps(
+        archive,
+        RosterKind::Mediator,
+        &reg.nominating_community,
+        reg.issued_at,
+        &seats,
+        self_cid,
+        caps.limits(),
+    )
 }
 
 /// The encryption key each active registered mediator's §8 custody shares must be
@@ -1055,6 +1273,882 @@ fn check_mediator_panel(
     Ok(())
 }
 
+/// The §4 rule for an argument submitted on a dispute (§4 "structured argument
+/// submission"). The two roles answer different questions and are held to different
+/// rules.
+///
+/// A **party's** argument is its own case, so only the complainant or the respondent may
+/// make one, and its community's envoy may sign for it exactly as for the dispute filing
+/// itself. A **panelist's** argument is the position the decision must answer, so the
+/// author must be an active registered mediator from neither party community — the panel
+/// rule, one record over — and the signature must be the mediator's own: a mediator is a
+/// person in a pool rather than a community with envoys, and nobody argues in a
+/// mediator's name.
+///
+/// Note what is deliberately *not* applied here: §2's probation de-weighting. That rule
+/// governs whether a panelist counts toward `panel_min`, which is a question about
+/// weight; whether someone may *speak* is a different question, and a probationary
+/// community's mediator who may sit on a panel may argue before it. The decision's own
+/// `panel_min` still does the counting.
+fn authorize_argument(
+    archive: &InMemoryArchive,
+    arg: &ArgumentRecord,
+    signers: &[&str],
+) -> KcResult<()> {
+    let dispute = match archive.get(&arg.dispute_cid) {
+        Some(ArchiveEntry::DisputeFiled(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "argument references {} which is not a filed dispute",
+                arg.dispute_cid
+            )))
+        }
+    };
+    // An argument is *made*. An empty one was not. The content is never read beyond
+    // this: no rule can weigh an argument, only record that it was put.
+    if arg.position.trim().is_empty() {
+        return Err(KcError::Authority(
+            "an argument must state a position".into(),
+        ));
+    }
+    match arg.role {
+        ArgumentRole::Party => {
+            if arg.author != dispute.complainant && arg.author != dispute.respondent {
+                return Err(KcError::Authority(format!(
+                    "{} is not a party to this dispute, so may not argue as one",
+                    arg.author.as_str()
+                )));
+            }
+            let ok = signers.iter().any(|s| {
+                signer_authorized_for(
+                    archive,
+                    &arg.author,
+                    s,
+                    arg.submitted_at,
+                    &[DelegationScope::Envoy],
+                )
+            });
+            if !ok {
+                return Err(KcError::Authority(format!(
+                    "party argument for {} has no authorized signer",
+                    arg.author.as_str()
+                )));
+            }
+        }
+        ArgumentRole::Panelist => {
+            if signers != [arg.author.as_str()] {
+                return Err(KcError::Authority(
+                    "a panelist's argument is signed by exactly that panelist".into(),
+                ));
+            }
+            let home = match mediator_home(archive, arg.author.as_str(), arg.submitted_at) {
+                None => {
+                    return Err(KcError::Authority(format!(
+                        "{} is not an active registered mediator, so may not argue as a \
+                         panelist",
+                        arg.author.as_str()
+                    )))
+                }
+                Some(home) => home,
+            };
+            if home == dispute.complainant || home == dispute.respondent {
+                return Err(KcError::Authority(format!(
+                    "panelist {} is from a party community (non-overlap violated)",
+                    arg.author.as_str()
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The §4 rule for a recusal request: only a party may ask, and only about a mediator.
+///
+/// Panel *composition* was already enforced — registered, non-party, minimum count —
+/// but a party had no way to say "this one, on this dispute" and have it recorded and
+/// answered. Nothing here blocks: an unanswered request is visible rather than
+/// paralysing, because a request that stopped a mediation by existing would be the
+/// delay tactic §4's own structured-skepticism review guards against.
+fn authorize_recusal_request(
+    archive: &InMemoryArchive,
+    req: &kc_mediation::RecusalRequest,
+    signers: &[&str],
+) -> KcResult<()> {
+    let dispute = match archive.get(&req.dispute_cid) {
+        Some(ArchiveEntry::DisputeFiled(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "recusal request references {} which is not a filed dispute",
+                req.dispute_cid
+            )))
+        }
+    };
+    if req.requested_by != dispute.complainant && req.requested_by != dispute.respondent {
+        return Err(KcError::Authority(format!(
+            "{} is not a party to this dispute, so may not request a recusal in it",
+            req.requested_by.as_str()
+        )));
+    }
+    if req.grounds.trim().is_empty() {
+        return Err(KcError::Authority(
+            "a recusal request must state its grounds".into(),
+        ));
+    }
+    if mediator_home(archive, req.mediator.as_str(), req.requested_at).is_none() {
+        return Err(KcError::Authority(format!(
+            "{} is not an active registered mediator, so has no seat to step down from",
+            req.mediator.as_str()
+        )));
+    }
+    let ok = signers.iter().any(|sg| {
+        signer_authorized_for(
+            archive,
+            &req.requested_by,
+            sg,
+            req.requested_at,
+            &[DelegationScope::Envoy],
+        )
+    });
+    if !ok {
+        return Err(KcError::Authority(format!(
+            "recusal request for {} has no authorized signer",
+            req.requested_by.as_str()
+        )));
+    }
+    Ok(())
+}
+
+/// §4: the custody a sealed decision's proceedings are held under.
+///
+/// ## Custody is the communities', not the pool's, and it has to be
+///
+/// The whitepaper asks for "keys distributed across the mediator pool so no single
+/// custodian can unseal early" and, in the same breath, for a "deterministic reveal at
+/// the **25 to 30 year** mark (one generational cycle)". Measured against the tier as
+/// built, those two cannot both be had: `DEFAULT_MEDIATOR_MAX_TERM_SECONDS` caps a
+/// mediator's seat at two years, because "a permanent mediator class is the first step
+/// toward an inquisitorial caste". A share sealed to a mediator's registered encryption
+/// key is therefore held by somebody whose key the archive **stops resolving** long
+/// before the seal opens — the signature on the opening cannot even be verified, and the
+/// deterministic reveal is dead by construction. The same shape as §9's re-examination
+/// cadence, which §8's term limits made unreachable.
+///
+/// So a generational seal is held by what lasts a generation, and in this compact that is
+/// the **member communities**: a `CommunityIdentity` resolves at any instant, with no
+/// validity window, which is exactly the property a 25-year custody needs. The doctrine's
+/// substance — distributed, no single custodian, not the panel's to open — is kept; what
+/// changes is which body holds the keys, because the other reading names a custodian who
+/// will not be there.
+///
+/// The cost is stated rather than hidden: a community has no separate encryption key, so
+/// a share is sealed to the key it also signs with — one key under two primitives,
+/// mitigated only by domain-separated derivation, which is precisely the compromise
+/// `MediatorEntry::encryption_pubkey` was added to avoid for §8. It is accepted here
+/// because the alternative is not a better key but no reveal at all.
+///
+/// ## What is checked
+///
+/// The sharing is **recoverable in principle** (`check_shape`); every custodian is a
+/// published member community and neither party (the two with an interest in opening it
+/// early or never); each share is sealed to that community's own root key, so naming a
+/// custodian and sealing to them cannot come apart — §8's hard-won lesson, in the setting
+/// where the key is the DID itself.
+///
+/// And **the deciding panel may not hold a quorum of the shares**, counted through the
+/// panelists' home communities. A panel holding `k` of its own shares has not sealed its
+/// proceedings, it has deferred publishing them at its own discretion, and the parties
+/// who spoke candidly to it were given a guarantee that does not exist.
+fn authorize_sealed_reasoning(
+    archive: &InMemoryArchive,
+    decision: &MediationDecision,
+    dispute: &kc_mediation::DisputeRecord,
+    sealed: &kc_mediation::SealedReasoning,
+) -> KcResult<()> {
+    sealed
+        .custody
+        .check_shape()
+        .map_err(|e| KcError::Authority(format!("sealed decision custody: {e}")))?;
+
+    let span = sealed.reveal_at.as_second() - decision.decided_at.as_second();
+    if !(MIN_DECISION_SEAL_SECONDS..=MAX_DECISION_SEAL_SECONDS).contains(&span) {
+        return Err(KcError::Authority(format!(
+            "a sealed decision opens {span}s after it was decided, outside the \
+             generational cycle [{MIN_DECISION_SEAL_SECONDS}s, {MAX_DECISION_SEAL_SECONDS}s] \
+             §4 seals for"
+        )));
+    }
+
+    let parties: BTreeSet<&str> = [dispute.complainant.as_str(), dispute.respondent.as_str()]
+        .into_iter()
+        .collect();
+    for share in &sealed.custody.sealed_shares {
+        let holder = &share.holder_did;
+        if parties.contains(holder.as_str()) {
+            return Err(KcError::Authority(format!(
+                "{holder} is a party to this dispute, so may not hold a share of the seal \
+                 over its own proceedings"
+            )));
+        }
+        let root = community_root_pubkey(archive, holder).ok_or_else(|| {
+            KcError::Authority(format!(
+                "the sealed-decision share for {holder} names a custodian that is not a \
+                 published member community, so no key of theirs will resolve when the \
+                 seal opens"
+            ))
+        })?;
+        if root.bytes != share.recipient_pubkey.0 {
+            return Err(KcError::Authority(format!(
+                "the sealed-decision share for {holder} is sealed to a key that is not \
+                 that community's own, so the custodian cannot open it"
+            )));
+        }
+    }
+
+    // The panel's own homes, which is what "the panel can open this" means once the
+    // custodians are communities.
+    let mut panel_homes: BTreeSet<String> = BTreeSet::new();
+    for m in &decision.panel {
+        if let Some(home) = mediator_home(archive, m.as_str(), decision.decided_at) {
+            panel_homes.insert(home.as_str().to_string());
+        }
+    }
+    let k = usize::from(sealed.custody.threshold_k);
+    let on_panel = sealed
+        .custody
+        .holders()
+        .iter()
+        .filter(|h| panel_homes.contains(h.as_str()))
+        .count();
+    if on_panel >= k {
+        return Err(KcError::Authority(format!(
+            "{on_panel} of the {k} shares needed to open this seal are held by the \
+             deciding panel's own communities, so the panel can unseal its own \
+             proceedings: that is a deferral of publication, not a seal"
+        )));
+    }
+    Ok(())
+}
+
+/// A community's root public key, if it has published an identity. Communities resolve
+/// at any instant — no validity window — which is the property a generational seal needs
+/// of whoever holds its shares.
+fn community_root_pubkey(archive: &InMemoryArchive, did: &DidKey) -> Option<kc_core::PubKey> {
+    archive.iter().find_map(|(_, e)| match e {
+        ArchiveEntry::CommunityIdentityPublished(s) if s.payload.did == *did => {
+            Some(s.payload.root_pubkey.clone())
+        }
+        _ => None,
+    })
+}
+
+/// §4 decision-unsealing rule: references a *sealed* decision, is co-signed by exactly
+/// the custodians it names, and **actually opens what the decision sealed**.
+///
+/// The shape is §8's `SourceReveal`, for the same reason: a rule about who signs is not
+/// a guarantee about what is disclosed. The presented shares must recover the sealed
+/// text, that text must open the decision's commitment, and `disclosed_reasoning` must be
+/// what was recovered — so a quorum of custodians cannot publish a more flattering
+/// account than the panel wrote and have the archive carry it as the proceedings.
+///
+/// Opening before `reveal_at` needs a named cause. After it, the seal has expired on its
+/// own terms and the opening is bookkeeping.
+fn authorize_decision_unsealed(
+    archive: &InMemoryArchive,
+    unsealed: &kc_mediation::DecisionUnsealed,
+    signers: &[&str],
+) -> KcResult<()> {
+    let decision = match archive.get(&unsealed.decision_cid) {
+        Some(ArchiveEntry::MediationDecided(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "decision unsealing references {} which is not a mediation decision",
+                unsealed.decision_cid
+            )))
+        }
+    };
+    let sealed = match &decision.sealed {
+        Some(s) => s,
+        None => {
+            return Err(KcError::Authority(
+                "decision unsealing references a decision whose proceedings were never \
+                 sealed"
+                    .into(),
+            ))
+        }
+    };
+    let claimed: BTreeSet<&str> = unsealed.custodians.iter().map(|d| d.as_str()).collect();
+    let actual: BTreeSet<&str> = signers.iter().copied().collect();
+    if claimed != actual {
+        return Err(KcError::Authority(format!(
+            "an unsealing's custodians must be exactly its co-signers; it names {} and \
+             {} signed",
+            claimed.len(),
+            actual.len()
+        )));
+    }
+    let holders: BTreeSet<String> = sealed
+        .custody
+        .holders()
+        .iter()
+        .map(|d| d.as_str().to_string())
+        .collect();
+    if let Some(stranger) = signers.iter().find(|s| !holders.contains(**s)) {
+        return Err(KcError::Authority(format!(
+            "{stranger} holds no share of this decision's custody, so has nothing to open"
+        )));
+    }
+    if unsealed.unsealed_at < sealed.reveal_at && unsealed.cause.trim().is_empty() {
+        return Err(KcError::Authority(
+            "opening a seal before its generational cycle has run must cite a cause".into(),
+        ));
+    }
+    let recovered = sealed.custody.recover(&unsealed.shares).map_err(|e| {
+        KcError::Authority(format!("decision unsealing does not open the custody: {e}"))
+    })?;
+    let text = String::from_utf8(recovered).map_err(|_| {
+        KcError::Authority("what the custody recovered is not the sealed reasoning text".into())
+    })?;
+    let commitment = kc_mediation::SealedReasoning::commitment(&text)
+        .map_err(|e| KcError::Authority(format!("sealed reasoning commitment: {e}")))?;
+    if commitment != sealed.reasoning_commitment {
+        return Err(KcError::Authority(
+            "what the custody recovered does not open the decision's reasoning commitment"
+                .into(),
+        ));
+    }
+    if unsealed.disclosed_reasoning != text {
+        return Err(KcError::Authority(
+            "the unsealing discloses a reasoning the custody shares do not recover".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// The §4 rule for a party's consent to the panel as constituted.
+///
+/// The party must be a party, and it must speak for itself: consent signed by anyone
+/// else is not consent. The named panel must be one that could actually sit — every
+/// member an active registered mediator, none from either party community — so a
+/// consent cannot be recorded to a fiction and then counted as the real panel's.
+///
+/// Withholding must state something, since it is the answer that owes an account; the
+/// statement is never read for content, exactly as a recusal's grounds are not.
+fn authorize_panel_consent(
+    archive: &InMemoryArchive,
+    consent: &kc_mediation::PanelConsent,
+    signers: &[&str],
+) -> KcResult<()> {
+    let dispute = match archive.get(&consent.dispute_cid) {
+        Some(ArchiveEntry::DisputeFiled(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "panel consent references {} which is not a filed dispute",
+                consent.dispute_cid
+            )))
+        }
+    };
+    if consent.party != dispute.complainant && consent.party != dispute.respondent {
+        return Err(KcError::Authority(format!(
+            "{} is not a party to this dispute, so has no consent to give in it",
+            consent.party.as_str()
+        )));
+    }
+    if consent.answer == kc_mediation::ConsentAnswer::Withheld && consent.statement.trim().is_empty()
+    {
+        return Err(KcError::Authority(
+            "withheld consent must state something: it is the answer that owes an account".into(),
+        ));
+    }
+    if consent.panel.is_empty() {
+        return Err(KcError::Authority(
+            "panel consent must name the panel it consents to".into(),
+        ));
+    }
+    // The panel named must be one that could sit. Reuse the panel rule with a floor of
+    // one, because what is checked here is that each named mediator is real and
+    // non-party — whether the panel is large enough is the *decision's* rule, and
+    // consent to a short panel is still a party's own act.
+    let barred: BTreeSet<String> = [&dispute.complainant, &dispute.respondent]
+        .iter()
+        .map(|d| d.as_str().to_string())
+        .collect();
+    let named: Vec<&str> = consent.panel.iter().map(|d| d.as_str()).collect();
+    check_mediator_panel(
+        archive,
+        &named,
+        consent.given_at,
+        &barred,
+        1,
+        PanelSpec {
+            role: "consented panelist",
+            barred_kind: "a party community",
+            label: "consented panel",
+        },
+    )?;
+    let ok = signers.iter().any(|sg| {
+        signer_authorized_for(
+            archive,
+            &consent.party,
+            sg,
+            consent.given_at,
+            &[DelegationScope::Envoy],
+        )
+    });
+    if !ok {
+        return Err(KcError::Authority(format!(
+            "panel consent for {} has no authorized signer: nobody consents on another's behalf",
+            consent.party.as_str()
+        )));
+    }
+    Ok(())
+}
+
+/// Whether `party` has consented to exactly `panel` on `dispute_cid`, as the archive
+/// stands before `self_cid` in insertion order.
+///
+/// "Exactly" is the point: a party that accepted three mediators has not accepted a
+/// fourth, so the consent is matched against the panel set rather than the dispute. The
+/// party's latest answer before the decision governs, since consent can be given and
+/// then withdrawn by a later `Withheld` on the same panel.
+fn consented_to_panel(
+    archive: &InMemoryArchive,
+    dispute_cid: &Cid,
+    party: &DidKey,
+    panel: &BTreeSet<&str>,
+    self_cid: &Cid,
+) -> bool {
+    let self_key = self_cid.to_string();
+    let mut latest: Option<kc_mediation::ConsentAnswer> = None;
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            break;
+        }
+        if let ArchiveEntry::PanelConsentRecorded(s) = e {
+            let c = &s.payload;
+            if &c.dispute_cid != dispute_cid || c.party.as_str() != party.as_str() {
+                continue;
+            }
+            let named: BTreeSet<&str> = c.panel.iter().map(|d| d.as_str()).collect();
+            if &named == panel {
+                latest = Some(c.answer);
+            }
+        }
+    }
+    latest == Some(kc_mediation::ConsentAnswer::Given)
+}
+
+/// The §4 rule for answering a recusal request, where who may sign depends on the
+/// answer.
+///
+/// A **grant** is the named mediator's own act and theirs alone: stepping down is always
+/// available to them and nobody else may condition it, which is the same rule every
+/// self-signed act in this compact carries. A **decline** must come from registered
+/// non-party mediators *other than* the one named — a panelist who could dismiss
+/// requests against themselves is precisely the conflict the request exists to raise —
+/// and must state reasons, since a refusal to step aside is the answer that owes an
+/// account.
+fn authorize_recusal_decision(
+    archive: &InMemoryArchive,
+    dec: &kc_mediation::RecusalDecision,
+    signers: &[&str],
+) -> KcResult<()> {
+    let req = match archive.get(&dec.request_cid) {
+        Some(ArchiveEntry::RecusalRequested(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "recusal decision references {} which is not a recusal request",
+                dec.request_cid
+            )))
+        }
+    };
+    let dispute = match archive.get(&req.dispute_cid) {
+        Some(ArchiveEntry::DisputeFiled(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(
+                "the recusal request's dispute is not a filed dispute".into(),
+            ))
+        }
+    };
+    let claimed: BTreeSet<&str> = dec.deciders.iter().map(|d| d.as_str()).collect();
+    let actual: BTreeSet<&str> = signers.iter().copied().collect();
+    if claimed != actual {
+        return Err(KcError::Authority(format!(
+            "a recusal decision's deciders must be exactly its signers; it names {} \
+             and {} signed",
+            claimed.len(),
+            actual.len()
+        )));
+    }
+    match dec.answer {
+        kc_mediation::RecusalAnswer::Granted => {
+            if signers != [req.mediator.as_str()] {
+                return Err(KcError::Authority(
+                    "a recusal is granted by exactly the mediator stepping down".into(),
+                ));
+            }
+        }
+        kc_mediation::RecusalAnswer::Declined => {
+            if dec.reasoning.trim().is_empty() {
+                return Err(KcError::Authority(
+                    "a declined recusal must state its reasoning".into(),
+                ));
+            }
+            if signers.is_empty() {
+                return Err(KcError::Authority(
+                    "a recusal decision needs at least one decider".into(),
+                ));
+            }
+            for sg in signers {
+                if *sg == req.mediator.as_str() {
+                    return Err(KcError::Authority(format!(
+                        "mediator {sg} may not answer the request for their own recusal"
+                    )));
+                }
+                let home = match mediator_home(archive, sg, dec.decided_at) {
+                    None => {
+                        return Err(KcError::Authority(format!(
+                            "{sg} is not an active registered mediator, so may not \
+                             answer a recusal request"
+                        )))
+                    }
+                    Some(home) => home,
+                };
+                if home == dispute.complainant || home == dispute.respondent {
+                    return Err(KcError::Authority(format!(
+                        "mediator {sg} is from a party community (non-overlap violated)"
+                    )));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The §4 rule for a protecting-power designation: the Geneva analogue, and neutrality
+/// is the whole of it.
+///
+/// `liminal_institutions.md`: "It is not an arbitrator; **it is a witness with
+/// standing**." So this gates nothing — no decision waits on a protector and no panel is
+/// invalid without one. What is enforced is that the protector is genuinely neutral (not
+/// a party, and not itself seating the panel's mediators, or the witness and the judge
+/// are one body) and that both sides consented: standing for another community is a duty
+/// and is never conscripted, and a protector the disputant did not accept is a watcher
+/// imposed on them.
+fn authorize_protecting_power(
+    archive: &InMemoryArchive,
+    pp: &kc_mediation::ProtectingPower,
+    signers: &[&str],
+) -> KcResult<()> {
+    let dispute = match archive.get(&pp.dispute_cid) {
+        Some(ArchiveEntry::DisputeFiled(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "protecting-power designation references {} which is not a filed dispute",
+                pp.dispute_cid
+            )))
+        }
+    };
+    if pp.disputant != dispute.complainant && pp.disputant != dispute.respondent {
+        return Err(KcError::Authority(format!(
+            "{} is not a party to this dispute, so has no interests to protect in it",
+            pp.disputant.as_str()
+        )));
+    }
+    if pp.protector == dispute.complainant || pp.protector == dispute.respondent {
+        return Err(KcError::Authority(format!(
+            "{} is a party to this dispute and cannot stand neutral in it",
+            pp.protector.as_str()
+        )));
+    }
+    // The protector must not also be seating the pool this dispute's panel is drawn
+    // from: a community that both watches the process and supplies its judges is not
+    // the neutral third the Geneva analogue describes.
+    let shares = active_roster_shares(
+        &rosters_of(archive, RosterKind::Mediator),
+        pp.designated_at,
+    );
+    if shares.contains_key(pp.protector.as_str()) {
+        return Err(KcError::Authority(format!(
+            "{} seats mediators and so cannot also stand as protecting power: a \
+             witness with standing is not one of the judges",
+            pp.protector.as_str()
+        )));
+    }
+    // Both consent. Neither may be conscripted, and neither may be imposed.
+    for principal in [&pp.disputant, &pp.protector] {
+        let ok = signers.iter().any(|sg| {
+            signer_authorized_for(
+                archive,
+                principal,
+                sg,
+                pp.designated_at,
+                &[DelegationScope::Envoy],
+            )
+        });
+        if !ok {
+            return Err(KcError::Authority(format!(
+                "protecting-power designation is not signed for {}; both the disputant \
+                 and the protector must accept it",
+                principal.as_str()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The attested-null rule (§4 and §8, erosion remediation item 5): a community may only
+/// account for a window in a function it actually held, and the account must be about
+/// that window.
+///
+/// The empty `acts` list is deliberately legal, and is the whole point: a signed null is
+/// the difference between "no disputes were filed" and "we stopped convening", which are
+/// the same silence to every relative measure. What the rule refuses is an account of a
+/// window that is not one (`window_end` at or before `window_start`), an account from a
+/// community that seated nobody in that function (nothing to account for, and nobody to
+/// hold to it), and acts cited from outside the window they are offered as evidence of.
+fn authorize_activity_attestation(
+    archive: &InMemoryArchive,
+    att: &ActivityAttestation,
+) -> KcResult<()> {
+    if att.window_end <= att.window_start {
+        return Err(KcError::Authority(format!(
+            "activity attestation window ends at {}s, at or before its start {}s",
+            att.window_end.as_second(),
+            att.window_start.as_second()
+        )));
+    }
+    // A null owes an account. `acts` empty and `statement` empty together is a record
+    // that says nothing at all, which is the silence this record exists to end.
+    if att.acts.is_empty() && att.statement.trim().is_empty() {
+        return Err(KcError::Authority(
+            "an attested null must state its account: an empty attestation is the silence \
+             it exists to replace"
+                .into(),
+        ));
+    }
+    // The obligation belongs to a community that holds seats. Read at `window_end`,
+    // because the window is what is being accounted for.
+    let seated = holds_function(archive, &att.attesting_community, att.function, att.window_end);
+    if !seated {
+        return Err(KcError::Authority(format!(
+            "{} seated no {} holders at the end of the window, so has no account to give",
+            att.attesting_community.as_str(),
+            att.function.as_str()
+        )));
+    }
+    // Every cited act must fall inside the window, and be an act of the function.
+    for cid in &att.acts {
+        let at = match (att.function, archive.get(cid)) {
+            (AttestedFunction::Mediation, Some(ArchiveEntry::MediationDecided(s))) => {
+                s.payload.decided_at
+            }
+            (AttestedFunction::Mediation, Some(ArchiveEntry::DisputeFiled(s))) => {
+                s.payload.filed_at
+            }
+            (AttestedFunction::Observation, Some(ArchiveEntry::ObserverReportPublished(s))) => {
+                s.payload.reported_at
+            }
+            _ => {
+                return Err(KcError::Authority(format!(
+                    "attested act {cid} is not a {} act in this archive",
+                    att.function.as_str()
+                )))
+            }
+        };
+        if at < att.window_start || at > att.window_end {
+            return Err(KcError::Authority(format!(
+                "attested act {cid} falls outside the window it is offered for"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Whether `community` had at least one active holder of `function` at `at`. Reads the
+/// same latest-issued-wins roster resolution (`store::latest_rosters`) that key
+/// resolution and the pool lenses share, so "seated" means one thing in the crate.
+fn holds_function(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    function: AttestedFunction,
+    at: Timestamp,
+) -> bool {
+    match function {
+        AttestedFunction::Mediation => crate::store::latest_rosters(
+            archive.iter().filter_map(|(_, e)| match e {
+                ArchiveEntry::MediatorRegistryUpdated(s) => {
+                    Some((&s.payload.nominating_community, s.payload.issued_at, &s.payload))
+                }
+                _ => None,
+            }),
+            at,
+        )
+        .into_iter()
+        .any(|r| {
+            r.nominating_community.as_str() == community.as_str()
+                && r.entries.iter().any(|e| e.active_at(at))
+        }),
+        AttestedFunction::Observation => crate::store::latest_rosters(
+            archive.iter().filter_map(|(_, e)| match e {
+                ArchiveEntry::ObserverRegistryUpdated(s) => {
+                    Some((&s.payload.nominating_community, s.payload.issued_at, &s.payload))
+                }
+                _ => None,
+            }),
+            at,
+        )
+        .into_iter()
+        .any(|r| {
+            r.nominating_community.as_str() == community.as_str()
+                && r.entries.iter().any(|e| e.active_at(at))
+        }),
+    }
+}
+
+/// The §5 rule for a re-examination conclusion (erosion remediation item 5, finding K3):
+/// the attested null of the severest act the compact can take.
+///
+/// Two of these rules exist so the record cannot become an evasion of the obligation it
+/// records. It may not be dated **before** the deadline it answers, or a compact would
+/// confirm at designation time and buy permanent silence. And a `Confirmed` outcome must
+/// name the next date, later than its own, or one confirmation would discharge a
+/// generational obligation forever. A `Reversed` outcome requires the reversal itself to
+/// be recorded by the path that already exists, so the archive keeps one definition of a
+/// reversed designation rather than two that can disagree.
+fn authorize_reexamination(
+    archive: &InMemoryArchive,
+    rc: &ReexaminationConclusion,
+) -> KcResult<()> {
+    let designation = match archive.get(&rc.designation_cid) {
+        Some(ArchiveEntry::DesignationDecided(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "re-examination references {} which is not a designation",
+                rc.designation_cid
+            )))
+        }
+    };
+    let Some(due) = designation.reexamine_after else {
+        return Err(KcError::Authority(format!(
+            "designation {} mandated no re-examination, so none can conclude one",
+            rc.designation_cid
+        )));
+    };
+    if rc.concluded_at < due {
+        return Err(KcError::Authority(format!(
+            "re-examination concluded at {}s, before the mandated date {}s: a \
+             re-examination cannot be held in advance of the thing it examines",
+            rc.concluded_at.as_second(),
+            due.as_second()
+        )));
+    }
+    if rc.reasoning.trim().is_empty() {
+        return Err(KcError::Authority(
+            "a re-examination must publish its reasoning".into(),
+        ));
+    }
+    match rc.outcome {
+        ReexaminationOutcome::Confirmed => match rc.next_reexamine_after {
+            None => {
+                return Err(KcError::Authority(
+                    "a confirmed designation must set the next re-examination date: a \
+                     confirmation renews the obligation, it does not discharge it"
+                        .into(),
+                ))
+            }
+            Some(next) if next <= rc.concluded_at => {
+                return Err(KcError::Authority(format!(
+                    "the next re-examination date {}s is not after this conclusion {}s",
+                    next.as_second(),
+                    rc.concluded_at.as_second()
+                )))
+            }
+            Some(_) => {}
+        },
+        ReexaminationOutcome::Reversed => {
+            if !designation_reversed(archive, &rc.designation_cid, rc.concluded_at) {
+                return Err(KcError::Authority(format!(
+                    "re-examination reports {} reversed, but no lifting record or \
+                     re-entry answers it",
+                    rc.designation_cid
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Whether a designation has been reversed as of `at`, by the two paths the reputation
+/// lookup already defines: a `DesignationLifted` conduct record naming it, or a completed
+/// re-entry answering it. One definition, read by the authority pass and the erosion lens
+/// alike.
+fn designation_reversed(archive: &InMemoryArchive, designation_cid: &Cid, at: Timestamp) -> bool {
+    archive.iter().any(|(_, e)| match e {
+        ArchiveEntry::ConductAttested(s) => {
+            s.payload.kind == kc_conduct::ConductKind::DesignationLifted
+                && s.payload.recorded_at <= at
+                && s.payload.references.iter().any(|r| r == designation_cid)
+        }
+        ArchiveEntry::ReEntryCompleted(s) => {
+            s.payload.completed_at <= at && &s.payload.designation_cid == designation_cid
+        }
+        _ => false,
+    })
+}
+
+/// The one refusal erosion remediation carries (the rest is reported, not enforced): a
+/// designation whose mandated re-examination has come and gone unanswered may not be
+/// **cited** by a further escalation act.
+///
+/// The most severe act the compact can take cannot rest on an obligation the compact has
+/// itself let lapse. There is an act here to hang a refusal on, which is why this is a
+/// gate while the silent-function and unstaffed-function readings are lenses: a compact
+/// that has merely stopped acting offers nothing to refuse.
+fn no_stale_designation_cited<'a>(
+    archive: &InMemoryArchive,
+    cited: impl Iterator<Item = &'a Cid>,
+    at: Timestamp,
+) -> KcResult<()> {
+    for cid in cited {
+        let Some(ArchiveEntry::DesignationDecided(s)) = archive.get(cid) else { continue };
+        let Some(due) = s.payload.reexamine_after else { continue };
+        if due > at || designation_reversed(archive, cid, at) {
+            continue;
+        }
+        if latest_reexamination(archive, cid, at).is_none() {
+            return Err(KcError::Authority(format!(
+                "cited designation {cid} was due for re-examination at {}s and none is \
+                 recorded: a further escalation may not rest on a lapsed obligation",
+                due.as_second()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The latest re-examination conclusion for a designation at or before `at`, by
+/// `concluded_at`. Insertion order breaks ties, so the archive's own order is
+/// authoritative exactly as it is for §4's argument answering.
+fn latest_reexamination<'a>(
+    archive: &'a InMemoryArchive,
+    designation_cid: &Cid,
+    at: Timestamp,
+) -> Option<&'a ReexaminationConclusion> {
+    let mut best: Option<&ReexaminationConclusion> = None;
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::ReexaminationConcluded(s) = e {
+            let rc = &s.payload;
+            if &rc.designation_cid != designation_cid || rc.concluded_at > at {
+                continue;
+            }
+            if best.is_none_or(|b| rc.concluded_at >= b.concluded_at) {
+                best = Some(rc);
+            }
+        }
+    }
+    best
+}
+
 /// The §4 panel rule for a mediation decision: every co-signer must be an active
 /// registered mediator; the panel must span at least `panel_min` of them; no
 /// panelist may come from a party community (non-overlap); and a panelist whose home
@@ -1064,6 +2158,7 @@ fn authorize_decision(
     decision: &MediationDecision,
     signers: &[&str],
     panel_min: usize,
+    self_cid: &Cid,
 ) -> KcResult<()> {
     let dispute = match archive.get(&decision.dispute_cid) {
         Some(ArchiveEntry::DisputeFiled(s)) => &s.payload,
@@ -1074,6 +2169,120 @@ fn authorize_decision(
             )))
         }
     };
+    // §4 "Decision publication: public decisions with **mandatory** reasoning trail;
+    // sealed decisions with threshold-reveal" (protocol-components.md). The field
+    // existed and nothing read it, so a panel could publish a decision that said nothing
+    // about why. A sealed decision satisfies the trail differently — the reasoning
+    // exists and is recoverable, it is simply not public yet — and must then carry no
+    // cleartext reasoning at all, so a decision has exactly one account of itself.
+    match &decision.sealed {
+        None => {
+            if decision.reasoning.trim().is_empty() {
+                return Err(KcError::Authority(
+                    "a mediation decision must state its reasoning (§4's reasoning trail is \
+                     mandatory) or seal it"
+                        .into(),
+                ));
+            }
+        }
+        Some(sealed) => {
+            if !decision.reasoning.trim().is_empty() {
+                return Err(KcError::Authority(
+                    "a sealed decision carries no cleartext reasoning: a public summary \
+                     beside a sealed trail is a second account of the same decision, and \
+                     nothing could ever hold the two to each other"
+                        .into(),
+                ));
+            }
+            authorize_sealed_reasoning(archive, decision, dispute, sealed)?;
+        }
+    }
+    // The `panel` field is **derived, not chosen**: it must be exactly the co-signers.
+    // Before this rule nothing read it, so it could name the two *party* communities —
+    // precisely whom non-overlap excludes — while three legitimate non-party mediators
+    // signed, and the record was authorized. A field a reader sees without the envelope
+    // to hand must not be able to contradict the rule that actually ran.
+    let claimed: BTreeSet<&str> = decision.panel.iter().map(|d| d.as_str()).collect();
+    let actual: BTreeSet<&str> = signers.iter().copied().collect();
+    if claimed != actual {
+        return Err(KcError::Authority(format!(
+            "a mediation decision's panel must be exactly its co-signers; it names {} \
+             and {} signed",
+            claimed.len(),
+            actual.len()
+        )));
+    }
+    // The deliberation the decision rests on (§4 "Deliberation support"). Every cited
+    // record must be an argument on *this* dispute, so a decision can neither cite
+    // another dispute's deliberation nor point at an unrelated record.
+    let mut argued_by: BTreeSet<&str> = BTreeSet::new();
+    for cid in &decision.arguments {
+        let arg = match archive.get(cid) {
+            Some(ArchiveEntry::ArgumentFiled(s)) => &s.payload,
+            _ => {
+                return Err(KcError::Authority(format!(
+                    "mediation decision cites {cid} which is not a filed argument"
+                )))
+            }
+        };
+        if arg.dispute_cid != decision.dispute_cid {
+            return Err(KcError::Authority(format!(
+                "mediation decision cites {cid}, an argument on another dispute"
+            )));
+        }
+        if arg.role == ArgumentRole::Panelist {
+            argued_by.insert(arg.author.as_str());
+        }
+    }
+    // **Every co-signing panelist must have argued.** Otherwise three signatures ride
+    // on one author's text and the panel is a rubber stamp: the same arithmetic as the
+    // witness rules, which count the people present rather than the signatures
+    // collected.
+    if let Some(silent) = signers.iter().find(|s| !argued_by.contains(**s)) {
+        return Err(KcError::Authority(format!(
+            "panelist {silent} co-signs a decision without having argued it"
+        )));
+    }
+    // **Every party argument already in the log must be answered.** A panel may not
+    // decide while ignoring a case put to it. Insertion order is authoritative, as it
+    // is for a dispute's current rung, so a party filing *after* the decision cannot
+    // retroactively invalidate it.
+    let cited: BTreeSet<String> = decision.arguments.iter().map(|c| c.to_string()).collect();
+    let self_key = self_cid.to_string();
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            break;
+        }
+        if let ArchiveEntry::ArgumentFiled(s) = e {
+            if s.payload.dispute_cid == decision.dispute_cid
+                && s.payload.role == ArgumentRole::Party
+                && !cited.contains(&cid.to_string())
+            {
+                return Err(KcError::Authority(format!(
+                    "mediation decision does not answer the party argument {cid} filed \
+                     before it"
+                )));
+            }
+        }
+    }
+    // **A settlement is a claim about the parties, not about the panel.** `Settled`
+    // says the two of them reached a mediated settlement, so both must have consented
+    // to the panel that records it. Nothing else waits on consent: requiring it to
+    // decide at all would hand either party a veto over its own dispute, which is
+    // exactly what the escalation ladder exists to route around. A party that refuses
+    // to settle blocks nothing — the panel upholds, dismisses or refers instead.
+    if decision.outcome == kc_mediation::DecisionOutcome::Settled {
+        for party in [&dispute.complainant, &dispute.respondent] {
+            if !consented_to_panel(archive, &decision.dispute_cid, party, &actual, self_cid) {
+                return Err(KcError::Authority(format!(
+                    "a settled outcome needs {}'s consent to this panel, and the archive \
+                     holds none: a settlement the parties did not consent to is not a \
+                     settlement",
+                    party.as_str()
+                )));
+            }
+        }
+    }
     let barred: BTreeSet<String> = [&dispute.complainant, &dispute.respondent]
         .iter()
         .map(|d| d.as_str().to_string())
@@ -1184,6 +2393,7 @@ fn authorize_transition(
         )));
     }
 
+
     if is_second_class_rung(transition.to_rung) {
         if !matches!(transition.decision_class, DecisionClass::SecondClass) {
             return Err(KcError::Authority(format!(
@@ -1247,7 +2457,29 @@ fn authorize_designation(
         ));
     }
 
+    // Erosion remediation's one refusal: no lapsed designation may be cited in support
+    // of a new one.
+    no_stale_designation_cited(
+        archive,
+        d.cited_acts.iter().chain(d.failed_restoration_cycles.iter()),
+        d.designated_at,
+    )?;
+
     // Condition 2: compact-wide deliberation.
+    //
+    // A cycle's *published reasoning* is checked here for both urgencies, because it is
+    // the same requirement §4's decisions carry and the record had it as decoration:
+    // `criteria`, `cited_acts` and `reversal_conditions` were all enforced non-empty
+    // while the deliberation's own reasoning was not, so a designation could name its
+    // representatives and say nothing about what they concluded. "Designation is
+    // published and named ... other parties must be able to see the designation, the
+    // reasons for it, and the conduct that triggered it" (bounded_conflict.md).
+    if let Some(c) = d.deliberation_cycles.iter().find(|c| c.reasoning.trim().is_empty()) {
+        return Err(KcError::Authority(format!(
+            "deliberation cycle {} must publish its reasoning (condition 2)",
+            c.cycle_index
+        )));
+    }
     match d.urgency {
         DesignationUrgency::Normal => {
             if d.deliberation_cycles.len() < 2 {
@@ -1673,6 +2905,9 @@ enum RosterKind {
     /// §2 examining pool (`capture_resistance.md` §7 "Credentialing panels by lot
     /// and rotation").
     Examiner,
+    /// §4 mediator pool (`liminal_institutions.md` "The mediator pool" and
+    /// "Discernment training").
+    Mediator,
 }
 
 impl RosterKind {
@@ -1681,6 +2916,7 @@ impl RosterKind {
         match self {
             Self::Observer => "observer",
             Self::Examiner => "examiner",
+            Self::Mediator => "mediator",
         }
     }
 
@@ -1689,6 +2925,7 @@ impl RosterKind {
         match self {
             Self::Observer => "§8",
             Self::Examiner => "§2",
+            Self::Mediator => "§4",
         }
     }
 }
@@ -1748,6 +2985,23 @@ fn rosters_of(archive: &InMemoryArchive, kind: RosterKind) -> Vec<Roster<'_>> {
                         .iter()
                         .map(|en| Seat {
                             did: en.examiner_did.as_str(),
+                            from: en.valid_from,
+                            until: en.valid_until,
+                        })
+                        .collect(),
+                });
+            }
+            (RosterKind::Mediator, ArchiveEntry::MediatorRegistryUpdated(s)) => {
+                out.push(Roster {
+                    cid,
+                    community: &s.payload.nominating_community,
+                    issued_at: s.payload.issued_at,
+                    seats: s
+                        .payload
+                        .entries
+                        .iter()
+                        .map(|en| Seat {
+                            did: en.mediator_did.as_str(),
                             from: en.valid_from,
                             until: en.valid_until,
                         })
@@ -1836,10 +3090,9 @@ fn check_roster_caps(
     issued_at: Timestamp,
     seats: &[Seat<'_>],
     self_cid: &Cid,
-    pool_floor: usize,
-    max_term_seconds: i64,
-    rotation_period_seconds: i64,
+    limits: RosterLimits,
 ) -> KcResult<()> {
+    let RosterLimits { pool_floor, max_term_seconds, rotation_period_seconds } = limits;
     let (role, section) = (kind.role(), kind.section());
     let rosters = rosters_of(archive, kind);
 
@@ -1951,9 +3204,7 @@ fn authorize_observer_registry(
         reg.issued_at,
         &seats,
         self_cid,
-        caps.pool_floor,
-        caps.max_term_seconds,
-        caps.rotation_period_seconds,
+        caps.limits(),
     )
 }
 
@@ -2000,9 +3251,7 @@ fn authorize_examiner_registry(
         reg.issued_at,
         &seats,
         self_cid,
-        caps.pool_floor,
-        caps.max_term_seconds,
-        caps.rotation_period_seconds,
+        caps.limits(),
     )
 }
 
@@ -2019,12 +3268,68 @@ fn examiner_home(archive: &InMemoryArchive, examiner_did: &str, at: Timestamp) -
     None
 }
 
-/// Move-4 structured-skepticism hold: a formal action premised on a *qualifying*
-/// manufactured event is refused while the event is still within its hold window
-/// **and** under-corroborated. Any one of — the event does not qualify, its hold
-/// has elapsed, or enough distinct communities have corroborated it — clears the
-/// action. Corroborators are counted as distinct communities other than the
-/// originator (no self-corroboration), as of the action's `invoked_at`.
+/// Whether a hold is in effect on `event_cid` as of `at`, and how long it runs.
+///
+/// Two things can place an event under the structured-skepticism protocol, and §4 needs
+/// both:
+///
+/// - the originating community's own declaration on the [`EventReport`], which is a
+///   voluntary submission and carries no capture risk; and
+/// - a [`SkepticismInvocation`] by the mediator pool, which is the doctrine's actual
+///   assignment of the invocation and the only thing that reaches an event whose
+///   originator declared it mundane.
+///
+/// Either one places the hold, and the window is the longer of them, since a pool that
+/// has weighed the event's interpretive charge has said something the default cannot.
+///
+/// A `Pretextual` review releases the event from **either** kind of hold. That is the
+/// point of reviewing the hold rather than the invocation record: the self-declared
+/// hold was the one that answered to nobody, and it is reachable here.
+fn skepticism_hold_until(
+    archive: &InMemoryArchive,
+    event_cid: &Cid,
+    event: &EventReport,
+    at: Timestamp,
+) -> Option<i64> {
+    let mut released = false;
+    let mut window = if event.qualifies() {
+        Some(DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS)
+    } else {
+        None
+    };
+    for (_, e) in archive.iter() {
+        match e {
+            ArchiveEntry::SkepticismInvoked(s) if &s.payload.event_cid == event_cid => {
+                if s.payload.invoked_at <= at {
+                    window = Some(window.unwrap_or(0).max(s.payload.hold_seconds));
+                }
+            }
+            ArchiveEntry::SkepticismReviewed(s) if &s.payload.event_cid == event_cid => {
+                if s.payload.reviewed_at <= at
+                    && s.payload.answer == kc_provenance::ReviewAnswer::Pretextual
+                {
+                    released = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    if released {
+        return None;
+    }
+    window.map(|w| event.reported_at.as_second() + w)
+}
+
+/// Move-4 structured-skepticism hold: a formal action premised on an event under the
+/// protocol is refused while the event is still within its hold window **and**
+/// under-corroborated. Any one of — no hold is in effect, its window has elapsed, or
+/// enough distinct communities have corroborated it — clears the action. Corroborators
+/// are counted as distinct communities other than the originator (no self-corroboration),
+/// as of the action's `invoked_at`.
+///
+/// What places the hold is [`skepticism_hold_until`]. It used to be the originator's
+/// four self-declared booleans alone, which made the protocol's teeth a matter for the
+/// party the protocol constrains.
 fn authorize_event_action(archive: &InMemoryArchive, action: &EventActionInvoked) -> KcResult<()> {
     let event = match archive.get(&action.event_cid) {
         Some(ArchiveEntry::EventReported(s)) => &s.payload,
@@ -2035,10 +3340,11 @@ fn authorize_event_action(archive: &InMemoryArchive, action: &EventActionInvoked
             )))
         }
     };
-    // The structured-skepticism protocol only applies to qualifying events.
-    if !event.qualifies() {
-        return Ok(());
-    }
+    let hold_until =
+        match skepticism_hold_until(archive, &action.event_cid, event, action.invoked_at) {
+            None => return Ok(()),
+            Some(h) => h,
+        };
     let mut corroborators: BTreeSet<String> = BTreeSet::new();
     for (_, e) in archive.iter() {
         if let ArchiveEntry::EventCorroborated(s) = e {
@@ -2051,7 +3357,6 @@ fn authorize_event_action(archive: &InMemoryArchive, action: &EventActionInvoked
             }
         }
     }
-    let hold_until = event.reported_at.as_second() + DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS;
     let within_hold = action.invoked_at.as_second() < hold_until;
     if within_hold && corroborators.len() < DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS {
         return Err(KcError::Authority(format!(
@@ -2063,6 +3368,160 @@ fn authorize_event_action(archive: &InMemoryArchive, action: &EventActionInvoked
         )));
     }
     Ok(())
+}
+
+/// The event an invocation or review refers to, or an authority error naming what the
+/// CID actually resolved to.
+fn referenced_event<'a>(
+    archive: &'a InMemoryArchive,
+    event_cid: &Cid,
+    what: &str,
+) -> KcResult<&'a EventReport> {
+    match archive.get(event_cid) {
+        Some(ArchiveEntry::EventReported(s)) => Ok(&s.payload),
+        _ => Err(KcError::Authority(format!(
+            "{what} references {event_cid} which is not a reported event"
+        ))),
+    }
+}
+
+/// §4: the mediator pool's authority to invoke the structured-skepticism protocol.
+///
+/// The panel is derived from the co-signers, must be `panel_min` active registered
+/// mediators, and may not include one from the **originating community**: placing the
+/// pool's hold on one's own event is what the self-declared triggers already are, and
+/// routing it through the pool instead would launder a community's own act into the
+/// compact's.
+///
+/// The criteria and the grounds are both required, because the doctrine asks the review
+/// to be able to tell a genuine invocation from a pretextual one and "the criteria must
+/// be documented specifically". The hold is bounded at both ends: a nominal hold is no
+/// protocol, and an unbounded one is suppression.
+///
+/// The event's declared `aligned_faction` is deliberately **not** barred. That field is
+/// the originator's own declaration, so barring it would let an originator name a rival
+/// and disqualify that rival's mediators from ever invoking against it.
+fn authorize_skepticism_invocation(
+    archive: &InMemoryArchive,
+    inv: &kc_provenance::SkepticismInvocation,
+    signers: &[&str],
+    panel_min: usize,
+) -> KcResult<()> {
+    let event = referenced_event(archive, &inv.event_cid, "skepticism invocation")?;
+    let claimed: BTreeSet<&str> = inv.panel.iter().map(|d| d.as_str()).collect();
+    let actual: BTreeSet<&str> = signers.iter().copied().collect();
+    if claimed != actual {
+        return Err(KcError::Authority(format!(
+            "a skepticism invocation's panel must be exactly its co-signers; it names {} \
+             and {} signed",
+            claimed.len(),
+            actual.len()
+        )));
+    }
+    if inv.criteria.is_empty() {
+        return Err(KcError::Authority(
+            "a skepticism invocation must name the criteria it finds met: an invocation \
+             on no stated criterion is the pretextual use the pool's review exists to catch"
+                .into(),
+        ));
+    }
+    if inv.grounds.trim().is_empty() {
+        return Err(KcError::Authority(
+            "a skepticism invocation must document its grounds specifically (§4)".into(),
+        ));
+    }
+    if inv.hold_seconds < MIN_INVOKED_SKEPTICISM_HOLD_SECONDS
+        || inv.hold_seconds > MAX_INVOKED_SKEPTICISM_HOLD_SECONDS
+    {
+        return Err(KcError::Authority(format!(
+            "an invoked hold of {}s is outside the range the protocol calibrates to \
+             [{}s, {}s]: a nominal hold is no delay at all and an unbounded one is \
+             suppression",
+            inv.hold_seconds,
+            MIN_INVOKED_SKEPTICISM_HOLD_SECONDS,
+            MAX_INVOKED_SKEPTICISM_HOLD_SECONDS
+        )));
+    }
+    let barred: BTreeSet<String> = [event.originator.as_str().to_string()].into_iter().collect();
+    check_mediator_panel(
+        archive,
+        signers,
+        inv.invoked_at,
+        &barred,
+        panel_min,
+        PanelSpec {
+            role: "invoking mediator",
+            barred_kind: "the originating community",
+            label: "invoking panel",
+        },
+    )
+}
+
+/// §4: the mediator pool's internal review of a hold, against pretextual use.
+///
+/// Two communities are barred from the reviewing panel, for opposite reasons. The
+/// **originator** benefits from release, so its mediators may not vote on it. And every
+/// mediator who **co-signed an invocation on this event** is barred, because a panel
+/// that reviews its own invocation answers the question the review was raised to ask.
+/// Without that second bar the record would exist and audit nothing: the invoking panel
+/// would simply uphold itself.
+///
+/// The reasoning is required on both answers. An audit that is legible only when the
+/// hold is struck down tells a reader nothing about the holds that stood.
+fn authorize_skepticism_review(
+    archive: &InMemoryArchive,
+    rev: &kc_provenance::SkepticismReview,
+    signers: &[&str],
+    panel_min: usize,
+) -> KcResult<()> {
+    let event = referenced_event(archive, &rev.event_cid, "skepticism review")?;
+    let claimed: BTreeSet<&str> = rev.reviewers.iter().map(|d| d.as_str()).collect();
+    let actual: BTreeSet<&str> = signers.iter().copied().collect();
+    if claimed != actual {
+        return Err(KcError::Authority(format!(
+            "a skepticism review's reviewers must be exactly its co-signers; it names {} \
+             and {} signed",
+            claimed.len(),
+            actual.len()
+        )));
+    }
+    if rev.reasoning.trim().is_empty() {
+        return Err(KcError::Authority(
+            "a skepticism review must state its reasoning on either answer: an audit \
+             legible only when the hold falls tells a reader nothing about the holds \
+             that stood"
+                .into(),
+        ));
+    }
+    // Every mediator who invoked on this event is disqualified from reviewing it.
+    let mut invokers: BTreeSet<String> = BTreeSet::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::SkepticismInvoked(s) = e {
+            if s.payload.event_cid == rev.event_cid {
+                for m in &s.payload.panel {
+                    invokers.insert(m.as_str().to_string());
+                }
+            }
+        }
+    }
+    if let Some(sitting) = signers.iter().find(|sg| invokers.contains(**sg)) {
+        return Err(KcError::Authority(format!(
+            "{sitting} co-signed the invocation under review, so may not review it"
+        )));
+    }
+    let barred: BTreeSet<String> = [event.originator.as_str().to_string()].into_iter().collect();
+    check_mediator_panel(
+        archive,
+        signers,
+        rev.reviewed_at,
+        &barred,
+        panel_min,
+        PanelSpec {
+            role: "reviewing mediator",
+            barred_kind: "the originating community",
+            label: "reviewing panel",
+        },
+    )
 }
 
 /// §8 report-response rule: only the report's subject community may respond, and
@@ -2883,9 +4342,10 @@ fn signer_authorized_for(
     }
 }
 
-/// Check one record's authority with the default §8 observer caps. `Ok(())` if
-/// authorized; `KcError::Authority` naming the first violation otherwise. See
-/// [`authorize_with_caps`] to supply custom observer-corps limits.
+/// Check one record's authority with the default roster caps. `Ok(())` if authorized;
+/// `KcError::Authority` naming the first violation otherwise. See
+/// [`authorize_with_caps`] to supply custom §8 observer, §2 examining or §4 mediator
+/// limits.
 pub fn authorize(
     archive: &InMemoryArchive,
     entry: &ArchiveEntry,
@@ -2899,12 +4359,14 @@ pub fn authorize(
         panel_min,
         ObserverCaps::default(),
         ExaminerCaps::default(),
+        MediatorCaps::default(),
     )
 }
 
-/// Check one record's authority, gating §8 observer-registry records with
-/// `observer_caps`. `Ok(())` if authorized; `KcError::Authority` naming the first
-/// violation otherwise.
+/// Check one record's authority, gating each registry record with its roster's caps
+/// (`observer_caps` for §8, `examiner_caps` for §2, `mediator_caps` for §4 — all three
+/// enforced by the one [`check_roster_caps`]). `Ok(())` if authorized;
+/// `KcError::Authority` naming the first violation otherwise.
 pub fn authorize_with_caps(
     archive: &InMemoryArchive,
     entry: &ArchiveEntry,
@@ -2912,11 +4374,52 @@ pub fn authorize_with_caps(
     panel_min: usize,
     observer_caps: ObserverCaps,
     examiner_caps: ExaminerCaps,
+    mediator_caps: MediatorCaps,
 ) -> KcResult<()> {
     // Mediation decisions are authorized by the panel rule, not principal binding.
     if let ArchiveEntry::MediationDecided(s) = entry {
         let signers = signer_dids(entry);
-        return authorize_decision(archive, &s.payload, &signers, panel_min);
+        let self_cid = entry.cid()?;
+        return authorize_decision(archive, &s.payload, &signers, panel_min, &self_cid);
+    }
+    // Opening a seal is authorized by the custody it opens, not by principal binding.
+    if let ArchiveEntry::DecisionUnsealed(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_decision_unsealed(archive, &s.payload, &signers);
+    }
+    // An argument is authorized by its own role rule (§4), not principal binding: a
+    // panelist is a person in the pool rather than a community.
+    if let ArchiveEntry::ArgumentFiled(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_argument(archive, &s.payload, &signers);
+    }
+    // §4.2's three records are each authorized by their own rule.
+    if let ArchiveEntry::RecusalRequested(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_recusal_request(archive, &s.payload, &signers);
+    }
+    if let ArchiveEntry::RecusalDecided(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_recusal_decision(archive, &s.payload, &signers);
+    }
+    if let ArchiveEntry::ProtectingPowerDesignated(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_protecting_power(archive, &s.payload, &signers);
+    }
+    if let ArchiveEntry::PanelConsentRecorded(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_panel_consent(archive, &s.payload, &signers);
+    }
+    // Move 4's pool side: an invocation and its review are panel acts, not any one
+    // community's, so they are authorized by their panel rules rather than by
+    // principal binding.
+    if let ArchiveEntry::SkepticismInvoked(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_skepticism_invocation(archive, &s.payload, &signers, panel_min);
+    }
+    if let ArchiveEntry::SkepticismReviewed(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_skepticism_review(archive, &s.payload, &signers, panel_min);
     }
     // Restitution completions are authorized by the verifier-panel rule (§5).
     if let ArchiveEntry::RestitutionVerified(s) = entry {
@@ -3047,7 +4550,8 @@ pub fn authorize_with_caps(
             authorize_sponsorship(archive, &s.payload)?;
         }
         ArchiveEntry::MediatorRegistryUpdated(s) => {
-            authorize_mediator_registry(archive, &s.payload)?;
+            let self_cid = entry.cid()?;
+            authorize_mediator_registry(archive, &s.payload, &self_cid, mediator_caps)?;
         }
         ArchiveEntry::LadderAdvanced(s) => {
             let self_cid = entry.cid()?;
@@ -3055,6 +4559,22 @@ pub fn authorize_with_caps(
         }
         ArchiveEntry::DesignationDecided(s) => {
             authorize_designation(archive, &s.payload, quorum_threshold)?;
+        }
+        ArchiveEntry::ReexaminationConcluded(s) => {
+            authorize_reexamination(archive, &s.payload)?;
+        }
+        // The gate's second site. `LadderTransition` cites a dispute rather than a
+        // designation, so it has nothing to hold; the re-engagement rung is the other
+        // escalation act that cites evidence, and a designation is citable there.
+        ArchiveEntry::SubstantiveReEngagementInvoked(s) => {
+            no_stale_designation_cited(
+                archive,
+                s.payload.decay_evidence.iter(),
+                s.payload.invoked_at,
+            )?;
+        }
+        ArchiveEntry::ActivityAttested(s) => {
+            authorize_activity_attestation(archive, &s.payload)?;
         }
         ArchiveEntry::ReEntryCompleted(s) => {
             authorize_reentry(archive, &s.payload)?;
@@ -3106,14 +4626,15 @@ pub fn authorize_with_caps(
 /// Check authority for every record in the archive, fail-fast. Pair with
 /// `verify_all` (crypto integrity); this pass assumes signatures already verify.
 /// `quorum_threshold` gates second-class decisions; `panel_min` gates mediation
-/// panels (§4); `observer_caps` gates the §8 observer-corps limits (pool-share,
-/// term, rotation).
+/// panels (§4); the three caps types gate their rosters' limits (pool-share, term,
+/// rotation, continuous service).
 pub fn check_authority(
     archive: &InMemoryArchive,
     quorum_threshold: usize,
     panel_min: usize,
     observer_caps: ObserverCaps,
     examiner_caps: ExaminerCaps,
+    mediator_caps: MediatorCaps,
 ) -> KcResult<()> {
     for (_, entry) in archive.iter() {
         authorize_with_caps(
@@ -3123,6 +4644,7 @@ pub fn check_authority(
             panel_min,
             observer_caps,
             examiner_caps,
+            mediator_caps,
         )?;
     }
     Ok(())
@@ -3136,6 +4658,7 @@ pub fn authority_violations(
     panel_min: usize,
     observer_caps: ObserverCaps,
     examiner_caps: ExaminerCaps,
+    mediator_caps: MediatorCaps,
 ) -> Vec<(String, String)> {
     let mut out = vec![];
     for (cid, entry) in archive.iter() {
@@ -3146,6 +4669,7 @@ pub fn authority_violations(
             panel_min,
             observer_caps,
             examiner_caps,
+            mediator_caps,
         ) {
             out.push((cid.to_string(), e.to_string()));
         }

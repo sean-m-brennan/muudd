@@ -31,9 +31,44 @@ Two environment facts are not optional and cost real time when missed:
   verified against a three-day-old `_core.abi3.so` this way, so the failure mode
   is a *bogus pass*, not a missing module.
 
-`cargo clippy` is not installed in the development sandbox and cannot be
-installed there (apt cargo/rustc, no rustup). It is therefore reported as
-**not run**, never as clean. Sean re-runs it.
+`cargo clippy` **is** available in the development sandbox:
+`sudo apt-get install -y rust-clippy`. The apt package and the installed `rustc`
+must be the same version, both 1.85.1 here, which is also the declared floor; a
+mismatched pair refuses to run. The earlier reading, that clippy needed `rustup
+component add` and so could not be had from apt cargo/rustc, was wrong, and it
+held long enough that lint counts in this tier were taken on trust rather than
+measured.
+
+**Always pass `--all-targets`.** Without it clippy lints library targets only and
+every `#[cfg(test)]` module goes unlinted. The difference is not marginal: a
+lib-only run of this workspace reported five sites where the full run reported
+twelve, and all seven of the missing ones were test code. An inventory taken
+that way understates itself while reading as complete.
+
+**A count of reported warnings is not a count of warnings.** An `#[allow]`
+removes a site from the report, so a tier can read clean while holding
+suppressions nobody has revisited. To see what is behind a decision rather than
+what is silent, override the attributes:
+
+```bash
+cargo clippy --workspace --all-targets -- --force-warn clippy::type_complexity
+```
+
+That distinguishes a lint class that was *fixed* from one that was *silenced*,
+which a clean ordinary run cannot.
+
+**`--all-targets` still does not reach the `at-ffi` code**, because that is a
+feature gate rather than a target. Adding a bare `--all-features` does not work
+either: `en-at/build.rs` panics without `AT_LIB_DIR`, and the run dies before it
+lints anything, which looks like a clippy failure rather than a missing
+environment variable. Point it at a built AT:
+
+```bash
+AT_LIB_DIR=/path/to/autonomous_trust/src/c/build \
+  cargo clippy --workspace --all-targets --all-features
+```
+
+Both the default and the all-features runs report zero.
 
 ## The toolchain floor
 
@@ -68,12 +103,37 @@ applying it.**
 
 ## Lint policy
 
-`pyo3` is at **0.27**. The upgrade past 0.22 was its own slice rather than a
+`pyo3` is at **0.29**. The upgrade past 0.22 was its own slice rather than a
 version bump, because 0.23 deprecates the `*_bound` constructors `en-pyo3` uses
-throughout. The migration itself was six lines across ethne and kith-covenant
+throughout. That migration was six lines across ethne and kith-covenant
 (two `PyBytes::new_bound`, two `PyDict::new_bound`), neither crate having used
-`IntoPy`/`ToPyObject`, which was 0.23's real break. **0.29 is unblocked** by the
-1.85 floor and buys only currency.
+`IntoPy`/`ToPyObject`, which was 0.23's real break.
+
+**0.27 to 0.29 was predicted to "buy only currency" and did not.** The predicted
+risk, 0.28 reworking `#[pymodule]` onto PEP 489 multi-phase initialization, was
+the non-event its own migration guide says it is. Two other things were real.
+
+*The deprecation, which the compiler does say.* 0.28 makes the automatic
+`FromPyObject` for `#[pyclass]` types that implement `Clone` opt-in, and every
+such class warns: seventeen in `en-pyo3`, thirty-eight in `kc-pyo3`. The choice
+per class is `from_py_object` to keep the conversion or `skip_from_py_object` to
+drop it, and the deciding question is whether the class is ever converted *from*
+Python. Neither tier has a setter, a `set_all`, or a single by-value `#[pyclass]`
+parameter, so the automatic impl was dead in both, and all fifty-five take
+`skip_from_py_object`. A `&T` parameter is not evidence against this: those go
+through pyo3's `PyRef` borrow path and never needed `FromPyObject` at all.
+
+*The contract change, which nothing warns about.* Before 0.28 a module opted
+**in** to free-threaded support with `gil_used = false`; from 0.28 modules allow
+it by default and must opt **out**. So the bump hands a module a free-threaded
+claim silently, and no warning marks it. Both `_core` modules now declare
+`#[pymodule(gil_used = true)]`, which is what they required before the bump.
+That is a statement of the status quo rather than a judgement about
+thread-safety: it cannot be tested here, because the sandbox interpreter is a
+GIL build (`Py_GIL_DISABLED=0`) and never loads a module free-threaded, and the
+ethne seam hands out `FileStore`/`ArchiveStore` handles, whose two-writer
+failure is silent (**D30**). Lifting the declaration needs a free-threaded
+interpreter, not an argument.
 
 **Never run `cargo clippy --fix` on `en-pyo3`.** The `#[pyfunction]` /
 `#[pymethods]` expansion emitted an identity `PyErr -> PyErr` conversion, which
@@ -86,9 +146,17 @@ never mentions it: the identity `map_err(Into::<PyErr>::into)` is in both
 versions, spanned at `*output_span`, and 0.27 adds an `#[allow]` where 0.22 had
 none. The warnings are gone by upgrade, not by suppression.
 
-The residue is **3 `type_complexity` warnings** on tuple-heavy returns in
-`en-pyo3`. There is no mechanical fix; they are recorded rather than chased, and
-are worth `type` aliases if that file is being touched anyway.
+**There is no `type_complexity` residue.** The three warnings once recorded here
+as unchased were an undercount from a lib-only run; the full inventory was twelve
+across the workspace, and all twelve are fixed by naming the concept the tuple
+stands for (`MemberRow`, `RiteRow`, `WindowPoint`) rather than by an `#[allow]`.
+`--force-warn clippy::type_complexity` reports zero sites, which is the claim
+worth making: not that the report is clean, but that nothing is hiding.
+
+The tuple-heavy returns are worth naming for a reason beyond the lint. A row that
+crosses the Python seam in both directions, once as a getter's return and once as
+a parameter, has to agree with itself element for element, and a bare tuple
+repeated in two signatures is a contract nothing states.
 
 **One suggestion is refused on intent rather than on MSRV.**
 `clippy::int_plus_one` wants `can_self_govern`'s `majority(n) + 1 <= n` written
@@ -97,6 +165,20 @@ arithmetically identical, but *majority plus one* is a named threshold across
 this tier (D14's roll override, the contraction rules, expulsion, amendment
 removal), and the shorter form no longer says which rule the function enforces.
 Kept, with a targeted `#[allow]` carrying that reason.
+
+Kith-covenant's `can_contract` is the same idiom and now carries the same
+reasoned `#[allow]`. It had none, so it read as an oversight rather than as the
+decision this is, which is the failure mode of refusing a lint in one tier and
+not writing it down in the other.
+
+**The arity survivors are stated, not folded into a clean number.**
+`--force-warn clippy::too_many_arguments` reports twenty-two sites, nineteen of
+them in `en-pyo3`, where the signature *is* the Python surface and collapsing it
+into a params struct would change the API to quiet a lint. The rest are test
+fixtures whose parameter count is the enumeration under test, each carrying its
+own reason. `en-substrate`'s two `propose` variants were the real finding: their
+shared six parameters became `FoundingTerms`, which also retired the blanket
+`#[allow]` on the private `build` they both call.
 
 ## Linking against autonomous_trust
 

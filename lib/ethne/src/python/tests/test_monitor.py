@@ -319,15 +319,15 @@ DAY = 86_400
 def test_the_trend_series_comes_from_the_polity_own_records(polity):
     """No provider involved: gap-widening and witness turnout are charter-log facts."""
     joiner = Signer.generate()
-    from ethne.authoring import admit_member, induct_member, reaffirm_member
+    from ethne.authoring import admit_member, induct_member
 
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
     movements = polity.rite(joiner, polity.founders, 250)
     induct_member(
         polity.archive, polity.did, joiner, polity.founders, movements, affirmed_at=300
     )
-    reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=400)
-    reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=5_400)
+    polity.renew(joiner, 400)
+    polity.renew(joiner, 5_400)
     polity.archive.check_authority()
 
     t = polity.archive.decay_trends(polity.did, as_of=6_000)
@@ -339,7 +339,7 @@ def test_the_trend_series_comes_from_the_polity_own_records(polity):
 
 
 def test_a_widening_gap_warns_but_does_not_escalate(polity):
-    from ethne.authoring import admit_member, induct_member, reaffirm_member
+    from ethne.authoring import admit_member, induct_member
 
     joiner = Signer.generate()
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
@@ -347,8 +347,8 @@ def test_a_widening_gap_warns_but_does_not_escalate(polity):
     induct_member(
         polity.archive, polity.did, joiner, polity.founders, movements, affirmed_at=300
     )
-    reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=400)
-    reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=5_400)
+    polity.renew(joiner, 400)
+    polity.renew(joiner, 5_400)
 
     roll = polity.roll(as_of=6_000)
     observed = [(d, 0.9, None, None, False) for d in roll]
@@ -524,7 +524,7 @@ def test_a_settled_cadence_slip_is_caught_by_the_pinned_reading(polity):
     """The shifting-baseline case through the Python surface: gaps 100, 400, 400,
     400. The rolling median has absorbed the drift and goes quiet; the reading
     pinned to the founding cadence still sees the slip, and still warns."""
-    from ethne.authoring import admit_member, induct_member, reaffirm_member
+    from ethne.authoring import admit_member, induct_member
 
     joiner = Signer.generate()
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
@@ -533,7 +533,7 @@ def test_a_settled_cadence_slip_is_caught_by_the_pinned_reading(polity):
         polity.archive, polity.did, joiner, polity.founders, movements, affirmed_at=300
     )
     for at in (400, 800, 1_200, 1_600):
-        reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=at)
+        polity.renew(joiner, at)
 
     t = polity.archive.decay_trends(polity.did, as_of=1_700)
     assert t.gaps_seconds == [100, 400, 400, 400]

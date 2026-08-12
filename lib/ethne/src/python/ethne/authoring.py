@@ -657,19 +657,28 @@ def recite_movement(
     commits_to: Sequence[str] = (),
     names_anchor: Optional[str] = None,
     recited_at: Optional[int] = None,
+    kind: str = "Induction",
 ) -> str:
-    """Recite one movement of `member`'s induction rite (D29), returning its CID.
+    """Recite one movement of `member`'s rite, returning its CID.
 
     A rite opens with `"Substrate"` and each later movement must follow its
     predecessor. `statement` is the polity's own words: required, never read. What is
     checked is coherence with the charter — `names` must be the chartered substrate's
     name, `commits_to` the commitments in force, `names_anchor` the chartered anchor.
-    Everyone attending co-signs, and attendees must already hold the substrate.
+    Everyone attending co-signs, attendees must already hold the substrate, and nobody
+    attends their own rite.
+
+    `kind` says which ceremony this is (**D34**): `"Induction"` for a member's first
+    acquisition of the substrate, `"ReAffirmation"` for the periodic re-recitation a
+    renewal carries. It is checked against the member's actual state, so an induction
+    movement for someone who already holds the substrate is refused, and a renewal
+    movement for someone who never received it likewise. A rite's kind is set by its
+    opening movement and every later movement must agree.
     """
     dids, privs = _split(attending)
     return archive.recite_movement(
         polity_did, member.did, member.priv, movement, statement, dids, privs,
-        names, list(commits_to), names_anchor, recited_at,
+        names, list(commits_to), names_anchor, recited_at, kind,
     )
 
 
@@ -683,12 +692,17 @@ def perform_rite(
     anchor: Optional[str] = None,
     start: Optional[int] = None,
     seconds_between: int = 1,
+    kind: str = "Induction",
 ) -> list[str]:
-    """Recite all five movements in order, returning their CIDs for the induction.
+    """Recite all five movements in order, returning their CIDs for the affirmation.
 
     The convenience path for a polity whose rite happens in one sitting; a polity
     holding its rite over a week calls `recite_movement` five times with its own
     instants, which is the difference the record now carries.
+
+    Pass `kind="ReAffirmation"` for the re-recitation a renewal carries (**D34**), then
+    hand the CIDs to `reaffirm_member`. `attending` may be empty for a renewal — nobody's
+    attendance is required — and must never include `member`, who is reciting.
     """
     cids = []
     for i, movement in enumerate(MOVEMENTS):
@@ -700,7 +714,7 @@ def perform_rite(
                 names=substrate_name if movement == "Substrate" else None,
                 commits_to=commitments if movement == "CommonVirtue" else (),
                 names_anchor=anchor if movement == "NonUltimacy" else None,
-                recited_at=at,
+                recited_at=at, kind=kind,
             )
         )
     return cids
@@ -731,11 +745,56 @@ def reaffirm_member(
     archive,
     polity_did: str,
     member: Signer,
+    movement_cids: Sequence[str],
+    witnesses: Sequence[str] = (),
     affirmed_at: Optional[int] = None,
 ) -> str:
-    """Renew an inducted member's affirmation: self-signed, unwitnessed. Freshness
-    is what `AffirmationState.stale_members` reads."""
-    return archive.reaffirm_member(polity_did, member.did, member.priv, affirmed_at)
+    """Renew an inducted member's affirmation on a **full re-recitation of the five
+    movements** (**D34**), which is what the doctrine means by periodic re-affirmation.
+
+    `movement_cids` are the five `perform_rite(..., kind="ReAffirmation")` records, in
+    order; `witnesses` must be exactly those who attended every one of them, which may be
+    nobody. Attendance is recorded, never required — the renewal is signed by the member
+    alone, because it is precisely the act no one else may condition.
+
+    Freshness is what `AffirmationState.stale_members` reads. A bare renewal with no
+    re-recitation is refused: before D34 it was the only form, which made the recurring
+    ceremony the one with no measurable cost.
+    """
+    return archive.reaffirm_member(
+        polity_did, member.did, member.priv, list(movement_cids), list(witnesses),
+        affirmed_at,
+    )
+
+
+def renew_member(
+    archive,
+    polity_did: str,
+    member: Signer,
+    substrate_name: str,
+    attending: Sequence[Signer] = (),
+    commitments: Sequence[str] = (),
+    anchor: Optional[str] = None,
+    start: Optional[int] = None,
+    seconds_between: int = 1,
+) -> str:
+    """Perform a member's re-recitation and record the renewal it completes — the
+    one-sitting convenience path for `perform_rite(kind="ReAffirmation")` plus
+    `reaffirm_member` (**D34**).
+
+    `attending` may be empty. Whoever attends is recorded as a witness, since the rule
+    is that witnesses are exactly the attendance-throughout rather than a chosen list.
+    """
+    cids = perform_rite(
+        archive, polity_did, member, attending, substrate_name,
+        commitments=commitments, anchor=anchor, start=start,
+        seconds_between=seconds_between, kind="ReAffirmation",
+    )
+    at = None if start is None else start + (len(MOVEMENTS) - 1) * seconds_between
+    return reaffirm_member(
+        archive, polity_did, member, cids,
+        witnesses=[s.did for s in attending], affirmed_at=at,
+    )
 
 
 # ---- Dissolution ------------------------------------------------------------

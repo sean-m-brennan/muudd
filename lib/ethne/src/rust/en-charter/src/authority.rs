@@ -142,6 +142,9 @@ fn did_set(dids: &[DidKey]) -> BTreeSet<String> {
 /// completion cites these CIDs, so they are part of the state (**D29**).
 struct RitePoint {
     member: DidKey,
+    /// Which ceremony this movement declared itself part of (**D34**). A rite's kind is
+    /// its opening movement's; every later movement must agree.
+    kind: AffirmationKind,
     order: u8,
     attending: Vec<DidKey>,
     recited_at: Timestamp,
@@ -170,6 +173,12 @@ struct Reconstructed {
     ratifiers: Vec<DidKey>,
     /// Members with a prior `Induction` record.
     inducted: Vec<DidKey>,
+    /// The opening-movement CID of every rite an affirmation has already completed
+    /// (**D34**). A rite is signed off **once**: an induction was already protected by
+    /// the no-double-induction rule, but a renewal is repeatable by nature, so without
+    /// this a member could cite one re-recitation for two renewals and reset their own
+    /// freshness twice off a single ceremony.
+    rites_completed: std::collections::HashSet<Cid>,
     /// Derived-party designations (founding derivations + `GuardianChange`s), as
     /// `(member, guardian)`. Not yet intersected with the live roll; a designation
     /// lapses while its member is off the roll, exactly as an office holding does.
@@ -229,6 +238,7 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
         founding_members: Vec::new(),
         ratifiers: Vec::new(),
         inducted: Vec::new(),
+        rites_completed: std::collections::HashSet::new(),
         derivations: Vec::new(),
         envoys: Vec::new(),
         founding_exclusions: BTreeSet::new(),
@@ -354,6 +364,9 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                 if a.kind == AffirmationKind::Induction && !r.inducted.contains(&a.member) {
                     r.inducted.push(a.member.clone());
                 }
+                if let Some(first) = a.movements.first() {
+                    r.rites_completed.insert(*first);
+                }
             }
             CharterEntry::CharterDissolved(s) if &s.payload.polity == polity => {
                 r.dissolved = true;
@@ -386,6 +399,7 @@ fn reconstruct(archive: &Archive<CharterEntry>, polity: &DidKey, upto: usize) ->
                 let m = &s.payload;
                 r.rite_movements.push(RitePoint {
                     member: m.member.clone(),
+                    kind: m.kind,
                     order: m.movement.order(),
                     attending: m.attending.clone(),
                     recited_at: m.recited_at,
@@ -486,6 +500,7 @@ fn completed_rite(prior: &Reconstructed, member: &DidKey) -> Option<CompleteRite
         });
     }
     Some(CompleteRite {
+        kind: rite[0].kind,
         throughout: throughout.unwrap_or_default(),
         cids: rite.iter().map(|p| p.cid).collect(),
         last_at: rite[rite.len() - 1].recited_at,
@@ -494,6 +509,10 @@ fn completed_rite(prior: &Reconstructed, member: &DidKey) -> Option<CompleteRite
 
 /// A complete rite as the completion rule needs it (**D29**).
 struct CompleteRite {
+    /// The ceremony the rite declared itself to be (**D34**), taken from its opening
+    /// movement. The completing affirmation's own kind must match it, so an induction
+    /// cannot sign off on a renewal's recitation or the reverse.
+    kind: AffirmationKind,
     /// Members who attended every movement — the only ones who may witness.
     throughout: BTreeSet<String>,
     /// The movement entries, in order; the completion must cite exactly these.
@@ -1646,6 +1665,14 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, "induction of an already-inducted member".into()));
                             continue;
                         }
+                        if let Some(r) = completed_rite(&prior, &af.member) {
+                            if r.kind != AffirmationKind::Induction {
+                                out.push((*cid,
+                                    "induction cites a renewal's re-recitation; an induction \
+                                     completes an induction rite".into()));
+                                continue;
+                            }
+                        }
                         // D29 — the rite happened, and this record completes it. The
                         // citation must be *exactly* the current rite's five movements
                         // in order, so a completion can neither borrow somebody else's
@@ -1664,6 +1691,11 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid,
                                 "an induction must cite the five movements of its own rite, in order"
                                     .into()));
+                            continue;
+                        }
+                        if prior.rites_completed.contains(&done.cids[0]) {
+                            out.push((*cid,
+                                "this rite has already been signed off; a ceremony completes one                                  affirmation".into()));
                             continue;
                         }
                         if af.affirmed_at < done.last_at {
@@ -1728,15 +1760,71 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             out.push((*cid, "re-affirmation by a member who was never inducted".into()));
                             continue;
                         }
-                        if !af.witnesses.is_empty() {
-                            out.push((*cid, "re-affirmation records no witnesses".into()));
+                        // **D34** — a renewal carries a full re-recitation of the five
+                        // movements, which is what the doctrine means by periodic
+                        // re-affirmation. Before D34 this rule refused any citation, so
+                        // the renewal was a bare record: the recurring ceremony was the
+                        // one with no cost, and a polity that actually performed the rite
+                        // produced five violations for its trouble.
+                        //
+                        // The citation rule is the induction's, reused rather than
+                        // restated: exactly the current rite's five movements, in order,
+                        // so a renewal can neither borrow another rite nor sign off on an
+                        // abandoned attempt.
+                        let Some(done) = completed_rite(&prior, &af.member) else {
+                            let so_far = current_rite(&prior, &af.member).len();
+                            out.push((*cid, format!(
+                                "re-affirmation completes a re-recitation of {} movements, but \
+                                 {so_far} of {} have been recorded",
+                                Movement::COUNT,
+                                Movement::COUNT
+                            )));
+                            continue;
+                        };
+                        if af.movements != done.cids {
+                            out.push((*cid,
+                                "a re-affirmation must cite the five movements of its own \
+                                 re-recitation, in order".into()));
                             continue;
                         }
-                        if !af.movements.is_empty() {
-                            out.push((*cid, "re-affirmation cites no rite movements".into()));
+                        if done.kind != AffirmationKind::ReAffirmation {
+                            out.push((*cid,
+                                "re-affirmation cites an induction's rite; a renewal re-recites \
+                                 its own".into()));
                             continue;
                         }
-                        // Renewal is the member's own act.
+                        // A re-recitation completes ONE renewal. Nothing else stops a
+                        // member replaying a single ceremony to reset their freshness
+                        // repeatedly: the induction path is protected by the
+                        // no-double-induction rule, and a renewal is repeatable by nature.
+                        if prior.rites_completed.contains(&done.cids[0]) {
+                            out.push((*cid,
+                                "this re-recitation has already been renewed on; a ceremony \
+                                 completes one affirmation".into()));
+                            continue;
+                        }
+                        if af.affirmed_at < done.last_at {
+                            out.push((*cid,
+                                "re-affirmation is dated before the last movement of its \
+                                 re-recitation".into()));
+                            continue;
+                        }
+                        // Attendance is **recorded, not gated**: it must be exactly who
+                        // was there throughout, so a member can neither over- nor
+                        // under-report it, and it may be empty — nobody's cooperation is
+                        // required for a renewal. There is deliberately no threshold here.
+                        let attended: BTreeSet<String> = done.throughout.clone();
+                        if witnesses != attended {
+                            out.push((*cid, format!(
+                                "a re-affirmation records exactly who attended every movement of \
+                                 its re-recitation ({} of them), not a chosen list",
+                                attended.len()
+                            )));
+                            continue;
+                        }
+                        // Renewal is still the member's own act (**D14**): those who
+                        // attended have already signed the movements, and nothing here
+                        // lets them condition the renewal itself.
                         let required: BTreeSet<String> = std::iter::once(member.clone()).collect();
                         if signers != required {
                             out.push((*cid, "re-affirmation must be signed by exactly the affirming member".into()));
@@ -1762,11 +1850,25 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     out.push((*cid, "rite movement for a non-member".into()));
                     continue;
                 }
-                // Admission puts you on the roll; the rite is how you acquire the
-                // substrate. Someone who already holds it has nothing to acquire.
-                if prior.ratifiers.contains(&m.member) || prior.inducted.contains(&m.member) {
-                    out.push((*cid, "rite movement for an already-inducted member".into()));
-                    continue;
+                // The movement's declared ceremony must match the member's actual state
+                // (**D34**). Admission puts you on the roll and induction is how you
+                // acquire the substrate, so someone who already holds it has nothing to
+                // acquire — but they do have something to *renew*, which is what the
+                // doctrine asks of them periodically, and which before D34 this rule
+                // refused outright.
+                let holds_substrate =
+                    prior.ratifiers.contains(&m.member) || prior.inducted.contains(&m.member);
+                match m.kind {
+                    AffirmationKind::Induction if holds_substrate => {
+                        out.push((*cid, "induction rite movement for an already-inducted member".into()));
+                        continue;
+                    }
+                    AffirmationKind::ReAffirmation if !holds_substrate => {
+                        out.push((*cid, "re-affirmation rite movement for a member who was never \
+                                         inducted; there is nothing yet to renew".into()));
+                        continue;
+                    }
+                    _ => {}
                 }
                 // A movement is performed. An empty one was not.
                 if m.statement.trim().is_empty() {
@@ -1783,6 +1885,16 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 }
                 if !attending.is_subset(&members) {
                     out.push((*cid, "rite movement attendee is not a member of the polity".into()));
+                    continue;
+                }
+                // Nobody attends their own ceremony (**D34**). At an induction this was
+                // already impossible — attendees must hold the substrate and the inductee
+                // does not — but a renewing member holds it, so without this rule they
+                // could list themselves and their own rite would report an attendee. That
+                // is D28's arithmetic again: count the people present, not the signatures
+                // collected.
+                if attending.contains(&member) {
+                    out.push((*cid, "the reciting member may not attend their own rite movement".into()));
                     continue;
                 }
                 // The substrate is transmitted by those who hold it (**D29**).
@@ -1803,7 +1915,7 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 required.insert(member.clone());
                 if e.signer_dids() != required {
                     out.push((*cid,
-                        "a rite movement must be signed by exactly its attendees plus the inductee"
+                        "a rite movement must be signed by exactly its attendees plus the reciting member"
                             .into()));
                     continue;
                 }
@@ -1823,6 +1935,15 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                             continue;
                         }
                         Some(p) => {
+                            // A rite is one ceremony throughout (**D34**): its kind is
+                            // set by the opening movement and every later one must agree,
+                            // or a renewal could be finished off as an induction.
+                            if p.kind != m.kind {
+                                out.push((*cid, format!(
+                                    "movement {order} declares a different ceremony than the rite                                      it continues; a rite's kind is set by its opening movement"
+                                )));
+                                continue;
+                            }
                             let (prev, prev_at) = (p.order, p.recited_at);
                             if order != prev + 1 {
                                 out.push((*cid, format!(

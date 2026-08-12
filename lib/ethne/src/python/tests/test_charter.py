@@ -35,7 +35,6 @@ from ethne.authoring import (
     expel_member,
     induct_member,
     ratify_charter,
-    reaffirm_member,
     release_guardian,
     resign_envoy,
     resign_office,
@@ -159,7 +158,7 @@ def test_induction_then_reaffirmation(polity):
     assert af.is_inducted(joiner.did)
     assert af.last_affirmed(joiner.did) == 300
 
-    reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=900)
+    polity.renew(joiner, 900)
     polity.archive.check_authority()
     assert polity.archive.affirmation_state(polity.did, as_of=1000).last_affirmed(
         joiner.did
@@ -174,7 +173,7 @@ def test_founding_members_are_inducted_at_founding(polity):
 
 
 def test_stale_members_tracks_the_cadence(polity):
-    reaffirm_member(polity.archive, polity.did, polity.founders[0], affirmed_at=900)
+    polity.renew(polity.founders[0], 900)
     af = polity.archive.affirmation_state(polity.did, as_of=1000)
     stale = af.stale_members(500, 1000)
     assert polity.founders[0].did not in stale          # renewed 100s ago
@@ -1541,8 +1540,9 @@ def test_a_rite_is_recited_movement_by_movement(found):
     # Recited but not completed: the rite is open and the member holds nothing.
     rites = p.archive.rite_state(p.did, as_of=280)
     assert len(rites) == 1
-    member, recited, span, completed, throughout, attrition = rites.rites[0]
-    assert member == joiner.did and recited == 5 and completed is None
+    member, kind, recited, span, completed, throughout, attrition = rites.rites[0]
+    assert member == joiner.did and kind == "Induction" and recited == 5
+    assert completed is None
     assert span == 4 and len(throughout) == 2 and attrition == 0
     assert rites.abandoned == 1
     assert not p.archive.affirmation_state(p.did, 280).is_inducted(joiner.did)
@@ -1598,4 +1598,69 @@ def test_an_uninducted_member_carries_no_weight_and_holds_no_office(found):
     assert any(
         "an office is the polity acting through a member" in m
         for _cid, m in fresh.archive.authority_violations()
+    )
+
+
+def test_a_bare_renewal_is_refused_and_a_re_recitation_is_not(polity):
+    """**D34** — the measurement this slice began from, through the Python surface.
+
+    Before D34 a polity could click a bare `ReAffirmation` forever and hold its
+    transmission measure green at no ceremonial cost, while a polity that actually
+    performed the five movements produced violations and an abandoned rite. The pass
+    rewarded the empty form and punished obedience; here it is the other way round.
+    """
+    from ethne.authoring import reaffirm_member
+
+    reaffirm_member(polity.archive, polity.did, polity.founders[0], [], affirmed_at=900)
+    polity.archive.verify_all()
+    assert any(
+        "0 of 5 have been recorded" in m for _cid, m in polity.archive.authority_violations()
+    )
+
+
+
+def test_a_renewal_carries_its_re_recitation(found):
+    """The renewal is authorized, refreshes freshness, and completes its rite rather
+    than sitting in the log as an abandoned attempt."""
+    p = found(3)
+    p.renew(p.founders[0], 900, attending=p.founders[1:])
+    p.archive.verify_all()
+    p.archive.check_authority()
+
+    af = p.archive.affirmation_state(p.did, as_of=1000)
+    assert af.last_affirmed(p.founders[0].did) == 900
+    stale = af.stale_members(500, 1000)
+    assert p.founders[0].did not in stale
+    assert p.founders[1].did in stale, "attending is not renewing"
+
+    rs = p.archive.rite_state(p.did, as_of=1000)
+    assert len(rs.rites) == 1
+    assert rs.abandoned == 0, "the completion can now come"
+
+
+def test_recorded_attendance_is_derived_not_chosen(found):
+    """Attendance is recorded, never gated — so it may be nobody, and it may not be a
+    list the member picks."""
+    from ethne.authoring import reaffirm_member
+
+    alone = found(3)
+    alone.renew(alone.founders[0], 900)
+    alone.archive.check_authority()
+    assert alone.archive.affirmation_state(alone.did, as_of=1000).last_affirmed(
+        alone.founders[0].did
+    ) == 900
+
+    over = found(3)
+    cids = e.perform_rite(
+        over.archive, over.did, over.founders[0], over.founders[1:2],
+        substrate_name="tradition", start=895, kind="ReAffirmation",
+    )
+    # Founder 2 attended nothing and is named anyway.
+    reaffirm_member(
+        over.archive, over.did, over.founders[0], cids,
+        witnesses=[s.did for s in over.founders[1:]], affirmed_at=900,
+    )
+    over.archive.verify_all()
+    assert any(
+        "exactly who attended" in m for _cid, m in over.archive.authority_violations()
     )

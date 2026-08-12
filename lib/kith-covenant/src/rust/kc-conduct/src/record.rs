@@ -164,3 +164,63 @@ pub struct ConductRecord {
     /// When this record was written (used for key resolution).
     pub recorded_at: Timestamp,
 }
+
+// -------------------------------------------------------------------------
+// Attested nulls
+// -------------------------------------------------------------------------
+
+/// A standing function of the compact whose exercise is attested on a cadence.
+///
+/// One enum rather than a record per component, because the requirement is identical on
+/// both sides and the erosion audit names them as twins: mediation and observation are
+/// the two functions that can quietly stop being performed while every relative measure
+/// stays unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum AttestedFunction {
+    /// The §4 mediator pool: disputes taken, or none to take.
+    Mediation,
+    /// The §8 observer corps: reports filed, or nothing seen.
+    Observation,
+}
+
+impl AttestedFunction {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Mediation => "Mediation",
+            Self::Observation => "Observation",
+        }
+    }
+}
+
+/// A community's signed account of what it did in one window while holding a standing
+/// function, **including an account of having done nothing**.
+///
+/// This is the erosion audit's "attested null" (remediation item 5), and the empty `acts`
+/// list is the whole point of the record. Without it, silence is missing data: a mediator
+/// pool that took no disputes because none arose and a pool that stopped answering read
+/// identically, and so do an observer corps with nothing to report and one that stopped
+/// looking. With it, silence is either evidence (an attested quiet window) or a violation
+/// (a window nobody attested), which is what the audit asks for. `en-archive`'s pruning
+/// receipts are the pattern: the log may forget, but only by saying so.
+///
+/// It is signed by the *nominating community*, not by the individual mediators or
+/// observers, because the obligation is the community's for as long as it holds seats.
+/// Nothing here is refused: a missing attestation is read by the erosion lenses rather
+/// than blocking any act, since a compact that has stopped acting has no act to refuse.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActivityAttestation {
+    pub function: AttestedFunction,
+    /// The community that holds seats in this function and owes the account.
+    pub attesting_community: DidKey,
+    pub window_start: Timestamp,
+    /// The end of the window being accounted for. Must be after `window_start`.
+    pub window_end: Timestamp,
+    /// The acts performed in the window, by CID. **Legally empty**, and an empty list is
+    /// the signed null rather than an omission.
+    pub acts: Vec<Cid>,
+    /// The account for the reader. Required non-empty when `acts` is empty, because a
+    /// null is the one case that owes an explanation: "no disputes were filed" and "we
+    /// stopped convening" are both nulls and are not the same thing.
+    pub statement: String,
+    pub attested_at: Timestamp,
+}

@@ -256,16 +256,80 @@ sees it, which makes this accountability rather than prevention.
 ### 4. Mediation
 
 - **Mediator pool directory**: identities, rotations, recusals,
-  lineage of training.
+  lineage of training. *All four are built.* Rotation is the same
+  `check_roster_caps` the §2 examiners and §8 observers share: bounded
+  term, sit-out between terms, and no single community holding a majority
+  of the active pool past a floor. A permanent mediator class is
+  the first step toward an inquisitorial caste, and mediators must return
+  home. Recusals are `RecusalRequest` and `RecusalDecision`; lineage is
+  `MediatorEntry.trained_by`, reported by the pool board and read by no
+  rule.
 - **Case intake**: disputes filed between communities, classified
   by escalation-ladder rung.
 - **Deliberation support**: async-compatible for light-lag; structured
   argument submission; evidence packaging; recusal and consent
-  tracking.
+  tracking. *Argument submission and evidence packaging are built*
+  (`kc-mediation::ArgumentRecord`, one record per argument, self-signed,
+  cited by the decision that answers it). *Recusal is built*: a party
+  names one panelist on one dispute and states grounds, and the request is
+  recorded and answered, granted only by the mediator stepping down,
+  since nobody else may step down for them, and never answered by that
+  mediator when the answer is a refusal. A request neither blocks the
+  mediation nor unseats anyone by itself; an unanswered one stays visible.
+  *Consent tracking is built.* Consent was recorded where it was
+  structural (a protecting power is co-signed by the disputant it stands
+  for and the community taking the duty, because standing for another
+  community is never conscripted and a protector a disputant did not
+  accept is a watcher imposed on them) and where it was refused, in an
+  answered recusal request. The ordinary case had no record:
+  `kc-mediation::PanelConsent` is a party saying that this panel, these
+  mediators, may decide its dispute, self-signed because nobody consents
+  on another's behalf, and naming the panel in full so that consent to
+  three mediators is not consent to a fourth.
+
+  It gates one thing and deliberately no more. A consent precondition on
+  deciding at all would hand either party a veto over its own dispute,
+  and the escalation ladder exists because parties disagree. But a
+  `Settled` outcome is a claim that *the parties* reached a settlement,
+  so both must have consented to the panel recording it. Measured before
+  the rule: a panel recorded a settlement neither party had ever agreed
+  to, and it was authorized. A party that refuses to settle blocks
+  nothing: the panel upholds, dismisses or refers instead.
 - **Interim-injunction issuance**: protocol-level "stop" order with
   enforcement linkage (§9).
 - **Decision publication**: public decisions with mandatory reasoning
-  trail; sealed decisions with threshold-reveal.
+  trail; sealed decisions with threshold-reveal. *The reasoning trail is
+  now mandatory in fact*: the field existed from the first §4 slice and
+  no rule read it, so a panel could publish a decision that said nothing
+  about why. *Sealed decisions are built*
+  (`kc-mediation::SealedReasoning` / `DecisionUnsealed`). What is sealed
+  is the reasoning: the dispute, the panel and the outcome stay public,
+  so every rule already built on a decision keeps running over a sealed
+  one, and a compact can see that a matter was decided, by whom, and how
+  it came out. What waits is why. An unsealing must present enough opened
+  custody shares to recover the text and that text must open the
+  decision's commitment, so a custodian quorum cannot publish a reasoning
+  the panel never wrote.
+
+  **The custodians are member communities, not the mediator pool, and
+  they have to be.** The whitepaper asks for keys "distributed across the
+  mediator pool so no single custodian can unseal early" and, in the same
+  breath, for a deterministic reveal at the 25-to-30-year mark. Measured
+  against the tier as built, those cannot both be had: §4 caps a
+  mediator's seat at two years, because a permanent mediator class is the
+  first step toward an inquisitorial caste, so a share sealed to a
+  mediator is held by a key the archive stops resolving two decades
+  before the seal opens, so the signature on the opening cannot even be
+  verified, and the deterministic reveal is dead by construction. A
+  community identity resolves at any instant, which is what a
+  generational custody needs. The doctrine's substance is kept: no party
+  may hold a share, and no quorum of shares may sit with the deciding
+  panel's own communities, since a panel that can unseal itself has
+  deferred publication at its own discretion rather than sealed anything.
+  The cost, stated rather than hidden, is that a community has no
+  separate encryption key, so a share seals to the key it also signs
+  with, the compromise `MediatorEntry::encryption_pubkey` exists to
+  avoid for §8, accepted here because the alternative is no reveal.
 - **Structured-skepticism protocol invocation**: mediator-pool
   authority to invoke the protocol on
   events meeting qualifying criteria (high interpretive charge,
@@ -276,6 +340,33 @@ sees it, which makes this accountability rather than prevention.
   guards the invocation against pretextual use to suppress
   legitimate urgent matters. Specified in detail in
   [liminal_institutions.md "Manufactured-event resistance"](../background/liminal_institutions.md#manufactured-event-resistance-the-structured-skepticism-protocol).
+
+  *The pool's authority is built* (`kc-provenance::SkepticismInvocation`).
+  The protocol's hold had teeth from the first move-4 slice, since an action
+  premised on a qualifying, under-corroborated event is refused, not
+  merely flagged. But *qualifying* was four booleans the originating
+  community set on its own report. So the teeth rested on the word of the
+  party the protocol exists to constrain: measured before the rule, an
+  originator that declared its own event mundane was never held, and a
+  full non-party mediator pool sitting in the same archive could do
+  nothing about it. The invocation reaches exactly that event. It is
+  co-signed by a panel that may not include the originating community's
+  own mediators, must name the criteria the pool finds met and document
+  its grounds, and carries a hold bounded at both ends: the interval
+  scales with interpretive charge, but a nominal hold is no delay and an
+  unbounded one is suppression.
+
+  *The internal review is built* (`SkepticismReview`), and it is a review
+  of the **hold** rather than of the invocation record. That is what lets
+  it reach the self-declared case, which was the one that answered to
+  nobody: a community could put its own urgent matter beyond action with
+  no reviewer on the record anywhere. A `Pretextual` finding releases the
+  event from a hold of either origin; an `Upheld` finding changes nothing
+  and exists because auditable invocations must be legible whichever way
+  the review comes out. Mediators who co-signed the invocation may not
+  review it, and reasoning is required on both answers. The
+  `structured_skepticism` lens reports the pool's criteria against the
+  originator's declaration, and flags a hold no panel has reviewed.
 
 ### 5. Escalation and designation
 
@@ -293,6 +384,20 @@ sees it, which makes this accountability rather than prevention.
   quorum rules, review period, emergency-variant handling. The
   *hostis humani generis* tier within anathema carries its higher
   evidentiary threshold.
+- **Re-examination follow-through**: the review period is an absolute
+  deadline, mandatory on the expedited path, and what the panel
+  concluded is now a record of its own
+  (`kc-escalation::ReexaminationConclusion`). A confirmation answers
+  the deadline it was held for and sets the next one, since a
+  confirmation renews the obligation rather than discharging it, and it
+  may not be dated before the deadline it answers. Until this record
+  existed, a panel that re-examined at the mandated date and let the
+  designation stand left no trace and read exactly like a compact that
+  had forgotten: the erosion lens punished the diligent panel. A
+  designation whose re-examination has lapsed may not be **cited** by a
+  further escalation act, which is the one refusal the erosion audit's
+  remediation carries (see
+  [erosion-legibility.md](erosion-legibility.md)).
 - **Restitution tracking**: restoration obligations, verification of
   completion.
 - **Re-entry procedure**: examination, witnessing, re-recitation
@@ -379,6 +484,15 @@ sees it, which makes this accountability rather than prevention.
 > the function holds a constitutional position, and its implementation is
 > not separable into a later phase.
 
+- **Reporting cadence**: a community holding observer seats accounts for
+  each window, **including an account of having seen nothing**
+  (`kc-conduct::ActivityAttestation`). Absence has to be signed for, or
+  a corps that has stopped looking cannot be told from a corps with
+  nothing to see: they file the same number of reports, namely none. The
+  same record and the same cadence serve §4's mediator pool, since the
+  obligation and the failure are identical on the two sides. Read by
+  `silent_functions`, and by `unstaffed_functions` for the sharper case
+  of a corps that no longer exists at all. Reported, never refused.
 - **Observer corps registry**: declared-perspective reporters,
   rotation, cross-community composition requirements to prevent
   narrative capture by the dominant member.
@@ -636,12 +750,21 @@ beside it:
 | Substantive-re-engagement state machine rung | §5 | `kc-escalation` (`SubstantiveReEngagement`, the ladder's terminal rung) |
 | Manufactured-event provenance tagging in archive | §3 | `kc-provenance` (`EventReport` carries declared incentives, information history, disclosed interests) |
 | Decision-class metadata and cryptographic enforcement | §3, §7 | `DecisionClass` on the record; enforced in `kc-archive::authority` by counting *distinct communities' verified signatures*, so a faction cannot supply a quorum by asserting one |
-| Structured-skepticism protocol invocation | §4 | `structured_skepticism` lens plus the intake hold on `EventActionInvoked`, an action premised on an under-corroborated qualifying event is refused, not merely flagged |
+| Structured-skepticism protocol invocation | §4 | `SkepticismInvocation` + `SkepticismReview`, plus the hold on `EventActionInvoked`: an action premised on an under-corroborated qualifying event is refused, not merely flagged. Either the originator's own declaration or the pool's invocation places the hold, and a `Pretextual` review releases it from either. The invocation is what reaches an event whose originator declared it mundane, and the review is what makes a hold answerable to somebody. The `structured_skepticism` lens reads both, so a pool-held event is no longer invisible to it |
+| Consent to the panel as constituted | §4 | `PanelConsent`, self-signed, naming the panel in full. Gates a `Settled` outcome and nothing else: requiring consent to decide would hand either party a veto, but a settlement the parties did not consent to is not a settlement |
+| Sealed decisions with threshold-reveal | §4 | `SealedReasoning` + `DecisionUnsealed` over `kc_core::ThresholdCustody`, the §8 primitive at its second use. Custodians are **communities**, because §4's two-year mediator term cannot carry a twenty-five-year seal; no party holds a share and no quorum sits with the panel's own communities |
+| Mediator-pool rotation and share cap | §4 | `MediatorRegistry` + `MediatorCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share, the same `check_roster_caps` the §2 examiner and §8 observer caps read. Until it existed the mediator pool was the third roster and the one wired to nothing, so one community could hold nine of ten seats and every mediator could be seated with no end date at all. The *draw* stays social: one panel may still be composed entirely of mediators from a single non-party community whose share of the pool is legal, as with drawing examiners by lot |
+| Recusal requested and answered | §4 | `RecusalRequest` + `RecusalDecision`. Grounds are required and never weighed for content, since a rule can record that a ground was stated, not judge it. Granted only by the mediator stepping down; a refusal is the panel's, never that mediator's own; a declined request must state reasoning. It gates nothing: the mediation decides as it would have |
+| Protecting powers | §4 | `ProtectingPower`, the Geneva analogue from [liminal_institutions.md](../background/liminal_institutions.md): a non-party community standing for a disputant, co-signed by both, barred from seating mediators in the same dispute. "It is not an arbitrator; it is a witness with standing", so it gates nothing |
+| Mediator training lineage | §4 | `MediatorEntry.trained_by` plus the lineage half of `mediator_pool_concentration`: per-trainer counts against the *recorded* denominator, so a pool that records nothing reads as unknown rather than healthy. Read by no rule, because the same doctrine warns against a certification barrier becoming a gatekeeping mechanism |
 | Substrate-deference dashboard maintained by observer corps | §8 | `substrate_deference` + `erosion_alert`, bundled on `observer_dashboard` |
+| Attested nulls for the standing functions | §4, §8 | `kc-conduct::ActivityAttestation`: a signed account of one window, whose **empty** act list is the record's purpose. Silence becomes either evidence or a fact about the compact rather than missing data. Signed by the community that holds the seats, since the obligation is theirs for as long as it does |
+| A reporting cadence read against a clock | §4, §8 | `silent_functions` (no act and no attested null inside the cadence) and `unstaffed_functions` (a function once staffed and now empty), both absolute, both on `erosion_alert`. The cadence sits inside the shortest roster term, or the silence reading is unreachable for that function |
+| Designation re-examination follow-through | §5 | `kc-escalation::ReexaminationConclusion` plus the gate on citing a lapsed designation. Closes the confirm-leaves-no-record limit the erosion audit stated rather than papered over |
 | Compact-incapable list as constitutional artifact | §9 | `kc-constitution` (`ConstitutionGenesis`; genesis-immutable matters, asymmetric amendment) |
 | Structured-fast cadence as protocol-enforced operating mode | §9 | `FastPeriod` + `in_structured_fast`; hard refusal *during* a fast is a documented non-goal (a fast is a disposition, not a compliance regime) |
 | Composition-drift dashboard maintained by observer corps | §8 | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
-| Capture-resistance scenario simulation in test harness | §10 | `harness.py`: nine scenarios scored against criteria stated in advance, run continuously over a parameterized space |
+| Capture-resistance scenario simulation in test harness | §10 | `harness.py`: ten scenarios scored against criteria stated in advance, run continuously over a parameterized space. Two of the ten have no adversary (the quiet polity, the abandoned office), which is what the omission signals need |
 | Sponsor-stake tracking | §2 | `SponsorshipRecord` + sponsor concentration in `composition_graph` |
 | Probationary-status enforcement | §2 | A probationary community may not sponsor an entrant, may not seat mediators or examiners, does not count toward `panel_min` on any of the five panels, and carries no weight toward **any second-class quorum**, including the asymmetric contraction bars, which count weight rather than signatures. `kc_archive::probationary_at` is the one predicate both the gate and `RecognitionStanding` read; `deliberative_weight` is the one counter every bar reads. `deliberative_capacity` reports what the compact can still do |
 | Credentialing-panel rotation | §2 | `ExaminerRegistry` + `ExaminerCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share, one implementation shared with the §8 observer caps. An admission into a standing compact must be examined by `panel_min` seated examiners spanning two or more communities. Drawing *by lot* is not enforced |

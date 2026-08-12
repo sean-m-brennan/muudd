@@ -1010,13 +1010,21 @@ pub mod ffi {
             fn kill(pid: c_int, sig: c_int) -> c_int;
         }
 
-        /// Kill processes AT orphaned, and return how many there were.
+        /// Count processes AT orphaned, killing any it finds, and return how many
+        /// there were. **Zero is the expected answer**, and the caller asserts it.
         ///
-        /// A stopped daemon leaves its subsystem processes running, reparented to
-        /// init — 8 per run, measured, and filed as autonomous_trust ISSUES.md
-        /// §2.1.3. They are harmless to the assertions (a log file keeps them off
-        /// this process's stderr) but a test that leaks eight processes every run
-        /// is not one to leave in a suite.
+        /// This began as a cleanup: a stopped daemon used to leave its subsystem
+        /// processes running, reparented to init — 8 per run, measured here and
+        /// filed as autonomous_trust ISSUES.md §2.1.3. That is **fixed upstream**
+        /// (a forked subsystem returned from `start_process` into the daemon's
+        /// start-every-subsystem loop and forked a fresh generation on the way
+        /// out; AT now compares `getpid()` across the runner call and `_exit`s).
+        /// So the sweep is no longer a workaround, it is the measurement of that
+        /// fix, and the kill is only there so a regression cannot leave a
+        /// developer's machine littered by a suite that is already failing.
+        ///
+        /// This tier is the one that measured the defect, which is why it is the
+        /// one that keeps watching for it.
         ///
         /// The handle is exact rather than a name match: AT forks without execing,
         /// so an orphan's `/proc/<pid>/exe` is **this test binary**. Nothing else
@@ -1177,13 +1185,19 @@ pub mod ffi {
             let gone = unsafe { kill(pid, 0) };
             assert_eq!(gone, -1, "daemon {pid} outlived at_app_node_stop");
 
-            // The daemon's own children are a different matter, and not fixed
-            // here — see the helper, and ISSUES.md §2.1.3.
+            // **The daemon's own children, which is a second assertion and not a
+            // cleanup.** AT used to leave 8 subsystem processes running past
+            // shutdown (ISSUES.md §2.1.3, fixed upstream); this sweep is what
+            // measured that, so it stays and now asserts the count it expects. A
+            // silent cleanup here would have let the defect come back unnoticed,
+            // which is the whole reason the sweep was written in the first place.
             let orphans = kill_orphans_of_this_binary();
-            eprintln!(
-                "live daemon pid {pid} became ready in {elapsed:?}; \
-                 cleaned up {orphans} subsystem process(es) AT left behind"
+            assert_eq!(
+                orphans, 0,
+                "a stopped daemon left {orphans} subsystem process(es) running: \
+                 autonomous_trust ISSUES.md §2.1.3 has regressed"
             );
+            eprintln!("live daemon pid {pid} became ready in {elapsed:?}, 0 orphans");
         }
     }
 }

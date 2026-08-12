@@ -30,7 +30,16 @@
 //! its own interpretation, depriving the manufacturer of the loudest-interpreter
 //! advantage.
 //!
-//! This crate carries the two records that protocol produces:
+//! The **invocation is the mediator pool's**, not the originating community's. That is
+//! the doctrine's assignment ("The mediator pool is empowered to invoke the
+//! structured-skepticism protocol on its own initiative"), and until
+//! [`SkepticismInvocation`] existed the protocol's teeth rested entirely on
+//! [`EventReport`]'s self-declared triggers — so a manufacturer that declared its own
+//! event mundane was never held, and nothing in the compact could hold it.
+//! [`SkepticismReview`] is the other half the same passage requires: pool review against
+//! a hold used as a tactic to suppress a legitimate urgent matter.
+//!
+//! This crate carries the records that protocol produces:
 //! - [`EventReport`] — a claim injected into the compact, **provenance-tagged**
 //!   at intake with its originator, declared incentives, and information
 //!   history, plus the structured-skepticism qualifying triggers and the
@@ -145,6 +154,121 @@ pub struct EventActionInvoked {
     /// What consequence is being invoked (free text; the compact's own vocabulary).
     pub action: String,
     pub invoked_at: Timestamp,
+}
+
+/// One qualifying criterion, as the **mediator pool** finds it rather than as the
+/// originator declared it. The four are the doctrine's:
+/// "high interpretive charge, conveniently-aligned with one faction's interests,
+/// sudden onset, originating from witnesses with stake in the interpretation"
+/// (`liminal_institutions.md` "Manufactured-event resistance").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum SkepticismCriterion {
+    HighInterpretiveCharge,
+    SuddenOnset,
+    OriginatorHoldsStake,
+    AlignedFaction,
+}
+
+impl SkepticismCriterion {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::HighInterpretiveCharge => "high_interpretive_charge",
+            Self::SuddenOnset => "sudden_onset",
+            Self::OriginatorHoldsStake => "originator_holds_stake",
+            Self::AlignedFaction => "aligned_faction",
+        }
+    }
+}
+
+/// The mediator pool placing an event under the structured-skepticism protocol on its
+/// own initiative. Co-signed by the invoking panel; wrapped in
+/// `Signed<SkepticismInvocation>`.
+///
+/// **Why the pool and not the originator.** [`EventReport`]'s four triggers are what
+/// the originating community *declares* about its own claim, and a manufactured event's
+/// manufacturer declares whatever suits it. The protocol's teeth — a formal action on a
+/// qualifying, under-corroborated event is refused — therefore rested on the word of the
+/// party the protocol exists to constrain: an originator that declared all four false
+/// was never held, and nothing in the compact could hold it. §4 assigns the invocation
+/// to the mediator pool, "the compact's standing evaluation competency"
+/// (`liminal_institutions.md`), and this is that record.
+///
+/// The self-declared triggers are unchanged and still bite. They are a voluntary
+/// submission to the protocol, which is no capture risk; what they could not do is
+/// reach an event whose originator declined to declare it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkepticismInvocation {
+    /// The `EventReported` entry placed under the protocol.
+    pub event_cid: Cid,
+    /// The invoking mediators. **Derived, not chosen**: the authority pass requires
+    /// this to be exactly the envelope's co-signers.
+    pub panel: Vec<DidKey>,
+    /// Which criteria the pool finds, in its own judgment. Required non-empty: an
+    /// invocation on no stated criterion is the pretextual use the review guards
+    /// against, and the doctrine asks that "the criteria must be documented
+    /// specifically".
+    pub criteria: Vec<SkepticismCriterion>,
+    /// The pool's account of why those criteria are met here. Required non-empty and
+    /// never read for content, as every stated ground in this tier is.
+    pub grounds: String,
+    /// How long the hold runs from the event's intake. The doctrine's first element:
+    /// "the interval scales with interpretive charge... For most events this is hours
+    /// to days; for high-charge events of major interpretive consequence it may extend
+    /// to weeks or months." Bounded at both ends by the authority pass — an unbounded
+    /// hold is suppression, and a nominal one is no protocol at all.
+    pub hold_seconds: i64,
+    pub invoked_at: Timestamp,
+}
+
+/// How a [`SkepticismInvocation`] was reviewed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ReviewAnswer {
+    /// The hold stands.
+    Upheld,
+    /// The hold was a tactic, and the event is released from it.
+    Pretextual,
+}
+
+impl ReviewAnswer {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Upheld => "Upheld",
+            Self::Pretextual => "Pretextual",
+        }
+    }
+}
+
+/// The mediator pool's internal review of a hold, against pretextual use. Co-signed by
+/// reviewing mediators; wrapped in `Signed<SkepticismReview>`.
+///
+/// §4 does not stop at giving the pool the invocation. It requires the pool to check
+/// "that the protocol's invocation itself is not used as a tactic: a faction attempting
+/// to suppress legitimate urgent matters by invoking structured skepticism against
+/// them" (`liminal_institutions.md`). Without this record a hold answered to nobody —
+/// including the self-declared hold, which a community could place on its own event with
+/// no reviewer on the record anywhere.
+///
+/// So the review is against the **hold**, not against the invocation record, and reaches
+/// a self-declared hold exactly as it reaches an invoked one. A `Pretextual` finding
+/// releases the event; an `Upheld` finding changes nothing and exists because
+/// "invocations are auditable" requires the audit to be legible whichever way it came
+/// out.
+///
+/// Who may sign is the rule with the teeth: not the originator, which benefits from
+/// release, and not the invoking panel, since a panel that reviews its own invocation is
+/// the conflict the review exists to raise — the same asymmetry [`crate`]'s sibling
+/// tier applies to a declined recusal.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkepticismReview {
+    /// The `EventReported` entry whose hold is under review.
+    pub event_cid: Cid,
+    /// The reviewing mediators. **Derived, not chosen**, as the invoking panel is.
+    pub reviewers: Vec<DidKey>,
+    pub answer: ReviewAnswer,
+    /// Required non-empty on both answers: a hold released and a hold sustained both owe
+    /// an account, and the audit the doctrine asks for is worthless on one side only.
+    pub reasoning: String,
+    pub reviewed_at: Timestamp,
 }
 
 /// A retroactive finding that an event's originator held, at intake, an interest

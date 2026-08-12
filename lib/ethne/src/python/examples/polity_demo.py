@@ -45,7 +45,7 @@ from ethne.authoring import (
     perform_rite,
     MOVEMENTS,
     ratify_charter,
-    reaffirm_member,
+    renew_member,
     rotate_guardian,
 )
 from ethne.host import HostConfig, HostCycle
@@ -141,8 +141,8 @@ def main() -> None:
           f"(the Inductor {short(offices.holders('Inductor')[0])} among them) — "
           f"inducted? {af.is_inducted(joiner.did)}")
     rites = archive.rite_state(polity_did, as_of=t0 + 108 * DAY)
-    for member, recited, span, completed, throughout, attrition in rites.rites:
-        print(f"  rite for {short(member)}: {recited} movements over "
+    for member, kind, recited, span, completed, throughout, attrition in rites.rites:
+        print(f"  {kind} rite for {short(member)}: {recited} movements over "
               f"{span // DAY if span else 0}d, attended throughout by "
               f"{len(throughout)}, lost {attrition}, "
               f"completed? {completed is not None}")
@@ -163,10 +163,18 @@ def main() -> None:
     print(f"envoy authorized by 1 officer where the roll would need "
           f"{e.majority(4)}: {[short(d) for d in envoys.envoys()]}")
 
-    # Two members renew; the rest have not affirmed since the founding.
+    # Two members renew; the rest have not affirmed since the founding. A renewal
+    # carries a full re-recitation of the five movements (D34) — the doctrine's own
+    # requirement, which before D34 the record had no shape for. Attendance is
+    # recorded, not required, so the rest of the roll turning up is a fact about this
+    # ceremony rather than a condition on it.
     now = t0 + 380 * DAY
     for member in (founders[0], joiner):
-        reaffirm_member(archive, polity_did, member, affirmed_at=now - 10 * DAY)
+        in_force = archive.charter_state(polity_did, as_of=now)
+        others = [m for m in (*founders, joiner) if m.did != member.did]
+        renew_member(archive, polity_did, member, in_force.substrate_name, others,
+                     commitments=[k for k, _ in in_force.commitments],
+                     start=now - 10 * DAY)
 
     archive.verify_all()
     archive.check_authority()

@@ -45,7 +45,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 
 # PyO3 (decision D2 — the Python surface). Pin matches kith-covenant's workspace so
 # both extension modules build against the same abi3 floor.
-pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py310"] }
 
 # kith-covenant neutral base. Decision D1: ethne's core + monitor crates depend on
 # kc-core ONLY — not on KC's governance crates — so the tiers stay decoupled and

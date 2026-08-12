@@ -24,7 +24,7 @@ use kc_ceremony::inter::{
 use kc_ceremony::intra::IntraCommunityRiteRecord;
 use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
 use kc_commons::{CommonsRegistration, CommonsSanction, UsageRecord};
-use kc_conduct::ConductRecord;
+use kc_conduct::{ActivityAttestation, ConductRecord};
 use kc_constitution::{CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment};
 use kc_core::{Cid, KcResult, Signed};
 use kc_observer::{
@@ -33,13 +33,18 @@ use kc_observer::{
 };
 use kc_escalation::{
     Designation, InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition,
-    ReEntry, RestitutionCompletion, RestitutionObligation, SubstantiveReEngagement,
+    ReEntry, ReexaminationConclusion, RestitutionCompletion, RestitutionObligation,
+    SubstantiveReEngagement,
 };
 use kc_identity::{CommunityIdentity, MemberRoll, SpeakerDelegation, WitnessRegistry};
-use kc_mediation::{DisputeRecord, MediationDecision, MediatorRegistry};
+use kc_mediation::{
+    ArgumentRecord, DecisionUnsealed, DisputeRecord, MediationDecision, MediatorRegistry,
+    PanelConsent, ProtectingPower, RecusalDecision, RecusalRequest,
+};
 use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
 use kc_provenance::{
     EventActionInvoked, EventCorroboration, EventReport, RetroactiveInterestFinding,
+    SkepticismInvocation, SkepticismReview,
 };
 use serde::{Deserialize, Serialize};
 
@@ -56,17 +61,36 @@ pub enum ArchiveEntry {
     /// An attributable observation about a community's conduct, including the
     /// jester's pre-indictment `Concern` (kc-conduct).
     ConductAttested(Signed<ConductRecord>),
+    /// A community's signed account of one window in a standing function it holds,
+    /// including an account of having done nothing (the attested null; §4 and §8).
+    ActivityAttested(Signed<ActivityAttestation>),
     /// A community's roster of nominated mediators (§4). The pool is the union
     /// across communities; supersedes by latest `issued_at` per community.
     MediatorRegistryUpdated(Signed<MediatorRegistry>),
     /// A dispute filed by one community against another (§4).
     DisputeFiled(Signed<DisputeRecord>),
+    /// One argument submitted on a filed dispute (§4), self-signed by its author.
+    ArgumentFiled(Signed<ArgumentRecord>),
+    /// A party's request that a named panelist step down from a dispute (§4).
+    RecusalRequested(Signed<RecusalRequest>),
+    /// The answer to a recusal request (§4).
+    RecusalDecided(Signed<RecusalDecision>),
+    /// A neutral community standing as protecting power for one disputant (§4).
+    ProtectingPowerDesignated(Signed<ProtectingPower>),
+    /// A party's consent (or withholding) to the panel as constituted (§4),
+    /// self-signed. Gates a `Settled` outcome and nothing else.
+    PanelConsentRecorded(Signed<PanelConsent>),
     /// A mediation panel's decision on a dispute (§4), co-signed by the panel.
     MediationDecided(Signed<MediationDecision>),
+    /// The opening of a sealed decision's proceedings (§4), co-signed by the custodians
+    /// who opened their shares. Must actually recover the sealed text.
+    DecisionUnsealed(Signed<DecisionUnsealed>),
     /// A dispute's advance (or de-escalation) along the escalation ladder (§5).
     LadderAdvanced(Signed<LadderTransition>),
     /// A community's designation as anathema (§5), co-signed by the quorum.
     DesignationDecided(Signed<Designation>),
+    /// The recorded conclusion of a designation's mandated re-examination (§5).
+    ReexaminationConcluded(Signed<ReexaminationConclusion>),
     /// A restitution obligation imposed on a community (§5).
     RestitutionObligated(Signed<RestitutionObligation>),
     /// A verification that a restitution obligation was met (§5), co-signed by a
@@ -142,6 +166,14 @@ pub enum ArchiveEntry {
     /// An independent corroboration of an event report's observable facts by
     /// another community (capture move 4).
     EventCorroborated(Signed<EventCorroboration>),
+    /// The mediator pool placing an event under the structured-skepticism protocol on
+    /// its own initiative (capture move 4, §4). Co-signed by the invoking panel; this
+    /// is what reaches an event whose originator declared it mundane.
+    SkepticismInvoked(Signed<SkepticismInvocation>),
+    /// The pool's internal review of a hold against pretextual use (§4). A
+    /// `Pretextual` finding releases the event, whether the hold was invoked or
+    /// self-declared.
+    SkepticismReviewed(Signed<SkepticismReview>),
     /// A formal action premised on an event report (capture move 4). The
     /// structured-skepticism hold refuses this while the cited qualifying event is
     /// still within its hold window and under-corroborated.
@@ -171,11 +203,19 @@ impl ArchiveEntry {
             Self::InterCommunityNonAdmission(_) => "InterCommunityNonAdmission",
             Self::SponsorshipVouched(_) => "SponsorshipVouched",
             Self::ConductAttested(_) => "ConductAttested",
+            Self::ActivityAttested(_) => "ActivityAttested",
             Self::MediatorRegistryUpdated(_) => "MediatorRegistryUpdated",
             Self::DisputeFiled(_) => "DisputeFiled",
+            Self::ArgumentFiled(_) => "ArgumentFiled",
+            Self::RecusalRequested(_) => "RecusalRequested",
+            Self::RecusalDecided(_) => "RecusalDecided",
+            Self::ProtectingPowerDesignated(_) => "ProtectingPowerDesignated",
+            Self::PanelConsentRecorded(_) => "PanelConsentRecorded",
             Self::MediationDecided(_) => "MediationDecided",
+            Self::DecisionUnsealed(_) => "DecisionUnsealed",
             Self::LadderAdvanced(_) => "LadderAdvanced",
             Self::DesignationDecided(_) => "DesignationDecided",
+            Self::ReexaminationConcluded(_) => "ReexaminationConcluded",
             Self::RestitutionObligated(_) => "RestitutionObligated",
             Self::RestitutionVerified(_) => "RestitutionVerified",
             Self::ReEntryCompleted(_) => "ReEntryCompleted",
@@ -201,6 +241,8 @@ impl ArchiveEntry {
             Self::InterpreterIndependenceAttested(_) => "InterpreterIndependenceAttested",
             Self::EventReported(_) => "EventReported",
             Self::EventCorroborated(_) => "EventCorroborated",
+            Self::SkepticismInvoked(_) => "SkepticismInvoked",
+            Self::SkepticismReviewed(_) => "SkepticismReviewed",
             Self::EventActionInvoked(_) => "EventActionInvoked",
             Self::RetroactiveInterestFound(_) => "RetroactiveInterestFound",
             Self::PrincipalWitnessed(_) => "PrincipalWitnessed",

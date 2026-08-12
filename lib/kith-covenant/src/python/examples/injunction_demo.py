@@ -36,6 +36,9 @@ from kith_covenant import (
     reputation_of, has_capability, now_seconds,
 )
 
+# §4 caps a mediator's term: a seat with no end is a permanent mediator class.
+MEDIATOR_TERM = 365 * 24 * 3600
+
 NINETY_DAYS = 90 * 24 * 3600
 
 
@@ -49,7 +52,7 @@ def _pool(arch, names, t0):
     for name in names:
         c = new_identity(arch, name, t0)
         m = new_mediator()
-        register_mediators(arch, c, [m], valid_from=t0 - 10)
+        register_mediators(arch, c, [m], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
         out.append(m)
     return out
 
@@ -115,7 +118,7 @@ def main() -> int:
     # (a) A panel that includes a mediator from the subject's own community.
     bad1 = Archive.load_json(arch.dump_json())
     own = new_mediator()
-    register_mediators(bad1, subject, [own], valid_from=t0 - 10)
+    register_mediators(bad1, subject, [own], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
     issue_injunction(
         bad1, subject.did, [issuing[0], issuing[1], own],
         harm="h", protective_measures="m", revoked_capabilities=["Trade"], issued_at=t0 + 20,

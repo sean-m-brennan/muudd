@@ -2040,9 +2040,18 @@ pub struct MovementPoint {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rite {
     pub member: DidKey,
+    /// Which ceremony this rite is (design **D34**): a first acquisition of the
+    /// substrate, or its periodic renewal. Taken from the opening movement, which every
+    /// later movement of the rite must agree with.
+    ///
+    /// Kept distinct because the two are not comparable as ceremonies: an induction
+    /// happens once per member and a renewal recurs, so a cheapening measure that mixed
+    /// them would compare one member's reception against another's renewal.
+    pub kind: AffirmationKind,
     /// The movements recited so far, in order.
     pub movements: Vec<MovementPoint>,
-    /// When the completing `Induction` was recorded, or `None` while the rite is
+    /// When the completing affirmation of this rite's own kind was recorded, or `None`
+    /// while the rite is
     /// open — which includes a rite that was **abandoned**: this tier does not
     /// decide when an unfinished rite has been given up on, because nothing in the
     /// doctrine says how long a catechumenate may take.
@@ -2126,6 +2135,7 @@ pub fn rite_state(
                 match (point.order, open) {
                     (1, _) | (_, None) => rites.push(Rite {
                         member: m.member.clone(),
+                        kind: m.kind,
                         movements: vec![point],
                         completed_at: None,
                     }),
@@ -2134,17 +2144,16 @@ pub fn rite_state(
             }
             CharterEntry::MemberAffirmed(s) => {
                 let af = &s.payload;
-                if &af.polity != polity
-                    || af.affirmed_at > as_of
-                    || af.kind != AffirmationKind::Induction
-                {
+                if &af.polity != polity || af.affirmed_at > as_of {
                     continue;
                 }
-                if let Some(r) = rites
-                    .iter_mut()
-                    .rev()
-                    .find(|r| r.member == af.member && r.completed_at.is_none())
-                {
+                // **D34**: a renewal completes its own re-recitation exactly as an
+                // induction completes its rite. Matching on kind is what keeps a
+                // completed renewal from reading as an abandoned rite forever, which is
+                // the state the measurement found a faithful re-recitation stuck in.
+                if let Some(r) = rites.iter_mut().rev().find(|r| {
+                    r.member == af.member && r.completed_at.is_none() && r.kind == af.kind
+                }) {
                     r.completed_at = Some(af.affirmed_at);
                 }
             }

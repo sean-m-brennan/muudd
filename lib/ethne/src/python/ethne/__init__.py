@@ -19,7 +19,7 @@ self-governing community that stands for a substrate, acts with one voice, and
 persists across the turnover of its members. This package is a thin Pythonic
 surface over the Rust tier (`ethne._core`, built from `en-pyo3` by maturin).
 
-Five modules, following the tier's own shape:
+Six modules, following the tier's own shape:
 
 - `ethne.polity` — the charter log (`Archive`), keys, and the derived read-models.
 - `ethne.authoring` — `Signer` plus one call per charter record: found, amend,
@@ -28,6 +28,8 @@ Five modules, following the tier's own shape:
   record an observation, dissolve.
 - `ethne.monitor` — the substrate side: a `FoundingCandidate` and the
   `cohesion_report` that grades drift away from the chartered roll.
+- `ethne.at` — the autonomous_trust substrate itself: an `AtProvider` that folds AT's
+  event stream into that candidate, and the change stream a host observes it through.
 - `ethne.host` — what a host does on a cadence: `HostCycle.tick` returns the duties
   owed, and `HostCycle.grade` is the safe form of `cohesion_report`.
 - `ethne.uplift` — the four artifacts that cross to kith-covenant.
@@ -95,6 +97,7 @@ from ethne.authoring import (
     MOVEMENTS,
     ratify_charter,
     reaffirm_member,
+    renew_member,
     prune_observations,
     attest_independence,
     attest_observer_independence,
@@ -121,6 +124,14 @@ from ethne.monitor import (
     select_from_candidate,
     sign_reading,
     sign_observation,
+)
+from ethne.at import (
+    AT_FFI,
+    SUBSTRATE_CHANGES,
+    AtProvider,
+    SubstrateChange,
+    at_ffi_available,
+    did_from_pubkey,
 )
 from ethne.host import (
     DueAction,
@@ -196,6 +207,7 @@ __all__ = [
     "MOVEMENTS",
     "ratify_charter",
     "reaffirm_member",
+    "renew_member",
     "prune_observations",
     "attest_independence",
     "attest_observer_independence",
@@ -221,6 +233,13 @@ __all__ = [
     "select_from_candidate",
     "sign_reading",
     "sign_observation",
+    # at
+    "AT_FFI",
+    "SUBSTRATE_CHANGES",
+    "AtProvider",
+    "SubstrateChange",
+    "at_ffi_available",
+    "did_from_pubkey",
     # host
     "DueAction",
     "HostConfig",

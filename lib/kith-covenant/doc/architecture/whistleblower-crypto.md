@@ -231,6 +231,31 @@ one insider filing against two different communities is linkable across those fi
 This is the cost of flood detection, and it is a real disclosure: a pseudonym, not an
 identity, but a durable one.
 
+## The second use: sealed mediation proceedings
+
+`ThresholdCustody` now serves §4 as well, holding a sealed decision's reasoning until
+its generational reveal (`kc-mediation::SealedReasoning`). The construction is the same
+one; what differs is **who can hold a share**, and the difference is forced.
+
+§8 seals to mediators, and can, because a whistleblower reveal happens on the scale of a
+dispute. A §4 seal opens at the 25-to-30-year mark, and §4 caps a mediator's seat at two
+years, a permanent mediator class being the first step toward an inquisitorial caste. A
+share sealed to a mediator's registered encryption key is therefore held by a key the
+archive stops resolving two decades before the seal opens: the holder cannot open it, and
+the signature on the opening record cannot even be verified. The deterministic reveal is
+dead by construction, which is the same failure shape this document was written about,
+arriving by a different route.
+
+So §4 custody is held by **member communities**, whose identities resolve at any instant
+with no validity window. The trade is stated rather than hidden: a community carries no
+separate encryption key, so a share seals to the key it also signs with: exactly the
+one-key-two-primitives reuse `encryption_pubkey` was added to end for §8, mitigated only
+by domain-separated derivation. It is accepted because the alternative is not a better
+key but no reveal at all, and because the §4 threat model is different: what the seal
+must resist is the deciding panel opening its own proceedings early, which the authority
+pass answers by arithmetic (no party holds a share, and no quorum of shares sits with the
+panel's own communities) rather than by key hygiene.
+
 **Custody is sealed to a registered encryption key, and the pairing is enforced.**
 `MediatorEntry` carries an `encryption_pubkey` distinct from the mediator's signing key:
 still Ed25519, so the Edwards-form agreement path and the compact's one-algorithm key

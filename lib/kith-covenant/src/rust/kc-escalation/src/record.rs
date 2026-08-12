@@ -174,6 +174,58 @@ pub struct Designation {
     pub designated_at: Timestamp,
 }
 
+/// What a re-examination of a standing designation concluded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ReexaminationOutcome {
+    /// The designation stands. Requires a next date: a confirmation renews the
+    /// obligation, it does not discharge it.
+    Confirmed,
+    /// The designation is reversed. Requires the reversal itself to be recorded by the
+    /// one path that already exists, so "reversed" keeps a single definition.
+    Reversed,
+}
+
+impl ReexaminationOutcome {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Confirmed => "Confirmed",
+            Self::Reversed => "Reversed",
+        }
+    }
+}
+
+/// The recorded conclusion of a designation's mandated re-examination (§5).
+///
+/// The attested null of the severest act the compact can take. `Designation::reexamine_after`
+/// is an absolute deadline, mandatory on the expedited path, and before this record the
+/// only thing that could clear it was a *reversal*: a panel that re-examined a designation
+/// at the mandated date and let it stand left no trace, so it read exactly like a compact
+/// that had forgotten, forever. Diligence and neglect were the same reading, which is the
+/// erosion audit's finding K3 and the case its remediation item 5 names as the first slice.
+///
+/// Two rules keep the record from becoming an evasion of the thing it records. It may not
+/// be dated **before** the deadline it answers, or a compact would confirm at designation
+/// time and buy permanent silence. And a `Confirmed` outcome must carry the next date, or
+/// one confirmation would discharge a generational obligation once and for all.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReexaminationConclusion {
+    /// The `DesignationDecided` record being re-examined.
+    pub designation_cid: Cid,
+    pub outcome: ReexaminationOutcome,
+    /// Who examined: the co-signing quorum, held to the same distinct-community floor
+    /// the designation itself was.
+    pub examiners: Vec<DidKey>,
+    /// Why it concluded as it did. Required non-empty: a re-examination that says nothing
+    /// is the form without the substance, and §5 already holds `DeliberationCycle` and
+    /// `MediationDecision` to the same standard.
+    pub reasoning: String,
+    /// When the designation must next be re-examined. Mandatory for `Confirmed`, and must
+    /// be later than `concluded_at`.
+    pub next_reexamine_after: Option<Timestamp>,
+    pub decision_class: DecisionClass,
+    pub concluded_at: Timestamp,
+}
+
 // -------------------------------------------------------------------------
 // Restitution tracking
 // -------------------------------------------------------------------------

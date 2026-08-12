@@ -33,10 +33,12 @@ use pyo3::types::{PyBytes, PyType};
 
 use jiff::ToSpan;
 use kc_archive::{
-    verify_all, Archive, ArchiveEntry, ExaminerCaps, InMemoryArchive, ObserverCaps,
+    verify_all, Archive, ArchiveEntry, ExaminerCaps, InMemoryArchive, MediatorCaps, ObserverCaps,
     DEFAULT_EXAMINER_MAX_TERM_SECONDS, DEFAULT_EXAMINER_PANEL_MIN, DEFAULT_EXAMINER_POOL_FLOOR,
-    DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS, DEFAULT_OBSERVER_MAX_TERM_SECONDS,
-    DEFAULT_OBSERVER_POOL_FLOOR, DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
+    DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS, DEFAULT_MEDIATOR_MAX_TERM_SECONDS,
+    DEFAULT_MEDIATOR_POOL_FLOOR, DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS,
+    DEFAULT_OBSERVER_MAX_TERM_SECONDS, DEFAULT_OBSERVER_POOL_FLOOR,
+    DEFAULT_OBSERVER_ROTATION_PERIOD_SECONDS,
 };
 use kc_ceremony::inter::{
     AntiSpiralFeature, ExaminerEntry, ExaminerRegistry, InterCommunityWitnessRecord,
@@ -44,14 +46,16 @@ use kc_ceremony::inter::{
     ParticipantContext, RejectionDetail, SponsorshipRecord, REQUIRED_FEATURES,
 };
 use kc_conduct::{
-    ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity,
+    ActivityAttestation, AttestedFunction, ConductBearing, ConductKind, ConductRecord,
+    DecisionClass, LadderRung, Severity,
 };
 use kc_ceremony::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
 use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
 use kc_ceremony::recitation::{Recitation, RecitationVersion};
 use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
 use kc_provenance::{
-    EventActionInvoked, EventCorroboration, EventReport, RetroactiveInterestFinding,
+    EventActionInvoked, EventCorroboration, EventReport, ReviewAnswer,
+    RetroactiveInterestFinding, SkepticismCriterion, SkepticismInvocation, SkepticismReview,
 };
 use kc_core::{
     keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, RevealedShare, RingSigned, Signed,
@@ -62,7 +66,9 @@ use kc_identity::{
     WitnessRegistry, WitnessRole,
 };
 use kc_mediation::{
-    DecisionOutcome, DisputeRecord, MediationDecision, MediatorEntry, MediatorRegistry,
+    ArgumentRecord, ArgumentRole, ConsentAnswer, DecisionOutcome, DecisionUnsealed,
+    DisputeRecord, MediationDecision, MediatorEntry, MediatorRegistry, PanelConsent,
+    ProtectingPower, RecusalAnswer, RecusalDecision, RecusalRequest, SealedReasoning,
 };
 use kc_commons::{
     CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, UsageRecord,
@@ -78,9 +84,53 @@ use kc_constitution::{
 use kc_escalation::{
     Capability, DeliberationCycle, Designation, DesignationTier, DesignationUrgency,
     InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition, ReEntry,
-    ReEntryWitnessAttestation, RestitutionCompletion, RestitutionObligation,
-    SubstantiveReEngagement,
+    ReEntryWitnessAttestation, ReexaminationConclusion, ReexaminationOutcome,
+    RestitutionCompletion, RestitutionObligation, SubstantiveReEngagement,
 };
+
+/// One overdue re-examination as the Python seam carries it: `(designation_cid,
+/// subject, tier, reexamine_after, seconds_overdue, confirmations)`.
+///
+/// Named because the row crosses the seam twice, once from the archive reader and once
+/// as a field of the erosion alert, and the two have to agree element for element.
+/// `confirmations` counts renewals, so a designation overdue on its third re-examination
+/// is not the same reading as one nobody ever examined.
+type OverdueReexaminationRow = (String, String, String, i64, i64, usize);
+
+/// One silent standing function: `(community_did, function, seconds_since,
+/// cadence_seconds, last_was_a_null)`. Same two readers as above.
+type SilentFunctionRow = (String, String, i64, i64, bool);
+
+/// The thinning-deliberation reading: `(decisions, first_argument_count,
+/// latest_argument_count, first_span_seconds, latest_span_seconds,
+/// argument_count_declined, span_shortened)`, absent when deliberation is not thinning.
+type ThinningDeliberation = (usize, usize, usize, Option<i64>, Option<i64>, bool, bool);
+
+/// Co-signers resolved for `Signed::build`: the DIDs to name in the record, and the
+/// owned `(did_string, priv_key)` pairs a caller borrows to sign with.
+type Cosigners = (Vec<DidKey>, Vec<(String, PrivKey)>);
+
+/// One manufactured-event reading as the Python seam carries it: `(event_cid,
+/// originator, reported_at, qualifies, triggers, provenance_complete, corroborators,
+/// translated_corroborators, undisclosed_interests_found, aligned_faction)`, where
+/// `undisclosed_interests_found` is a list of `(finder_did, interest)`.
+///
+/// Ten elements, four of them collections, three of those `Vec<String>` — which is
+/// exactly the shape where a comment naming the order is the only thing keeping the
+/// producer and the Python reader in agreement. Named so the order has somewhere to
+/// live besides a doc comment above an anonymous tuple.
+type SkepticismEventRow = (
+    String,
+    String,
+    i64,
+    bool,
+    Vec<String>,
+    bool,
+    Vec<String>,
+    Vec<String>,
+    Vec<(String, String)>,
+    Option<String>,
+);
 
 fn kc_err_to_py(e: KcError) -> PyErr {
     PyRuntimeError::new_err(format!("kc: {e}"))
@@ -158,6 +208,9 @@ impl PyArchive {
         examiner_max_term_seconds=DEFAULT_EXAMINER_MAX_TERM_SECONDS,
         examiner_rotation_period_seconds=DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS,
         examiner_panel_min=DEFAULT_EXAMINER_PANEL_MIN,
+        mediator_pool_floor=DEFAULT_MEDIATOR_POOL_FLOOR,
+        mediator_max_term_seconds=DEFAULT_MEDIATOR_MAX_TERM_SECONDS,
+        mediator_rotation_period_seconds=DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn check_authority(
@@ -171,6 +224,9 @@ impl PyArchive {
         examiner_max_term_seconds: i64,
         examiner_rotation_period_seconds: i64,
         examiner_panel_min: usize,
+        mediator_pool_floor: usize,
+        mediator_max_term_seconds: i64,
+        mediator_rotation_period_seconds: i64,
     ) -> PyResult<()> {
         let caps = ObserverCaps {
             pool_floor: observer_pool_floor,
@@ -183,7 +239,14 @@ impl PyArchive {
             rotation_period_seconds: examiner_rotation_period_seconds,
             panel_min: examiner_panel_min,
         };
-        kc_archive::check_authority(&self.inner, quorum_threshold, panel_min, caps, ex_caps)
+        let med_caps = MediatorCaps {
+            pool_floor: mediator_pool_floor,
+            max_term_seconds: mediator_max_term_seconds,
+            rotation_period_seconds: mediator_rotation_period_seconds,
+        };
+        kc_archive::check_authority(
+            &self.inner, quorum_threshold, panel_min, caps, ex_caps, med_caps,
+        )
             .map_err(kc_err_to_py)
     }
 
@@ -198,6 +261,9 @@ impl PyArchive {
         examiner_max_term_seconds=DEFAULT_EXAMINER_MAX_TERM_SECONDS,
         examiner_rotation_period_seconds=DEFAULT_EXAMINER_ROTATION_PERIOD_SECONDS,
         examiner_panel_min=DEFAULT_EXAMINER_PANEL_MIN,
+        mediator_pool_floor=DEFAULT_MEDIATOR_POOL_FLOOR,
+        mediator_max_term_seconds=DEFAULT_MEDIATOR_MAX_TERM_SECONDS,
+        mediator_rotation_period_seconds=DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn authority_violations(
@@ -211,6 +277,9 @@ impl PyArchive {
         examiner_max_term_seconds: i64,
         examiner_rotation_period_seconds: i64,
         examiner_panel_min: usize,
+        mediator_pool_floor: usize,
+        mediator_max_term_seconds: i64,
+        mediator_rotation_period_seconds: i64,
     ) -> Vec<(String, String)> {
         let caps = ObserverCaps {
             pool_floor: observer_pool_floor,
@@ -223,7 +292,14 @@ impl PyArchive {
             rotation_period_seconds: examiner_rotation_period_seconds,
             panel_min: examiner_panel_min,
         };
-        kc_archive::authority_violations(&self.inner, quorum_threshold, panel_min, caps, ex_caps)
+        let med_caps = MediatorCaps {
+            pool_floor: mediator_pool_floor,
+            max_term_seconds: mediator_max_term_seconds,
+            rotation_period_seconds: mediator_rotation_period_seconds,
+        };
+        kc_archive::authority_violations(
+            &self.inner, quorum_threshold, panel_min, caps, ex_caps, med_caps,
+        )
     }
 
     /// §2: is `community_did` inside a probation window at `at` (a received
@@ -239,9 +315,20 @@ impl PyArchive {
     // ---- §4 Mediation authoring ------------------------------------------
 
     /// Publish a community's mediator roster (§4). `mediators` is a list of
-    /// `(pubkey_bytes, did)` the community nominates; they become active over
-    /// `[valid_from, valid_until)`. Signed by the community root. Returns the CID.
-    #[pyo3(signature = (community_priv, community_did, mediators, valid_from, valid_until=None))]
+    /// `(pubkey_bytes, did, encryption_pubkey_bytes)` the community nominates; they
+    /// become active over `[valid_from, valid_until)`. Signed by the community root.
+    /// Returns the CID.
+    ///
+    /// `valid_until` is **required** by the §4 caps: a seat with no end is a permanent
+    /// mediator class, "the first step toward an inquisitorial caste". The pass also
+    /// bounds the term's length, requires a sit-out before re-nomination, and refuses a
+    /// roster that would give one community a majority of the active pool — the same
+    /// four rules §8's observers and §2's examiners carry.
+    ///
+    /// `trained_by` optionally records each mediator's apprenticeship, by DID and in
+    /// the same order as `mediators`. It **gates nothing** and is read only by
+    /// `mediator_pool_concentration`.
+    #[pyo3(signature = (community_priv, community_did, mediators, valid_from, valid_until=None, trained_by=None))]
     fn register_mediators(
         &mut self,
         community_priv: &[u8],
@@ -249,18 +336,31 @@ impl PyArchive {
         mediators: Vec<(Vec<u8>, String, Vec<u8>)>,
         valid_from: i64,
         valid_until: Option<i64>,
+        trained_by: Option<Vec<Option<String>>>,
     ) -> PyResult<String> {
         let cdid = parse_did(community_did)?;
         let vf = ts(valid_from)?;
         let vu = valid_until.map(ts).transpose()?;
+        if let Some(t) = &trained_by {
+            if t.len() != mediators.len() {
+                return Err(PyValueError::new_err(
+                    "trained_by must be the same length as mediators",
+                ));
+            }
+        }
         let mut entries = Vec::with_capacity(mediators.len());
-        for (pk, did, enc) in &mediators {
+        for (i, (pk, did, enc)) in mediators.iter().enumerate() {
+            let trainer = match trained_by.as_ref().and_then(|t| t[i].as_deref()) {
+                Some(d) => Some(parse_did(d)?),
+                None => None,
+            };
             entries.push(MediatorEntry {
                 mediator_did: parse_did(did)?,
                 mediator_pubkey: pub_from_bytes(pk),
                 encryption_pubkey: pub_from_bytes(enc),
                 valid_from: vf,
                 valid_until: vu,
+                trained_by: trainer,
             });
         }
         let reg = MediatorRegistry { nominating_community: cdid, entries, issued_at: vf };
@@ -382,10 +482,171 @@ impl PyArchive {
             .map_err(kc_err_to_py)
     }
 
+    /// Request that a named mediator step down from a dispute (§4), signed by the
+    /// requesting party. Returns the CID, which the answer references.
+    ///
+    /// Nothing blocks on this: an unanswered request is visible rather than paralysing,
+    /// because a request that halted a mediation by existing would be the delay tactic
+    /// §4's own review guards against.
+    #[pyo3(signature = (party_priv, party_did, dispute_cid, mediator_did, grounds, requested_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn request_recusal(
+        &mut self,
+        party_priv: &[u8],
+        party_did: &str,
+        dispute_cid: &str,
+        mediator_did: &str,
+        grounds: String,
+        requested_at: Option<i64>,
+    ) -> PyResult<String> {
+        let req = RecusalRequest {
+            dispute_cid: parse_cid(dispute_cid)?,
+            requested_by: parse_did(party_did)?,
+            mediator: parse_did(mediator_did)?,
+            grounds,
+            requested_at: parse_as_of(requested_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(party_priv);
+        let signed = Signed::build(req, &[(party_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::RecusalRequested(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Answer a recusal request (§4). `answer` is `"Granted"` or `"Declined"`.
+    ///
+    /// Who may sign depends on the answer, and that asymmetry is the rule. A **grant**
+    /// is signed by exactly the mediator stepping down — nobody else may condition it.
+    /// A **decline** must come from registered non-party mediators *other than* the one
+    /// named, and must state its reasoning: a panelist who could dismiss requests
+    /// against themselves is the conflict the request exists to raise.
+    #[pyo3(signature = (decider_privs, decider_dids, request_cid, answer, reasoning=String::new(), decided_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn decide_recusal(
+        &mut self,
+        decider_privs: Vec<Vec<u8>>,
+        decider_dids: Vec<String>,
+        request_cid: &str,
+        answer: &str,
+        reasoning: String,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        if decider_privs.len() != decider_dids.len() {
+            return Err(PyValueError::new_err(
+                "decider_privs and decider_dids must be the same length",
+            ));
+        }
+        let deciders: Vec<DidKey> =
+            decider_dids.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?;
+        let dec = RecusalDecision {
+            request_cid: parse_cid(request_cid)?,
+            answer: parse_recusal_answer(answer)?,
+            deciders,
+            reasoning,
+            decided_at: parse_as_of(decided_at)?.unwrap_or_else(time::now),
+        };
+        let sks: Vec<PrivKey> = decider_privs.iter().map(|b| priv_from_bytes(b)).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            decider_dids.iter().map(|s| s.as_str()).zip(sks.iter()).collect();
+        let signed = Signed::build(dec, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::RecusalDecided(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Designate a neutral community as protecting power for one disputant (§4),
+    /// co-signed by the disputant and the protector.
+    ///
+    /// The Geneva analogue: "it is not an arbitrator; it is a witness with standing".
+    /// So it gates nothing — no decision waits on it. What the pass enforces is
+    /// neutrality (the protector is neither party and seats no mediators) and that both
+    /// sides consented, since standing for another community is a duty and is never
+    /// conscripted.
+    #[pyo3(signature = (disputant_priv, disputant_did, protector_priv, protector_did, dispute_cid, statement=String::new(), designated_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn designate_protecting_power(
+        &mut self,
+        disputant_priv: &[u8],
+        disputant_did: &str,
+        protector_priv: &[u8],
+        protector_did: &str,
+        dispute_cid: &str,
+        statement: String,
+        designated_at: Option<i64>,
+    ) -> PyResult<String> {
+        let pp = ProtectingPower {
+            dispute_cid: parse_cid(dispute_cid)?,
+            disputant: parse_did(disputant_did)?,
+            protector: parse_did(protector_did)?,
+            statement,
+            designated_at: parse_as_of(designated_at)?.unwrap_or_else(time::now),
+        };
+        let dsk = priv_from_bytes(disputant_priv);
+        let psk = priv_from_bytes(protector_priv);
+        let signed = Signed::build(pp, &[(disputant_did, &dsk), (protector_did, &psk)])
+            .map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ProtectingPowerDesignated(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// File one argument on a dispute (§4), signed by its author. `role` is
+    /// `"Party"` or `"Panelist"`.
+    ///
+    /// A party's own case may be signed by its envoy, exactly as the dispute filing
+    /// may. A panelist's argument must be signed by that panelist alone and the author
+    /// must be an active registered mediator from neither party community — nobody
+    /// argues in a mediator's name. Returns the CID, which the decision cites.
+    #[pyo3(signature = (author_priv, author_did, dispute_cid, role, position, evidence=Vec::new(), submitted_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn file_argument(
+        &mut self,
+        author_priv: &[u8],
+        author_did: &str,
+        dispute_cid: &str,
+        role: &str,
+        position: String,
+        evidence: Vec<String>,
+        submitted_at: Option<i64>,
+    ) -> PyResult<String> {
+        let arg = ArgumentRecord {
+            dispute_cid: parse_cid(dispute_cid)?,
+            author: parse_did(author_did)?,
+            role: parse_argument_role(role)?,
+            position,
+            evidence: evidence.iter().map(|c| parse_cid(c)).collect::<PyResult<_>>()?,
+            submitted_at: parse_as_of(submitted_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(author_priv);
+        let signed = Signed::build(arg, &[(author_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ArgumentFiled(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
     /// Record a mediation decision (§4), co-signed by the panel. The archive's
-    /// authority pass enforces >= panel_min registered, non-party mediators.
-    /// `outcome` is a DecisionOutcome name. Returns the CID.
-    #[pyo3(signature = (dispute_cid, panel_privs, panel_dids, outcome, reasoning=String::new(), decided_at=None))]
+    /// authority pass enforces >= panel_min registered, non-party mediators, a
+    /// non-empty `reasoning` (§4's trail is mandatory), a `panel` equal to the
+    /// co-signers, one cited `Panelist` argument per co-signer, and that every party
+    /// argument already in the log is answered. `outcome` is a DecisionOutcome name.
+    /// A `Settled` outcome additionally needs both parties' recorded consent to this
+    /// exact panel (see `record_panel_consent`).
+    ///
+    /// To **seal** the proceedings instead of publishing them (§4), leave `reasoning`
+    /// empty and pass the text as `seal_reasoning` with `seal_custodian_dids`: the
+    /// reasoning is sealed under k-of-n custody keyed to those **member communities**,
+    /// and opens at `seal_reveal_at` (default: one generational cycle from the
+    /// decision). Custodians are communities rather than mediators because a mediator's
+    /// seat is capped at two years and a seal runs for twenty-five: a share held by a key
+    /// the archive stops resolving can never be opened. The authority pass refuses a
+    /// party as custodian, and refuses a custodian set of which the deciding panel's own
+    /// communities hold a quorum — a panel that can unseal itself has sealed nothing.
+    /// Returns the CID.
+    #[pyo3(signature = (dispute_cid, panel_privs, panel_dids, outcome, reasoning, arguments, decided_at=None, seal_reasoning=None, seal_custodian_dids=None, seal_threshold=None, seal_reveal_at=None))]
     #[allow(clippy::too_many_arguments)]
     fn decide_mediation(
         &mut self,
@@ -394,7 +655,12 @@ impl PyArchive {
         panel_dids: Vec<String>,
         outcome: &str,
         reasoning: String,
+        arguments: Vec<String>,
         decided_at: Option<i64>,
+        seal_reasoning: Option<String>,
+        seal_custodian_dids: Option<Vec<String>>,
+        seal_threshold: Option<usize>,
+        seal_reveal_at: Option<i64>,
     ) -> PyResult<String> {
         if panel_privs.len() != panel_dids.len() {
             return Err(PyValueError::new_err(
@@ -406,12 +672,59 @@ impl PyArchive {
         }
         let panel: Vec<DidKey> =
             panel_dids.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?;
+        let decided = parse_as_of(decided_at)?.unwrap_or_else(time::now);
+        // Sealing, if asked for. The caller supplies custodian DIDs and never their
+        // keys: each share is sealed to the encryption key its holder is *registered*
+        // under, resolved from this archive, exactly as §8 custody is.
+        let sealed = match seal_custodian_dids {
+            None => None,
+            Some(custodians) => {
+                if !reasoning.trim().is_empty() {
+                    return Err(PyValueError::new_err(
+                        "a sealed decision carries no cleartext reasoning: pass the text \
+                         as `seal_reasoning` instead",
+                    ));
+                }
+                let text = seal_reasoning.ok_or_else(|| {
+                    PyValueError::new_err(
+                        "sealing a decision needs the reasoning text as `seal_reasoning`",
+                    )
+                })?;
+                let holders: Vec<DidKey> =
+                    custodians.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?;
+                let k = seal_threshold.unwrap_or(holders.len() / 2 + 1);
+                // Custodians are member communities, whose keys still resolve when the
+                // seal opens a generation later; a mediator's would not.
+                let custody = ThresholdCustody::seal(
+                    text.as_bytes(),
+                    &holders,
+                    kc_core::didkey_encryption_resolver,
+                    k,
+                )
+                .map_err(kc_err_to_py)?;
+                let reveal_at = match parse_as_of(seal_reveal_at)? {
+                    Some(t) => t,
+                    // One generational cycle from the decision, at the near end of the
+                    // range §4 seals for.
+                    None => ts(decided.as_second()
+                        + kc_archive::MIN_DECISION_SEAL_SECONDS)?,
+                };
+                Some(SealedReasoning {
+                    reasoning_commitment: SealedReasoning::commitment(&text)
+                        .map_err(kc_err_to_py)?,
+                    custody,
+                    reveal_at,
+                })
+            }
+        };
         let dec = MediationDecision {
             dispute_cid: parse_cid(dispute_cid)?,
             panel,
             outcome: parse_outcome(outcome)?,
             reasoning,
-            decided_at: parse_as_of(decided_at)?.unwrap_or_else(time::now),
+            sealed,
+            arguments: arguments.iter().map(|c| parse_cid(c)).collect::<PyResult<_>>()?,
+            decided_at: decided,
         };
         let sks: Vec<PrivKey> = panel_privs.iter().map(|b| priv_from_bytes(b)).collect();
         let pairs: Vec<(&str, &PrivKey)> =
@@ -419,6 +732,183 @@ impl PyArchive {
         let signed = Signed::build(dec, &pairs).map_err(kc_err_to_py)?;
         self.inner
             .append(ArchiveEntry::MediationDecided(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Record a party's consent (or withholding) to the panel as constituted (§4).
+    ///
+    /// Self-signed: nobody consents on another's behalf. `answer` is a ConsentAnswer
+    /// name (`Given` / `Withheld`); a withholding must state something. Consent gates a
+    /// `Settled` outcome and nothing else — requiring it to decide at all would hand
+    /// either party a veto over its own dispute. Returns the CID.
+    #[pyo3(signature = (party_priv, party_did, dispute_cid, panel_dids, answer, statement=String::new(), given_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn record_panel_consent(
+        &mut self,
+        party_priv: &[u8],
+        party_did: &str,
+        dispute_cid: &str,
+        panel_dids: Vec<String>,
+        answer: &str,
+        statement: String,
+        given_at: Option<i64>,
+    ) -> PyResult<String> {
+        let rec = PanelConsent {
+            dispute_cid: parse_cid(dispute_cid)?,
+            party: parse_did(party_did)?,
+            panel: panel_dids.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?,
+            answer: parse_consent_answer(answer)?,
+            statement,
+            given_at: parse_as_of(given_at)?.unwrap_or_else(time::now),
+        };
+        let sk = priv_from_bytes(party_priv);
+        let signed = Signed::build(rec, &[(party_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::PanelConsentRecorded(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// One custodian opens its own share of a sealed decision's proceedings (§4),
+    /// returning it as JSON to be gathered into an `unseal_decision` call. A share is
+    /// useless alone: it takes the seal's threshold of them to read anything.
+    fn open_decision_share(
+        &self,
+        decision_cid: &str,
+        holder_priv: Vec<u8>,
+        holder_did: &str,
+    ) -> PyResult<String> {
+        let cid = parse_cid(decision_cid)?;
+        let sealed = match self.inner.get(&cid) {
+            Some(ArchiveEntry::MediationDecided(s)) => s.payload.sealed.as_ref(),
+            _ => None,
+        }
+        .ok_or_else(|| {
+            PyValueError::new_err(format!("{decision_cid} is not a sealed mediation decision"))
+        })?;
+        let share = sealed
+            .custody
+            .open_share(&parse_did(holder_did)?, &priv_from_bytes(&holder_priv))
+            .map_err(kc_err_to_py)?;
+        serde_json::to_string(&share).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Open a sealed decision's proceedings (§4), co-signed by the custodians whose
+    /// `shares` are presented. The authority pass requires the shares to actually
+    /// recover the sealed text and that text to open the decision's commitment, so an
+    /// unsealing cannot publish a reasoning the panel never wrote. Opening before the
+    /// seal's `reveal_at` must cite a cause. Returns the CID.
+    #[pyo3(signature = (custodian_privs, custodian_dids, decision_cid, disclosed_reasoning, shares, cause=String::new(), unsealed_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn unseal_decision(
+        &mut self,
+        custodian_privs: Vec<Vec<u8>>,
+        custodian_dids: Vec<String>,
+        decision_cid: &str,
+        disclosed_reasoning: String,
+        shares: Vec<String>,
+        cause: String,
+        unsealed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&custodian_privs, &custodian_dids)?;
+        let shares: Vec<RevealedShare> = shares
+            .iter()
+            .map(|s| {
+                serde_json::from_str(s)
+                    .map_err(|e| PyValueError::new_err(format!("custody share: {e}")))
+            })
+            .collect::<PyResult<_>>()?;
+        let rec = DecisionUnsealed {
+            decision_cid: parse_cid(decision_cid)?,
+            custodians: ids,
+            cause,
+            disclosed_reasoning,
+            shares,
+            unsealed_at: parse_as_of(unsealed_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> =
+            pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(rec, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::DecisionUnsealed(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// The mediator pool invokes the structured-skepticism protocol on an event (§4),
+    /// co-signed by the invoking panel.
+    ///
+    /// This is what reaches an event whose originator declared it mundane: the hold no
+    /// longer turns only on `report_event`'s self-declared triggers. `criteria` are
+    /// SkepticismCriterion names, and the panel must document its grounds. The authority
+    /// pass refuses a panel containing the originating community's own mediators, and
+    /// bounds `hold_seconds` to the range the protocol calibrates to. Returns the CID.
+    #[pyo3(signature = (panel_privs, panel_dids, event_cid, criteria, grounds, hold_seconds, invoked_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn invoke_skepticism(
+        &mut self,
+        panel_privs: Vec<Vec<u8>>,
+        panel_dids: Vec<String>,
+        event_cid: &str,
+        criteria: Vec<String>,
+        grounds: String,
+        hold_seconds: i64,
+        invoked_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        let rec = SkepticismInvocation {
+            event_cid: parse_cid(event_cid)?,
+            panel: ids,
+            criteria: criteria
+                .iter()
+                .map(|c| parse_skepticism_criterion(c))
+                .collect::<PyResult<_>>()?,
+            grounds,
+            hold_seconds,
+            invoked_at: parse_as_of(invoked_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> =
+            pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(rec, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::SkepticismInvoked(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// The pool's internal review of a hold, against pretextual use (§4), co-signed by
+    /// the reviewing mediators.
+    ///
+    /// The review is against the **hold**, so it reaches a self-declared hold as well as
+    /// an invoked one — the self-declared case being the one that used to answer to
+    /// nobody. `answer` is a ReviewAnswer name; `Pretextual` releases the event.
+    /// Mediators who co-signed an invocation on this event may not review it, and
+    /// reasoning is required on either answer. Returns the CID.
+    #[pyo3(signature = (panel_privs, panel_dids, event_cid, answer, reasoning, reviewed_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn review_skepticism(
+        &mut self,
+        panel_privs: Vec<Vec<u8>>,
+        panel_dids: Vec<String>,
+        event_cid: &str,
+        answer: &str,
+        reasoning: String,
+        reviewed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&panel_privs, &panel_dids)?;
+        let rec = SkepticismReview {
+            event_cid: parse_cid(event_cid)?,
+            reviewers: ids,
+            answer: parse_review_answer(answer)?,
+            reasoning,
+            reviewed_at: parse_as_of(reviewed_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> =
+            pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(rec, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::SkepticismReviewed(signed))
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
@@ -1279,6 +1769,26 @@ impl PyArchive {
         Ok(PyObserverDashboard::from(&d))
     }
 
+    /// §4 mediator pool-share / rotation / lineage lens as of `as_of`: the active
+    /// pool's composition by seating community **and by training lineage** (no verdict
+    /// — the caps are enforced by `check_authority`).
+    ///
+    /// The lineage half is the only reader of `trained_by`. §4's apprenticeship model
+    /// carries its own named weakness — mediators trained under experienced mediators
+    /// are "susceptible to capture by the incumbent generation's biases" — and a pool
+    /// that all traces to one trainer is that weakness realized. It is reported and
+    /// never gated: the source documents warn against a certification barrier becoming
+    /// a gatekeeping mechanism.
+    #[pyo3(signature = (as_of=None))]
+    fn mediator_pool_concentration(
+        &self,
+        as_of: Option<i64>,
+    ) -> PyResult<PyMediatorPoolConcentration> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let p = kc_reputation::mediator_pool_concentration(&self.inner, as_of_ts);
+        Ok(PyMediatorPoolConcentration::from(&p))
+    }
+
     /// §8 observer pool-share / rotation lens as of `as_of`: the active corps'
     /// composition by nominating community and the observers currently serving
     /// (no verdict — the caps are enforced by `check_authority`).
@@ -1441,16 +1951,20 @@ impl PyArchive {
     /// `rite_cadence_seconds` overrides the generational re-affirmation cadence an
     /// overdue rite is judged against (default 30 years); the calibration is an
     /// open question, so it is a parameter rather than a constant.
-    #[pyo3(signature = (as_of=None, rite_cadence_seconds=None))]
+    #[pyo3(signature = (as_of=None, rite_cadence_seconds=None, attestation_cadence_seconds=None))]
     fn erosion_alert(
         &self,
         as_of: Option<i64>,
         rite_cadence_seconds: Option<i64>,
+        attestation_cadence_seconds: Option<i64>,
     ) -> PyResult<PyErosionAlert> {
         let as_of_ts = parse_as_of(as_of)?;
         let mut thresholds = kc_reputation::ErosionThresholds::default();
         if let Some(c) = rite_cadence_seconds {
             thresholds.rite_cadence_seconds = c;
+        }
+        if let Some(c) = attestation_cadence_seconds {
+            thresholds.attestation_cadence_seconds = c;
         }
         Ok(PyErosionAlert::from(&kc_reputation::erosion_alert_with(
             &self.inner,
@@ -1468,7 +1982,7 @@ impl PyArchive {
     fn overdue_reexaminations(
         &self,
         as_of: Option<i64>,
-    ) -> PyResult<Vec<(String, String, String, i64, i64)>> {
+    ) -> PyResult<Vec<OverdueReexaminationRow>> {
         let as_of_ts = parse_as_of(as_of)?;
         Ok(kc_reputation::overdue_reexaminations(&self.inner, as_of_ts)
             .iter()
@@ -1479,6 +1993,56 @@ impl PyArchive {
                     o.tier.clone(),
                     o.reexamine_after.as_second(),
                     o.seconds_overdue,
+                    o.confirmations,
+                )
+            })
+            .collect())
+    }
+
+    /// Standing functions with no act and no attested null inside `cadence_seconds`, as
+    /// (community_did, function, seconds_since, cadence_seconds, last_was_a_null),
+    /// longest silence first. An absolute measure: every relative reading of a pool or a
+    /// corps is unchanged by its simply stopping.
+    #[pyo3(signature = (as_of=None, cadence_seconds=None))]
+    fn silent_functions(
+        &self,
+        as_of: Option<i64>,
+        cadence_seconds: Option<i64>,
+    ) -> PyResult<Vec<SilentFunctionRow>> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let cadence = cadence_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().attestation_cadence_seconds);
+        Ok(kc_reputation::silent_functions(&self.inner, as_of_ts, cadence)
+            .iter()
+            .map(|f| {
+                (
+                    f.community_did.clone(),
+                    f.function.clone(),
+                    f.seconds_since,
+                    f.cadence_seconds,
+                    f.last_was_a_null,
+                )
+            })
+            .collect())
+    }
+
+    /// Functions a community once staffed and now has nobody seated in, as
+    /// (community_did, function, vacant_since, seconds_vacant), longest vacancy first. A
+    /// function never staffed is absent from the reading.
+    #[pyo3(signature = (as_of=None))]
+    fn unstaffed_functions(
+        &self,
+        as_of: Option<i64>,
+    ) -> PyResult<Vec<(String, String, i64, i64)>> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(kc_reputation::unstaffed_functions(&self.inner, as_of_ts)
+            .iter()
+            .map(|u| {
+                (
+                    u.community_did.clone(),
+                    u.function.clone(),
+                    u.vacant_since.as_second(),
+                    u.seconds_vacant,
                 )
             })
             .collect())
@@ -2425,6 +2989,112 @@ impl PyArchive {
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
+
+    /// Append a community's account of one window in a standing function it holds. An
+    /// empty `acts` is the attested null and is the point of the record.
+    #[allow(clippy::too_many_arguments)]
+    fn append_activity_attestation(
+        &mut self,
+        signer_privs: Vec<Vec<u8>>,
+        signer_dids: Vec<String>,
+        attesting_did: &str,
+        function: &str,
+        window_start: i64,
+        window_end: i64,
+        acts: Vec<String>,
+        statement: String,
+        attested_at: i64,
+    ) -> PyResult<String> {
+        if signer_privs.len() != signer_dids.len() || signer_privs.is_empty() {
+            return Err(PyValueError::new_err(
+                "signer_privs and signer_dids must be non-empty and equal length",
+            ));
+        }
+        let att = ActivityAttestation {
+            function: parse_attested_function(function)?,
+            attesting_community: parse_did(attesting_did)?,
+            window_start: ts(window_start)?,
+            window_end: ts(window_end)?,
+            acts: acts.iter().map(|s| parse_cid(s)).collect::<PyResult<_>>()?,
+            statement,
+            attested_at: ts(attested_at)?,
+        };
+        let sks: Vec<PrivKey> = signer_privs.iter().map(|b| priv_from_bytes(b)).collect();
+        let signers: Vec<(&str, &PrivKey)> = signer_dids
+            .iter()
+            .zip(sks.iter())
+            .map(|(d, sk)| (d.as_str(), sk))
+            .collect();
+        let signed = Signed::build(att, &signers).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ActivityAttested(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Append the conclusion of a designation's mandated re-examination (§5). `outcome` is
+    /// "Confirmed" or "Reversed"; a confirmation must set `next_reexamine_after`, since it
+    /// renews the obligation rather than discharging it.
+    #[allow(clippy::too_many_arguments)]
+    fn append_reexamination(
+        &mut self,
+        signer_privs: Vec<Vec<u8>>,
+        signer_dids: Vec<String>,
+        examiner_dids: Vec<String>,
+        designation_cid: &str,
+        outcome: &str,
+        reasoning: String,
+        next_reexamine_after: Option<i64>,
+        concluded_at: i64,
+    ) -> PyResult<String> {
+        if signer_privs.len() != signer_dids.len() || signer_privs.is_empty() {
+            return Err(PyValueError::new_err(
+                "signer_privs and signer_dids must be non-empty and equal length",
+            ));
+        }
+        if examiner_dids.is_empty() {
+            return Err(PyValueError::new_err("examiner_dids must be non-empty"));
+        }
+        let rc = ReexaminationConclusion {
+            designation_cid: parse_cid(designation_cid)?,
+            outcome: parse_reexamination_outcome(outcome)?,
+            examiners: examiner_dids
+                .iter()
+                .map(|d| parse_did(d))
+                .collect::<PyResult<_>>()?,
+            reasoning,
+            next_reexamine_after: next_reexamine_after.map(ts).transpose()?,
+            decision_class: kc_conduct::DecisionClass::SecondClass,
+            concluded_at: ts(concluded_at)?,
+        };
+        let sks: Vec<PrivKey> = signer_privs.iter().map(|b| priv_from_bytes(b)).collect();
+        let signers: Vec<(&str, &PrivKey)> = signer_dids
+            .iter()
+            .zip(sks.iter())
+            .map(|(d, sk)| (d.as_str(), sk))
+            .collect();
+        let signed = Signed::build(rc, &signers).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::ReexaminationConcluded(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+}
+
+fn parse_attested_function(s: &str) -> PyResult<AttestedFunction> {
+    match s {
+        "Mediation" => Ok(AttestedFunction::Mediation),
+        "Observation" => Ok(AttestedFunction::Observation),
+        other => Err(PyValueError::new_err(format!("unknown attested function: {other}"))),
+    }
+}
+
+fn parse_reexamination_outcome(s: &str) -> PyResult<ReexaminationOutcome> {
+    match s {
+        "Confirmed" => Ok(ReexaminationOutcome::Confirmed),
+        "Reversed" => Ok(ReexaminationOutcome::Reversed),
+        other => Err(PyValueError::new_err(format!("unknown re-examination outcome: {other}"))),
+    }
 }
 
 fn priv_from_bytes(b: &[u8]) -> PrivKey {
@@ -2515,6 +3185,26 @@ fn parse_ladder_rung(s: &str) -> PyResult<LadderRung> {
     })
 }
 
+fn parse_recusal_answer(s: &str) -> PyResult<RecusalAnswer> {
+    match s {
+        "Granted" => Ok(RecusalAnswer::Granted),
+        "Declined" => Ok(RecusalAnswer::Declined),
+        _ => Err(PyValueError::new_err(format!(
+            "unknown recusal answer '{s}' (expected Granted or Declined)"
+        ))),
+    }
+}
+
+fn parse_argument_role(s: &str) -> PyResult<ArgumentRole> {
+    match s {
+        "Party" => Ok(ArgumentRole::Party),
+        "Panelist" => Ok(ArgumentRole::Panelist),
+        _ => Err(PyValueError::new_err(format!(
+            "unknown argument role '{s}' (expected Party or Panelist)"
+        ))),
+    }
+}
+
 fn parse_outcome(s: &str) -> PyResult<DecisionOutcome> {
     Ok(match s {
         "Upheld" => DecisionOutcome::Upheld,
@@ -2522,6 +3212,36 @@ fn parse_outcome(s: &str) -> PyResult<DecisionOutcome> {
         "Settled" => DecisionOutcome::Settled,
         "Referred" => DecisionOutcome::Referred,
         other => return Err(PyValueError::new_err(format!("unknown decision outcome: {other}"))),
+    })
+}
+
+fn parse_consent_answer(s: &str) -> PyResult<ConsentAnswer> {
+    Ok(match s {
+        "Given" => ConsentAnswer::Given,
+        "Withheld" => ConsentAnswer::Withheld,
+        other => return Err(PyValueError::new_err(format!("unknown consent answer: {other}"))),
+    })
+}
+
+fn parse_review_answer(s: &str) -> PyResult<ReviewAnswer> {
+    Ok(match s {
+        "Upheld" => ReviewAnswer::Upheld,
+        "Pretextual" => ReviewAnswer::Pretextual,
+        other => return Err(PyValueError::new_err(format!("unknown review answer: {other}"))),
+    })
+}
+
+fn parse_skepticism_criterion(s: &str) -> PyResult<SkepticismCriterion> {
+    Ok(match s {
+        "HighInterpretiveCharge" => SkepticismCriterion::HighInterpretiveCharge,
+        "SuddenOnset" => SkepticismCriterion::SuddenOnset,
+        "OriginatorHoldsStake" => SkepticismCriterion::OriginatorHoldsStake,
+        "AlignedFaction" => SkepticismCriterion::AlignedFaction,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "unknown skepticism criterion: {other}"
+            )))
+        }
     })
 }
 
@@ -2600,7 +3320,7 @@ fn parse_sanction_level(s: &str) -> PyResult<SanctionLevel> {
 
 /// Validate a multi-signer set and prepare it: returns the parsed principal DIDs
 /// and owned `(did_string, priv_key)` pairs a caller can borrow for `Signed::build`.
-fn cosigners(privs: &[Vec<u8>], dids: &[String]) -> PyResult<(Vec<DidKey>, Vec<(String, PrivKey)>)> {
+fn cosigners(privs: &[Vec<u8>], dids: &[String]) -> PyResult<Cosigners> {
     if privs.len() != dids.len() {
         return Err(PyValueError::new_err("signer privs and dids must be the same length"));
     }
@@ -3083,7 +3803,7 @@ fn demo_capture_scenario() -> PyResult<PyCaptureScenario> {
 
 use kc_reputation as rep;
 
-#[pyclass(name = "IntraRiteSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "IntraRiteSummary", get_all)]
 #[derive(Clone)]
 struct PyIntraRiteSummary {
     record_cid: String,
@@ -3103,7 +3823,7 @@ impl From<&rep::IntraRiteSummary> for PyIntraRiteSummary {
     }
 }
 
-#[pyclass(name = "InterAdmissionSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "InterAdmissionSummary", get_all)]
 #[derive(Clone)]
 struct PyInterAdmissionSummary {
     record_cid: String,
@@ -3121,7 +3841,7 @@ impl From<&rep::InterAdmissionSummary> for PyInterAdmissionSummary {
     }
 }
 
-#[pyclass(name = "RejectionSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "RejectionSummary", get_all)]
 #[derive(Clone)]
 struct PyRejectionSummary {
     rejecting_community: String,
@@ -3141,7 +3861,7 @@ impl From<&rep::RejectionSummary> for PyRejectionSummary {
     }
 }
 
-#[pyclass(name = "InterNonAdmissionSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "InterNonAdmissionSummary", get_all)]
 #[derive(Clone)]
 struct PyInterNonAdmissionSummary {
     record_cid: String,
@@ -3161,7 +3881,7 @@ impl From<&rep::InterNonAdmissionSummary> for PyInterNonAdmissionSummary {
     }
 }
 
-#[pyclass(name = "DelegationSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "DelegationSummary", get_all)]
 #[derive(Clone)]
 struct PyDelegationSummary {
     record_cid: String,
@@ -3183,7 +3903,7 @@ impl From<&rep::DelegationSummary> for PyDelegationSummary {
     }
 }
 
-#[pyclass(name = "WitnessSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "WitnessSummary", get_all)]
 #[derive(Clone)]
 struct PyWitnessSummary {
     record_cid: String,
@@ -3205,7 +3925,7 @@ impl From<&rep::WitnessSummary> for PyWitnessSummary {
     }
 }
 
-#[pyclass(name = "ConductSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "ConductSummary", get_all)]
 #[derive(Clone)]
 struct PyConductSummary {
     record_cid: String,
@@ -3237,7 +3957,7 @@ impl From<&rep::ConductSummary> for PyConductSummary {
     }
 }
 
-#[pyclass(name = "SponsorshipSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "SponsorshipSummary", get_all)]
 #[derive(Clone)]
 struct PySponsorshipSummary {
     record_cid: String,
@@ -3261,7 +3981,7 @@ impl From<&rep::SponsorshipSummary> for PySponsorshipSummary {
     }
 }
 
-#[pyclass(name = "DisputeSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "DisputeSummary", get_all)]
 #[derive(Clone)]
 struct PyDisputeSummary {
     record_cid: String,
@@ -3291,7 +4011,7 @@ impl From<&rep::DisputeSummary> for PyDisputeSummary {
     }
 }
 
-#[pyclass(name = "DesignationSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "DesignationSummary", get_all)]
 #[derive(Clone)]
 struct PyDesignationSummary {
     record_cid: String,
@@ -3319,7 +4039,7 @@ impl From<&rep::DesignationSummary> for PyDesignationSummary {
     }
 }
 
-#[pyclass(name = "ReEntrySummary", get_all)]
+#[pyclass(skip_from_py_object, name = "ReEntrySummary", get_all)]
 #[derive(Clone)]
 struct PyReEntrySummary {
     record_cid: String,
@@ -3339,7 +4059,7 @@ impl From<&rep::ReEntrySummary> for PyReEntrySummary {
     }
 }
 
-#[pyclass(name = "RestitutionSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "RestitutionSummary", get_all)]
 #[derive(Clone)]
 struct PyRestitutionSummary {
     record_cid: String,
@@ -3361,7 +4081,7 @@ impl From<&rep::RestitutionSummary> for PyRestitutionSummary {
     }
 }
 
-#[pyclass(name = "SubstantiveReEngagementSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "SubstantiveReEngagementSummary", get_all)]
 #[derive(Clone)]
 struct PySubstantiveReEngagementSummary {
     record_cid: String,
@@ -3379,7 +4099,7 @@ impl From<&rep::SubstantiveReEngagementSummary> for PySubstantiveReEngagementSum
     }
 }
 
-#[pyclass(name = "InjunctionSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "InjunctionSummary", get_all)]
 #[derive(Clone)]
 struct PyInjunctionSummary {
     record_cid: String,
@@ -3405,7 +4125,7 @@ impl From<&rep::InjunctionSummary> for PyInjunctionSummary {
     }
 }
 
-#[pyclass(name = "CommonsSanctionSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "CommonsSanctionSummary", get_all)]
 #[derive(Clone)]
 struct PyCommonsSanctionSummary {
     record_cid: String,
@@ -3429,7 +4149,7 @@ impl From<&rep::CommonsSanctionSummary> for PyCommonsSanctionSummary {
     }
 }
 
-#[pyclass(name = "ReportResponseSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "ReportResponseSummary", get_all)]
 #[derive(Clone)]
 struct PyReportResponseSummary {
     record_cid: String,
@@ -3447,7 +4167,7 @@ impl From<&rep::ReportResponseSummary> for PyReportResponseSummary {
     }
 }
 
-#[pyclass(name = "ObserverReportSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "ObserverReportSummary", get_all)]
 #[derive(Clone)]
 struct PyObserverReportSummary {
     record_cid: String,
@@ -3473,7 +4193,7 @@ impl From<&rep::ObserverReportSummary> for PyObserverReportSummary {
     }
 }
 
-#[pyclass(name = "WhistleblowerSummary", get_all)]
+#[pyclass(skip_from_py_object, name = "WhistleblowerSummary", get_all)]
 #[derive(Clone)]
 struct PyWhistleblowerSummary {
     record_cid: String,
@@ -3499,7 +4219,7 @@ impl From<&rep::WhistleblowerSummary> for PyWhistleblowerSummary {
     }
 }
 
-#[pyclass(name = "ReputationView", get_all)]
+#[pyclass(skip_from_py_object, name = "ReputationView", get_all)]
 #[derive(Clone)]
 struct PyReputationView {
     community_did: String,
@@ -3603,7 +4323,7 @@ impl From<&rep::ReputationView> for PyReputationView {
 
 // ---- Capture-signal analytics bindings -------------------------------------
 
-#[pyclass(name = "SponseeOutcome", get_all)]
+#[pyclass(skip_from_py_object, name = "SponseeOutcome", get_all)]
 #[derive(Clone)]
 struct PySponseeOutcome {
     entrant: String,
@@ -3625,7 +4345,7 @@ impl From<&rep::SponseeOutcome> for PySponseeOutcome {
     }
 }
 
-#[pyclass(name = "SponsorStakeReport", get_all)]
+#[pyclass(skip_from_py_object, name = "SponsorStakeReport", get_all)]
 #[derive(Clone)]
 struct PySponsorStakeReport {
     sponsor: String,
@@ -3647,7 +4367,7 @@ impl From<&rep::SponsorStakeReport> for PySponsorStakeReport {
     }
 }
 
-#[pyclass(name = "CompositionGraph", get_all)]
+#[pyclass(skip_from_py_object, name = "CompositionGraph", get_all)]
 #[derive(Clone)]
 struct PyCompositionGraph {
     /// (record_cid, sponsor, entrant, sponsored_at, probation_until)
@@ -3677,7 +4397,7 @@ impl From<&rep::CompositionGraph> for PyCompositionGraph {
     }
 }
 
-#[pyclass(name = "DeliberativeCapacity", get_all)]
+#[pyclass(skip_from_py_object, name = "DeliberativeCapacity", get_all)]
 #[derive(Clone)]
 struct PyDeliberativeCapacity {
     compact_label: String,
@@ -3713,7 +4433,7 @@ impl From<&rep::DeliberativeCapacity> for PyDeliberativeCapacity {
     }
 }
 
-#[pyclass(name = "FreeRiderReport", get_all)]
+#[pyclass(skip_from_py_object, name = "FreeRiderReport", get_all)]
 #[derive(Clone)]
 struct PyFreeRiderReport {
     /// (community_did, consumed, contributed, record_count, [usage_cids]).
@@ -3748,7 +4468,7 @@ impl From<&rep::FreeRiderReport> for PyFreeRiderReport {
     }
 }
 
-#[pyclass(name = "ObserverPoolConcentration", get_all)]
+#[pyclass(skip_from_py_object, name = "ObserverPoolConcentration", get_all)]
 #[derive(Clone)]
 struct PyObserverPoolConcentration {
     /// (community_did, active_observers) descending — the domination front.
@@ -3761,6 +4481,62 @@ struct PyObserverPoolConcentration {
     /// True when one community already holds a majority of the corps (the
     /// condition the pool-share authority rule refuses once past its floor).
     majority_held: bool,
+}
+
+#[pyclass(skip_from_py_object, name = "MediatorPoolConcentration", get_all)]
+#[derive(Clone)]
+struct PyMediatorPoolConcentration {
+    /// (community_did, active_mediators) descending — the domination front.
+    shares: Vec<(String, usize)>,
+    total_active: usize,
+    /// (mediator_did, nominating_community, term_end, trained_by) soonest term-end
+    /// first.
+    serving: Vec<(String, String, Option<i64>, Option<String>)>,
+    /// Largest single-community active count.
+    top_active: usize,
+    /// True when one community already holds a majority of the pool (the condition the
+    /// pool-share authority rule refuses once past its floor).
+    majority_held: bool,
+    /// (trainer_did, active_mediators_trained) descending. Mediators with no recorded
+    /// trainer are absent rather than grouped under a blank.
+    lineages: Vec<(String, usize)>,
+    /// Active mediators whose lineage is recorded — the denominator the lineage
+    /// readings are against, so a pool that records nothing reads as unknown rather
+    /// than healthy.
+    with_lineage: usize,
+    /// Largest single-trainer active count.
+    top_lineage: usize,
+    /// True when one trainer accounts for a majority of the mediators **whose lineage
+    /// is recorded** — the incumbent generation holding the pool. `False` when nothing
+    /// is recorded, so silence is never read as a finding.
+    lineage_majority_held: bool,
+}
+
+impl From<&rep::MediatorPoolConcentration> for PyMediatorPoolConcentration {
+    fn from(p: &rep::MediatorPoolConcentration) -> Self {
+        Self {
+            shares: p.shares.iter().map(|s| (s.community.clone(), s.active)).collect(),
+            total_active: p.total_active,
+            serving: p
+                .serving
+                .iter()
+                .map(|s| {
+                    (
+                        s.mediator_did.clone(),
+                        s.nominating_community.clone(),
+                        s.term_end.map(|t| t.as_second()),
+                        s.trained_by.clone(),
+                    )
+                })
+                .collect(),
+            top_active: p.top_active(),
+            majority_held: p.majority_held(),
+            lineages: p.lineages.iter().map(|s| (s.community.clone(), s.active)).collect(),
+            with_lineage: p.with_lineage,
+            top_lineage: p.top_lineage(),
+            lineage_majority_held: p.lineage_majority_held(),
+        }
+    }
 }
 
 impl From<&rep::ObserverPoolConcentration> for PyObserverPoolConcentration {
@@ -3785,7 +4561,7 @@ impl From<&rep::ObserverPoolConcentration> for PyObserverPoolConcentration {
     }
 }
 
-#[pyclass(name = "ObserverDashboard", get_all)]
+#[pyclass(skip_from_py_object, name = "ObserverDashboard", get_all)]
 #[derive(Clone)]
 struct PyObserverDashboard {
     composition: PyCompositionGraph,
@@ -3824,7 +4600,7 @@ impl From<&rep::ObserverDashboard> for PyObserverDashboard {
     }
 }
 
-#[pyclass(name = "ConstitutionState", get_all)]
+#[pyclass(skip_from_py_object, name = "ConstitutionState", get_all)]
 #[derive(Clone)]
 struct PyConstitutionState {
     ratified: bool,
@@ -3853,7 +4629,7 @@ impl From<&rep::ConstitutionState> for PyConstitutionState {
     }
 }
 
-#[pyclass(name = "SubstrateDeferenceReport", get_all)]
+#[pyclass(skip_from_py_object, name = "SubstrateDeferenceReport", get_all)]
 #[derive(Clone)]
 struct PySubstrateDeferenceReport {
     ratified: bool,
@@ -3888,7 +4664,7 @@ impl From<&rep::SubstrateDeferenceReport> for PySubstrateDeferenceReport {
     }
 }
 
-#[pyclass(name = "ErosionAlert", get_all)]
+#[pyclass(skip_from_py_object, name = "ErosionAlert", get_all)]
 #[derive(Clone)]
 struct PyErosionAlert {
     /// "None" | "Notice" | "Alert" — escalating with the number of erosion signals.
@@ -3904,10 +4680,30 @@ struct PyErosionAlert {
     overdue_reaffirmations: Vec<(String, String, i64, i64)>,
     /// Communities whose latest rite drew fewer witnesses than their first.
     hollowing_communities: Vec<String>,
-    /// (designation_cid, subject, tier, reexamine_after, seconds_overdue) for each
-    /// designation past its mandated re-examination and still standing,
-    /// longest-overdue first.
-    overdue_reexaminations: Vec<(String, String, String, i64, i64)>,
+    /// `(decisions, first_argument_count, latest_argument_count, first_span_seconds |
+    /// None, latest_span_seconds | None, argument_count_declined, span_shortened)` when
+    /// the compact's deliberation is thinning, else `None`.
+    ///
+    /// Read against the compact's own **first** decision, never its recent average: a
+    /// deliberation that thins a little each time drags a rolling baseline behind it,
+    /// and only an absolute measure sees a drift with nobody driving it.
+    thinning_deliberation: Option<ThinningDeliberation>,
+    /// (designation_cid, subject, tier, reexamine_after, seconds_overdue, confirmations)
+    /// for each designation past its mandated re-examination and still standing,
+    /// longest-overdue first. `reexamine_after` is the deadline standing *unanswered*:
+    /// the designation's own until a re-examination confirms it, then the date that
+    /// confirmation set. `confirmations` counts the renewals, so a designation overdue on
+    /// its third is no longer the same reading as one nobody ever examined.
+    overdue_reexaminations: Vec<OverdueReexaminationRow>,
+    /// (community_did, function, seconds_since, cadence_seconds, last_was_a_null) for
+    /// each standing function with no act and no attested null inside the cadence,
+    /// longest silence first.
+    silent_functions: Vec<SilentFunctionRow>,
+    /// (community_did, function, vacant_since, seconds_vacant) for each function a
+    /// community once staffed and now has nobody seated in, longest vacancy first. A
+    /// function never staffed is absent: declining to open an office is not abandoning
+    /// one.
+    unstaffed_functions: Vec<(String, String, i64, i64)>,
 }
 
 impl From<&rep::ErosionAlert> for PyErosionAlert {
@@ -3931,6 +4727,17 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
                 })
                 .collect(),
             hollowing_communities: a.hollowing_communities.clone(),
+            thinning_deliberation: a.thinning_deliberation.as_ref().map(|t| {
+                (
+                    t.decisions,
+                    t.first_argument_count,
+                    t.latest_argument_count,
+                    t.first_span_seconds,
+                    t.latest_span_seconds,
+                    t.argument_count_declined,
+                    t.span_shortened,
+                )
+            }),
             overdue_reexaminations: a
                 .overdue_reexaminations
                 .iter()
@@ -3941,6 +4748,32 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
                         o.tier.clone(),
                         o.reexamine_after.as_second(),
                         o.seconds_overdue,
+                        o.confirmations,
+                    )
+                })
+                .collect(),
+            silent_functions: a
+                .silent_functions
+                .iter()
+                .map(|f| {
+                    (
+                        f.community_did.clone(),
+                        f.function.clone(),
+                        f.seconds_since,
+                        f.cadence_seconds,
+                        f.last_was_a_null,
+                    )
+                })
+                .collect(),
+            unstaffed_functions: a
+                .unstaffed_functions
+                .iter()
+                .map(|u| {
+                    (
+                        u.community_did.clone(),
+                        u.function.clone(),
+                        u.vacant_since.as_second(),
+                        u.seconds_vacant,
                     )
                 })
                 .collect(),
@@ -3948,7 +4781,7 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
     }
 }
 
-#[pyclass(name = "FeatureConcernProfile", get_all)]
+#[pyclass(skip_from_py_object, name = "FeatureConcernProfile", get_all)]
 #[derive(Clone)]
 struct PyFeatureConcernProfile {
     /// (anti_spiral_feature, adverse_count), feature name as in the Rust enum.
@@ -3971,7 +4804,7 @@ impl From<&rep::FeatureConcernProfile> for PyFeatureConcernProfile {
 
 // ---- v0 jester lenses ------------------------------------------------------
 
-#[pyclass(name = "RejectionPattern", get_all)]
+#[pyclass(skip_from_py_object, name = "RejectionPattern", get_all)]
 #[derive(Clone)]
 struct PyRejectionPattern {
     /// (non_admission_cid, rejecting, presenting, feature, decided_at), oldest first.
@@ -4015,7 +4848,7 @@ impl From<&rep::RejectionPattern> for PyRejectionPattern {
     }
 }
 
-#[pyclass(name = "CeremonyCostDecay", get_all)]
+#[pyclass(skip_from_py_object, name = "CeremonyCostDecay", get_all)]
 #[derive(Clone)]
 struct PyCeremonyCostDecay {
     /// (record_cid, sealed_at, witness_count), oldest first.
@@ -4058,7 +4891,7 @@ impl From<&rep::CeremonyCostDecay> for PyCeremonyCostDecay {
     }
 }
 
-#[pyclass(name = "InterpretivePluralityReport", get_all)]
+#[pyclass(skip_from_py_object, name = "InterpretivePluralityReport", get_all)]
 #[derive(Clone)]
 struct PyInterpretivePluralityReport {
     /// (record_cid, lineage_id, interpreter, recorded_at), oldest first.
@@ -4108,26 +4941,11 @@ impl From<&rep::InterpretivePluralityReport> for PyInterpretivePluralityReport {
     }
 }
 
-#[pyclass(name = "SkepticismReport", get_all)]
+#[pyclass(skip_from_py_object, name = "SkepticismReport", get_all)]
 #[derive(Clone)]
 struct PySkepticismReport {
-    /// (event_cid, originator, reported_at, qualifies, triggers,
-    /// provenance_complete, corroborators, translated_corroborators,
-    /// undisclosed_interests_found, aligned_faction), oldest first.
-    /// `undisclosed_interests_found` is a list of (finder_did, interest).
-    #[allow(clippy::type_complexity)]
-    events: Vec<(
-        String,
-        String,
-        i64,
-        bool,
-        Vec<String>,
-        bool,
-        Vec<String>,
-        Vec<String>,
-        Vec<(String, String)>,
-        Option<String>,
-    )>,
+    /// Oldest first.
+    events: Vec<SkepticismEventRow>,
     qualifying_events: usize,
 }
 
@@ -4160,7 +4978,7 @@ impl From<&rep::SkepticismReport> for PySkepticismReport {
     }
 }
 
-#[pyclass(name = "PrincipalValidationReport", get_all)]
+#[pyclass(skip_from_py_object, name = "PrincipalValidationReport", get_all)]
 #[derive(Clone)]
 struct PyPrincipalValidationReport {
     /// (record_cid, witness_community, attested_at), oldest first.
@@ -4217,7 +5035,7 @@ impl From<&rep::PrincipalValidationReport> for PyPrincipalValidationReport {
     }
 }
 
-#[pyclass(name = "CohortCollusionReport", get_all)]
+#[pyclass(skip_from_py_object, name = "CohortCollusionReport", get_all)]
 #[derive(Clone)]
 struct PyCohortCollusionReport {
     /// (cohort, matter, cohort_majority, cross_cohort_consensus, cohorts_compared,
@@ -4249,7 +5067,7 @@ impl From<&rep::CohortCollusionReport> for PyCohortCollusionReport {
     }
 }
 
-#[pyclass(name = "WitnessChainReport", get_all)]
+#[pyclass(skip_from_py_object, name = "WitnessChainReport", get_all)]
 #[derive(Clone)]
 struct PyWitnessChainReport {
     /// (cid, witness_community, prev|None, attested_at, prev_resolved,
@@ -4291,7 +5109,19 @@ impl From<&rep::WitnessChainReport> for PyWitnessChainReport {
     }
 }
 
-#[pymodule]
+// `gil_used = true` states what this module required before the pyo3 0.28 default
+// flipped. Until 0.28 a module opted *in* to free-threaded support with
+// `gil_used = false`; from 0.28 modules allow it by default and must opt out. The
+// bump would therefore have acquired a free-threaded claim silently, and nothing
+// here can test it: this sandbox's CPython 3.13.7 is a GIL build
+// (`Py_GIL_DISABLED=0`), so a free-threaded interpreter never loads the module.
+//
+// The claim is not obviously safe either. The seam hands out archive handles, and
+// under a free-threaded interpreter two Python threads reach one of those with no
+// GIL serializing them. Declaring the status quo keeps the contract the tests
+// actually exercise; lifting it is a separate change that needs a free-threaded
+// interpreter to verify.
+#[pymodule(gil_used = true)]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("ALG_ED25519", "Ed25519")?;
@@ -4317,6 +5147,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyObserverReportSummary>()?;
     m.add_class::<PyReportResponseSummary>()?;
     m.add_class::<PyWhistleblowerSummary>()?;
+    m.add_class::<PyMediatorPoolConcentration>()?;
     m.add_class::<PyObserverPoolConcentration>()?;
     m.add_class::<PyObserverDashboard>()?;
     m.add_class::<PyConstitutionState>()?;

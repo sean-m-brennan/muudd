@@ -276,6 +276,14 @@ impl Archive for InMemoryArchive {
                 let at = s.payload.recorded_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
+            ArchiveEntry::ActivityAttested(s) => {
+                let at = s.payload.attested_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::ReexaminationConcluded(s) => {
+                let at = s.payload.concluded_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
             ArchiveEntry::MediatorRegistryUpdated(s) => {
                 let at = s.payload.issued_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
@@ -284,8 +292,40 @@ impl Archive for InMemoryArchive {
                 let at = s.payload.filed_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
+            ArchiveEntry::ArgumentFiled(s) => {
+                let at = s.payload.submitted_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::RecusalRequested(s) => {
+                let at = s.payload.requested_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::RecusalDecided(s) => {
+                let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::ProtectingPowerDesignated(s) => {
+                let at = s.payload.designated_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::PanelConsentRecorded(s) => {
+                let at = s.payload.given_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::SkepticismInvoked(s) => {
+                let at = s.payload.invoked_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::SkepticismReviewed(s) => {
+                let at = s.payload.reviewed_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
             ArchiveEntry::MediationDecided(s) => {
                 let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::DecisionUnsealed(s) => {
+                let at = s.payload.unsealed_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
             ArchiveEntry::LadderAdvanced(s) => {

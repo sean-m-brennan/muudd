@@ -1060,14 +1060,93 @@ class OverdueReaffirmation:
 
 
 @dataclass(frozen=True)
+class SilentFunction:
+    community_did: str
+    # "Mediation" or "Observation"
+    function: str
+    # seconds since the last act or attested null. Measured from the seat's start
+    # when there has never been either: a function that has done nothing since
+    # the day it was staffed is the case the audit is most interested in
+    seconds_since: int
+    cadence_seconds: int
+    # True when the last thing on the record was an attested null rather than an
+    # act: the compact said "nothing happened", which is evidence, and then
+    # stopped saying even that
+    last_was_a_null: bool
+
+
+@dataclass(frozen=True)
+class UnstaffedFunction:
+    community_did: str
+    function: str
+    # when the last seat in this function expired
+    vacant_since: int
+    seconds_vacant: int
+
+
+def silent_functions(
+    archive,
+    as_of: Optional[int] = None,
+    cadence_seconds: Optional[int] = None,
+) -> tuple[SilentFunction, ...]:
+    """Standing functions that have gone quiet: no act and no attested null inside the
+    cadence, longest silence first (erosion remediation items 5 and 6).
+
+    An **absolute** measure, which is the whole point. Every relative reading of a
+    mediator pool or an observer corps is unchanged by the pool simply stopping: the
+    shares are the same shares, the concentration is the same concentration, and a corps
+    with nothing to report and a corps that stopped looking file the same number of
+    reports, namely none.
+
+    The attested null is what makes the reading fair. Before ``attest_activity`` existed a
+    quiet pool had no way to say so, and reporting its silence would have been reporting
+    missing data as a finding. Now silence is either evidence (an attestation inside the
+    cadence) or a fact about the compact, and this reports only the second. No verdict and
+    no refusal: a compact that has stopped acting offers no act to refuse."""
+    return tuple(
+        SilentFunction(did, fn, since, cadence, was_null)
+        for did, fn, since, cadence, was_null
+        in archive.silent_functions(as_of, cadence_seconds)
+    )
+
+
+def unstaffed_functions(
+    archive, as_of: Optional[int] = None
+) -> tuple[UnstaffedFunction, ...]:
+    """Standing functions a community once staffed and now has nobody seated in, longest
+    vacancy first.
+
+    The sharper half of the same failure, and the one no remediation item had named.
+    Measuring found that a compact with **zero** active mediators and **zero** active
+    observers for forty-three years, keeping its re-affirmation rites perfectly, read
+    clean on every instrument: ``deliberative_capacity`` reads the member roll and
+    probation, the pool lenses report shares of an empty pool without remarking that it is
+    empty, and no alert dimension looked at staffing at all.
+
+    A function **never** staffed is absent from this reading. A compact that never seated
+    observers has not abandoned the office, it declined to open one, and the absence of an
+    office is not the same as an abandoned one."""
+    return tuple(
+        UnstaffedFunction(did, fn, vacant_since, seconds)
+        for did, fn, vacant_since, seconds in archive.unstaffed_functions(as_of)
+    )
+
+
+@dataclass(frozen=True)
 class OverdueReexamination:
     designation_cid: str
     # the designated community, whose exclusion is being left unexamined
     subject: str
     # "Anathema"; HostisHumaniGeneris is forbidden a re-examination date
     tier: str
+    # the deadline standing UNANSWERED: the designation's own until a
+    # re-examination confirms it, then the date that confirmation set
     reexamine_after: int
     seconds_overdue: int
+    # how many times the designation has been re-examined and confirmed. A
+    # designation overdue on its third renewal and one nobody ever looked at were
+    # the same number before the conclusion record existed: zero
+    confirmations: int
 
 
 def overdue_reexaminations(
@@ -1078,12 +1157,17 @@ def overdue_reexaminations(
     first. "Still standing" means not reversed — no ``DesignationLifted`` conduct
     record naming it and no re-entry answering it.
 
-    Known limit: a re-examination that *confirms* a designation leaves no record,
-    so this cannot distinguish "nobody looked" from "the panel looked and let it
-    stand". It reports the weaker claim, which is the honest one."""
+    The limit this used to carry is closed. A re-examination that *confirmed* a
+    designation left no record, so the reading could not distinguish "nobody looked"
+    from "the panel looked and let it stand" and reported the weaker claim about
+    both: the lens punished the diligent panel. ``conclude_reexamination`` is the
+    signed record the erosion audit asked for (remediation item 5), so
+    ``reexamine_after`` here is the deadline standing *unanswered* and
+    ``confirmations`` counts the renewals behind it."""
     return tuple(
-        OverdueReexamination(cid, subject, tier, due, overdue)
-        for cid, subject, tier, due, overdue in archive.overdue_reexaminations(as_of)
+        OverdueReexamination(cid, subject, tier, due, overdue, confirmations)
+        for cid, subject, tier, due, overdue, confirmations
+        in archive.overdue_reexaminations(as_of)
     )
 
 
@@ -1102,34 +1186,49 @@ class ErosionAlert:
     hollowing_communities: tuple[str, ...]
     # designations past a mandated re-examination and still standing
     overdue_reexaminations: tuple[OverdueReexamination, ...]
+    # standing functions with no act and no attested null inside the cadence
+    silent_functions: tuple[SilentFunction, ...]
+    # standing functions with nobody seated at all
+    unstaffed_functions: tuple[UnstaffedFunction, ...]
 
 
 def erosion_alert(
     archive,
     as_of: Optional[int] = None,
     rite_cadence_seconds: Optional[int] = None,
+    attestation_cadence_seconds: Optional[int] = None,
 ) -> ErosionAlert:
     """§9 erosion-detection alerting: a graded, derived reading that escalates
     (None→Notice→Alert) as the erosion signals compound.
 
-    Five signals across five dimensions. Three fire on an *act* — a list
-    contraction, a fast contraction, deliberative acts during a fast. Two fire on
-    *omission and a pinned baseline*: a re-affirmation overdue against an absolute
-    generational cadence, and a ceremony drawing fewer witnesses than it did at
-    founding. The asymmetry is deliberate; an alert built only from act-triggered
-    signals reads a polity that has stopped functioning as a polity in perfect
-    health (see ``doc/architecture/erosion-legibility.md``).
+    Nine signals. Three fire on an *act*: a list contraction, a fast contraction,
+    deliberative acts during a fast. Six fire on *omission against a reference that is
+    not the current population*, which is the only kind that sees a drift with nobody
+    driving it: a re-affirmation overdue against an absolute generational cadence, a
+    ceremony drawing fewer witnesses than it did at founding, a deliberation thinner than
+    the compact's first, a designation past a mandated re-examination, a standing function
+    that has neither acted nor attested a null inside its cadence, and a standing function
+    with nobody seated in it at all. The asymmetry is deliberate; an alert built only from
+    act-triggered signals reads a polity that has stopped functioning as a polity in
+    perfect health (see ``doc/architecture/erosion-legibility.md``).
 
-    ``rite_cadence_seconds`` overrides the cadence (default 30 years). The
-    calibration is an open question in ``protocol-components.md``, so it is a
-    parameter rather than a constant.
+    ``rite_cadence_seconds`` overrides the generational cadence (default 30 years) and
+    ``attestation_cadence_seconds`` the function cadence (default 1 year). Both
+    calibrations are open questions in ``protocol-components.md``, so they are parameters
+    rather than constants.
+
+    An unstaffed function is *not* also counted as silent. It cannot attest, so a lapsed
+    roster would otherwise fire two dimensions for one lapse and reach ``Alert`` on
+    compounding alone; emptiness is the stronger and more specific claim.
 
     Diagnostic only: surfaced to the observer corps, never a verdict and never a
     refusal (non-ultimacy is a disposition demonstrated, not a rule enforced). An
     overdue re-affirmation is *reported*, never *enforced*. A human observer who
     sees an ``Alert`` may then choose to publish an attributed ``ObserverReport``;
     that step is intentionally not automated."""
-    return _erosion_from(archive.erosion_alert(as_of, rite_cadence_seconds))
+    return _erosion_from(
+        archive.erosion_alert(as_of, rite_cadence_seconds, attestation_cadence_seconds)
+    )
 
 
 def _erosion_from(a) -> ErosionAlert:
@@ -1150,10 +1249,86 @@ def _erosion_from(a) -> ErosionAlert:
         ),
         hollowing_communities=tuple(a.hollowing_communities),
         overdue_reexaminations=tuple(
-            OverdueReexamination(cid, subject, tier, due, overdue)
-            for cid, subject, tier, due, overdue in a.overdue_reexaminations
+            OverdueReexamination(cid, subject, tier, due, overdue, confirmations)
+            for cid, subject, tier, due, overdue, confirmations
+            in a.overdue_reexaminations
+        ),
+        silent_functions=tuple(
+            SilentFunction(did, fn, since, cadence, was_null)
+            for did, fn, since, cadence, was_null in a.silent_functions
+        ),
+        unstaffed_functions=tuple(
+            UnstaffedFunction(did, fn, vacant_since, seconds)
+            for did, fn, vacant_since, seconds in a.unstaffed_functions
         ),
     )
+
+
+@dataclass(frozen=True)
+class ServingMediator:
+    mediator_did: str
+    nominating_community: str
+    # term end (unix seconds); None only for legacy open-ended entries
+    term_end: Optional[int]
+    # who trained this mediator, if the apprenticeship was recorded at all
+    trained_by: Optional[str]
+
+
+@dataclass(frozen=True)
+class MediatorPoolConcentration:
+    # (community_did, active_mediators) descending — the domination front
+    shares: tuple[tuple[str, int], ...]
+    total_active: int
+    # mediators currently seated, soonest term-end first (the rotation view)
+    serving: tuple[ServingMediator, ...]
+    # largest single-community active count
+    top_active: int
+    # True when one community already holds a majority of the pool
+    majority_held: bool
+    # (trainer_did, active_mediators_trained) descending. Mediators with no
+    # recorded trainer are absent rather than grouped under a blank: an
+    # unrecorded apprenticeship and no apprenticeship are not distinguished.
+    lineages: tuple[tuple[str, int], ...]
+    # active mediators whose lineage is recorded — the denominator the lineage
+    # readings are against, so a pool that records nothing reads as unknown
+    # rather than healthy
+    with_lineage: int
+    # largest single-trainer active count
+    top_lineage: int
+    # True when one trainer accounts for a majority of the mediators whose
+    # lineage is recorded. False when nothing is recorded, so silence is never
+    # read as a finding.
+    lineage_majority_held: bool
+
+
+def _mediator_pool_from(p) -> MediatorPoolConcentration:
+    return MediatorPoolConcentration(
+        shares=tuple(tuple(s) for s in p.shares),
+        total_active=p.total_active,
+        serving=tuple(ServingMediator(s[0], s[1], s[2], s[3]) for s in p.serving),
+        top_active=p.top_active,
+        majority_held=p.majority_held,
+        lineages=tuple(tuple(s) for s in p.lineages),
+        with_lineage=p.with_lineage,
+        top_lineage=p.top_lineage,
+        lineage_majority_held=p.lineage_majority_held,
+    )
+
+
+def mediator_pool_concentration(
+    archive, as_of: Optional[int] = None
+) -> MediatorPoolConcentration:
+    """§4 mediator pool-share / rotation / lineage lens: the active pool's
+    composition by nominating community, the mediators currently seated, and who
+    trained them. No verdict — the no-majority pool-share cap and the term and
+    rotation limits are enforced by ``check_authority``, and ``trained_by`` is
+    read by no rule at all. The lineage half is here because §4's apprenticeship
+    model carries its own named weakness: mediators trained under experienced
+    mediators are susceptible to capture by the incumbent generation's biases,
+    and a pool that all traces to one trainer is that weakness realized. Making
+    it legible is the whole of what this does; the same documents warn against a
+    certification barrier becoming a gatekeeping mechanism."""
+    return _mediator_pool_from(archive.mediator_pool_concentration(as_of))
 
 
 @dataclass(frozen=True)

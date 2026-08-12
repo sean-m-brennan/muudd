@@ -63,6 +63,10 @@ DECISION_OUTCOMES = ("Upheld", "Dismissed", "Settled", "Referred")
 # §5 designation tiers and urgencies.
 DESIGNATION_TIERS = ("Anathema", "HostisHumaniGeneris")
 DESIGNATION_URGENCIES = ("Normal", "Expedited")
+# §5 what a designation's mandated re-examination concluded.
+REEXAMINATION_OUTCOMES = ("Confirmed", "Reversed")
+# The standing functions whose exercise is attested on a cadence (§4 and §8).
+ATTESTED_FUNCTIONS = ("Mediation", "Observation")
 # §9 compact-gated capabilities an interim injunction can suspend.
 CAPABILITIES = (
     "RescueCoordination", "Navigation", "Trade", "CommonsWithdrawal", "Communication",
@@ -748,13 +752,29 @@ def register_mediators(
     *,
     valid_from: Optional[int] = None,
     valid_until: Optional[int] = None,
+    trained_by: Optional[Sequence[Optional[str]]] = None,
 ) -> str:
     """Publish `community`'s roster of nominated mediators (§4), signed by the
     community root. Each mediator's `(pub, did)` becomes an active entry over
-    `[valid_from, valid_until)`; `valid_from` defaults to now and `valid_until`
-    open-ended. The commons-wide mediator pool is the union of every community's
-    registry; a later registry from the same community supersedes its earlier
-    one (latest `valid_from` wins).
+    `[valid_from, valid_until)`; `valid_from` defaults to now. The commons-wide
+    mediator pool is the union of every community's registry; a later registry from
+    the same community supersedes its earlier one (latest `valid_from` wins).
+
+    `valid_until` is **required** by the §4 caps. A seat with no end is a permanent
+    mediator class, and the doctrine is direct about it: mediators serve "with term
+    limits that ensure return to the home community... a permanent mediator class is
+    the first step toward an inquisitorial caste". The authority pass also bounds the
+    term's length, requires a sit-out before re-nomination, and refuses a roster that
+    would give one community a majority of the active pool — the same four rules §8's
+    observers and §2's examiners carry, which the mediator pool did not until this.
+
+    `trained_by` optionally records each mediator's apprenticeship, by DID and in the
+    same order as `mediators`. It **gates nothing**: the source documents warn against
+    "a certification barrier that becomes a gatekeeping mechanism", and the whitepaper
+    lists the training pipeline as an open question. It is read only by
+    `mediator_pool_concentration`, which reports when one trainer is behind a majority
+    of the pool — the apprenticeship model's own named weakness, made visible without
+    being made a gate.
 
     Each entry also carries the mediator's **encryption key**, distinct from its
     signing key, which is what §8 custody shares are sealed to. `new_mediator` mints
@@ -772,7 +792,7 @@ def register_mediators(
     return archive.register_mediators(
         community.priv, community.did,
         [(m.pub, m.did, m.enc_pub) for m in mediators],
-        valid_from, valid_until,
+        valid_from, valid_until, list(trained_by) if trained_by is not None else None,
     )
 
 
@@ -799,30 +819,338 @@ def file_dispute(
     )
 
 
+ARGUMENT_ROLES = ("Party", "Panelist")
+
+
+def file_argument(
+    archive,
+    author: Signer,
+    dispute_cid: str,
+    role: str,
+    position: str,
+    *,
+    evidence: Optional[Sequence[str]] = None,
+    submitted_at: Optional[int] = None,
+) -> str:
+    """Submit one argument on `dispute_cid` (§4 "structured argument submission"),
+    signed by `author`. `role` is one of `ARGUMENT_ROLES`.
+
+    This is the record that makes a decision auditable for **how** it was reached and
+    not only what it concluded, which is what the §8 observer corps and the §9 erosion
+    signals both assume of the archive.
+
+    `"Party"` is a party's own case, and only the complainant or respondent may make
+    one; its envoy may sign for it, exactly as for the dispute filing. `"Panelist"` is
+    a seated mediator's position, must be signed by that mediator alone, and the author
+    must be an active registered mediator from neither party community.
+
+    `position` must be non-empty and is never read for content: no rule can weigh an
+    argument, only record that it was put. `evidence` cites the record CIDs it rests on
+    (§4's evidence packaging). Returns the CID — pass it to `decide_mediation`."""
+    if role not in ARGUMENT_ROLES:
+        raise ValueError(f"role must be one of {ARGUMENT_ROLES}, got {role!r}")
+    return archive.file_argument(
+        author.priv, author.did, dispute_cid, role, position,
+        list(evidence or []), submitted_at,
+    )
+
+
+RECUSAL_ANSWERS = ("Granted", "Declined")
+
+CONSENT_ANSWERS = ("Given", "Withheld")
+
+REVIEW_ANSWERS = ("Upheld", "Pretextual")
+
+SKEPTICISM_CRITERIA = (
+    "HighInterpretiveCharge",
+    "SuddenOnset",
+    "OriginatorHoldsStake",
+    "AlignedFaction",
+)
+
+
+def request_recusal(
+    archive,
+    party: Signer,
+    dispute_cid: str,
+    mediator_did: str,
+    grounds: str,
+    *,
+    requested_at: Optional[int] = None,
+) -> str:
+    """Ask that `mediator_did` step down from `dispute_cid` (§4), signed by `party`.
+
+    Panel *composition* was already enforced — registered, non-party, minimum count —
+    but a party had no way to say "this one, on this dispute" and have the request
+    recorded and answered. Nothing blocks on it: an unanswered request is visible
+    rather than paralysing, since a request that halted a mediation by existing would
+    be the delay tactic §4's own review guards against.
+
+    `grounds` must be non-empty and is never read for content. Returns the CID — pass
+    it to `decide_recusal`."""
+    return archive.request_recusal(
+        party.priv, party.did, dispute_cid, mediator_did, grounds, requested_at,
+    )
+
+
+def decide_recusal(
+    archive,
+    request_cid: str,
+    answer: str,
+    deciders: Sequence[Signer],
+    *,
+    reasoning: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Answer a recusal request (§4). `answer` is one of `RECUSAL_ANSWERS`.
+
+    Who may sign depends on the answer, and that asymmetry is the rule. A `"Granted"`
+    answer is signed by exactly the mediator stepping down: stepping down is always
+    available to them and nobody else may condition it. A `"Declined"` answer must come
+    from registered non-party mediators *other than* the one named, and must state its
+    `reasoning` — a panelist who could dismiss requests against themselves is precisely
+    the conflict the request exists to raise, and a refusal to step aside is the answer
+    that owes an account. Returns the CID."""
+    if answer not in RECUSAL_ANSWERS:
+        raise ValueError(f"answer must be one of {RECUSAL_ANSWERS}, got {answer!r}")
+    if not deciders:
+        raise ValueError("a recusal decision needs at least one decider")
+    return archive.decide_recusal(
+        [d.priv for d in deciders], [d.did for d in deciders],
+        request_cid, answer, reasoning, decided_at,
+    )
+
+
+def designate_protecting_power(
+    archive,
+    disputant: Signer,
+    protector: Signer,
+    dispute_cid: str,
+    *,
+    statement: str = "",
+    designated_at: Optional[int] = None,
+) -> str:
+    """Designate `protector` as protecting power for `disputant` on `dispute_cid` (§4),
+    co-signed by both.
+
+    The Geneva analogue: a neutral community that looks after a disputant's interests
+    during a dispute — that the ladder is climbed correctly, that the disputant has
+    access to the mediators, that communications are not interdicted, that the dispute
+    is not a pretext for violating the common virtues. **"It is not an arbitrator; it is
+    a witness with standing"**, so this gates nothing: no decision waits on it and no
+    panel is invalid without one.
+
+    What the pass enforces is neutrality — the protector may be neither party and may
+    not itself seat mediators, or the witness and the judge are one body — and that both
+    sides consented, since standing for another community is a duty and is never
+    conscripted, and a protector the disputant did not accept is a watcher imposed on
+    them. Returns the CID."""
+    return archive.designate_protecting_power(
+        disputant.priv, disputant.did, protector.priv, protector.did,
+        dispute_cid, statement, designated_at,
+    )
+
+
+def record_panel_consent(
+    archive,
+    party: Signer,
+    dispute_cid: str,
+    panel_dids: Sequence[str],
+    answer: str,
+    *,
+    statement: str = "",
+    given_at: Optional[int] = None,
+) -> str:
+    """Record `party`'s consent (or withholding) to the panel as constituted (§4).
+    `answer` is one of `CONSENT_ANSWERS`.
+
+    Objection already had a record — a recusal request names one panelist and is
+    answered — and structural consent already had one, since a protecting power is
+    co-signed by both sides. What had no record was the ordinary case: a party saying
+    that this panel, these mediators, may decide its dispute. It was inferred from the
+    party having filed an argument, which is a different act.
+
+    Self-signed, because nobody consents on another's behalf. The panel is named in
+    full and consent does not carry across a change to it: a party that accepted three
+    mediators has not accepted a fourth.
+
+    **Consent gates exactly one thing.** Requiring it to decide at all would hand either
+    party a veto over its own dispute, and the escalation ladder exists because parties
+    disagree. But a `"Settled"` outcome is a claim that *the parties* reached a
+    settlement, so it needs `"Given"` from both, for exactly the deciding panel. A party
+    that refuses to settle blocks nothing — the panel upholds, dismisses or refers.
+    Returns the CID."""
+    if answer not in CONSENT_ANSWERS:
+        raise ValueError(f"answer must be one of {CONSENT_ANSWERS}, got {answer!r}")
+    if not panel_dids:
+        raise ValueError("panel consent must name the panel it consents to")
+    return archive.record_panel_consent(
+        party.priv, party.did, dispute_cid, list(panel_dids), answer, statement, given_at,
+    )
+
+
+def invoke_skepticism(
+    archive,
+    panel: Sequence[Signer],
+    event_cid: str,
+    criteria: Sequence[str],
+    grounds: str,
+    hold_seconds: int,
+    *,
+    invoked_at: Optional[int] = None,
+) -> str:
+    """The mediator pool invokes the structured-skepticism protocol on `event_cid` (§4),
+    co-signed by every member of `panel`. `criteria` are drawn from
+    `SKEPTICISM_CRITERIA`.
+
+    This is the half of move 4 the pool was always meant to hold. Whether an event
+    qualifies used to be four booleans the *originating community* set on its own
+    report, so a manufacturer that declared its own event mundane was never held and
+    nothing in the compact could hold it. The invocation reaches exactly that event.
+
+    The pass refuses a panel containing the originating community's own mediators —
+    placing the pool's hold on your own event is what the self-declared triggers already
+    are — requires the criteria and grounds to be documented, and bounds `hold_seconds`
+    to the range the protocol calibrates to: a nominal hold is no delay, an unbounded one
+    is suppression. Returns the CID."""
+    if not panel:
+        raise ValueError("an invoking panel needs at least one mediator")
+    for c in criteria:
+        if c not in SKEPTICISM_CRITERIA:
+            raise ValueError(f"criteria must be drawn from {SKEPTICISM_CRITERIA}, got {c!r}")
+    return archive.invoke_skepticism(
+        [m.priv for m in panel], [m.did for m in panel],
+        event_cid, list(criteria), grounds, hold_seconds, invoked_at,
+    )
+
+
+def review_skepticism(
+    archive,
+    panel: Sequence[Signer],
+    event_cid: str,
+    answer: str,
+    reasoning: str,
+    *,
+    reviewed_at: Optional[int] = None,
+) -> str:
+    """The pool's internal review of the hold on `event_cid`, against pretextual use
+    (§4). `answer` is one of `REVIEW_ANSWERS`; `"Pretextual"` releases the event.
+
+    The review is against the **hold**, not against an invocation record, which is what
+    lets it reach a self-declared hold — the case that used to answer to nobody, where a
+    community could put its own urgent matter beyond action and no reviewer was on the
+    record anywhere.
+
+    Mediators who co-signed an invocation on this event may not review it: a panel that
+    reviews its own invocation answers the question the review was raised to ask.
+    Reasoning is required on either answer, because an audit legible only when the hold
+    falls tells a reader nothing about the holds that stood. Returns the CID."""
+    if not panel:
+        raise ValueError("a reviewing panel needs at least one mediator")
+    if answer not in REVIEW_ANSWERS:
+        raise ValueError(f"answer must be one of {REVIEW_ANSWERS}, got {answer!r}")
+    return archive.review_skepticism(
+        [m.priv for m in panel], [m.did for m in panel],
+        event_cid, answer, reasoning, reviewed_at,
+    )
+
+
+def open_decision_share(archive, decision_cid: str, custodian: Signer) -> str:
+    """Open `custodian`'s own share of a sealed decision's proceedings (§4), returning
+    it as JSON to be gathered into an `unseal_decision` call.
+
+    A share is useless alone: it takes the seal's threshold of them to read anything."""
+    return archive.open_decision_share(decision_cid, custodian.priv, custodian.did)
+
+
+def unseal_decision(
+    archive,
+    decision_cid: str,
+    custodians: Sequence[Signer],
+    disclosed_reasoning: str,
+    shares: Sequence[str],
+    *,
+    cause: str = "",
+    unsealed_at: Optional[int] = None,
+) -> str:
+    """Open a sealed decision's proceedings (§4), co-signed by the `custodians` whose
+    `shares` are presented.
+
+    The pass requires the shares to actually recover the sealed text and that text to
+    open the decision's commitment, so an unsealing cannot publish a reasoning the panel
+    never wrote — the same rule §8's source reveal carries, for the same reason.
+
+    Opening before the seal's own `reveal_at` must cite a `cause`; after the generational
+    cycle has run it is bookkeeping. Returns the CID."""
+    if not custodians:
+        raise ValueError("an unsealing needs at least one custodian")
+    return archive.unseal_decision(
+        [c.priv for c in custodians], [c.did for c in custodians],
+        decision_cid, disclosed_reasoning, list(shares), cause, unsealed_at,
+    )
+
+
 def decide_mediation(
     archive,
     dispute_cid: str,
     panel: Sequence[Signer],
     outcome: str,
+    reasoning: str,
+    arguments: Sequence[str],
     *,
-    reasoning: str = "",
     decided_at: Optional[int] = None,
+    seal_reasoning: Optional[str] = None,
+    seal_custodian_dids: Optional[Sequence[str]] = None,
+    seal_threshold: Optional[int] = None,
+    seal_reveal_at: Optional[int] = None,
 ) -> str:
     """Record a mediation panel's decision on `dispute_cid` (§4), co-signed by
-    every member of `panel`. `outcome` is one of `DECISION_OUTCOMES`. The
-    archive's authority pass (`check_authority`, `panel_min` default 3) enforces
-    the §4 structural rules: every panelist must be an active registered
-    mediator, the panel must span at least `panel_min` of them, and none may
-    come from either party's community (non-overlap). Returns the CID."""
+    every member of `panel`. `outcome` is one of `DECISION_OUTCOMES`.
+
+    The archive's authority pass (`check_authority`, `panel_min` default 3) enforces
+    the §4 structural rules: every panelist must be an active registered mediator, the
+    panel must span at least `panel_min` of them, and none may come from either party's
+    community (non-overlap).
+
+    `reasoning` and `arguments` are both **required**, and are what the pass added once
+    §4's own "mandatory reasoning trail" was measured and found to be enforced on
+    nothing. `reasoning` must be non-empty. `arguments` must cite one `"Panelist"`
+    argument per co-signer — three signatures on one author's text is a rubber stamp,
+    not a panel — and must answer every `"Party"` argument already in the log, so a
+    panel cannot decide while ignoring a case put to it.
+
+    A `"Settled"` outcome additionally needs both parties' recorded consent to this exact
+    panel (see `record_panel_consent`): a settlement the parties did not consent to is
+    not a settlement.
+
+    **To seal the proceedings** instead of publishing them (§4's "sealed decisions with
+    threshold-reveal"), leave `reasoning` empty and pass the text as `seal_reasoning`
+    with `seal_custodian_dids`. What is sealed is the reasoning: dispute, panel and
+    outcome stay public, so every rule above keeps running over a sealed decision.
+
+    Custodians are **member communities**, not mediators. §4 caps a mediator's seat at
+    two years, because a permanent mediator class is the first step toward an
+    inquisitorial caste, while the seal opens at twenty-five: a share held by a key the
+    archive stops resolving could never be opened, and the signature on the opening could
+    not be verified. Communities resolve at any instant. The pass refuses a party as
+    custodian, and refuses a custodian set of which the deciding panel's own communities
+    hold a quorum — a panel that can unseal itself has deferred publication at its own
+    discretion rather than sealed anything. `seal_reveal_at` defaults to one generational
+    cycle from the decision. Returns the CID."""
     if not panel:
         raise ValueError("a panel needs at least one mediator")
     if outcome not in DECISION_OUTCOMES:
         raise ValueError(f"outcome must be one of {DECISION_OUTCOMES}, got {outcome!r}")
+    if seal_reasoning is not None and not seal_custodian_dids:
+        raise ValueError("sealing a decision needs `seal_custodian_dids` to hold the shares")
     return archive.decide_mediation(
         dispute_cid,
         [m.priv for m in panel],
         [m.did for m in panel],
-        outcome, reasoning, decided_at,
+        outcome, reasoning, list(arguments), decided_at,
+        seal_reasoning,
+        list(seal_custodian_dids) if seal_custodian_dids else None,
+        seal_threshold, seal_reveal_at,
     )
 
 
@@ -978,6 +1306,81 @@ def complete_reentry(
         designation_cid, petitioner.priv, petitioner.did, tuple(movements),
         [(w.priv, w.did, bool(affirmed)) for (w, affirmed) in witnesses],
         conduct_accounting, public_acknowledgement, probation_until, completed_at,
+    )
+
+
+def conclude_reexamination(
+    archive,
+    designation_cid: str,
+    examiners: Sequence[Signer],
+    outcome: str,
+    reasoning: str,
+    *,
+    next_reexamine_after: Optional[int] = None,
+    concluded_at: Optional[int] = None,
+) -> str:
+    """Record what a designation's mandated re-examination concluded (§5), co-signed by
+    `examiners`. `outcome` is one of `REEXAMINATION_OUTCOMES`.
+
+    The attested null of the severest act the compact can take. Before this record a
+    re-examination that *confirmed* a designation left no trace, so a panel that looked
+    at the mandated date and let the designation stand read exactly like a compact that
+    had forgotten, forever: the erosion lens punished the diligent panel. Now a
+    confirmation answers its deadline and sets the next one.
+
+    Two rules keep it from evading what it records. It may not be dated before the
+    deadline it answers, or a compact would confirm at designation time and buy
+    permanent silence. And a `Confirmed` outcome must set `next_reexamine_after`, later
+    than `concluded_at`, because a confirmation renews the obligation rather than
+    discharging it. A `Reversed` outcome requires the reversal itself to be recorded by
+    the path that already exists (a lifting record or a re-entry), so the archive keeps
+    one definition of a reversed designation. Returns the CID."""
+    if not examiners:
+        raise ValueError("a re-examination needs at least one examining community")
+    if outcome not in REEXAMINATION_OUTCOMES:
+        raise ValueError(
+            f"outcome must be one of {REEXAMINATION_OUTCOMES}, got {outcome!r}"
+        )
+    return archive.append_reexamination(
+        [s.priv for s in examiners], [s.did for s in examiners],
+        [s.did for s in examiners], designation_cid, outcome, reasoning,
+        next_reexamine_after, concluded_at if concluded_at is not None else now_seconds(),
+    )
+
+
+def attest_activity(
+    archive,
+    community: Signer,
+    function: str,
+    window_start: int,
+    window_end: int,
+    *,
+    acts: Optional[Sequence[str]] = None,
+    statement: str = "",
+    attested_at: Optional[int] = None,
+) -> str:
+    """Account for one window in a standing function `community` holds (§4 and §8).
+    `function` is one of `ATTESTED_FUNCTIONS`.
+
+    **An empty `acts` is the point of the record**: it is the attested null the erosion
+    audit asks for (remediation item 5). Without it a mediator pool that took no
+    disputes because none arose and one that stopped answering are the same silence to
+    every measure, and so are an observer corps with nothing to report and one that
+    stopped looking. A null must state its account, because "no disputes were filed" and
+    "we stopped convening" are both nulls and are not the same thing.
+
+    Signed by the nominating community rather than by individual mediators or observers:
+    the obligation is the community's for as long as it holds seats. Nothing is refused
+    for a missing attestation; `silent_functions` and the erosion alert read it, since a
+    compact that has stopped acting offers no act to refuse. Returns the CID."""
+    if function not in ATTESTED_FUNCTIONS:
+        raise ValueError(
+            f"function must be one of {ATTESTED_FUNCTIONS}, got {function!r}"
+        )
+    return archive.append_activity_attestation(
+        [community.priv], [community.did], community.did, function,
+        window_start, window_end, list(acts or []), statement,
+        attested_at if attested_at is not None else now_seconds(),
     )
 
 
@@ -1486,6 +1889,9 @@ __all__ = [
     "register_examiners", "probationary_at",
     "new_member", "publish_member_roll", "insider_set_size",
     "register_mediators", "file_dispute", "decide_mediation",
+    "record_panel_consent", "invoke_skepticism", "review_skepticism",
+    "open_decision_share", "unseal_decision",
+    "CONSENT_ANSWERS", "REVIEW_ANSWERS", "SKEPTICISM_CRITERIA",
     "file_ladder_transition", "decide_designation", "impose_restitution",
     "verify_restitution", "complete_reentry", "invoke_substantive_reengagement",
     "issue_injunction", "confirm_injunction", "challenge_injunction",

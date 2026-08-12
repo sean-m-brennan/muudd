@@ -510,6 +510,14 @@ impl Polity {
 
     /// An envoy record with an explicit signer set and public key, for the
     /// rejection cases. `envoy_pubkey` derives from the DID unless overridden.
+    // Seven axes because the rejection cases need seven independent things to make
+    // wrong: an unauthorized kind, a pubkey that does not derive from the DID, an
+    // authorizer set below quorum, an expiry already past, a decision instant, and a
+    // signer set that does not match the authorizers. The ergonomic wrappers above
+    // exist so ordinary tests never call this; the ones that do are here precisely to
+    // vary one axis at a time, and a params struct would put a builder between the
+    // test and the malformed record it is trying to state.
+    #[allow(clippy::too_many_arguments)]
     fn envoy_raw(
         &self,
         kind: EnvoyKind,
@@ -592,9 +600,21 @@ impl Polity {
         attending: &[usize],
         start: i64,
     ) -> Vec<Cid> {
+        self.rite_of(a, member, attending, start, AffirmationKind::Induction)
+    }
+
+    /// As [`Self::rite`], naming the ceremony (**D34**).
+    fn rite_of(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        attending: &[usize],
+        start: i64,
+        kind: AffirmationKind,
+    ) -> Vec<Cid> {
         let mut cids = Vec::new();
         for (i, movement) in self.movements(a, start).into_iter().enumerate() {
-            cids.push(self.movement(a, member, attending, movement, start + i as i64));
+            cids.push(self.movement_of(a, member, attending, movement, start + i as i64, kind));
         }
         cids
     }
@@ -617,7 +637,7 @@ impl Polity {
         ]
     }
 
-    /// Append one movement of `member`'s rite and return its CID.
+    /// Append one movement of `member`'s **induction** rite and return its CID.
     fn movement(
         &self,
         a: &mut Archive<CharterEntry>,
@@ -626,9 +646,24 @@ impl Polity {
         movement: Movement,
         at: i64,
     ) -> Cid {
+        self.movement_of(a, member, attending, movement, at, AffirmationKind::Induction)
+    }
+
+    /// As [`movement`](Self::movement), naming the ceremony (**D34**) — the renewal path
+    /// takes `ReAffirmation`.
+    fn movement_of(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        attending: &[usize],
+        movement: Movement,
+        at: i64,
+        kind: AffirmationKind,
+    ) -> Cid {
         let rm = RiteMovement {
             polity: self.polity.clone(),
             member: member.1.clone(),
+            kind,
             movement,
             statement: "as we have received it".into(),
             attending: self.dids(attending),
@@ -680,10 +715,55 @@ impl Polity {
         a.append(entry).unwrap()
     }
 
-    /// `member` renews their affirmation (self-signed, no witnesses).
-    fn reaffirm(&self, member: &(PrivKey, DidKey), at: i64) -> CharterEntry {
+    /// A renewal with **no re-recitation at all** — the pre-D34 shape, which is now
+    /// refused. Kept for the tests whose subject is a refusal that fires before the
+    /// citation rule is reached, and for D34's own regression test.
+    fn reaffirm_bare(&self, member: &(PrivKey, DidKey), at: i64) -> CharterEntry {
         let signers = [(member.1.as_str(), &member.0)];
         self.affirm(&member.1, AffirmationKind::ReAffirmation, &[], vec![], at, &signers)
+    }
+
+    /// `member` renews their affirmation on a full re-recitation (**D34**), unattended.
+    ///
+    /// The five movements are dated `at - 5 ..= at - 1`, so the renewal itself still
+    /// lands exactly on `at` and a caller's cadence assertions are unaffected.
+    fn renew(&self, a: &mut Archive<CharterEntry>, member: &(PrivKey, DidKey), at: i64) -> Cid {
+        self.renew_attended(a, member, &[], at)
+    }
+
+    /// As [`Self::renew`], with attendance — which is recorded and never required.
+    fn renew_attended(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        attending: &[usize],
+        at: i64,
+    ) -> Cid {
+        let movements =
+            self.rite_of(a, member, attending, at - 5, AffirmationKind::ReAffirmation);
+        self.renew_citing(a, member, attending, movements, at)
+    }
+
+    /// As [`Self::renew_attended`], with the citation supplied — for the cases where what
+    /// the renewal claims about its re-recitation is the thing under test.
+    fn renew_citing(
+        &self,
+        a: &mut Archive<CharterEntry>,
+        member: &(PrivKey, DidKey),
+        witnesses: &[usize],
+        movements: Vec<Cid>,
+        at: i64,
+    ) -> Cid {
+        let signers = [(member.1.as_str(), &member.0)];
+        let entry = self.affirm(
+            &member.1,
+            AffirmationKind::ReAffirmation,
+            witnesses,
+            movements,
+            at,
+            &signers,
+        );
+        a.append(entry).unwrap()
     }
 }
 
@@ -1381,10 +1461,12 @@ fn an_admitted_member_is_uninducted_until_the_roll_receives_them() {
     assert!(after.is_inducted(&joiner.1));
     assert_eq!(after.last_affirmed(&joiner.1), Some(t(300)));
 
-    // A re-affirmation refreshes the timestamp without changing induction.
-    a.append(p.reaffirm(&joiner, 900)).unwrap();
+    // A re-affirmation refreshes the timestamp without changing induction. Since D34 it
+    // carries a full re-recitation of its own, so this is a second rite for the same
+    // member — an induction they already had, then a renewal.
+    p.renew(&mut a, &joiner, 900);
     verify_all(&a).unwrap();
-    check_authority(&a).expect("self-signed renewal authorized");
+    check_authority(&a).expect("self-signed renewal on a re-recitation authorized");
     let renewed = affirmation_state(&a, &p.polity, t(1000));
     assert!(renewed.is_inducted(&joiner.1));
     assert_eq!(renewed.last_affirmed(&joiner.1), Some(t(900)));
@@ -1398,8 +1480,8 @@ fn stale_members_lists_the_uninducted_and_the_lapsed() {
     a.append(p.charter(&[0, 1], vec![])).unwrap(); // founded_at = 100
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
     // Two of the three founders renew; member 2 never does.
-    a.append(p.reaffirm(&p.ids[0], 900)).unwrap();
-    a.append(p.reaffirm(&p.ids[1], 900)).unwrap();
+    p.renew(&mut a, &p.ids[0], 900);
+    p.renew(&mut a, &p.ids[1], 900);
     verify_all(&a).unwrap();
     check_authority(&a).unwrap();
 
@@ -1521,47 +1603,83 @@ fn reaffirmation_rejections() {
     let mut early = Archive::new();
     early.append(p.charter(&[0, 1], vec![])).unwrap();
     early.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
-    early.append(p.reaffirm(&joiner, 300)).unwrap();
+    early.append(p.reaffirm_bare(&joiner, 300)).unwrap();
     verify_all(&early).expect("signature valid");
     assert!(reasons(&early).iter().any(|m| m.contains("never inducted")));
 
-    // Renewal is unwitnessed.
-    let mut witnessed = Archive::new();
-    witnessed.append(p.charter(&[0, 1], vec![])).unwrap();
-    witnessed
-        .append(p.affirm(
-            &p.ids[0].1,
-            AffirmationKind::ReAffirmation,
-            &[1],
-            vec![],
-            300,
-            &p.signers(&[0]),
-        ))
-        .unwrap();
-    assert!(reasons(&witnessed).iter().any(|m| m.contains("records no witnesses")));
+    // **This assertion used to say a renewal records NO witnesses**, which was true only
+    // because a renewal recorded nothing at all. Since D34 it carries a re-recitation and
+    // may well have been attended — what it may not do is *choose* who attended. The
+    // witnesses must be exactly the rite's attendance-throughout, so a claimed witness
+    // who was not at every movement is refused.
+    let mut overclaimed = Archive::new();
+    overclaimed.append(p.charter_seasoned(vec![])).unwrap();
+    let movements =
+        p.rite_of(&mut overclaimed, &p.ids[0], &[1], 295, AffirmationKind::ReAffirmation);
+    // Member 2 did not attend a single movement, and is named anyway.
+    p.renew_citing(&mut overclaimed, &p.ids[0], &[1, 2], movements, 300);
+    verify_all(&overclaimed).expect("signature valid");
+    assert!(reasons(&overclaimed).iter().any(|m| m.contains("exactly who attended")));
 
-    // And nobody can renew on another member's behalf.
+    // And a renewal with no re-recitation at all is refused — the D34 regression.
+    let mut bare = Archive::new();
+    bare.append(p.charter_seasoned(vec![])).unwrap();
+    bare.append(p.reaffirm_bare(&p.ids[0], 300)).unwrap();
+    verify_all(&bare).expect("signature valid");
+    assert!(reasons(&bare)
+        .iter()
+        .any(|m| m.contains("0 of 5 have been recorded")));
+
+    // And nobody can renew on another member's behalf — which needs a *valid*
+    // re-recitation to reach, since otherwise the citation rule refuses it first.
     let mut proxy = Archive::new();
-    proxy.append(p.charter(&[0, 1], vec![])).unwrap();
+    proxy.append(p.charter_seasoned(vec![])).unwrap();
+    let recited = p.rite_of(&mut proxy, &p.ids[0], &[], 295, AffirmationKind::ReAffirmation);
     proxy
         .append(p.affirm(
             &p.ids[0].1,
             AffirmationKind::ReAffirmation,
             &[],
-            vec![],
+            recited,
             300,
             &p.signers(&[1]),
         ))
         .unwrap();
     verify_all(&proxy).expect("the other member's signature is valid");
     assert!(reasons(&proxy).iter().any(|m| m.contains("exactly the affirming member")));
+
+    // A re-recitation completes ONE renewal: replaying it to reset freshness twice off a
+    // single ceremony is refused.
+    let mut replayed = Archive::new();
+    replayed.append(p.charter_seasoned(vec![])).unwrap();
+    let once = p.rite_of(&mut replayed, &p.ids[0], &[], 295, AffirmationKind::ReAffirmation);
+    p.renew_citing(&mut replayed, &p.ids[0], &[], once.clone(), 300);
+    p.renew_citing(&mut replayed, &p.ids[0], &[], once, 900);
+    verify_all(&replayed).expect("both signatures valid");
+    assert!(reasons(&replayed).iter().any(|m| m.contains("already been renewed on")));
+
+    // A renewal may not pass an induction's rite off as its re-recitation. Reachable
+    // only by naming that rite's own CIDs, since a renewal citing nothing is told it
+    // cites nothing first — so the case is constructed exactly that way.
+    let mut borrowed = Archive::new();
+    borrowed.append(p.charter_seasoned(vec![])).unwrap();
+    borrowed.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
+    let induction_rite = p.rite(&mut borrowed, &joiner, &[0, 1, 2], 295);
+    p.induct_citing(&mut borrowed, &joiner, &[0, 1, 2], induction_rite.clone(), 300);
+    p.renew_citing(&mut borrowed, &joiner, &[0, 1, 2], induction_rite, 400);
+    verify_all(&borrowed).expect("signatures valid");
+    assert!(
+        reasons(&borrowed).iter().any(|m| m.contains("cites an induction's rite")),
+        "got: {:?}",
+        reasons(&borrowed)
+    );
 }
 
 #[test]
 fn affirmation_before_charter_is_rejected() {
     let p = Polity::new(3);
     let mut a = Archive::new();
-    a.append(p.reaffirm(&p.ids[0], 200)).unwrap();
+    a.append(p.reaffirm_bare(&p.ids[0], 200)).unwrap();
     assert!(reasons(&a).iter().any(|m| m.contains("precedes its charter")));
 }
 
@@ -1571,7 +1689,7 @@ fn affirmation_after_dissolution_is_rejected() {
     let mut a = Archive::new();
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.dissolve(&[], &[0, 1], 200)).unwrap();
-    a.append(p.reaffirm(&p.ids[0], 300)).unwrap();
+    a.append(p.reaffirm_bare(&p.ids[0], 300)).unwrap();
     verify_all(&a).unwrap();
     assert!(reasons(&a).iter().any(|m| m.contains("after its dissolution")));
 }
@@ -2432,7 +2550,7 @@ fn decay_trends_track_the_affirmation_series_and_its_gaps() {
     a.append(p.admit(&joiners[1], &[0, 1, 2], 400)).unwrap();
     // Roll of 5: 3 witnesses again, but one fewer turns out than could.
     p.induct(&mut a, &joiners[1], &[0, 1, 2], 900);
-    a.append(p.reaffirm(&joiners[0], 1500)).unwrap();
+    p.renew(&mut a, &joiners[0], 1500);
     check_authority(&a).expect("the series is authorized");
 
     let t_ = decay_trends(&a, &p.polity, t(2000));
@@ -2455,7 +2573,7 @@ fn a_widening_gap_needs_two_gaps_to_compare_against() {
     p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     assert_eq!(decay_trends(&a, &p.polity, t(400)).latest_gap_widening(), None);
 
-    a.append(p.reaffirm(&joiner, 400)).unwrap();
+    p.renew(&mut a, &joiner, 400);
     assert_eq!(
         decay_trends(&a, &p.polity, t(500)).latest_gap_widening(),
         None,
@@ -2463,7 +2581,7 @@ fn a_widening_gap_needs_two_gaps_to_compare_against() {
     );
 
     // Gaps of 100 then 1000: the latest exceeds the median of the prior gaps.
-    a.append(p.reaffirm(&joiner, 1400)).unwrap();
+    p.renew(&mut a, &joiner, 1400);
     assert_eq!(decay_trends(&a, &p.polity, t(1500)).latest_gap_widening(), Some(true));
 }
 
@@ -2476,7 +2594,7 @@ fn a_steady_cadence_is_not_widening() {
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
     p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     for at in [400i64, 500, 600] {
-        a.append(p.reaffirm(&joiner, at)).unwrap();
+        p.renew(&mut a, &joiner, at);
     }
     check_authority(&a).unwrap();
     let t_ = decay_trends(&a, &p.polity, t(700));
@@ -2498,7 +2616,7 @@ fn the_median_rule_absorbs_a_single_long_interval() {
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
     p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     for at in [400i64, 5400, 5500] {
-        a.append(p.reaffirm(&joiner, at)).unwrap();
+        p.renew(&mut a, &joiner, at);
     }
     let t_ = decay_trends(&a, &p.polity, t(6000));
     assert_eq!(t_.gaps_seconds, vec![100, 5000, 100]);
@@ -2520,7 +2638,7 @@ fn the_rolling_gap_reading_goes_quiet_once_the_drift_becomes_the_baseline() {
     p.induct(&mut a, &joiner, &[0, 1, 2], 300);
     // Induction at 300 is itself an affirmation point, so the first gap is 300->400.
     for at in [400i64, 800, 1200, 1600] {
-        a.append(p.reaffirm(&joiner, at)).unwrap();
+        p.renew(&mut a, &joiner, at);
     }
     let t_ = decay_trends(&a, &p.polity, t(1700));
     assert_eq!(t_.gaps_seconds, vec![100, 400, 400, 400]);
@@ -2546,7 +2664,7 @@ fn the_pinned_gap_reading_needs_two_gaps_and_agrees_on_a_steady_cadence() {
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
     p.induct(&mut a, &joiner, &[0, 1, 2], 300);
-    a.append(p.reaffirm(&joiner, 400)).unwrap();
+    p.renew(&mut a, &joiner, 400);
     assert_eq!(
         decay_trends(&a, &p.polity, t(500)).gap_widening_since_founding(),
         None,
@@ -2554,7 +2672,7 @@ fn the_pinned_gap_reading_needs_two_gaps_and_agrees_on_a_steady_cadence() {
     );
 
     for at in [500i64, 600] {
-        a.append(p.reaffirm(&joiner, at)).unwrap();
+        p.renew(&mut a, &joiner, at);
     }
     let t_ = decay_trends(&a, &p.polity, t(700));
     assert_eq!(t_.gaps_seconds, vec![100, 100, 100]);
@@ -2630,7 +2748,7 @@ fn trends_are_read_as_of_a_moment() {
     a.append(p.charter(&[0, 1], vec![])).unwrap();
     a.append(p.admit(&joiner, &[0, 1], 200)).unwrap();
     p.induct(&mut a, &joiner, &[0, 1, 2], 300);
-    a.append(p.reaffirm(&joiner, 900)).unwrap();
+    p.renew(&mut a, &joiner, 900);
 
     let early = decay_trends(&a, &p.polity, t(400));
     assert_eq!(early.affirmations.len(), 1);
@@ -5701,6 +5819,7 @@ mod rite {
         let rm = RiteMovement {
             polity: p.polity.clone(),
             member: joiner.1.clone(),
+            kind: AffirmationKind::Induction,
             movement: Movement::Substrate { names: substrate().name },
             statement: "   ".into(),
             attending: p.dids(&[0, 1]),
@@ -5879,5 +5998,232 @@ mod rite {
         ok(&a);
         let offices = office_state(&a, &p.polity, t(400));
         assert!(offices.holders(&Office::Convener).contains(&&joiner.1));
+    }
+}
+
+/// **D34** — the renewal carries the re-recitation the doctrine asks of it.
+///
+/// The measurement this slice began from: a polity clicking a bare `ReAffirmation`
+/// passed the authority check and held its transmission measure green forever, while a
+/// polity that actually performed the five movements produced five violations and an
+/// abandoned rite. So the pass rewarded the empty form and punished obedience. These
+/// tests are that table, inverted, and are the regression for it.
+mod renewal {
+    use super::*;
+
+    /// A polity of 3, all ratifying, seasoned enough that renewals are in scope.
+    fn founded() -> (Polity, Archive<CharterEntry>) {
+        let p = Polity::new(3);
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        (p, a)
+    }
+
+    fn ok(a: &Archive<CharterEntry>) {
+        verify_all(a).expect("signatures valid");
+        check_authority(a).expect("expected authorized");
+    }
+    fn refused(a: &Archive<CharterEntry>, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let rs = reasons(a);
+        assert!(rs.iter().any(|m| m.contains(needle)), "expected {needle:?}, got: {rs:?}");
+    }
+
+    /// Row 1 of the measured table, inverted: the empty form is now refused.
+    #[test]
+    fn a_bare_renewal_is_refused() {
+        let (p, mut a) = founded();
+        a.append(p.reaffirm_bare(&p.ids[0], 900)).unwrap();
+        refused(&a, "0 of 5 have been recorded");
+    }
+
+    /// Row 2, inverted: the faithful re-recitation is authorized, completes its rite
+    /// rather than abandoning it, and refreshes the member's freshness — none of which
+    /// it could do before D34.
+    #[test]
+    fn the_full_re_recitation_is_authorized_and_refreshes_freshness() {
+        let (p, mut a) = founded();
+        p.renew(&mut a, &p.ids[0], 900);
+        ok(&a);
+
+        let st = affirmation_state(&a, &p.polity, t(1000));
+        assert_eq!(st.last_affirmed(&p.ids[0].1), Some(t(900)));
+        assert!(!st.stale_members(500, t(1000)).contains(&p.ids[0].1), "renewed 100s ago");
+        assert!(st.stale_members(500, t(1000)).contains(&p.ids[1].1), "never renewed");
+
+        // The rite is completed, not abandoned. Before D34 the completion could never
+        // come, so a faithful ceremony sat in the log as an abandoned attempt.
+        let rites = rite_state(&a, &p.polity, t(1000));
+        assert_eq!(rites.len(), 1);
+        assert_eq!(rites[0].kind, AffirmationKind::ReAffirmation);
+        assert_eq!(rites[0].completed_at, Some(t(900)), "not an abandoned attempt");
+    }
+
+    /// A movement declares which ceremony it belongs to, and the claim is checked
+    /// against the member's actual state rather than inferred from it.
+    #[test]
+    fn a_movement_s_declared_ceremony_must_match_the_member_s_state() {
+        // An inducted member reciting an *induction* movement has nothing to acquire.
+        let (p, mut a) = founded();
+        p.rite(&mut a, &p.ids[0], &[1, 2], 850);
+        refused(&a, "induction rite movement for an already-inducted member");
+
+        // And an admitted-but-uninducted member has nothing yet to renew.
+        let p2 = Polity::new(3);
+        let joiner = id();
+        let mut b = Archive::new();
+        b.append(p2.charter_seasoned(vec![])).unwrap();
+        b.append(p2.admit(&joiner, &[0, 1], 200)).unwrap();
+        p2.rite_of(&mut b, &joiner, &[0, 1], 250, AffirmationKind::ReAffirmation);
+        refused(&b, "nothing yet to renew");
+    }
+
+    /// Nobody attends their own ceremony. Load-bearing only for renewals: at an
+    /// induction the inductee cannot attend because attendees must already hold the
+    /// substrate, but a renewing member does hold it, so without this rule they would
+    /// pad their own attendance. D28's arithmetic — count the people present.
+    #[test]
+    fn the_reciter_may_not_attend_their_own_movement() {
+        let (p, mut a) = founded();
+        p.rite_of(&mut a, &p.ids[0], &[0, 1], 895, AffirmationKind::ReAffirmation);
+        refused(&a, "may not attend their own rite movement");
+    }
+
+    /// Attendance is **recorded, not gated**: a renewal with nobody present is a valid
+    /// renewal, because it is precisely the act no one else may condition (D14).
+    #[test]
+    fn a_renewal_needs_no_attendance_at_all() {
+        let (p, mut a) = founded();
+        p.renew(&mut a, &p.ids[0], 900);
+        ok(&a);
+        let rites = rite_state(&a, &p.polity, t(1000));
+        assert!(rites[0].attended_throughout().is_empty());
+    }
+
+    /// And where there is attendance, it is derived rather than chosen — so a member
+    /// can neither over- nor under-report who was there.
+    #[test]
+    fn recorded_attendance_is_exactly_who_was_present_throughout() {
+        // Over-reported: member 2 attended nothing and is named anyway.
+        let (p, mut a) = founded();
+        let movements =
+            p.rite_of(&mut a, &p.ids[0], &[1], 895, AffirmationKind::ReAffirmation);
+        p.renew_citing(&mut a, &p.ids[0], &[1, 2], movements, 900);
+        refused(&a, "exactly who attended");
+
+        // Under-reported: member 1 attended every movement and is left out.
+        let (q, mut b) = founded();
+        let movements =
+            q.rite_of(&mut b, &q.ids[0], &[1], 895, AffirmationKind::ReAffirmation);
+        q.renew_citing(&mut b, &q.ids[0], &[], movements, 900);
+        refused(&b, "exactly who attended");
+
+        // Reported exactly: authorized, and the witness is on the record.
+        let (r, mut c) = founded();
+        r.renew_attended(&mut c, &r.ids[0], &[1, 2], 900);
+        ok(&c);
+        let rites = rite_state(&c, &r.polity, t(1000));
+        assert_eq!(rites[0].attended_throughout().len(), 2);
+    }
+
+    /// The coherence checks now bind renewals too, which is the real gain and not
+    /// incidental: a polity that amends its commitments and never re-recites becomes
+    /// visible, because its next renewal must commit to the amended set.
+    #[test]
+    fn a_renewal_must_commit_to_the_commitments_as_amended() {
+        let (p, mut a) = founded();
+        a.append(p.amend(AmendmentKind::Add, "hospitality", &p.all_ratify(), 800))
+            .unwrap();
+        ok(&a);
+
+        // Reciting yesterday's set — the set before the amendment — is refused.
+        let mut yesterday = a.clone();
+        p.movement_of(
+            &mut yesterday,
+            &p.ids[0],
+            &[],
+            Movement::Substrate { names: substrate().name },
+            895,
+            AffirmationKind::ReAffirmation,
+        );
+        p.movement_of(
+            &mut yesterday,
+            &p.ids[0],
+            &[],
+            Movement::Fallenness,
+            896,
+            AffirmationKind::ReAffirmation,
+        );
+        p.movement_of(
+            &mut yesterday,
+            &p.ids[0],
+            &[],
+            Movement::Recognition,
+            897,
+            AffirmationKind::ReAffirmation,
+        );
+        p.movement_of(
+            &mut yesterday,
+            &p.ids[0],
+            &[],
+            Movement::CommonVirtue { commits_to: vec![] },
+            898,
+            AffirmationKind::ReAffirmation,
+        );
+        refused(&yesterday, "commitments in force");
+
+        // Reciting the amended set goes through.
+        let mut today = a.clone();
+        p.renew(&mut today, &p.ids[0], 900);
+        ok(&today);
+    }
+
+    /// A ceremony completes one affirmation. Nothing else stops a member replaying a
+    /// single re-recitation to reset their freshness every cycle — the induction path
+    /// is protected by the no-double-induction rule, and a renewal repeats by nature.
+    #[test]
+    fn one_re_recitation_completes_one_renewal() {
+        let (p, mut a) = founded();
+        let once = p.rite_of(&mut a, &p.ids[0], &[], 895, AffirmationKind::ReAffirmation);
+        p.renew_citing(&mut a, &p.ids[0], &[], once.clone(), 900);
+        p.renew_citing(&mut a, &p.ids[0], &[], once, 1_800);
+        refused(&a, "already been renewed on");
+    }
+
+    /// A renewal may not pass an induction's rite off as its re-recitation.
+    ///
+    /// The reachable case is a renewal built on movements that were themselves refused:
+    /// an inducted member's `Induction` movements are refused one by one, but a refusal
+    /// does not remove them from the log, so the five are there to be cited. Where the
+    /// induction rite was *validly* completed, the replay guard catches the borrow
+    /// first — this rule is what covers the case the replay guard cannot see.
+    #[test]
+    fn a_renewal_may_not_cite_an_induction_s_rite() {
+        let (p, mut a) = founded();
+        // Five Induction movements by a member who already holds the substrate: each is
+        // refused on its own, and each is nonetheless in the log.
+        let borrowed = p.rite(&mut a, &p.ids[0], &[1, 2], 850);
+        refused(&a, "induction rite movement for an already-inducted member");
+        p.renew_citing(&mut a, &p.ids[0], &[1, 2], borrowed, 900);
+        refused(&a, "cites an induction's rite");
+    }
+
+    /// Renewal stays the member's own act: those who attended have already signed the
+    /// movements, and nothing here lets them condition the renewal itself.
+    #[test]
+    fn a_renewal_is_signed_by_the_member_alone() {
+        let (p, mut a) = founded();
+        let movements =
+            p.rite_of(&mut a, &p.ids[0], &[], 895, AffirmationKind::ReAffirmation);
+        a.append(p.affirm(
+            &p.ids[0].1,
+            AffirmationKind::ReAffirmation,
+            &[],
+            movements,
+            900,
+            &p.signers(&[1]),
+        ))
+        .unwrap();
+        refused(&a, "exactly the affirming member");
     }
 }

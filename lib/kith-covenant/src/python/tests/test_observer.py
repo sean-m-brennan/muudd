@@ -27,6 +27,9 @@ from kith_covenant import (
     new_member, publish_member_roll, insider_set_size, Signer,
 )
 
+# §4 caps a mediator's term: a seat with no end is a permanent mediator class.
+MEDIATOR_TERM = 365 * 24 * 3600
+
 _DAY = 86400
 
 
@@ -35,7 +38,7 @@ def _mediator_pool(arch, names, t0):
     for name in names:
         c = new_identity(arch, name, t0)
         m = new_mediator()
-        register_mediators(arch, c, [m], valid_from=t0 - 10)
+        register_mediators(arch, c, [m], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
         out.append(m)
     return out
 
@@ -155,7 +158,7 @@ def test_a_mediator_needs_an_encryption_key_distinct_from_its_signing_key():
     assert m.enc_pub and m.enc_pub != m.pub
     bare = Signer(did=m.did, priv=m.priv, pub=m.pub)
     with pytest.raises(ValueError, match="encryption key"):
-        register_mediators(arch, c, [bare], valid_from=t0 - 10)
+        register_mediators(arch, c, [bare], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
 
 
 def test_registering_the_signing_key_as_the_encryption_key_is_refused():
@@ -325,7 +328,7 @@ def test_whistleblower_reception_panel_from_accused_is_unauthorized():
     crew = _with_insiders(arch, subject, t0)
     panel = _mediator_pool(arch, ("Med-A", "Med-B"), t0)
     own = new_mediator()
-    register_mediators(arch, subject, [own], valid_from=t0 - 10)
+    register_mediators(arch, subject, [own], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
     file_whistleblower(arch, subject.did, "c",
                        reception_panel=[panel[0], panel[1], own], source=crew[0],
                        threshold=2, filed_at=t0 + 100)

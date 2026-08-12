@@ -55,7 +55,11 @@ from kith_covenant import (
     open_source_share, reveal_source, exculpate_source, reputation_of,
     observer_dashboard, now_seconds,
     new_member, publish_member_roll, insider_set_size,
+    attest_activity, silent_functions, unstaffed_functions, erosion_alert,
 )
+
+# §4 caps a mediator's term: a seat with no end is a permanent mediator class.
+MEDIATOR_TERM = 365 * 24 * 3600
 
 _DAY = 86400
 
@@ -70,7 +74,7 @@ def _mediator_pool(arch, names, t0):
     for name in names:
         c = new_identity(arch, name, t0)
         m = new_mediator()
-        register_mediators(arch, c, [m], valid_from=t0 - 10)
+        register_mediators(arch, c, [m], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
         out.append(m)
     return out
 
@@ -219,7 +223,7 @@ def main() -> int:
     # (c) A whistleblower reception panel drawn from the accused community.
     bad3 = Archive.load_json(arch.dump_json())
     own_med = new_mediator()
-    register_mediators(bad3, subject, [own_med], valid_from=t0 - 10)
+    register_mediators(bad3, subject, [own_med], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
     packet3 = attest_insider(bad3, subject.did, crew7, "c", filed_at=t0 + 600)
     file_whistleblower(bad3, subject.did, "c",
                        reception_panel=[panel[0], panel[1], own_med],
@@ -297,6 +301,39 @@ def main() -> int:
                        valid_from=t0 + 300 * _DAY, valid_until=t0 + 640 * _DAY)
     print(f"Refused (overlap-chained service past the term limit): "
           f"{_first_reason(bad6.authority_violations())}")
+
+    # --- The corps that stops looking -------------------------------------
+    # A corps with nothing to report and a corps that stopped looking file the same
+    # number of reports: none. Every relative reading of the corps is unchanged by
+    # its simply stopping, which is why the erosion audit asks for an *attested
+    # null* and a cadence read against a clock.
+    quiet = Archive()
+    q_home = new_identity(quiet, "Quiet-Station", t0)
+    q_obs = new_observer()
+    register_observers(quiet, q_home, [(q_obs, "labor-rights")],
+                       valid_from=t0, valid_until=t0 + 365 * _DAY)
+    stopped = Archive.load_json(quiet.dump_json())
+
+    # The diligent corps accounts for its window even though nothing happened in it.
+    attest_activity(quiet, q_home, "Observation", t0, t0 + 200 * _DAY,
+                    statement="nothing was observed worth reporting this window",
+                    attested_at=t0 + 200 * _DAY)
+    quiet.verify_all()
+    quiet.check_authority()
+
+    as_of = t0 + 240 * _DAY
+    print("\nTwo corps, both with nothing filed, 240 days on:")
+    print(f"  attested its null:  silent={len(silent_functions(quiet, as_of=as_of))}"
+          f"  erosion={erosion_alert(quiet, as_of=as_of).severity}")
+    print(f"  said nothing at all: silent={len(silent_functions(stopped, as_of=as_of))}"
+          f"  erosion={erosion_alert(stopped, as_of=as_of).severity}")
+
+    # And the sharper case: a corps whose seats simply expired. An unexercised
+    # function and an abolished one are different failures.
+    lapsed = Archive.load_json(stopped.dump_json())
+    vacant = unstaffed_functions(lapsed, as_of=t0 + 400 * _DAY)
+    print(f"  seats expired:      unstaffed={[v.function for v in vacant]}"
+          f"  erosion={erosion_alert(lapsed, as_of=t0 + 400 * _DAY).severity}")
 
     print("\n✓ observer_demo (Python): SUCCESS")
     return 0

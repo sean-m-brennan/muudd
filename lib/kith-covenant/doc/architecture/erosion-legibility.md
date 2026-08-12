@@ -200,13 +200,26 @@ This inverts the tiering. `en-cohesion` grades ten components including several
 absolute cadences; KC, the outer and later tier, grades three act-triggered
 booleans.
 
-**Fixed.** The alert now grades six dimensions across two kinds. Three fire on an
-act, as before. Three fire on omission or a pinned baseline:
+**Fixed.** The alert now grades seven dimensions across two kinds. Three fire on an
+act, as before. Four fire on omission or a pinned baseline:
 `overdue_reaffirmations` (an absolute generational cadence, parameterized; see
-K3), `hollowing_communities` (witness count against the *founding* rite), and
-`overdue_reexaminations` (finding K3, item 2). `erosion_alert_with` takes an
-`ErosionThresholds`; `erosion_alert` keeps the old signature and supplies the
-default. The alert also now resolves `as_of` once and shares it with every
+K3), `hollowing_communities` (witness count against the *founding* rite),
+`overdue_reexaminations` (finding K3, item 2), and `thinning_deliberation`
+(§4's argument count and deliberation span against the compact's *first* decision).
+`erosion_alert_with` takes an `ErosionThresholds`; `erosion_alert` keeps the old
+signature and supplies the default.
+
+The seventh arrived with §4's argument records, and only became measurable then: until
+a decision cited the deliberation it rested on there was nothing to read. It is the one
+signal here that is **compact-wide rather than per-community**, since a panel is drawn from
+non-party communities and decides for the compact, so there is no single community whose
+deliberation it is. Both of its readings are pinned to the first decision, and the
+reason is worth stating precisely, because measuring it corrected a plausible
+assumption: **a monotone decline is caught by any baseline, first or median alike.** The
+two diverge on a *plateau*: a deliberation that thinned once and stayed thin, where the
+cheapened form has become what the compact's own recent history calls normal. That is
+the shape the pinned baseline exists for, and the negative control for it has to be a
+plateau or it passes under both readings and proves nothing. The alert also now resolves `as_of` once and shares it with every
 sub-lens, where each previously called `time::now` separately when passed `None`.
 
 ### Finding K2: the capture detectors are cohort-relative by construction
@@ -301,22 +314,74 @@ That is itself one of the ratchets.
 
 ## Remediation
 
-Four measures answer the findings above:
+Six measures answer the findings above, and all six are carried:
 
 1. **`ceremony_cost_decay` wired into `erosion_alert` and the dashboard.**
    An absolute staleness cadence plus the pinned witness decline. KC's first
    absolute cadence. (K1, K3)
-2. **An overdue-re-examination lens** over `Designation::reexamine_after`,
-   with the confirm-leaves-no-record limit stated rather than papered over. (K3)
+2. **An overdue-re-examination lens** over `Designation::reexamine_after`. (K3)
 3. **A pinned gap baseline** alongside the rolling one in both copies,
    graded in `en-cohesion`. (E1)
 4. **§10 scenario 8, the quiet polity.** Detected, latency 0, damage 0
    against a criterion stated in advance. (K4)
+5. **Attested nulls**, the null result as a signed act: `ActivityAttestation` for a
+   standing function's window, and `ReexaminationConclusion` for the K3 case, with
+   `silent_functions` reading them against an absolute cadence.
+6. **A reporting cadence for both standing functions**, mediation and observation
+   alike, since the obligation and the failure are identical on the two sides.
 
-Two further measures the audit named are specified but not carried: attested nulls
-(the null result as a required signed act) and an observer reporting cadence (an
-obligation to report, including to report nothing). Both are scoped in
-[`TODO.md`](../../TODO.md).
+Measure 2 used to carry the confirm-leaves-no-record limit as a stated limitation.
+**It is closed.** A re-examination that confirmed a designation left no trace, so a
+panel that looked at the mandated date and let the designation stand read exactly like
+a compact that had forgotten, forever: the lens punished the diligent panel, which is
+worse than a missed signal. `ReexaminationConclusion` is the attested null of the
+severest act the compact can take. A confirmation answers the deadline it was held for
+and sets the next one, and two rules keep the record from evading what it records: it
+may not be dated before the deadline it answers, and a confirmation must name the next
+date. Without the second, one confirmation would discharge a generational obligation
+once and for all.
+
+**Measuring for measures 5 and 6 found a third hole neither of them named.** A compact
+with **zero** active mediators and **zero** active observers for forty-three years,
+keeping its re-affirmation rites perfectly, read clean on every instrument:
+`deliberative_capacity` reads the member roll and probation, the pool lenses report
+shares of an empty pool without remarking that it is empty, and no alert dimension
+looked at staffing at all. An unexercised function and an abolished one are different
+failures, so `unstaffed_functions` is the second reading and it carries its own
+negative control: a function *never* staffed is absent from it, because declining to
+open an office is not abandoning one.
+
+Two calibrations are worth recording, because both were wrong on the first pass and
+measuring corrected them.
+
+The **function cadence must sit inside the shortest roster term**. At one year it
+exactly equalled §8's observer term limit, so an observer corps could never be silent
+for a full cadence while staffed: its seats expired first and it read as unstaffed
+instead, making the silence reading unreachable for that function by construction. The
+fix is the cadence, not the term, since the term limit is doctrine (an observer must
+return home) and the cadence is a calibration. Ninety days, matching §8's rotation
+period.
+
+And a **long vacancy compounds on duration exactly as a long silence does**. Graded
+without that rule, a compact whose office had stood empty for years scored *below* one
+still seated and merely quiet, which is backwards: the vacancy is the stronger claim
+and must not carry the weaker grade.
+
+One thing the design expected and did not find: a rule stopping the two function
+readings from double-counting. They cannot. `silent_functions` reads only functions with
+a seat active at `as_of` and `unstaffed_functions` only functions with none, so a single
+lapse is exactly one dimension and the guard written for it was a rule against an
+impossible state. The invariant lives in the lens definitions and in the test that pins
+it, rather than in a redundant check.
+
+**The one refusal.** Everything above is reported, never enforced, for the reason the
+audit itself gives: a compact that has stopped acting offers no act to refuse, and a
+gate that fires at silence would punish a quiet compact for a missing form. The
+exception is where there *is* an act. A designation whose mandated re-examination has
+come and gone unanswered may not be **cited** by a further escalation act, neither a
+new designation nor a re-engagement. The most severe act the compact can take cannot
+rest on an obligation the compact has itself let lapse. Once the obligation is answered
+the citation is good again, so the gate is about follow-through and not about age.
 
 **E2 is closed**: AT's scalar is verified absolute, not population-normalized, so
 `mean_reputation` and `breach_share` are genuinely absolute signals. **E3** is
@@ -332,7 +397,16 @@ Every signal carries a negative control: silence *inside* the cadence must not
 flag, a community that never sealed a rite is not overdue (a founding is not a
 lapse), a designation with no mandated date is never overdue (absence of a promise
 is not a broken promise), a held cadence is not a slip, and a single gap reports
-nothing rather than health.
+nothing rather than health. The function signals add three of their own: a function
+never staffed is not abandoned, an active or open-ended term is not a vacancy, and a
+designation cited *inside* its window passes the gate, so the refusal fires on lapse
+rather than on citation.
+
+Scenario 9's control is the sharpest of them, because it is the whole reason the
+attested null exists. A quiet pool may simply have had no disputes, so the scenario
+runs a second compact that attests each window as it closes and requires the flag on
+the silent compact **and** silence on the attesting one. A cadence signal that fired on
+both would be measuring the calendar rather than the compact.
 
 ## Provenance
 

@@ -25,9 +25,12 @@ use kc_ceremony::inter::{
 use kc_ceremony::intra::IntraCommunityRiteRunner;
 use kc_ceremony::recitation::{Recitation, RecitationVersion};
 use kc_conduct::{ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity};
-use kc_core::{keys, time, Alg, Cid, DidKey, KcError, KcResult, PrivKey, Signed, Timestamp};
+use kc_core::{
+    keys, time, Alg, Cid, DidKey, KcError, KcResult, PrivKey, PubKey, Signed, Timestamp,
+};
 use kc_mediation::{
-    DecisionOutcome, DisputeRecord, MediationDecision, MediatorEntry, MediatorRegistry,
+    ArgumentRecord, ArgumentRole, ConsentAnswer, DecisionOutcome, DisputeRecord,
+    MediationDecision, MediatorEntry, MediatorRegistry, PanelConsent,
 };
 use kc_identity::{
     CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessEntry, WitnessRegistry,
@@ -35,7 +38,7 @@ use kc_identity::{
 };
 
 use crate::authority::{
-    authorize, authorize_with_caps, check_authority, ExaminerCaps, ObserverCaps,
+    authorize, authorize_with_caps, check_authority, ExaminerCaps, MediatorCaps, ObserverCaps,
     DEFAULT_PANEL_MIN, DEFAULT_QUORUM_THRESHOLD, DEFAULT_STRUCTURED_SKEPTICISM_HOLD_SECONDS,
 };
 use crate::entry::ArchiveEntry;
@@ -55,6 +58,37 @@ struct Community {
     envoy_delegation: Signed<SpeakerDelegation>,
     witness_registry: Signed<WitnessRegistry>,
 }
+
+/// A community's DID and the private key that speaks for it, as the fixtures below
+/// hand them back. The pair is the unit every fixture deals in, so naming it keeps
+/// their return types readable rather than a run of alternating `DidKey`/`PrivKey`.
+type Keypair = (DidKey, PrivKey);
+
+/// One seat in the non-party mediator pool: the community, the key that speaks for
+/// it, and the key of the mediator it seated. Three separate fixtures hand back a
+/// `Vec` of these, which is why it is named once here.
+type PoolSeat = (DidKey, PrivKey, PrivKey);
+
+/// What [`mediation_fixture`] returns: complainant `a` and its key, respondent `b` and
+/// its key, the filed dispute, and one mediator per non-party community.
+type MediationFixture = (DidKey, PrivKey, DidKey, PrivKey, Cid, Vec<PoolSeat>);
+
+/// What the §8 observer `fixture` returns: subject `S` and its key, the reporting
+/// community's single observer, and the non-party mediator pool.
+type ObserverFixture = (DidKey, PrivKey, Keypair, Vec<PoolSeat>);
+
+/// What `wb_fixture` returns: accused `S` and its key, its delegated insiders as
+/// `(did, key, pubkey)` (the resolvable key set the ring is drawn over), and the
+/// non-party mediator pool.
+type WhistleblowerFixture = (DidKey, PrivKey, Vec<(DidKey, PrivKey, PubKey)>, Vec<PoolSeat>);
+
+/// What the §9 constitution `fixture` returns: the standing compact, then the
+/// entrants who are inside a probation window.
+type ProbationFixture = (Vec<Keypair>, Vec<Keypair>);
+
+/// What the `attested_nulls` `designated` fixture returns: the designation, its subject,
+/// and the three communities whose keys the higher quorum needs.
+type DesignatedFixture = (Cid, DidKey, Keypair, Keypair, Keypair);
 
 fn mk_community(name: &str, now: Timestamp) -> Community {
     let (root_priv, root_pub) = keys::generate(Alg::Ed25519).unwrap();
@@ -353,6 +387,7 @@ fn full_two_community_ceremony_verifies_and_roundtrips() {
         DEFAULT_PANEL_MIN,
         ObserverCaps::default(),
         ExaminerCaps::default(),
+        MediatorCaps::default(),
     )
     .expect("complete ceremony archive must be authorized");
 
@@ -758,6 +793,9 @@ fn authority_second_class_requires_quorum() {
 
 // --- §4 mediation authority -------------------------------------------------
 
+/// A mediator term for fixtures: one year, inside §4's two-year maximum.
+const FIXTURE_MEDIATOR_TERM: i64 = 365 * 24 * 3600;
+
 fn add_mediators(
     archive: &mut InMemoryArchive,
     community: &DidKey,
@@ -778,7 +816,11 @@ fn add_mediators(
             mediator_pubkey: mpub,
             encryption_pubkey: epub,
             valid_from: at,
-            valid_until: None,
+            // A bounded term, well inside §4's maximum. Every fixture here used to seat
+            // `None` — a permanent mediator class, which is exactly what the term limit
+            // exists to prevent.
+            valid_until: Some(ts(at.as_second() + FIXTURE_MEDIATOR_TERM)),
+            trained_by: None,
         });
         out.push((mdid, mpriv, epriv));
     }
@@ -815,10 +857,83 @@ fn file_dispute(
     archive.append(ArchiveEntry::DisputeFiled(d)).unwrap()
 }
 
+/// File one argument on `dispute_cid` and return its CID.
+fn argue(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    author: &DidKey,
+    signers: &[(&str, &PrivKey)],
+    role: ArgumentRole,
+    at: Timestamp,
+) -> Cid {
+    let a = Signed::build(
+        ArgumentRecord {
+            dispute_cid,
+            author: author.clone(),
+            role,
+            position: "as we read it".into(),
+            evidence: vec![],
+            submitted_at: at,
+        },
+        signers,
+    )
+    .unwrap();
+    archive.append(ArchiveEntry::ArgumentFiled(a)).unwrap()
+}
+
+/// Every panelist files their own argument, one second apart ending at `at`, and the
+/// CIDs are returned in panel order. A decision must cite one per co-signer, so this is
+/// what "a panel that deliberated" looks like in a fixture.
+fn panel_arguments(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    panel: &[(&DidKey, &PrivKey)],
+    at: Timestamp,
+) -> Vec<Cid> {
+    let n = panel.len() as i64;
+    panel
+        .iter()
+        .enumerate()
+        .map(|(i, (d, p))| {
+            let when = ts(at.as_second() - n + i as i64);
+            argue(archive, dispute_cid, d, &[(d.as_str(), *p)], ArgumentRole::Panelist, when)
+        })
+        .collect()
+}
+
 fn decide(
     archive: &mut InMemoryArchive,
     dispute_cid: Cid,
     panel: &[(&DidKey, &PrivKey)],
+    at: Timestamp,
+) -> Cid {
+    let arguments = panel_arguments(archive, dispute_cid, panel, at);
+    decide_citing(archive, dispute_cid, panel, arguments, at)
+}
+
+/// As [`decide`], with the citation supplied — for the cases where what the decision
+/// claims about the deliberation is the thing under test.
+///
+/// The outcome is `Upheld`, which is the neutral one for tests about panel composition
+/// and deliberation. It read `Settled` until §4.1 gave that word a rule, at which point
+/// every fixture here was recording a settlement neither party had agreed to. Tests
+/// about settlement use [`decide_settled`], which obtains the consent first.
+fn decide_citing(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    panel: &[(&DidKey, &PrivKey)],
+    arguments: Vec<Cid>,
+    at: Timestamp,
+) -> Cid {
+    decide_citing_outcome(archive, dispute_cid, panel, arguments, DecisionOutcome::Upheld, at)
+}
+
+fn decide_citing_outcome(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    panel: &[(&DidKey, &PrivKey)],
+    arguments: Vec<Cid>,
+    outcome: DecisionOutcome,
     at: Timestamp,
 ) -> Cid {
     let panel_dids: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
@@ -827,8 +942,10 @@ fn decide(
         MediationDecision {
             dispute_cid,
             panel: panel_dids,
-            outcome: DecisionOutcome::Settled,
+            outcome,
             reasoning: "agreed".into(),
+            sealed: None,
+            arguments,
             decided_at: at,
         },
         &pairs,
@@ -837,13 +954,54 @@ fn decide(
     archive.append(ArchiveEntry::MediationDecided(dec)).unwrap()
 }
 
+/// A party's consent (or withholding) to `panel` on `dispute_cid`.
+fn consent(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    party: &DidKey,
+    party_priv: &PrivKey,
+    panel: &[(&DidKey, &PrivKey)],
+    answer: ConsentAnswer,
+    at: Timestamp,
+) -> Cid {
+    let c = Signed::build(
+        PanelConsent {
+            dispute_cid,
+            party: party.clone(),
+            panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+            answer,
+            statement: "as constituted".into(),
+            given_at: at,
+        },
+        &[(party.as_str(), party_priv)],
+    )
+    .unwrap();
+    archive
+        .append(ArchiveEntry::PanelConsentRecorded(c))
+        .unwrap()
+}
+
+/// Both parties consent to `panel`, then the panel records a settlement.
+fn decide_settled(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    parties: (&DidKey, &PrivKey, &DidKey, &PrivKey),
+    panel: &[(&DidKey, &PrivKey)],
+    at: Timestamp,
+) -> Cid {
+    let (ca, ca_priv, cb, cb_priv) = parties;
+    consent(archive, dispute_cid, ca, ca_priv, panel, ConsentAnswer::Given, at);
+    consent(archive, dispute_cid, cb, cb_priv, panel, ConsentAnswer::Given, at);
+    let arguments = panel_arguments(archive, dispute_cid, panel, at);
+    decide_citing_outcome(archive, dispute_cid, panel, arguments, DecisionOutcome::Settled, at)
+}
+
 /// Complainant A, respondent B, and three non-party communities C/D/E each with
-/// one mediator. Returns (a, a_priv, b, dispute_cid, [mC, mD, mE]).
-fn mediation_fixture(
-    a: &mut InMemoryArchive,
-) -> (DidKey, PrivKey, DidKey, Cid, Vec<(DidKey, PrivKey, PrivKey)>) {
+/// one mediator. See [`MediationFixture`] for what the elements are; the doc here used
+/// to list five and the type has six, having omitted the respondent's key.
+fn mediation_fixture(a: &mut InMemoryArchive) -> MediationFixture {
     let (ca, ca_priv) = community(a, "A", ts(10));
-    let (cb, _cb_priv) = community(a, "B", ts(10));
+    let (cb, cb_priv) = community(a, "B", ts(10));
     let (cc, cc_priv) = community(a, "C", ts(10));
     let (cd, cd_priv) = community(a, "D", ts(10));
     let (ce, ce_priv) = community(a, "E", ts(10));
@@ -852,7 +1010,7 @@ fn mediation_fixture(
     pool.extend(add_mediators(a, &cd, &cd_priv, 1, ts(10)));
     pool.extend(add_mediators(a, &ce, &ce_priv, 1, ts(10)));
     let dispute = file_dispute(a, &ca, &ca_priv, &cb, ts(100));
-    (ca, ca_priv, cb, dispute, pool)
+    (ca, ca_priv, cb, cb_priv, dispute, pool)
 }
 
 /// §2's second withholding: a probationary community carries no deliberative weight
@@ -909,7 +1067,7 @@ fn probationary_community_may_not_nominate_mediators() {
 #[test]
 fn probationary_home_panelist_does_not_count_toward_panel_min() {
     let mut a = InMemoryArchive::new();
-    let (_ca, _ca_priv, _cb, dispute, pool) = mediation_fixture(&mut a);
+    let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
     let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
     let dec = decide(&mut a, dispute, &panel, ts(200));
     // The full 3-panel is authorized before any probation window exists.
@@ -949,7 +1107,7 @@ fn probationary_home_panelist_does_not_count_toward_panel_min() {
 #[test]
 fn mediation_dispute_and_valid_panel_are_authorized() {
     let mut a = InMemoryArchive::new();
-    let (_ca, _ca_priv, _cb, dispute, pool) = mediation_fixture(&mut a);
+    let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
     // The dispute record itself (complainant root-signed) is authorized.
     authorize(&a, a.get(&dispute).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
         .expect("filed dispute is authorized");
@@ -963,7 +1121,7 @@ fn mediation_dispute_and_valid_panel_are_authorized() {
 #[test]
 fn mediation_panel_below_minimum_is_rejected() {
     let mut a = InMemoryArchive::new();
-    let (_ca, _ca_priv, _cb, dispute, pool) = mediation_fixture(&mut a);
+    let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
     let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
     let dec = decide(&mut a, dispute, &panel, ts(200));
     assert!(authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN).is_err());
@@ -972,7 +1130,7 @@ fn mediation_panel_below_minimum_is_rejected() {
 #[test]
 fn mediation_party_mediator_violates_non_overlap() {
     let mut a = InMemoryArchive::new();
-    let (ca, ca_priv, _cb, dispute, pool) = mediation_fixture(&mut a);
+    let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
     // The complainant A also nominates a mediator and seats it on the panel.
     let a_meds = add_mediators(&mut a, &ca, &ca_priv, 1, ts(10));
     let mut panel: Vec<(&DidKey, &PrivKey)> =
@@ -985,7 +1143,7 @@ fn mediation_party_mediator_violates_non_overlap() {
 #[test]
 fn mediation_unregistered_panelist_is_rejected() {
     let mut a = InMemoryArchive::new();
-    let (_ca, _ca_priv, _cb, dispute, pool) = mediation_fixture(&mut a);
+    let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
     let (stray_did, stray_priv) = {
         let (sk, pk) = keys::generate(Alg::Ed25519).unwrap();
         (DidKey::from_pubkey(&pk).unwrap(), sk)
@@ -1293,6 +1451,31 @@ mod escalation {
             "three graver failed restorations", Some("changed conduct over probation".into()),
             Some(ts(99_999)), ts(2000));
         ok(&a, &dz);
+    }
+
+    /// A designation could name its representatives and say nothing about what they
+    /// concluded. `criteria`, `cited_acts` and `reversal_conditions` were all enforced
+    /// non-empty while the deliberation's own reasoning was not — the same decoration
+    /// §4's decisions carried, one section over. "Other parties must be able to see the
+    /// designation, the reasons for it, and the conduct that triggered it"
+    /// (bounded_conflict.md).
+    #[test]
+    fn a_deliberation_cycle_must_publish_its_reasoning() {
+        let mut a = InMemoryArchive::new();
+        let (s, (p, pp), (qc, qp), cited) = designation_fixture(&mut a);
+        let mut silent = cycle(1, &p, 1100 + W, 1200 + W);
+        silent.reasoning = "  ".into();
+        let dz = designation(&mut a, &s, DesignationTier::Anathema, DesignationUrgency::Normal,
+            &[(&p, &pp), (&qc, &qp)], cited,
+            vec![cycle(0, &p, 1000, 1100), silent],
+            "three graver failed restorations", Some("changed conduct over probation".into()),
+            Some(ts(99_999)), ts(2000));
+        let err = authorize(&a, a.get(&dz).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect_err("expected a refusal");
+        assert!(
+            err.to_string().contains("must publish its reasoning"),
+            "got: {err}"
+        );
     }
 
     #[test]
@@ -2531,6 +2714,14 @@ mod observer {
     /// Build a well-formed filing: a real ring attestation over `accused`'s insider
     /// set, signed by `source_index` of that ring, with the source identity held
     /// k-of-n by the reception panel.
+    // Eight axes because the §8 rejection cases need each one independently wrong: a
+    // ring drawn over the wrong community, a source outside the insider set, a pubkey
+    // that does not match the signing key, a panel that is not the registered
+    // reception panel, the claim text, a threshold above or below the custodians
+    // actually sealed to, and the instant that decides which member roll the ring is
+    // drawn from. This builds the *well-formed* filing so each test can corrupt one
+    // thing; a params struct would only relocate the same eight.
+    #[allow(clippy::too_many_arguments)]
     fn build_filing(
         a: &InMemoryArchive,
         accused: &DidKey,
@@ -2648,10 +2839,7 @@ mod observer {
 
     /// Subject S, a reporting community R with one observer, plus a three-mediator
     /// non-party pool C/D/E. Returns (s, s_priv, obs, pool).
-    #[allow(clippy::type_complexity)]
-    fn fixture(
-        a: &mut InMemoryArchive,
-    ) -> (DidKey, PrivKey, (DidKey, PrivKey), Vec<(DidKey, PrivKey, PrivKey)>) {
+    fn fixture(a: &mut InMemoryArchive) -> ObserverFixture {
         let (s, s_priv) = community(a, "S", ts(10));
         let (r, r_priv) = community(a, "R", ts(10));
         let obs = add_observers(a, &r, &r_priv, 1, ts(10)).pop().unwrap();
@@ -2709,10 +2897,7 @@ mod observer {
 
     /// The whistleblower fixture: accused S with two delegated insiders (so its
     /// resolvable key set is three deep), plus the non-party mediator pool.
-    #[allow(clippy::type_complexity)]
-    fn wb_fixture(
-        a: &mut InMemoryArchive,
-    ) -> (DidKey, PrivKey, Vec<(DidKey, PrivKey, PubKey)>, Vec<(DidKey, PrivKey, PrivKey)>) {
+    fn wb_fixture(a: &mut InMemoryArchive) -> WhistleblowerFixture {
         let (s, s_priv, _obs, pool) = fixture(a);
         let insiders = add_insiders(a, &s, &s_priv, 2, ts(10));
         (s, s_priv, insiders, pool)
@@ -2897,6 +3082,7 @@ mod observer {
                     encryption_pubkey: mpub,
                     valid_from: ts(10),
                     valid_until: None,
+                    trained_by: None,
                 }],
                 issued_at: ts(10),
             },
@@ -4562,6 +4748,7 @@ mod admissions_integrity {
             DEFAULT_PANEL_MIN,
             ObserverCaps::default(),
             caps,
+            MediatorCaps::default(),
         )
         .expect_err("a single-community panel must be refused");
         assert!(
@@ -4776,8 +4963,7 @@ mod probation_reach {
 
     /// A compact of four standing communities with a ratified constitution, plus
     /// three entrants each inside a probation window from ts(100) for a year.
-    #[allow(clippy::type_complexity)]
-    fn fixture(a: &mut InMemoryArchive) -> (Vec<(DidKey, PrivKey)>, Vec<(DidKey, PrivKey)>) {
+    fn fixture(a: &mut InMemoryArchive) -> ProbationFixture {
         let standing: Vec<(DidKey, PrivKey)> =
             ["A", "B", "C", "D"].iter().map(|n| community(a, n, ts(10))).collect();
         let dids: Vec<DidKey> = standing.iter().map(|(d, _)| d.clone()).collect();
@@ -5512,5 +5698,2470 @@ mod append_order_resolution {
             matches!(a.verify(&cid), Err(KcError::Key(_))),
             "a roster issued later than the record must not seat its signer"
         );
+    }
+}
+
+/// §4.1 — the deliberation record, and the two fields that were decoration until it
+/// arrived.
+///
+/// The measurement this slice began from: a paneled decision could carry an **empty
+/// `reasoning`** and be authorized, though §4's own specification calls the reasoning
+/// trail *mandatory*; and its **`panel` field was read by no rule at all**, so it could
+/// name the two *party* communities — precisely whom non-overlap excludes — while three
+/// legitimate non-party mediators signed, and the record was still authorized. Nothing
+/// recorded *how* a panel decided, which is what the §8 observer corps and the §9
+/// erosion signals both assume can be audited. These tests are that measurement.
+mod deliberation {
+    use super::*;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect("expected authorized");
+    }
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect_err("expected a refusal");
+        let msg = err.to_string();
+        assert!(msg.contains(needle), "expected {needle:?}, got: {msg}");
+    }
+
+    /// A decision that says nothing about why. §4: "public decisions with **mandatory**
+    /// reasoning trail" — a requirement the record carried and no rule enforced.
+    #[test]
+    fn a_decision_must_state_its_reasoning() {
+        let mut a = InMemoryArchive::new();
+        let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let arguments = panel_arguments(&mut a, dispute, &panel, ts(200));
+        let panel_dids: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let dec = Signed::build(
+            MediationDecision {
+                dispute_cid: dispute,
+                panel: panel_dids,
+                outcome: DecisionOutcome::Upheld,
+                reasoning: "   ".into(), // whitespace is not a reason
+                sealed: None,
+                arguments,
+                decided_at: ts(200),
+            },
+            &pairs,
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::MediationDecided(dec)).unwrap();
+        refused(&a, &cid, "must state its reasoning");
+    }
+
+    /// The `panel` field is **derived, not chosen**. This is the sharp one: before the
+    /// rule, the field an auditor reads to check non-overlap could name the two parties
+    /// while three proper non-party mediators signed, and nothing objected. An unread
+    /// field that can contradict the rule that did run is worse than an absent one.
+    #[test]
+    fn a_decision_s_panel_must_be_its_co_signers() {
+        let mut a = InMemoryArchive::new();
+        let (ca, _ca_priv, cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let arguments = panel_arguments(&mut a, dispute, &panel, ts(200));
+        let pairs: Vec<(&str, &PrivKey)> =
+            panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let dec = Signed::build(
+            MediationDecision {
+                dispute_cid: dispute,
+                // The two PARTY communities, and only two of them.
+                panel: vec![ca.clone(), cb.clone()],
+                outcome: DecisionOutcome::Upheld,
+                reasoning: "we concur".into(),
+                sealed: None,
+                arguments,
+                decided_at: ts(200),
+            },
+            &pairs,
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::MediationDecided(dec)).unwrap();
+        refused(&a, &cid, "panel must be exactly its co-signers");
+    }
+
+    /// Every co-signer must have argued. Three signatures riding on one author's text
+    /// is a rubber stamp: the witness rules' arithmetic, which counts the people
+    /// present rather than the signatures collected.
+    #[test]
+    fn a_co_signer_who_did_not_argue_is_refused() {
+        let mut a = InMemoryArchive::new();
+        let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        // Only the first panelist files anything.
+        let one = vec![argue(
+            &mut a,
+            dispute,
+            panel[0].0,
+            &[(panel[0].0.as_str(), panel[0].1)],
+            ArgumentRole::Panelist,
+            ts(190),
+        )];
+        let cid = decide_citing(&mut a, dispute, &panel, one, ts(200));
+        refused(&a, &cid, "co-signs a decision without having argued it");
+
+        // With all three arguing, the identical panel and outcome go through.
+        let mut b = InMemoryArchive::new();
+        let (_, _, _, _cb_priv, dispute2, pool2) = mediation_fixture(&mut b);
+        let panel2: Vec<(&DidKey, &PrivKey)> = pool2.iter().map(|(d, p, _)| (d, p)).collect();
+        let cid2 = decide(&mut b, dispute2, &panel2, ts(200));
+        ok(&b, &cid2);
+    }
+
+    /// A decision may not cite another dispute's deliberation, nor a record that is not
+    /// an argument at all.
+    #[test]
+    fn a_decision_cites_arguments_on_its_own_dispute() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        // A second dispute between the same parties, argued properly.
+        let other = file_dispute(&mut a, &ca, &ca_priv, &cb, ts(150));
+        let borrowed = panel_arguments(&mut a, other, &panel, ts(190));
+        let cid = decide_citing(&mut a, dispute, &panel, borrowed, ts(200));
+        refused(&a, &cid, "an argument on another dispute");
+
+        // And citing the dispute record itself is not citing an argument.
+        let mut b = InMemoryArchive::new();
+        let (_, _, _, _cb_priv, dispute2, pool2) = mediation_fixture(&mut b);
+        let panel2: Vec<(&DidKey, &PrivKey)> = pool2.iter().map(|(d, p, _)| (d, p)).collect();
+        let cid2 = decide_citing(&mut b, dispute2, &panel2, vec![dispute2], ts(200));
+        refused(&b, &cid2, "not a filed argument");
+    }
+
+    /// A panel may not decide while ignoring a case a party put to it. Insertion order
+    /// is authoritative, as it is for a dispute's current rung, so a party filing
+    /// *after* the decision cannot retroactively invalidate it.
+    #[test]
+    fn a_party_argument_filed_before_the_decision_must_be_answered() {
+        let mut a = InMemoryArchive::new();
+        let (_ca, _ca_priv, cb, cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        // The respondent answers. Its own root key signs, as for the dispute filing.
+        let answer = argue(
+            &mut a,
+            dispute,
+            &cb,
+            &[(cb.as_str(), &cb_priv)],
+            ArgumentRole::Party,
+            ts(180),
+        );
+        let panelists = panel_arguments(&mut a, dispute, &panel, ts(190));
+        let deaf = decide_citing(&mut a, dispute, &panel, panelists.clone(), ts(200));
+        refused(&a, &deaf, "does not answer the party argument");
+
+        // Answering it is enough; nothing requires the panel to agree with it.
+        let mut cited = panelists;
+        cited.push(answer);
+        let heard = decide_citing(&mut a, dispute, &panel, cited, ts(300));
+        ok(&a, &heard);
+    }
+
+    /// A party argument filed *after* a decision leaves that decision standing. The
+    /// alternative would let a losing party invalidate a concluded mediation by filing
+    /// one more record.
+    #[test]
+    fn a_party_argument_filed_after_the_decision_does_not_unmake_it() {
+        let mut a = InMemoryArchive::new();
+        let (_ca, _ca_priv, cb, cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let cid = decide(&mut a, dispute, &panel, ts(200));
+        ok(&a, &cid);
+        argue(
+            &mut a,
+            dispute,
+            &cb,
+            &[(cb.as_str(), &cb_priv)],
+            ArgumentRole::Party,
+            ts(400),
+        );
+        ok(&a, &cid);
+    }
+
+    /// Only a party may argue as one, and only an active non-party mediator as a
+    /// panelist — the panel rule, one record over.
+    #[test]
+    fn each_role_is_held_to_its_own_rule() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+
+        // A mediator is not a party, so may not make a party's case.
+        let cid = argue(
+            &mut a,
+            dispute,
+            panel[0].0,
+            &[(panel[0].0.as_str(), panel[0].1)],
+            ArgumentRole::Party,
+            ts(180),
+        );
+        refused(&a, &cid, "is not a party to this dispute");
+
+        // And a party community is not a panelist, however it labels itself.
+        let cid2 = argue(
+            &mut a,
+            dispute,
+            &ca,
+            &[(ca.as_str(), &ca_priv)],
+            ArgumentRole::Panelist,
+            ts(181),
+        );
+        refused(&a, &cid2, "not an active registered mediator");
+
+        // A panelist's argument is signed by that panelist alone: nobody argues in a
+        // mediator's name.
+        let arg = Signed::build(
+            ArgumentRecord {
+                dispute_cid: dispute,
+                author: panel[0].0.clone(),
+                role: ArgumentRole::Panelist,
+                position: "as we read it".into(),
+                evidence: vec![],
+                submitted_at: ts(182),
+            },
+            &[(panel[1].0.as_str(), panel[1].1)],
+        )
+        .unwrap();
+        let cid3 = a.append(ArchiveEntry::ArgumentFiled(arg)).unwrap();
+        refused(&a, &cid3, "signed by exactly that panelist");
+    }
+
+    /// An argument is *made*. An empty one was not.
+    #[test]
+    fn an_argument_must_state_a_position() {
+        let mut a = InMemoryArchive::new();
+        let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let arg = Signed::build(
+            ArgumentRecord {
+                dispute_cid: dispute,
+                author: pool[0].0.clone(),
+                role: ArgumentRole::Panelist,
+                position: "  ".into(),
+                evidence: vec![],
+                submitted_at: ts(180),
+            },
+            &[(pool[0].0.as_str(), &pool[0].1)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::ArgumentFiled(arg)).unwrap();
+        refused(&a, &cid, "must state a position");
+    }
+}
+
+/// §4.2 — the mediator pool was the third roster and the one wired to nothing.
+///
+/// The measurement this slice began from, run against the pre-slice code: a community
+/// could hold **9 of 10** mediator seats and its registry authorized; an A-v-B panel of
+/// three drawn **entirely from that community** authorized; and every mediator could be
+/// seated with **no end date at all**. `check_roster_caps` already carried all four
+/// rules and §2's examiners and §8's observers both shared it — mediators were the ones
+/// it never reached.
+mod mediator_caps {
+    use super::*;
+    use crate::authority::{
+        DEFAULT_MEDIATOR_MAX_TERM_SECONDS, DEFAULT_MEDIATOR_POOL_FLOOR,
+        DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS,
+    };
+
+    /// Seat `n` mediators for `community` over an explicit window.
+    fn seat(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        root_priv: &PrivKey,
+        n: usize,
+        from: i64,
+        until: Option<i64>,
+        issued_at: i64,
+    ) -> Cid {
+        let mut entries = vec![];
+        for _ in 0..n {
+            let (_mpriv, mpub) = keys::generate(Alg::Ed25519).unwrap();
+            let mdid = DidKey::from_pubkey(&mpub).unwrap();
+            let (_epriv, epub) = keys::generate(Alg::Ed25519).unwrap();
+            entries.push(MediatorEntry {
+                mediator_did: mdid,
+                mediator_pubkey: mpub,
+                encryption_pubkey: epub,
+                valid_from: ts(from),
+                valid_until: until.map(ts),
+                trained_by: None,
+            });
+        }
+        let reg = Signed::build(
+            MediatorRegistry {
+                nominating_community: community.clone(),
+                entries,
+                issued_at: ts(issued_at),
+            },
+            &[(community.as_str(), root_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::MediatorRegistryUpdated(reg)).unwrap()
+    }
+
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect("expected authorized");
+    }
+
+    const YEAR: i64 = 365 * 24 * 3600;
+
+    /// Row 3 of the measured table: a seat with no end is a permanent mediator class,
+    /// "the first step toward an inquisitorial caste" (`liminal_institutions.md`).
+    #[test]
+    fn a_mediator_seat_must_have_an_end() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "C", ts(10));
+        let cid = seat(&mut a, &c, &c_priv, 1, 10, None, 10);
+        refused(&a, &cid, "open-ended term");
+
+        // Bounded, and the identical registration goes through.
+        let mut b = InMemoryArchive::new();
+        let (c2, c2_priv) = community(&mut b, "C", ts(10));
+        let cid2 = seat(&mut b, &c2, &c2_priv, 1, 10, Some(10 + YEAR), 10);
+        ok(&b, &cid2);
+    }
+
+    /// And the term is bounded in length, not merely closed: mediators "must return
+    /// home", which a fifty-year term does not accomplish.
+    #[test]
+    fn a_mediator_term_is_bounded_in_length() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "C", ts(10));
+        let over = DEFAULT_MEDIATOR_MAX_TERM_SECONDS + 1;
+        let cid = seat(&mut a, &c, &c_priv, 1, 10, Some(10 + over), 10);
+        refused(&a, &cid, "exceeds the maximum");
+    }
+
+    /// Rows 1 and 2: one community holding a majority of the pool staffs every panel in
+    /// the compact, which is what the no-majority share exists to prevent.
+    #[test]
+    fn no_community_may_hold_a_majority_of_the_mediator_pool() {
+        let mut a = InMemoryArchive::new();
+        let (cc, cc_priv) = community(&mut a, "C", ts(10));
+        let (cd, cd_priv) = community(&mut a, "D", ts(10));
+        // D seats 4, then C tries for 9 of 13.
+        seat(&mut a, &cd, &cd_priv, 4, 10, Some(10 + YEAR), 10);
+        let cid = seat(&mut a, &cc, &cc_priv, 9, 10, Some(10 + YEAR), 10);
+        refused(&a, &cid, "a majority");
+
+        // Four of eight is not a majority, and is allowed.
+        let mut b = InMemoryArchive::new();
+        let (c2, c2_priv) = community(&mut b, "C", ts(10));
+        let (d2, d2_priv) = community(&mut b, "D", ts(10));
+        seat(&mut b, &d2, &d2_priv, 5, 10, Some(10 + YEAR), 10);
+        let cid2 = seat(&mut b, &c2, &c2_priv, 4, 10, Some(10 + YEAR), 10);
+        ok(&b, &cid2);
+    }
+
+    /// The floor: a compact too small to staff mediation any other way is not refused
+    /// for it. `liminal_institutions.md` puts the minimum viable pool near 3n, and the
+    /// whitepaper lists the viable band as an open question.
+    #[test]
+    fn the_pool_share_rule_does_not_bite_a_small_compact() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "C", ts(10));
+        let cid = seat(&mut a, &c, &c_priv, DEFAULT_MEDIATOR_POOL_FLOOR - 1, 10, Some(10 + YEAR), 10);
+        ok(&a, &cid);
+    }
+
+    /// Rotation: a mediator whose term ends must sit out before returning, or the
+    /// "return home" is nominal.
+    #[test]
+    fn a_returning_mediator_must_sit_out_a_rotation() {
+        let mut a = InMemoryArchive::new();
+        let (c, c_priv) = community(&mut a, "C", ts(10));
+        // One mediator, seated twice, with a gap far shorter than the rotation period.
+        let (_mpriv, mpub) = keys::generate(Alg::Ed25519).unwrap();
+        let mdid = DidKey::from_pubkey(&mpub).unwrap();
+        let (_epriv, epub) = keys::generate(Alg::Ed25519).unwrap();
+        let entry = |from: i64, until: i64| MediatorEntry {
+            mediator_did: mdid.clone(),
+            mediator_pubkey: mpub.clone(),
+            encryption_pubkey: epub.clone(),
+            valid_from: ts(from),
+            valid_until: Some(ts(until)),
+            trained_by: None,
+        };
+        let build = |a: &mut InMemoryArchive, e: MediatorEntry, at: i64| {
+            let reg = Signed::build(
+                MediatorRegistry {
+                    nominating_community: c.clone(),
+                    entries: vec![e],
+                    issued_at: ts(at),
+                },
+                &[(c.as_str(), &c_priv)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::MediatorRegistryUpdated(reg)).unwrap()
+        };
+        let first = build(&mut a, entry(100, 100 + YEAR), 100);
+        ok(&a, &first);
+        let too_soon = build(&mut a, entry(100 + YEAR + 10, 100 + 2 * YEAR), 100 + YEAR + 10);
+        refused(&a, &too_soon, "below the rotation period");
+
+        // A full sit-out is accepted.
+        let mut b = InMemoryArchive::new();
+        let (c3, c3_priv) = community(&mut b, "C", ts(10));
+        let build3 = |a: &mut InMemoryArchive, from: i64, until: i64| {
+            let reg = Signed::build(
+                MediatorRegistry {
+                    nominating_community: c3.clone(),
+                    entries: vec![MediatorEntry {
+                        mediator_did: mdid.clone(),
+                        mediator_pubkey: mpub.clone(),
+                        encryption_pubkey: epub.clone(),
+                        valid_from: ts(from),
+                        valid_until: Some(ts(until)),
+                        trained_by: None,
+                    }],
+                    issued_at: ts(from),
+                },
+                &[(c3.as_str(), &c3_priv)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::MediatorRegistryUpdated(reg)).unwrap()
+        };
+        build3(&mut b, 100, 100 + YEAR);
+        let after = build3(
+            &mut b,
+            100 + YEAR + DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS,
+            100 + 2 * YEAR + DEFAULT_MEDIATOR_ROTATION_PERIOD_SECONDS,
+        );
+        ok(&b, &after);
+    }
+}
+
+/// §4.2 — the three records §4 specifies and the tier did not carry: a recusal a party
+/// can actually request, a protecting power, and the training lineage behind a
+/// mediator.
+mod recusal_and_protection {
+    use super::*;
+    use kc_mediation::{ProtectingPower, RecusalAnswer, RecusalDecision, RecusalRequest};
+
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect("expected authorized");
+    }
+
+    fn request(
+        a: &mut InMemoryArchive,
+        dispute: Cid,
+        by: &DidKey,
+        by_priv: &PrivKey,
+        mediator: &DidKey,
+        grounds: &str,
+        at: i64,
+    ) -> Cid {
+        let r = Signed::build(
+            RecusalRequest {
+                dispute_cid: dispute,
+                requested_by: by.clone(),
+                mediator: mediator.clone(),
+                grounds: grounds.into(),
+                requested_at: ts(at),
+            },
+            &[(by.as_str(), by_priv)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::RecusalRequested(r)).unwrap()
+    }
+
+    fn answer(
+        a: &mut InMemoryArchive,
+        request_cid: Cid,
+        ans: RecusalAnswer,
+        deciders: &[(&DidKey, &PrivKey)],
+        reasoning: &str,
+        at: i64,
+    ) -> Cid {
+        let dids: Vec<DidKey> = deciders.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            deciders.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let d = Signed::build(
+            RecusalDecision {
+                request_cid,
+                answer: ans,
+                deciders: dids,
+                reasoning: reasoning.into(),
+                decided_at: ts(at),
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::RecusalDecided(d)).unwrap()
+    }
+
+    /// A party may ask, and be answered. Nothing here blocks the mediation.
+    #[test]
+    fn a_party_may_request_a_recusal_and_the_mediator_may_grant_it() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let req = request(&mut a, dispute, &ca, &ca_priv, &pool[0].0, "prior dealings", 150);
+        ok(&a, &req);
+
+        // The grant is the mediator's own act.
+        let granted = answer(
+            &mut a,
+            req,
+            RecusalAnswer::Granted,
+            &[(&pool[0].0, &pool[0].1)],
+            "",
+            160,
+        );
+        ok(&a, &granted);
+
+        // The dispute still decides: a request neither blocks nor unseats by itself.
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let dec = decide(&mut a, dispute, &panel, ts(200));
+        ok(&a, &dec);
+    }
+
+    /// Only a party may ask, only about a seated mediator, and only with grounds.
+    #[test]
+    fn a_recusal_request_is_a_party_s_act_about_a_seated_mediator() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let (cc, cc_priv) = community(&mut a, "Stranger", ts(10));
+
+        let outsider = request(&mut a, dispute, &cc, &cc_priv, &pool[0].0, "meddling", 150);
+        refused(&a, &outsider, "is not a party to this dispute");
+
+        let (_p, pub_) = keys::generate(Alg::Ed25519).unwrap();
+        let unseated = DidKey::from_pubkey(&pub_).unwrap();
+        let nobody = request(&mut a, dispute, &ca, &ca_priv, &unseated, "grounds", 151);
+        refused(&a, &nobody, "no seat to step down from");
+
+        let silent = request(&mut a, dispute, &ca, &ca_priv, &pool[0].0, "   ", 152);
+        refused(&a, &silent, "must state its grounds");
+    }
+
+    /// The asymmetry that is the point of the record: a grant is the named mediator's
+    /// own act, and a decline may never be signed by the mediator whose own recusal is
+    /// in question.
+    #[test]
+    fn a_mediator_may_not_answer_the_request_for_their_own_recusal() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let req = request(&mut a, dispute, &ca, &ca_priv, &pool[0].0, "prior dealings", 150);
+
+        // Declining one's own recusal.
+        let self_declined = answer(
+            &mut a,
+            req,
+            RecusalAnswer::Declined,
+            &[(&pool[0].0, &pool[0].1)],
+            "I am fine",
+            160,
+        );
+        refused(&a, &self_declined, "may not answer the request for their own recusal");
+
+        // Someone else granting it for them.
+        let other_granted = answer(
+            &mut a,
+            req,
+            RecusalAnswer::Granted,
+            &[(&pool[1].0, &pool[1].1)],
+            "",
+            161,
+        );
+        refused(&a, &other_granted, "granted by exactly the mediator stepping down");
+
+        // A decline by the others, with reasons, is authorized.
+        let declined = answer(
+            &mut a,
+            req,
+            RecusalAnswer::Declined,
+            &[(&pool[1].0, &pool[1].1), (&pool[2].0, &pool[2].1)],
+            "the dealings named are not with this party",
+            162,
+        );
+        ok(&a, &declined);
+    }
+
+    /// A refusal to step aside is the answer that owes an account.
+    #[test]
+    fn a_declined_recusal_must_state_its_reasoning() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let req = request(&mut a, dispute, &ca, &ca_priv, &pool[0].0, "prior dealings", 150);
+        let silent = answer(
+            &mut a,
+            req,
+            RecusalAnswer::Declined,
+            &[(&pool[1].0, &pool[1].1)],
+            "  ",
+            160,
+        );
+        refused(&a, &silent, "must state its reasoning");
+    }
+
+    fn protect(
+        a: &mut InMemoryArchive,
+        dispute: Cid,
+        disputant: (&DidKey, &PrivKey),
+        protector: (&DidKey, &PrivKey),
+        at: i64,
+    ) -> Cid {
+        let pp = Signed::build(
+            ProtectingPower {
+                dispute_cid: dispute,
+                disputant: disputant.0.clone(),
+                protector: protector.0.clone(),
+                statement: "we stand for them".into(),
+                designated_at: ts(at),
+            },
+            &[
+                (disputant.0.as_str(), disputant.1),
+                (protector.0.as_str(), protector.1),
+            ],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ProtectingPowerDesignated(pp)).unwrap()
+    }
+
+    /// A neutral community may stand for a disputant, and gates nothing by doing so.
+    #[test]
+    fn a_neutral_community_may_stand_as_protecting_power() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        // A community that seats no mediators: neutral in both senses.
+        let (cn, cn_priv) = community(&mut a, "Neutral", ts(10));
+        let cid = protect(&mut a, dispute, (&ca, &ca_priv), (&cn, &cn_priv), 150);
+        ok(&a, &cid);
+
+        // "A witness with standing", not an arbitrator: the mediation decides exactly
+        // as it would have.
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let dec = decide(&mut a, dispute, &panel, ts(200));
+        ok(&a, &dec);
+    }
+
+    /// Neutrality is the whole of the rule: not a party, and not one of the judges.
+    #[test]
+    fn a_protecting_power_must_be_neutral_in_both_senses() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cb_priv, dispute, _pool) = mediation_fixture(&mut a);
+
+        // The other party cannot stand for its opponent.
+        let party = protect(&mut a, dispute, (&ca, &ca_priv), (&cb, &cb_priv), 150);
+        refused(&a, &party, "cannot stand neutral in it");
+
+        // Nor can a community that seats the mediators who will judge the dispute: the
+        // witness and the judge would be one body. Built here rather than from the
+        // shared fixture, which keeps its seating communities' keys to itself.
+        let mut b = InMemoryArchive::new();
+        let (pa, pa_priv) = community(&mut b, "A", ts(10));
+        let (pb, _pb_priv) = community(&mut b, "B", ts(10));
+        let (seating, seat_priv) = community(&mut b, "Seating", ts(10));
+        add_mediators(&mut b, &seating, &seat_priv, 1, ts(10));
+        let d2 = file_dispute(&mut b, &pa, &pa_priv, &pb, ts(100));
+        let judge = protect(&mut b, d2, (&pa, &pa_priv), (&seating, &seat_priv), 151);
+        refused(&b, &judge, "seats mediators and so cannot also stand");
+    }
+
+    /// Both sides consent: a duty is never conscripted, and a watcher is never imposed.
+    #[test]
+    fn a_protecting_power_needs_both_signatures() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, _pool) = mediation_fixture(&mut a);
+        let (cn, _cn_priv) = community(&mut a, "Neutral", ts(10));
+        // Only the disputant signs: the protector was volunteered by someone else.
+        let pp = Signed::build(
+            ProtectingPower {
+                dispute_cid: dispute,
+                disputant: ca.clone(),
+                protector: cn.clone(),
+                statement: "they will stand for us".into(),
+                designated_at: ts(150),
+            },
+            &[(ca.as_str(), &ca_priv)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::ProtectingPowerDesignated(pp)).unwrap();
+        refused(&a, &cid, "both the disputant and the protector must accept it");
+    }
+}
+
+// --- Erosion remediation 5 and 6: the attested null and its two rules ---------
+//
+// `ActivityAttestation` and `ReexaminationConclusion` are records whose whole purpose
+// is to say that nothing happened, so the rules that matter are the ones stopping
+// them from becoming a way to *say* nothing happened without having looked. See
+// `doc/architecture/erosion-legibility.md`, remediation items 5 and 6.
+
+mod attested_nulls {
+    use super::*;
+    use kc_conduct::{ActivityAttestation, AttestedFunction};
+    use kc_escalation::{
+        DeliberationCycle, Designation, DesignationTier, DesignationUrgency,
+        ReexaminationConclusion, ReexaminationOutcome,
+    };
+    use kc_observer::{ObserverEntry, ObserverRegistry};
+
+    const YEAR: i64 = 365 * 24 * 3600;
+
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect("expected authorized");
+    }
+
+    /// Seat one observer for `community` on a bounded term. `add_observers` is private
+    /// to the §8 module, and this needs only the one seat.
+    fn seat_observer(a: &mut InMemoryArchive, community: &DidKey, priv_: &PrivKey, at: i64) {
+        let (_opriv, opub) = keys::generate(Alg::Ed25519).unwrap();
+        let odid = DidKey::from_pubkey(&opub).unwrap();
+        let reg = Signed::build(
+            ObserverRegistry {
+                nominating_community: community.clone(),
+                entries: vec![ObserverEntry {
+                    observer_did: odid,
+                    observer_pubkey: opub,
+                    declared_perspective: "outsider".into(),
+                    valid_from: ts(at),
+                    valid_until: Some(ts(at + 100 * 24 * 3600)),
+                }],
+                issued_at: ts(at),
+            },
+            &[(community.as_str(), priv_)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ObserverRegistryUpdated(reg)).unwrap();
+    }
+
+    // The erosion-5/6 cases turn on exactly these axes: which function was attested,
+    // the window (which decides whether consecutive attestations leave a gap), whether
+    // `acts` is empty (the attested null, which reads identically to neglect on any
+    // act-triggered instrument), the statement, and the instant. Each test varies one.
+    #[allow(clippy::too_many_arguments)]
+    fn attestation(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        priv_: &PrivKey,
+        function: AttestedFunction,
+        window: (i64, i64),
+        acts: Vec<Cid>,
+        statement: &str,
+        at: i64,
+    ) -> Cid {
+        let att = Signed::build(
+            ActivityAttestation {
+                function,
+                attesting_community: community.clone(),
+                window_start: ts(window.0),
+                window_end: ts(window.1),
+                acts,
+                statement: statement.into(),
+                attested_at: ts(at),
+            },
+            &[(community.as_str(), priv_)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ActivityAttested(att)).unwrap()
+    }
+
+    /// An expedited designation with a mandated re-examination date, plus the two
+    /// deliberating communities the higher quorum needs.
+    fn designated(
+        a: &mut InMemoryArchive,
+        due: i64,
+        at: i64,
+    ) -> DesignatedFixture {
+        let (s, _sp) = community(a, "S", ts(1));
+        let (p, pp) = community(a, "P", ts(1));
+        let (q, qp) = community(a, "Q", ts(1));
+        let (r, rp) = community(a, "R", ts(1));
+        let dz = Signed::build(
+            Designation {
+                subject_community: s.clone(),
+                tier: DesignationTier::Anathema,
+                urgency: DesignationUrgency::Expedited,
+                deliberators: vec![p.clone(), q.clone(), r.clone()],
+                criteria: "the named pattern".into(),
+                cited_acts: vec![Cid::of_bytes(b"act")],
+                failed_restoration_cycles: vec![],
+                deliberation_cycles: vec![DeliberationCycle {
+                    cycle_index: 0,
+                    representatives: vec![p.clone()],
+                    opened_at: ts(at - 10),
+                    concluded_at: ts(at - 5),
+                    reasoning: "r".into(),
+                }],
+                reversal_conditions: Some("changed conduct".into()),
+                reexamine_after: Some(ts(due)),
+                decision_class: DecisionClass::SecondClass,
+                designated_at: ts(at),
+            },
+            &[(p.as_str(), &pp), (q.as_str(), &qp), (r.as_str(), &rp)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::DesignationDecided(dz)).unwrap();
+        (cid, s, (p, pp), (q, qp), (r, rp))
+    }
+
+    fn conclusion(
+        a: &mut InMemoryArchive,
+        designation_cid: Cid,
+        examiners: &[(&DidKey, &PrivKey)],
+        outcome: ReexaminationOutcome,
+        reasoning: &str,
+        next: Option<i64>,
+        at: i64,
+    ) -> Cid {
+        let pairs: Vec<(&str, &PrivKey)> =
+            examiners.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let rc = Signed::build(
+            ReexaminationConclusion {
+                designation_cid,
+                outcome,
+                examiners: examiners.iter().map(|(d, _)| (*d).clone()).collect(),
+                reasoning: reasoning.into(),
+                next_reexamine_after: next.map(ts),
+                decision_class: DecisionClass::SecondClass,
+                concluded_at: ts(at),
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ReexaminationConcluded(rc)).unwrap()
+    }
+
+    // --- the re-examination conclusion ---------------------------------------
+
+    #[test]
+    fn a_re_examination_is_recorded_and_renews_the_obligation() {
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), _r) = designated(&mut a, 1000, 100);
+        let cid = conclusion(
+            &mut a,
+            dz,
+            &[(&p, &pp), (&q, &qp)],
+            ReexaminationOutcome::Confirmed,
+            "the pattern that named them has not changed",
+            Some(1000 + 10 * YEAR),
+            1010,
+        );
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_re_examination_may_not_be_held_before_the_date_it_answers() {
+        // The evasion this rule exists for: confirm at designation time and buy
+        // permanent silence from the erosion lens.
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), _r) = designated(&mut a, 1000, 100);
+        let cid = conclusion(
+            &mut a,
+            dz,
+            &[(&p, &pp), (&q, &qp)],
+            ReexaminationOutcome::Confirmed,
+            "nothing has changed since ten minutes ago",
+            Some(9000),
+            110,
+        );
+        refused(&a, &cid, "before the mandated date");
+    }
+
+    #[test]
+    fn a_confirmation_must_set_the_next_date() {
+        // The other evasion: one confirmation discharging a generational obligation.
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), _r) = designated(&mut a, 1000, 100);
+        let cid = conclusion(
+            &mut a,
+            dz,
+            &[(&p, &pp), (&q, &qp)],
+            ReexaminationOutcome::Confirmed,
+            "it stands",
+            None,
+            1010,
+        );
+        refused(&a, &cid, "must set the next re-examination date");
+
+        // And the next date must actually be in the future of the conclusion.
+        let mut b = InMemoryArchive::new();
+        let (bdz, _bs, (bp, bpp), (bq, bqp), _br) = designated(&mut b, 1000, 100);
+        let bcid = conclusion(
+            &mut b,
+            bdz,
+            &[(&bp, &bpp), (&bq, &bqp)],
+            ReexaminationOutcome::Confirmed,
+            "it stands",
+            Some(900),
+            1010,
+        );
+        refused(&b, &bcid, "is not after this conclusion");
+    }
+
+    #[test]
+    fn a_re_examination_must_publish_its_reasoning() {
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), _r) = designated(&mut a, 1000, 100);
+        let cid = conclusion(
+            &mut a,
+            dz,
+            &[(&p, &pp), (&q, &qp)],
+            ReexaminationOutcome::Confirmed,
+            "   ",
+            Some(9000),
+            1010,
+        );
+        refused(&a, &cid, "must publish its reasoning");
+    }
+
+    #[test]
+    fn reporting_a_reversal_needs_the_reversal_itself() {
+        // One definition of "reversed", which the erosion audit credits the lens for.
+        // A conclusion cannot become a second, cheaper way to lift a designation.
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), _r) = designated(&mut a, 1000, 100);
+        let cid = conclusion(
+            &mut a,
+            dz,
+            &[(&p, &pp), (&q, &qp)],
+            ReexaminationOutcome::Reversed,
+            "we consider it lifted",
+            None,
+            1010,
+        );
+        refused(&a, &cid, "no lifting record or re-entry answers it");
+    }
+
+    #[test]
+    fn a_re_examination_carries_the_designation_quorum() {
+        // Re-examining the severest act is the same weight of act as taking it, so it
+        // inherits the second-class distinct-community floor rather than being a thing
+        // one community can conclude alone.
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), _q, _r) = designated(&mut a, 1000, 100);
+        let cid = conclusion(
+            &mut a,
+            dz,
+            &[(&p, &pp)],
+            ReexaminationOutcome::Confirmed,
+            "it stands",
+            Some(9000),
+            1010,
+        );
+        refused(&a, &cid, "second-class decision requires");
+    }
+
+    // --- the gate: erosion remediation's one refusal -------------------------
+
+    #[test]
+    fn a_lapsed_designation_may_not_be_cited_by_a_new_one() {
+        // The one refusal this slice carries. The most severe act the compact can take
+        // may not rest on an obligation the compact has itself let lapse.
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), (r, rp)) = designated(&mut a, 1000, 100);
+        let (s2, _s2p) = community(&mut a, "S2", ts(1));
+        let cited = Signed::build(
+            Designation {
+                subject_community: s2.clone(),
+                tier: DesignationTier::Anathema,
+                urgency: DesignationUrgency::Expedited,
+                deliberators: vec![p.clone(), q.clone(), r.clone()],
+                criteria: "consorting with the designated".into(),
+                cited_acts: vec![dz],
+                failed_restoration_cycles: vec![],
+                deliberation_cycles: vec![DeliberationCycle {
+                    cycle_index: 0,
+                    representatives: vec![p.clone()],
+                    opened_at: ts(4990),
+                    concluded_at: ts(4995),
+                    reasoning: "r".into(),
+                }],
+                reversal_conditions: Some("changed conduct".into()),
+                reexamine_after: Some(ts(20_000)),
+                decision_class: DecisionClass::SecondClass,
+                designated_at: ts(5000),
+            },
+            &[(p.as_str(), &pp), (q.as_str(), &qp), (r.as_str(), &rp)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::DesignationDecided(cited)).unwrap();
+        refused(&a, &cid, "a further escalation may not rest on a lapsed obligation");
+    }
+
+    #[test]
+    fn a_designation_cited_before_its_date_passes_the_gate() {
+        // Negative control, predicted first: the gate must fire on *lapse*, not on
+        // citation. A designation still inside its window is ordinary evidence.
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), (r, rp)) = designated(&mut a, 100_000, 100);
+        let (s2, _s2p) = community(&mut a, "S2", ts(1));
+        let cited = Signed::build(
+            Designation {
+                subject_community: s2.clone(),
+                tier: DesignationTier::Anathema,
+                urgency: DesignationUrgency::Expedited,
+                deliberators: vec![p.clone(), q.clone(), r.clone()],
+                criteria: "consorting with the designated".into(),
+                cited_acts: vec![dz],
+                failed_restoration_cycles: vec![],
+                deliberation_cycles: vec![DeliberationCycle {
+                    cycle_index: 0,
+                    representatives: vec![p.clone()],
+                    opened_at: ts(4990),
+                    concluded_at: ts(4995),
+                    reasoning: "r".into(),
+                }],
+                reversal_conditions: Some("changed conduct".into()),
+                reexamine_after: Some(ts(200_000)),
+                decision_class: DecisionClass::SecondClass,
+                designated_at: ts(5000),
+            },
+            &[(p.as_str(), &pp), (q.as_str(), &qp), (r.as_str(), &rp)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::DesignationDecided(cited)).unwrap();
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_re_examined_designation_may_be_cited_again() {
+        // The gate is about follow-through, not about age: once the obligation is
+        // answered, the citation is good again. Without this the fix would make a
+        // diligently-maintained designation permanently uncitable.
+        let mut a = InMemoryArchive::new();
+        let (dz, _s, (p, pp), (q, qp), (r, rp)) = designated(&mut a, 1000, 100);
+        conclusion(
+            &mut a,
+            dz,
+            &[(&p, &pp), (&q, &qp)],
+            ReexaminationOutcome::Confirmed,
+            "the pattern has not changed",
+            Some(100_000),
+            1010,
+        );
+        let (s2, _s2p) = community(&mut a, "S2", ts(1));
+        let cited = Signed::build(
+            Designation {
+                subject_community: s2.clone(),
+                tier: DesignationTier::Anathema,
+                urgency: DesignationUrgency::Expedited,
+                deliberators: vec![p.clone(), q.clone(), r.clone()],
+                criteria: "consorting with the designated".into(),
+                cited_acts: vec![dz],
+                failed_restoration_cycles: vec![],
+                deliberation_cycles: vec![DeliberationCycle {
+                    cycle_index: 0,
+                    representatives: vec![p.clone()],
+                    opened_at: ts(4990),
+                    concluded_at: ts(4995),
+                    reasoning: "r".into(),
+                }],
+                reversal_conditions: Some("changed conduct".into()),
+                reexamine_after: Some(ts(200_000)),
+                decision_class: DecisionClass::SecondClass,
+                designated_at: ts(5000),
+            },
+            &[(p.as_str(), &pp), (q.as_str(), &qp), (r.as_str(), &rp)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::DesignationDecided(cited)).unwrap();
+        ok(&a, &cid);
+    }
+
+    // --- the activity attestation -------------------------------------------
+
+    #[test]
+    fn a_community_holding_seats_may_attest_a_null_window() {
+        let mut a = InMemoryArchive::new();
+        let (c, cp) = community(&mut a, "C", ts(10));
+        add_mediators(&mut a, &c, &cp, 1, ts(100));
+        let cid = attestation(
+            &mut a,
+            &c,
+            &cp,
+            AttestedFunction::Mediation,
+            (100, 200),
+            vec![],
+            "no disputes were filed in this window",
+            200,
+        );
+        ok(&a, &cid);
+    }
+
+    #[test]
+    fn a_community_seating_nobody_has_no_account_to_give() {
+        // The obligation belongs to whoever holds the seats. A community that seated
+        // nobody cannot manufacture a clean record of a function it does not perform.
+        let mut a = InMemoryArchive::new();
+        let (c, cp) = community(&mut a, "C", ts(10));
+        let cid = attestation(
+            &mut a,
+            &c,
+            &cp,
+            AttestedFunction::Mediation,
+            (100, 200),
+            vec![],
+            "nothing to report",
+            200,
+        );
+        refused(&a, &cid, "has no account to give");
+    }
+
+    #[test]
+    fn an_empty_attestation_must_still_state_its_account() {
+        // A null owes an explanation, because "no disputes were filed" and "we stopped
+        // convening" are both nulls and are not the same thing.
+        let mut a = InMemoryArchive::new();
+        let (c, cp) = community(&mut a, "C", ts(10));
+        add_mediators(&mut a, &c, &cp, 1, ts(100));
+        let cid = attestation(
+            &mut a,
+            &c,
+            &cp,
+            AttestedFunction::Mediation,
+            (100, 200),
+            vec![],
+            "  ",
+            200,
+        );
+        refused(&a, &cid, "must state its account");
+    }
+
+    #[test]
+    fn a_window_must_be_a_window() {
+        let mut a = InMemoryArchive::new();
+        let (c, cp) = community(&mut a, "C", ts(10));
+        add_mediators(&mut a, &c, &cp, 1, ts(100));
+        let cid = attestation(
+            &mut a,
+            &c,
+            &cp,
+            AttestedFunction::Mediation,
+            (200, 200),
+            vec![],
+            "an instant",
+            200,
+        );
+        refused(&a, &cid, "at or before its start");
+    }
+
+    #[test]
+    fn a_cited_act_must_fall_inside_the_window() {
+        // An attestation is evidence about a window, so it may not borrow an act from
+        // outside the window it is offered for.
+        let mut a = InMemoryArchive::new();
+        let (c, cp) = community(&mut a, "C", ts(10));
+        add_mediators(&mut a, &c, &cp, 1, ts(100));
+        let (x, xp) = community(&mut a, "X", ts(10));
+        let (y, _yp) = community(&mut a, "Y", ts(10));
+        let dispute = Signed::build(
+            DisputeRecord {
+                complainant: x.clone(),
+                respondent: y.clone(),
+                rung: LadderRung::MediatedArbitration,
+                summary: "s".into(),
+                references: vec![],
+                filed_at: ts(5000),
+            },
+            &[(x.as_str(), &xp)],
+        )
+        .unwrap();
+        let dispute_cid = a.append(ArchiveEntry::DisputeFiled(dispute)).unwrap();
+        let cid = attestation(
+            &mut a,
+            &c,
+            &cp,
+            AttestedFunction::Mediation,
+            (100, 200),
+            vec![dispute_cid],
+            "we handled this",
+            200,
+        );
+        refused(&a, &cid, "falls outside the window");
+    }
+
+    #[test]
+    fn a_cited_act_must_belong_to_the_attested_function() {
+        // An observation attestation may not cite a mediation act: the two functions
+        // are separately accountable, which is the whole reason the enum exists.
+        let mut a = InMemoryArchive::new();
+        let (c, cp) = community(&mut a, "C", ts(10));
+        seat_observer(&mut a, &c, &cp, 100);
+        add_mediators(&mut a, &c, &cp, 1, ts(100));
+        let (x, xp) = community(&mut a, "X", ts(10));
+        let (y, _yp) = community(&mut a, "Y", ts(10));
+        let dispute = Signed::build(
+            DisputeRecord {
+                complainant: x.clone(),
+                respondent: y.clone(),
+                rung: LadderRung::MediatedArbitration,
+                summary: "s".into(),
+                references: vec![],
+                filed_at: ts(150),
+            },
+            &[(x.as_str(), &xp)],
+        )
+        .unwrap();
+        let dispute_cid = a.append(ArchiveEntry::DisputeFiled(dispute)).unwrap();
+        let cid = attestation(
+            &mut a,
+            &c,
+            &cp,
+            AttestedFunction::Observation,
+            (100, 200),
+            vec![dispute_cid],
+            "we observed this",
+            200,
+        );
+        refused(&a, &cid, "is not a Observation act");
+    }
+}
+
+/// §4.1 — consent to the panel as constituted.
+///
+/// The measurement this part began from: a panel recorded that the parties **settled** a
+/// dispute neither party had ever agreed to settle, and it was authorized. Consent
+/// existed in the tier only where it was structural (a protecting power is co-signed)
+/// or where it was refused (a recusal request, answered); the ordinary case — this
+/// panel, these mediators, may decide my dispute — was inferred from a party having
+/// filed an argument, which is a different act.
+///
+/// Consent gates the settlement and nothing else, deliberately: a consent precondition
+/// on deciding at all would hand either party a veto over its own dispute.
+mod panel_consent {
+    use super::*;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect("expected authorized");
+    }
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+
+    /// THE MEASUREMENT, now the rule: a settlement neither party consented to is refused.
+    #[test]
+    fn a_settlement_no_party_consented_to_is_refused() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let args = panel_arguments(&mut a, dispute, &panel, ts(200));
+        let dec = decide_citing_outcome(
+            &mut a, dispute, &panel, args, DecisionOutcome::Settled, ts(200),
+        );
+        refused(&a, &dec, "is not a settlement");
+
+        // NEGATIVE CONTROL: the identical decision, with both consents on the record,
+        // is authorized. The consent is what changed, not the panel or the arguments.
+        let mut b = InMemoryArchive::new();
+        let (ca2, ca2_priv, cb2, cb2_priv, dispute2, pool2) = mediation_fixture(&mut b);
+        let panel2: Vec<(&DidKey, &PrivKey)> = pool2.iter().map(|(d, p, _)| (d, p)).collect();
+        let dec2 = decide_settled(
+            &mut b,
+            dispute2,
+            (&ca2, &ca2_priv, &cb2, &cb2_priv),
+            &panel2,
+            ts(200),
+        );
+        ok(&b, &dec2);
+        let _ = (ca, ca_priv, cb, cb_priv);
+    }
+
+    /// One party's consent is not both parties'. A settlement is a claim about the two
+    /// of them.
+    #[test]
+    fn one_partys_consent_does_not_settle_for_the_other() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        consent(&mut a, dispute, &ca, &ca_priv, &panel, ConsentAnswer::Given, ts(150));
+        let args = panel_arguments(&mut a, dispute, &panel, ts(200));
+        let dec = decide_citing_outcome(
+            &mut a, dispute, &panel, args, DecisionOutcome::Settled, ts(200),
+        );
+        let err = authorize(&a, a.get(&dec).unwrap(), DEFAULT_QUORUM_THRESHOLD, DEFAULT_PANEL_MIN)
+            .expect_err("the respondent never consented");
+        assert!(
+            err.to_string().contains(cb.as_str()),
+            "the refusal must name the party whose consent is missing, got: {err}"
+        );
+    }
+
+    /// **Consent does not carry across a change to the panel.** A party that accepted
+    /// three mediators has not accepted a fourth, so a settlement recorded by a panel
+    /// other than the consented one has no consent behind it.
+    #[test]
+    fn consent_does_not_carry_to_a_differently_constituted_panel() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let (cf, cf_priv) = community(&mut a, "F", ts(10));
+        let extra = add_mediators(&mut a, &cf, &cf_priv, 1, ts(10));
+
+        let three: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        consent(&mut a, dispute, &ca, &ca_priv, &three, ConsentAnswer::Given, ts(150));
+        consent(&mut a, dispute, &cb, &cb_priv, &three, ConsentAnswer::Given, ts(150));
+
+        // A fourth mediator joins, and that panel records the settlement.
+        let mut four = three.clone();
+        four.push((&extra[0].0, &extra[0].1));
+        let args = panel_arguments(&mut a, dispute, &four, ts(200));
+        let dec = decide_citing_outcome(
+            &mut a, dispute, &four, args, DecisionOutcome::Settled, ts(200),
+        );
+        refused(&a, &dec, "is not a settlement");
+
+        // NEGATIVE CONTROL: the same four-mediator panel, consented to as four, settles.
+        let dec_ok = decide_settled(
+            &mut a, dispute, (&ca, &ca_priv, &cb, &cb_priv), &four, ts(300),
+        );
+        ok(&a, &dec_ok);
+    }
+
+    /// Consent is withdrawable: the party's latest answer on that panel governs.
+    #[test]
+    fn a_later_withholding_supersedes_an_earlier_consent() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, cb, cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        consent(&mut a, dispute, &ca, &ca_priv, &panel, ConsentAnswer::Given, ts(150));
+        consent(&mut a, dispute, &cb, &cb_priv, &panel, ConsentAnswer::Given, ts(150));
+        consent(&mut a, dispute, &cb, &cb_priv, &panel, ConsentAnswer::Withheld, ts(160));
+        let args = panel_arguments(&mut a, dispute, &panel, ts(200));
+        let dec = decide_citing_outcome(
+            &mut a, dispute, &panel, args, DecisionOutcome::Settled, ts(200),
+        );
+        refused(&a, &dec, "is not a settlement");
+    }
+
+    /// **Nothing but a settlement waits on consent.** A party that refuses to settle
+    /// does not thereby block its own dispute: the panel upholds, dismisses or refers.
+    #[test]
+    fn withheld_consent_does_not_block_the_other_three_outcomes() {
+        for outcome in [
+            DecisionOutcome::Upheld,
+            DecisionOutcome::Dismissed,
+            DecisionOutcome::Referred,
+        ] {
+            let mut a = InMemoryArchive::new();
+            let (ca, ca_priv, cb, cb_priv, dispute, pool) = mediation_fixture(&mut a);
+            let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+            consent(&mut a, dispute, &ca, &ca_priv, &panel, ConsentAnswer::Withheld, ts(150));
+            consent(&mut a, dispute, &cb, &cb_priv, &panel, ConsentAnswer::Withheld, ts(150));
+            let args = panel_arguments(&mut a, dispute, &panel, ts(200));
+            let dec = decide_citing_outcome(&mut a, dispute, &panel, args, outcome, ts(200));
+            ok(&a, &dec);
+        }
+    }
+
+    /// A consent is the party's own act. Nobody consents on another's behalf, and a
+    /// non-party has no consent to give at all.
+    #[test]
+    fn only_a_party_speaking_for_itself_may_consent() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let (outsider, outsider_priv) = community(&mut a, "Outsider", ts(10));
+
+        // A non-party purporting to consent.
+        let cid = consent(
+            &mut a, dispute, &outsider, &outsider_priv, &panel, ConsentAnswer::Given, ts(150),
+        );
+        refused(&a, &cid, "is not a party to this dispute");
+
+        // A party's consent signed by somebody else. The payload names the party; the
+        // envelope does not carry a key that speaks for it.
+        let forged = Signed::build(
+            PanelConsent {
+                dispute_cid: dispute,
+                party: ca.clone(),
+                panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+                answer: ConsentAnswer::Given,
+                statement: "on their behalf".into(),
+                given_at: ts(150),
+            },
+            &[(outsider.as_str(), &outsider_priv)],
+        )
+        .unwrap();
+        let cid = a
+            .append(ArchiveEntry::PanelConsentRecorded(forged))
+            .unwrap();
+        refused(&a, &cid, "nobody consents on another's behalf");
+
+        // NEGATIVE CONTROL: the party signing for itself is authorized.
+        let mine = consent(
+            &mut a, dispute, &ca, &ca_priv, &panel, ConsentAnswer::Given, ts(150),
+        );
+        ok(&a, &mine);
+    }
+
+    /// Consent may not be recorded to a panel that could not sit — a party community's
+    /// own mediator, or somebody who is not a registered mediator at all. Otherwise a
+    /// party could consent to a fiction and have it counted as the real panel's.
+    #[test]
+    fn consent_to_a_panel_that_could_not_sit_is_refused() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        // The complainant's own mediator.
+        let own = add_mediators(&mut a, &ca, &ca_priv, 1, ts(10));
+        let mut panel: Vec<(&DidKey, &PrivKey)> =
+            pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
+        panel.push((&own[0].0, &own[0].1));
+        let cid = consent(
+            &mut a, dispute, &ca, &ca_priv, &panel, ConsentAnswer::Given, ts(150),
+        );
+        refused(&a, &cid, "non-overlap violated");
+
+        // Somebody who holds no mediator seat.
+        let (stray_did, stray_priv) = {
+            let (sk, pk) = keys::generate(Alg::Ed25519).unwrap();
+            (DidKey::from_pubkey(&pk).unwrap(), sk)
+        };
+        let mut panel2: Vec<(&DidKey, &PrivKey)> =
+            pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
+        panel2.push((&stray_did, &stray_priv));
+        let cid = consent(
+            &mut a, dispute, &ca, &ca_priv, &panel2, ConsentAnswer::Given, ts(150),
+        );
+        refused(&a, &cid, "is not an active registered mediator");
+    }
+
+    /// Withholding is the answer that owes an account.
+    #[test]
+    fn withheld_consent_must_state_something() {
+        let mut a = InMemoryArchive::new();
+        let (ca, ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let c = Signed::build(
+            PanelConsent {
+                dispute_cid: dispute,
+                party: ca.clone(),
+                panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+                answer: ConsentAnswer::Withheld,
+                statement: "   ".into(),
+                given_at: ts(150),
+            },
+            &[(ca.as_str(), &ca_priv)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::PanelConsentRecorded(c)).unwrap();
+        refused(&a, &cid, "owes an account");
+    }
+}
+
+/// §4.1 — the mediator pool's authority over the structured-skepticism protocol.
+///
+/// The measurement this part began from, in two directions. **The protocol had no teeth
+/// against a manufacturer:** whether an event qualified was four booleans the
+/// *originating community* set on its own report, so a manufacturer that declared its
+/// own event mundane was never held, and a full non-party mediator pool sitting in the
+/// same archive could do nothing about it. **And a hold answered to nobody:** the
+/// mirror case, a community placing its own event beyond action, with no record any
+/// reviewer could author. §4 assigns the invocation to the pool and requires the pool
+/// to review it against pretextual use; neither was a record.
+mod skepticism_invocation {
+    use super::*;
+    use kc_provenance::{
+        EventActionInvoked, EventCorroboration, EventReport, ReviewAnswer, SkepticismCriterion,
+        SkepticismInvocation, SkepticismReview,
+    };
+
+    use crate::authority::{
+        MAX_INVOKED_SKEPTICISM_HOLD_SECONDS, MIN_INVOKED_SKEPTICISM_HOLD_SECONDS,
+    };
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const DAY: i64 = 24 * 3600;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), Q, P).expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+
+    /// The originator, three non-party communities each seating one mediator, and one
+    /// event. `declared` is what the originator says about its own claim; the facts of
+    /// the event are the same either way.
+    fn fixture(
+        a: &mut InMemoryArchive,
+        declared: bool,
+    ) -> (DidKey, PrivKey, Cid, Vec<(DidKey, PrivKey, PrivKey)>) {
+        let (r, rp) = community(a, "Originator", ts(10));
+        let (cc, cc_priv) = community(a, "C", ts(10));
+        let (cd, cd_priv) = community(a, "D", ts(10));
+        let (ce, ce_priv) = community(a, "E", ts(10));
+        let mut pool = vec![];
+        pool.extend(add_mediators(a, &cc, &cc_priv, 1, ts(10)));
+        pool.extend(add_mediators(a, &cd, &cd_priv, 1, ts(10)));
+        pool.extend(add_mediators(a, &ce, &ce_priv, 1, ts(10)));
+        let ev = report(a, &r, &rp, declared, ts(1000));
+        (r, rp, ev, pool)
+    }
+
+    fn report(
+        a: &mut InMemoryArchive,
+        originator: &DidKey,
+        root_priv: &PrivKey,
+        declared_qualifying: bool,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = EventReport {
+            originator: originator.clone(),
+            summary: "a sudden, faction-convenient omen witnessed by an interested party".into(),
+            // The facts of this event meet every criterion the doctrine names. What the
+            // record carries is what its originator chose to declare about them.
+            high_interpretive_charge: declared_qualifying,
+            sudden_onset: declared_qualifying,
+            originator_holds_stake: declared_qualifying,
+            aligned_faction: None,
+            declared_incentives: "none that we see".into(),
+            information_history: "first-hand".into(),
+            disclosed_interests: vec![],
+            onset_at: at,
+            reported_at: at,
+        };
+        let signed = Signed::build(rec, &[(originator.as_str(), root_priv)]).unwrap();
+        a.append(ArchiveEntry::EventReported(signed)).unwrap()
+    }
+
+    fn act(
+        a: &mut InMemoryArchive,
+        event_cid: &Cid,
+        acting: &DidKey,
+        root_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = EventActionInvoked {
+            event_cid: *event_cid,
+            acting_community: acting.clone(),
+            action: "designate the rival community".into(),
+            invoked_at: at,
+        };
+        let signed = Signed::build(rec, &[(acting.as_str(), root_priv)]).unwrap();
+        a.append(ArchiveEntry::EventActionInvoked(signed)).unwrap()
+    }
+
+    fn invoke_with(
+        a: &mut InMemoryArchive,
+        event_cid: &Cid,
+        panel: &[(&DidKey, &PrivKey)],
+        criteria: Vec<SkepticismCriterion>,
+        grounds: &str,
+        hold_seconds: i64,
+        at: Timestamp,
+    ) -> Cid {
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let rec = SkepticismInvocation {
+            event_cid: *event_cid,
+            panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+            criteria,
+            grounds: grounds.into(),
+            hold_seconds,
+            invoked_at: at,
+        };
+        let signed = Signed::build(rec, &pairs).unwrap();
+        a.append(ArchiveEntry::SkepticismInvoked(signed)).unwrap()
+    }
+
+    fn invoke(
+        a: &mut InMemoryArchive,
+        event_cid: &Cid,
+        panel: &[(&DidKey, &PrivKey)],
+        hold_seconds: i64,
+        at: Timestamp,
+    ) -> Cid {
+        invoke_with(
+            a,
+            event_cid,
+            panel,
+            vec![
+                SkepticismCriterion::SuddenOnset,
+                SkepticismCriterion::OriginatorHoldsStake,
+            ],
+            "onset within the hour of the allocation vote, and the witness stands to gain",
+            hold_seconds,
+            at,
+        )
+    }
+
+    fn review(
+        a: &mut InMemoryArchive,
+        event_cid: &Cid,
+        panel: &[(&DidKey, &PrivKey)],
+        answer: ReviewAnswer,
+        reasoning: &str,
+        at: Timestamp,
+    ) -> Cid {
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let rec = SkepticismReview {
+            event_cid: *event_cid,
+            reviewers: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+            answer,
+            reasoning: reasoning.into(),
+            reviewed_at: at,
+        };
+        let signed = Signed::build(rec, &pairs).unwrap();
+        a.append(ArchiveEntry::SkepticismReviewed(signed)).unwrap()
+    }
+
+    fn corroborate(
+        a: &mut InMemoryArchive,
+        event_cid: &Cid,
+        who: &DidKey,
+        who_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = EventCorroboration {
+            event_cid: *event_cid,
+            corroborating_community: who.clone(),
+            translation: None,
+            corroborated_at: at,
+        };
+        let signed = Signed::build(rec, &[(who.as_str(), who_priv)]).unwrap();
+        a.append(ArchiveEntry::EventCorroborated(signed)).unwrap()
+    }
+
+    /// THE MEASUREMENT, now the rule. An originator declares its own event mundane and
+    /// the self-declared hold does not reach it — but the pool's invocation does, and
+    /// the action premised on it is refused.
+    #[test]
+    fn the_pool_can_hold_an_event_its_originator_declared_mundane() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp, ev, pool) = fixture(&mut a, false);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+
+        // Without an invocation, this is exactly what used to be authorized.
+        let before = act(&mut a, &ev, &r, &rp, ts(1000 + 3600));
+        ok(&a, &before);
+
+        let inv = invoke(&mut a, &ev, &panel, 14 * DAY, ts(1000 + 60));
+        ok(&a, &inv);
+
+        let after = act(&mut a, &ev, &r, &rp, ts(1000 + 2 * 3600));
+        refused(&a, &after, "structured-skepticism hold");
+    }
+
+    /// THE OTHER HALF, now the rule: a hold placed by the originator's own declaration
+    /// is reviewable, and a `Pretextual` finding releases it. The review is against the
+    /// **hold**, not against an invocation record, which is what lets it reach the
+    /// self-declared case at all.
+    #[test]
+    fn a_pretextual_review_releases_a_self_declared_hold() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp, ev, pool) = fixture(&mut a, true);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+
+        let held = act(&mut a, &ev, &r, &rp, ts(1000 + 3600));
+        refused(&a, &held, "structured-skepticism hold");
+
+        let rev = review(
+            &mut a,
+            &ev,
+            &panel,
+            ReviewAnswer::Pretextual,
+            "the originator flagged its own rescue request to keep the compact from answering it",
+            ts(1000 + 1800),
+        );
+        ok(&a, &rev);
+
+        let released = act(&mut a, &ev, &r, &rp, ts(1000 + 7200));
+        ok(&a, &released);
+    }
+
+    /// An `Upheld` review is an audit record and nothing more: the hold it examined
+    /// stands exactly as it did.
+    #[test]
+    fn an_upheld_review_leaves_the_hold_standing() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp, ev, pool) = fixture(&mut a, true);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let rev = review(
+            &mut a,
+            &ev,
+            &panel,
+            ReviewAnswer::Upheld,
+            "the criteria are met on the record and the invocation is not a tactic",
+            ts(1000 + 1800),
+        );
+        ok(&a, &rev);
+        let still_held = act(&mut a, &ev, &r, &rp, ts(1000 + 7200));
+        refused(&a, &still_held, "structured-skepticism hold");
+    }
+
+    /// **A panel may not review its own invocation.** Without this the review record
+    /// would exist and audit nothing: the invoking panel would uphold itself, or
+    /// release its own hold when it suited.
+    #[test]
+    fn the_invoking_panel_may_not_review_its_own_invocation() {
+        let mut a = InMemoryArchive::new();
+        let (_r, _rp, ev, pool) = fixture(&mut a, false);
+        let (cf, cf_priv) = community(&mut a, "F", ts(10));
+        let (cg, cg_priv) = community(&mut a, "G", ts(10));
+        let (ch, ch_priv) = community(&mut a, "H", ts(10));
+        let mut others = vec![];
+        others.extend(add_mediators(&mut a, &cf, &cf_priv, 1, ts(10)));
+        others.extend(add_mediators(&mut a, &cg, &cg_priv, 1, ts(10)));
+        others.extend(add_mediators(&mut a, &ch, &ch_priv, 1, ts(10)));
+
+        let invoking: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        invoke(&mut a, &ev, &invoking, 14 * DAY, ts(1000 + 60));
+
+        let self_review = review(
+            &mut a,
+            &ev,
+            &invoking,
+            ReviewAnswer::Upheld,
+            "we reviewed ourselves and found ourselves sound",
+            ts(1000 + 120),
+        );
+        refused(&a, &self_review, "co-signed the invocation under review");
+
+        // Even one invoker sitting on the reviewing panel is enough to disqualify it.
+        let mixed: Vec<(&DidKey, &PrivKey)> = vec![
+            (&pool[0].0, &pool[0].1),
+            (&others[0].0, &others[0].1),
+            (&others[1].0, &others[1].1),
+        ];
+        let mixed_review = review(
+            &mut a,
+            &ev,
+            &mixed,
+            ReviewAnswer::Upheld,
+            "one of us invoked it",
+            ts(1000 + 130),
+        );
+        refused(&a, &mixed_review, "co-signed the invocation under review");
+
+        // NEGATIVE CONTROL: an entirely separate panel reviews it, and is authorized.
+        let independent: Vec<(&DidKey, &PrivKey)> =
+            others.iter().map(|(d, p, _)| (d, p)).collect();
+        let clean = review(
+            &mut a,
+            &ev,
+            &independent,
+            ReviewAnswer::Upheld,
+            "the criteria are met and the invocation is not a tactic",
+            ts(1000 + 140),
+        );
+        ok(&a, &clean);
+    }
+
+    /// The originating community may neither invoke the pool's hold on its own event
+    /// (that is what its own declaration already is) nor sit in review of a hold it
+    /// benefits from releasing.
+    #[test]
+    fn the_originators_own_mediators_may_neither_invoke_nor_review() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp, ev, pool) = fixture(&mut a, true);
+        let own = add_mediators(&mut a, &r, &rp, 1, ts(10));
+
+        let mut panel: Vec<(&DidKey, &PrivKey)> =
+            pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
+        panel.push((&own[0].0, &own[0].1));
+
+        let inv = invoke(&mut a, &ev, &panel, 14 * DAY, ts(1000 + 60));
+        refused(&a, &inv, "non-overlap violated");
+
+        // NEGATIVE CONTROL: the same three-mediator panel without the originator's own.
+        let clean: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let inv_ok = invoke(&mut a, &ev, &clean, 14 * DAY, ts(1000 + 80));
+        ok(&a, &inv_ok);
+
+        // The review half, in its own archive: signing an invocation disqualifies a
+        // mediator from reviewing it, which would otherwise mask the rule under test.
+        let mut b = InMemoryArchive::new();
+        let (r2, rp2, ev2, pool2) = fixture(&mut b, true);
+        let own2 = add_mediators(&mut b, &r2, &rp2, 1, ts(10));
+        let mut panel2: Vec<(&DidKey, &PrivKey)> =
+            pool2.iter().take(2).map(|(d, p, _)| (d, p)).collect();
+        panel2.push((&own2[0].0, &own2[0].1));
+        let rev = review(
+            &mut b,
+            &ev2,
+            &panel2,
+            ReviewAnswer::Pretextual,
+            "release our own event",
+            ts(1000 + 70),
+        );
+        refused(&b, &rev, "non-overlap violated");
+    }
+
+    /// The invoking panel is derived from the co-signers, so a record cannot name one
+    /// panel while another signs — the rule `MediationDecision.panel` already carries.
+    #[test]
+    fn an_invocations_panel_must_be_its_co_signers() {
+        let mut a = InMemoryArchive::new();
+        let (_r, _rp, ev, pool) = fixture(&mut a, false);
+        let (cf, cf_priv) = community(&mut a, "F", ts(10));
+        let stranger = add_mediators(&mut a, &cf, &cf_priv, 1, ts(10));
+
+        let signers: Vec<(&str, &PrivKey)> =
+            pool.iter().map(|(d, p, _)| (d.as_str(), p)).collect();
+        let rec = SkepticismInvocation {
+            event_cid: ev,
+            // Names a mediator who did not sign.
+            panel: vec![
+                pool[0].0.clone(),
+                pool[1].0.clone(),
+                stranger[0].0.clone(),
+            ],
+            criteria: vec![SkepticismCriterion::SuddenOnset],
+            grounds: "onset within the hour of the vote".into(),
+            hold_seconds: 14 * DAY,
+            invoked_at: ts(1060),
+        };
+        let signed = Signed::build(rec, &signers).unwrap();
+        let cid = a.append(ArchiveEntry::SkepticismInvoked(signed)).unwrap();
+        refused(&a, &cid, "must be exactly its co-signers");
+    }
+
+    /// An invocation must document criteria and grounds, and a review must give
+    /// reasoning on either answer.
+    #[test]
+    fn an_invocation_documents_its_criteria_and_a_review_its_reasoning() {
+        let mut a = InMemoryArchive::new();
+        let (_r, _rp, ev, pool) = fixture(&mut a, false);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+
+        let no_criteria = invoke_with(&mut a, &ev, &panel, vec![], "it feels wrong", 14 * DAY, ts(1060));
+        refused(&a, &no_criteria, "must name the criteria");
+
+        let no_grounds = invoke_with(
+            &mut a,
+            &ev,
+            &panel,
+            vec![SkepticismCriterion::SuddenOnset],
+            "   ",
+            14 * DAY,
+            ts(1061),
+        );
+        refused(&a, &no_grounds, "document its grounds specifically");
+
+        // A review that strikes a hold down without saying why, and one that sustains
+        // it without saying why, are refused alike.
+        for answer in [ReviewAnswer::Pretextual, ReviewAnswer::Upheld] {
+            let silent = review(&mut a, &ev, &panel, answer, "  ", ts(1062));
+            refused(&a, &silent, "must state its reasoning on either answer");
+        }
+    }
+
+    /// The hold a pool imposes is bounded at both ends. A nominal hold is no delay, and
+    /// an unbounded one is the suppression the review exists to catch — caught here by
+    /// a rule rather than by somebody noticing.
+    #[test]
+    fn an_invoked_hold_is_bounded_at_both_ends() {
+        let mut a = InMemoryArchive::new();
+        let (_r, _rp, ev, pool) = fixture(&mut a, false);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+
+        let nominal = invoke(&mut a, &ev, &panel, MIN_INVOKED_SKEPTICISM_HOLD_SECONDS - 1, ts(1060));
+        refused(&a, &nominal, "outside the range the protocol calibrates to");
+
+        let forever = invoke(&mut a, &ev, &panel, MAX_INVOKED_SKEPTICISM_HOLD_SECONDS + 1, ts(1061));
+        refused(&a, &forever, "outside the range the protocol calibrates to");
+
+        // NEGATIVE CONTROLS: both endpoints themselves are inside the range.
+        let floor = invoke(&mut a, &ev, &panel, MIN_INVOKED_SKEPTICISM_HOLD_SECONDS, ts(1062));
+        ok(&a, &floor);
+        let ceiling = invoke(&mut a, &ev, &panel, MAX_INVOKED_SKEPTICISM_HOLD_SECONDS, ts(1063));
+        ok(&a, &ceiling);
+    }
+
+    /// **The interval scales with interpretive charge.** A pool that weighs an event as
+    /// high-charge and imposes months holds it past the seven-day default; the window is
+    /// the longer of the two, never the shorter.
+    #[test]
+    fn an_invoked_hold_extends_the_default_window_and_never_shortens_it() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp, ev, pool) = fixture(&mut a, true);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        invoke(&mut a, &ev, &panel, 90 * DAY, ts(1000 + 60));
+
+        // Past the seven-day default, still inside the pool's ninety days.
+        let inside = act(&mut a, &ev, &r, &rp, ts(1000 + 30 * DAY));
+        refused(&a, &inside, "structured-skepticism hold");
+        // Past the pool's window.
+        let outside = act(&mut a, &ev, &r, &rp, ts(1000 + 91 * DAY));
+        ok(&a, &outside);
+
+        // A shorter invoked hold on a self-declared event cannot cut the default short.
+        let mut b = InMemoryArchive::new();
+        let (r2, rp2, ev2, pool2) = fixture(&mut b, true);
+        let panel2: Vec<(&DidKey, &PrivKey)> = pool2.iter().map(|(d, p, _)| (d, p)).collect();
+        invoke(&mut b, &ev2, &panel2, MIN_INVOKED_SKEPTICISM_HOLD_SECONDS, ts(1000 + 60));
+        let still = act(&mut b, &ev2, &r2, &rp2, ts(1000 + 2 * DAY));
+        refused(&b, &still, "structured-skepticism hold");
+    }
+
+    /// Corroboration still releases an invoked hold. The pool's invocation imposes the
+    /// delay the protocol asks for; it is not a licence to hold an event the ambient
+    /// community has independently confirmed.
+    #[test]
+    fn corroboration_releases_an_invoked_hold_as_it_releases_a_declared_one() {
+        let mut a = InMemoryArchive::new();
+        let (r, rp, ev, pool) = fixture(&mut a, false);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        invoke(&mut a, &ev, &panel, 90 * DAY, ts(1000 + 60));
+
+        let (x, xp) = community(&mut a, "X", ts(10));
+        let (y, yp) = community(&mut a, "Y", ts(10));
+        corroborate(&mut a, &ev, &x, &xp, ts(1100));
+        corroborate(&mut a, &ev, &y, &yp, ts(1200));
+
+        let action = act(&mut a, &ev, &r, &rp, ts(1300));
+        ok(&a, &action);
+    }
+
+    /// An invocation must reference an event that exists, and so must a review.
+    #[test]
+    fn an_invocation_and_a_review_must_reference_a_reported_event() {
+        let mut a = InMemoryArchive::new();
+        let (_r, _rp, ev, pool) = fixture(&mut a, false);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        // Point at a mediator registry instead of an event.
+        let not_an_event = a
+            .iter()
+            .filter(|(_, e)| matches!(e, ArchiveEntry::MediatorRegistryUpdated(_)))
+            .map(|(c, _)| *c)
+            .next()
+            .unwrap();
+        let inv = invoke(&mut a, &not_an_event, &panel, 14 * DAY, ts(1060));
+        refused(&a, &inv, "is not a reported event");
+        let rev = review(&mut a, &not_an_event, &panel, ReviewAnswer::Upheld, "n/a", ts(1061));
+        refused(&a, &rev, "is not a reported event");
+        let _ = ev;
+    }
+
+    /// Both panels carry the ordinary §4 panel rule: registered, active, and at least
+    /// `panel_min` of them.
+    #[test]
+    fn both_panels_need_the_mediator_minimum() {
+        let mut a = InMemoryArchive::new();
+        let (_r, _rp, ev, pool) = fixture(&mut a, false);
+        let two: Vec<(&DidKey, &PrivKey)> = pool.iter().take(2).map(|(d, p, _)| (d, p)).collect();
+        let inv = invoke(&mut a, &ev, &two, 14 * DAY, ts(1060));
+        refused(&a, &inv, "invoking panel");
+
+        // The review, in its own archive for the same reason as above.
+        let mut b = InMemoryArchive::new();
+        let (_r2, _rp2, ev2, pool2) = fixture(&mut b, false);
+        let two2: Vec<(&DidKey, &PrivKey)> =
+            pool2.iter().take(2).map(|(d, p, _)| (d, p)).collect();
+        let rev = review(&mut b, &ev2, &two2, ReviewAnswer::Upheld, "two of us", ts(1061));
+        refused(&b, &rev, "reviewing panel");
+    }
+}
+
+/// §4.1 — sealed decisions with threshold-reveal.
+///
+/// The measurement this part began from: a decision had to publish its reasoning in the
+/// clear or be refused. There was no third state, so the sealed-mediation-proceedings
+/// exception the whitepaper describes — "threshold encryption for sealed mediation
+/// proceedings, with keys distributed across the mediator pool so no single custodian
+/// can unseal early", opening at the 25-to-30-year mark — could not be recorded at all.
+///
+/// What is sealed is the reasoning. Dispute, panel and outcome stay public, so every
+/// rule already built on a decision keeps running over a sealed one.
+mod sealed_decisions {
+    use super::*;
+    use kc_core::{RevealedShare, ThresholdCustody};
+    use kc_mediation::{DecisionUnsealed, SealedReasoning};
+
+    use crate::authority::{MAX_DECISION_SEAL_SECONDS, MIN_DECISION_SEAL_SECONDS};
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const TEXT: &str = "the respondent's account of the boundary is the older one, and the \
+                        complainant knew it";
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), Q, P).expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+
+    /// A dispute, a deciding panel of three, and three further communities to hold the
+    /// shares.
+    ///
+    /// **A seal outlives everyone who set it**, which is the constraint that decides who
+    /// holds the shares. `add_mediators` seats a one-year term and §4 caps any term at
+    /// two, while the seal opens at twenty-five: a mediator's key stops resolving long
+    /// before, so a share sealed to one could never be opened, and the signature on the
+    /// opening could not even be verified. Communities resolve at any instant, so
+    /// custodians are communities and the panel's homes are what the panel-quorum bar
+    /// counts.
+    #[allow(clippy::type_complexity)]
+    fn fixture(
+        a: &mut InMemoryArchive,
+    ) -> (Cid, DidKey, DidKey, Vec<(DidKey, PrivKey, PrivKey)>, Vec<(DidKey, PrivKey)>) {
+        let (ca, _ca_priv, cb, _cb_priv, dispute, panel) = mediation_fixture(a);
+        let holders = vec![
+            community(a, "F", ts(10)),
+            community(a, "G", ts(10)),
+            community(a, "H", ts(10)),
+        ];
+        (dispute, ca, cb, panel, holders)
+    }
+
+    /// The home communities of the mediators in `mediation_fixture`'s pool, which is what
+    /// the panel-quorum bar counts once custodians are communities.
+    fn panel_homes(
+        a: &InMemoryArchive,
+        pool: &[(DidKey, PrivKey, PrivKey)],
+        at: Timestamp,
+    ) -> Vec<DidKey> {
+        pool.iter()
+            .map(|(d, _, _)| {
+                crate::authority::mediator_home(a, d.as_str(), at).expect("seated somewhere")
+            })
+            .collect()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn seal_decision(
+        a: &mut InMemoryArchive,
+        dispute: Cid,
+        panel: &[(&DidKey, &PrivKey)],
+        custodians: &[&DidKey],
+        threshold: usize,
+        text: &str,
+        reveal_after: i64,
+        cleartext_reasoning: &str,
+        at: Timestamp,
+    ) -> Cid {
+        let arguments = panel_arguments(a, dispute, panel, at);
+        let holders: Vec<DidKey> = custodians.iter().map(|d| (*d).clone()).collect();
+        let custody = ThresholdCustody::seal(
+            text.as_bytes(),
+            &holders,
+            kc_core::didkey_encryption_resolver,
+            threshold,
+        )
+        .expect("seal the proceedings");
+        let dec = Signed::build(
+            MediationDecision {
+                dispute_cid: dispute,
+                panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+                outcome: DecisionOutcome::Upheld,
+                reasoning: cleartext_reasoning.into(),
+                sealed: Some(SealedReasoning {
+                    reasoning_commitment: SealedReasoning::commitment(text).unwrap(),
+                    custody,
+                    reveal_at: ts(at.as_second() + reveal_after),
+                }),
+                arguments,
+                decided_at: at,
+            },
+            &panel.iter().map(|(d, p)| (d.as_str(), *p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        a.append(ArchiveEntry::MediationDecided(dec)).unwrap()
+    }
+
+    /// Open `k` shares as their holders and return them.
+    ///
+    /// The key here is the holder's **encryption** key, not its signing key: a share is
+    /// sealed by key agreement against the separate `encryption_pubkey` a mediator is
+    /// registered under, which is the whole reason `MediatorEntry` carries two.
+    fn open_shares(
+        a: &InMemoryArchive,
+        decision: &Cid,
+        holders: &[(&DidKey, &PrivKey)],
+    ) -> Vec<RevealedShare> {
+        let sealed = match a.get(decision).unwrap() {
+            ArchiveEntry::MediationDecided(s) => s.payload.sealed.as_ref().unwrap(),
+            _ => panic!("not a decision"),
+        };
+        holders
+            .iter()
+            .map(|(d, p)| sealed.custody.open_share(d, p).expect("open own share"))
+            .collect()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn unseal(
+        a: &mut InMemoryArchive,
+        decision: Cid,
+        custodians: &[(&DidKey, &PrivKey)],
+        shares: Vec<RevealedShare>,
+        disclosed: &str,
+        cause: &str,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = DecisionUnsealed {
+            decision_cid: decision,
+            custodians: custodians.iter().map(|(d, _)| (*d).clone()).collect(),
+            cause: cause.into(),
+            disclosed_reasoning: disclosed.into(),
+            shares,
+            unsealed_at: at,
+        };
+        let signed = Signed::build(
+            rec,
+            &custodians.iter().map(|(d, p)| (d.as_str(), *p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        a.append(ArchiveEntry::DecisionUnsealed(signed)).unwrap()
+    }
+
+    /// THE MEASUREMENT, now the rule: a decision can seal its proceedings, and the seal
+    /// opens on a custodial threshold that recovers exactly what the panel wrote.
+    #[test]
+    fn a_panel_can_seal_its_proceedings_and_a_custodian_quorum_opens_them() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let custodians: Vec<&DidKey> = holders.iter().map(|(d, _)| d).collect();
+
+        let dec = seal_decision(
+            &mut a,
+            dispute,
+            &deciding,
+            &custodians,
+            2,
+            TEXT,
+            MIN_DECISION_SEAL_SECONDS,
+            "",
+            ts(200),
+        );
+        ok(&a, &dec);
+
+        // Two of the three custodians open their shares and publish the proceedings,
+        // a generation later — when no mediator who decided it still holds a seat.
+        let openers: Vec<(&DidKey, &PrivKey)> = holders.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let shares = open_shares(&a, &dec, &openers);
+        let cid = unseal(
+            &mut a,
+            dec,
+            &openers,
+            shares,
+            TEXT,
+            "",
+            ts(200 + MIN_DECISION_SEAL_SECONDS + 1),
+        );
+        ok(&a, &cid);
+    }
+
+    /// **The deciding panel may not hold a quorum of its own shares**, counted through
+    /// the panelists' home communities. A panel that can unseal itself has deferred
+    /// publication at its own discretion rather than sealed anything, and the parties who
+    /// spoke candidly to it were given a guarantee that does not exist.
+    #[test]
+    fn a_panel_holding_a_quorum_of_its_own_shares_has_not_sealed_anything() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let homes = panel_homes(&a, &panel, ts(200));
+
+        // Custody keyed to the panel's own communities: 2 of 3, all three theirs.
+        let own: Vec<&DidKey> = homes.iter().collect();
+        let dec = seal_decision(
+            &mut a, dispute, &deciding, &own, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "", ts(200),
+        );
+        refused(&a, &dec, "the panel can unseal its own");
+
+        // One panel home among the custodians is fine at k = 2: it takes two to open.
+        let mixed: Vec<&DidKey> = vec![&homes[0], &holders[0].0, &holders[1].0];
+        let dec_ok = seal_decision(
+            &mut a, dispute, &deciding, &mixed, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "", ts(300),
+        );
+        ok(&a, &dec_ok);
+
+        // Two panel homes at k = 2 is not: those two alone can open it.
+        let two_own: Vec<&DidKey> = vec![&homes[0], &homes[1], &holders[0].0];
+        let dec_bad = seal_decision(
+            &mut a, dispute, &deciding, &two_own, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "",
+            ts(400),
+        );
+        refused(&a, &dec_bad, "the panel can unseal its own");
+    }
+
+    /// Neither party may hold a share of the seal over its own proceedings: they are
+    /// exactly who would want it opened early, or never.
+    #[test]
+    fn a_party_may_not_hold_a_share_of_its_own_dispute() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let with_party: Vec<&DidKey> = vec![&ca, &holders[0].0, &holders[1].0];
+        let dec = seal_decision(
+            &mut a, dispute, &deciding, &with_party, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "",
+            ts(200),
+        );
+        refused(&a, &dec, "is a party to this dispute");
+    }
+
+    /// A custodian must be a published member community — something whose key still
+    /// resolves when the seal opens. This is the rule that keeps the deterministic reveal
+    /// from being dead on arrival.
+    #[test]
+    fn a_custodian_must_be_a_community_that_will_still_resolve() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        // A mediator: a seat §4 caps at two years, against a seal that runs twenty-five.
+        let mediator = &panel[0].0;
+        let with_mediator: Vec<&DidKey> = vec![mediator, &holders[0].0, &holders[1].0];
+        let dec = seal_decision(
+            &mut a, dispute, &deciding, &with_mediator, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "",
+            ts(200),
+        );
+        refused(&a, &dec, "not a published member community");
+    }
+
+    /// A sealed decision carries no cleartext reasoning: one decision, one account of
+    /// itself, and nothing that could contradict the sealed text with nobody able to
+    /// check.
+    #[test]
+    fn a_sealed_decision_carries_no_public_summary() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let custodians: Vec<&DidKey> = holders.iter().map(|(d, _)| d).collect();
+        let dec = seal_decision(
+            &mut a,
+            dispute,
+            &deciding,
+            &custodians,
+            2,
+            TEXT,
+            MIN_DECISION_SEAL_SECONDS,
+            "in short, the complainant lost",
+            ts(200),
+        );
+        refused(&a, &dec, "a sealed decision carries no cleartext reasoning");
+    }
+
+    /// An unsealed decision still owes its reasoning trail, and the refusal now names
+    /// the alternative.
+    #[test]
+    fn an_unsealed_decision_still_owes_its_reasoning() {
+        let mut a = InMemoryArchive::new();
+        let (_ca, _ca_priv, _cb, _cb_priv, dispute, pool) = mediation_fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p, _)| (d, p)).collect();
+        let args = panel_arguments(&mut a, dispute, &panel, ts(200));
+        let dec = Signed::build(
+            MediationDecision {
+                dispute_cid: dispute,
+                panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+                outcome: DecisionOutcome::Upheld,
+                reasoning: String::new(),
+                sealed: None,
+                arguments: args,
+                decided_at: ts(200),
+            },
+            &panel.iter().map(|(d, p)| (d.as_str(), *p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::MediationDecided(dec)).unwrap();
+        refused(&a, &cid, "mandatory) or seal it");
+    }
+
+    /// The generational cycle is a bound, not a number the record carries and nobody
+    /// reads. A seal that opens next year is not a seal; one that opens in a century is
+    /// not a deferral of publication but the end of it.
+    #[test]
+    fn the_seal_opens_within_a_generational_cycle() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let custodians: Vec<&DidKey> = holders.iter().map(|(d, _)| d).collect();
+
+        let early = seal_decision(
+            &mut a, dispute, &deciding, &custodians, 2, TEXT,
+            MIN_DECISION_SEAL_SECONDS - 1, "", ts(200),
+        );
+        refused(&a, &early, "outside the generational cycle");
+
+        let late = seal_decision(
+            &mut a, dispute, &deciding, &custodians, 2, TEXT,
+            MAX_DECISION_SEAL_SECONDS + 1, "", ts(300),
+        );
+        refused(&a, &late, "outside the generational cycle");
+
+        // NEGATIVE CONTROLS: both endpoints are inside.
+        let at_min = seal_decision(
+            &mut a, dispute, &deciding, &custodians, 2, TEXT,
+            MIN_DECISION_SEAL_SECONDS, "", ts(400),
+        );
+        ok(&a, &at_min);
+        let at_max = seal_decision(
+            &mut a, dispute, &deciding, &custodians, 2, TEXT,
+            MAX_DECISION_SEAL_SECONDS, "", ts(500),
+        );
+        ok(&a, &at_max);
+    }
+
+    /// **An unsealing must open what was sealed.** A custodian quorum cannot publish a
+    /// more flattering account than the panel wrote: the shares must recover the text,
+    /// and the text must open the commitment.
+    #[test]
+    fn an_unsealing_cannot_publish_a_reasoning_the_panel_never_wrote() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let custodians: Vec<&DidKey> = holders.iter().map(|(d, _)| d).collect();
+        let dec = seal_decision(
+            &mut a, dispute, &deciding, &custodians, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "",
+            ts(200),
+        );
+        let openers: Vec<(&DidKey, &PrivKey)> = holders.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let shares = open_shares(&a, &dec, &openers);
+        let after = ts(200 + MIN_DECISION_SEAL_SECONDS + 1);
+
+        let lie = unseal(
+            &mut a,
+            dec,
+            &openers,
+            shares.clone(),
+            "the panel found unanimously for the complainant",
+            "",
+            after,
+        );
+        refused(&a, &lie, "shares do not recover");
+
+        // One share short of the threshold recovers nothing at all.
+        let one: Vec<(&DidKey, &PrivKey)> = holders.iter().take(1).map(|(d, p)| (d, p)).collect();
+        let short = open_shares(&a, &dec, &one);
+        let starved = unseal(&mut a, dec, &one, short, TEXT, "", after);
+        refused(&a, &starved, "does not open the custody");
+
+        // NEGATIVE CONTROL: the true text with a real quorum is authorized.
+        let honest = unseal(&mut a, dec, &openers, shares, TEXT, "", after);
+        ok(&a, &honest);
+    }
+
+    /// Opening the seal early needs a named cause; after the cycle has run it does not.
+    #[test]
+    fn opening_a_seal_early_must_cite_a_cause() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let custodians: Vec<&DidKey> = holders.iter().map(|(d, _)| d).collect();
+        let dec = seal_decision(
+            &mut a, dispute, &deciding, &custodians, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "",
+            ts(200),
+        );
+        let openers: Vec<(&DidKey, &PrivKey)> = holders.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let shares = open_shares(&a, &dec, &openers);
+
+        let bare = unseal(&mut a, dec, &openers, shares.clone(), TEXT, "  ", ts(1_000_000));
+        refused(&a, &bare, "must cite a cause");
+
+        let for_cause = unseal(
+            &mut a,
+            dec,
+            &openers,
+            shares,
+            TEXT,
+            "the designation proceedings turn on what this panel found",
+            ts(1_000_001),
+        );
+        ok(&a, &for_cause);
+    }
+
+    /// Only the seal's own custodians may open it, and the custodian list is derived
+    /// from the co-signers as every panel field in this tier is.
+    #[test]
+    fn only_the_named_custodians_may_open_a_seal() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        // Custody held by two communities only.
+        let custodians: Vec<&DidKey> = holders.iter().take(2).map(|(d, _)| d).collect();
+        let dec = seal_decision(
+            &mut a, dispute, &deciding, &custodians, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "",
+            ts(200),
+        );
+        ok(&a, &dec);
+        let openers: Vec<(&DidKey, &PrivKey)> = holders.iter().take(2).map(|(d, p)| (d, p)).collect();
+        let shares = open_shares(&a, &dec, &openers);
+        let after = ts(200 + MIN_DECISION_SEAL_SECONDS + 1);
+
+        // A third community, holding no share, joins the signers.
+        let mut intruding = openers.clone();
+        intruding.push((&holders[2].0, &holders[2].1));
+        let cid = unseal(&mut a, dec, &intruding, shares.clone(), TEXT, "", after);
+        refused(&a, &cid, "holds no share of this decision's custody");
+
+        // Naming custodians who did not sign.
+        let rec = DecisionUnsealed {
+            decision_cid: dec,
+            custodians: vec![holders[0].0.clone(), holders[2].0.clone()],
+            cause: String::new(),
+            disclosed_reasoning: TEXT.into(),
+            shares,
+            unsealed_at: after,
+        };
+        let signed = Signed::build(
+            rec,
+            &openers.iter().map(|(d, p)| (d.as_str(), *p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::DecisionUnsealed(signed)).unwrap();
+        refused(&a, &cid, "must be exactly its co-signers");
+    }
+
+    /// An unsealing must reference a decision, and one that was actually sealed.
+    #[test]
+    fn unsealing_needs_a_sealed_decision_to_reference() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let deciding: Vec<(&DidKey, &PrivKey)> = panel.iter().map(|(d, p, _)| (d, p)).collect();
+        let openers: Vec<(&DidKey, &PrivKey)> = holders.iter().take(2).map(|(d, p)| (d, p)).collect();
+
+        let plain = decide(&mut a, dispute, &deciding, ts(200));
+        let cid = unseal(&mut a, plain, &openers, vec![], TEXT, "", ts(300));
+        refused(&a, &cid, "whose proceedings were never sealed");
+
+        let cid = unseal(&mut a, dispute, &openers, vec![], TEXT, "", ts(300));
+        refused(&a, &cid, "is not a mediation decision");
+    }
+
+    /// Every rule already built on a decision keeps running over a sealed one: the panel
+    /// is still non-party, still `panel_min`, and still has to have argued.
+    #[test]
+    fn sealing_suspends_none_of_the_other_decision_rules() {
+        let mut a = InMemoryArchive::new();
+        let (dispute, _ca, _cb, panel, holders) = fixture(&mut a);
+        let custodians: Vec<&DidKey> = holders.iter().map(|(d, _)| d).collect();
+        let two: Vec<(&DidKey, &PrivKey)> = panel.iter().take(2).map(|(d, p, _)| (d, p)).collect();
+        let dec = seal_decision(
+            &mut a, dispute, &two, &custodians, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "", ts(200),
+        );
+        refused(&a, &dec, "mediation panel");
     }
 }

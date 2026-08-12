@@ -319,16 +319,19 @@ KC cannot see on its own and AT cannot decide on its own.
   signed-record rigor, its own `environment.yaml`. **Built** (2026-07-24), both
   halves: the `en-pyo3` cdylib (`ethne._core`, via maturin from `pyproject.toml`)
   and the `ethne` package over it, split along the tier's own seams,
-  `ethne.polity` / `ethne.authoring` / `ethne.monitor` / `ethne.uplift`. Three
+  `ethne.polity` / `ethne.authoring` / `ethne.monitor` / `ethne.host` / `ethne.uplift`,
+  joined by `ethne.at` at **D33**. Three
   conventions carry the Rust semantics across intact: co-signers arrive as
   parallel DID/key lists which a `Signer` dataclass flattens (a record's consent
   co-signature, the joiner, the office holder, the inductee, is added by the
   binding); every KC-facing artifact crosses as **JSON**, so a KC-side consumer
   appends it verbatim and ethne still needs no `kc-archive` dependency; and the
   authoring surface preserves ratify-not-replace, since a proposal is only JSON
-  until a majority of the roll co-signs it. `en-at` is deliberately unbound (its
-  real coupling is `at-ffi`-gated); Python reaches the same path through
-  `founding_candidate`.
+  until a majority of the roll co-signs it. `en-at` was deliberately left unbound here,
+  on the reasoning that its real coupling is `at-ffi`-gated and Python could reach the
+  same path through `founding_candidate`. **D33 retired that reasoning**: reaching the
+  path by hand meant reimplementing the fold, and the reimplementation was measured
+  reading an unguarded machine as guarded and attended.
 - **D3, charter: fork a thin `en-charter`.** Own the
   genesis-singleton / immutable-core / asymmetric-amendment code in ethne,
   depending only on `kc-core`, borrowing the `kc-constitution` design. Keeps
@@ -542,7 +545,10 @@ KC cannot see on its own and AT cannot decide on its own.
   roll yet un-inducted. An induction is **witnessed by the roll** (a majority of
   current members co-sign alongside the inductee (the community receives them, and
   they participate)) while a **re-affirmation is self-signed** by an
-  already-inducted member, because renewal is the member's own act. The charter's
+  already-inducted member, because renewal is the member's own act. Since **D34** a
+  renewal also **carries a full re-recitation of the five movements** and is refused
+  without one, with whoever attended recorded and never required — self-signed and
+  ceremonially costly are not in tension. The charter's
   **ratifiers** are inducted by ratifying it (dated `founded_at`), so they take no record
   and cannot be inducted again, and only they: **D29** found the seed reading the
   founding *roll*, which handed the substrate to listed members who had signed nothing. Freshness borrows
@@ -1775,10 +1781,13 @@ KC cannot see on its own and AT cannot decide on its own.
   **Honest limits.** Nothing measures whether a rite was *meant*; presence and coherence
   are all a rule can reach, and a polity determined to hold empty ceremonies can recite
   five coherent movements in five seconds: the span lens is what makes that legible
-  rather than invisible. Re-affirmation keeps its bare self-signed form: the doctrine's
-  *"periodic re-affirmation includes a full re-recitation of the five movements"* is the
-  compact-tier generational cadence, and extending movements to renewal is named as
-  follow-up rather than taken silently here.
+  rather than invisible. Re-affirmation kept its bare self-signed form here: the
+  doctrine's *"periodic re-affirmation includes a full re-recitation of the five
+  movements"* is the compact-tier generational cadence, and extending movements to
+  renewal was named as follow-up rather than taken silently. **D34 closes that
+  deferral** — and found the tier was not merely omitting the re-recitation but refusing
+  it, so a polity performing the doctrine's own ceremony produced five violations while
+  one clicking an empty record passed clean.
 
 
 - **D30: one writer, and a way back for a log two writers forked.**
@@ -2040,6 +2049,158 @@ KC cannot see on its own and AT cannot decide on its own.
   resolving wrongly. Finally, D20's generation protection is now asserted in `kc-log`'s
   own tests and not independently in ethne's: removing the check fails the base's test and
   leaves ethne's suite green.
+
+- **D33: the AT adapter reaches Python, and the fold crosses the seam rather than the
+  peer.**
+  `en-at` was the one crate D2's Python surface stopped short of, on the stated ground
+  that its real coupling is `at-ffi`-gated and that a Python caller could reach the same
+  path by hand through `founding_candidate`. Both halves of that reasoning were wrong, and
+  measuring is what showed it.
+
+  *The gating premise was wrong.* Almost nothing in `en-at` needs `at-ffi`. The fold, the
+  replay source, the change stream, `has_private_boundary`, `observed_len`,
+  `founding_candidate`, `member_reputation` and `signing_key_did` are all pure Rust,
+  available with the feature off. Only `AttachedAtDaemon` and `EmbeddedAtNode` are gated.
+  There was never a dilemma about the crate — only about those two.
+
+  *Reaching the path by hand was not a path.* `ethne._core` exported 43 names and **none**
+  turned an ed25519 public key into a `did:key`; the only DID a Python caller could obtain
+  came from `generate_ed25519_keypair`, for a key it had just generated. A host holding an
+  observed peer's signing key therefore had to reimplement multicodec-plus-multibase
+  itself, with no way to tell whether it had got it right — and a wrong prefix or alphabet
+  yields a well-formed DID naming nobody.
+
+  *And the hand-built roll was silently wrong.* `AtPeer::guardian_did` and
+  `AtPeer::attended_at` both gate on `operator_bound`, because a guardian key or an
+  attendance stamp on a node whose operator credential never verified attests to nothing.
+  That gate is invisible from outside the crate. Written as a competent developer would
+  write it from the wire fields, the Python fold got the member count, the departure, the
+  ordering and every reputation right, and diverged on exactly **two fields, both on one
+  peer, both toward health**: it reported a `guardian` DID and an `attested_at` stamp for a
+  node AT had marked unverified. So it read an **unguarded machine as guarded and
+  attended** — defeating the office rule D15 exists for, fabricating D8's
+  human-above-machine anchor out of a key AT declined to vouch for, and handing the
+  cohesion monitor a freshness stamp with nothing behind it. Nothing in the output looked
+  wrong. This is **D31's** finding again, in the one place D31 did not reach: an assembly a
+  Python host reimplements fails silently toward health.
+
+  So the surface takes **wire fields, never an assembled peer**. `observe_peer` accepts
+  what AT sends and the Rust fold applies the gates; there is deliberately no Python object
+  whose `guardian` or `attested_at` a caller can set. The divergence is unrepresentable
+  rather than documented. Re-running the same feed through the bound provider: **0
+  divergences where the hand-rolled fold had 2.**
+
+  **The `at-ffi` answer, which was the item's actual question.** A caller sees the live
+  constructors **absent** — not present-and-raising, which is the dead-field pattern D23's
+  `substrate.anchor` and KC's `source_commitment` both turned out to be — plus
+  `at_ffi_available()`, a fact to branch on rather than an exception to catch. The flag is
+  *read*, not decorative: `ethne.at` branches on it to decide what to export. Both
+  directions are asserted by a paired test that flips with the build.
+
+  **Two properties the binding work discovered.** The live couplings hold raw C handles, so
+  they are neither `Send` nor `Sync`: an `at-ffi` build's provider is **thread-bound**
+  (`#[pyclass(unsendable)]`), applied per-feature so the restriction appears exactly where
+  its cause does. And `observe_peer` / `depart_peer` / `boundary_private` are refused by a
+  daemon-backed provider, naming what it is rather than what it lacks — injecting an
+  observation into a live feed would fabricate a reading AT never made, which is the whole
+  class of error this seam exists to prevent.
+
+  **Honest limits.** **No live AT daemon runs in this sandbox, so the gated half is
+  compile-, link- and gate-checked only** — it builds against
+  `libautonomous_trust.so` and its names appear and disappear with the feature, but no
+  `attached`/`embedded` provider has ever folded a real event here. Separately, the guardian
+  *identity* remains unreachable from a live node for reasons that are AT's, not this
+  binding's: AT carries `operator_bound` and `operator_attested_at` but nothing saying
+  *which* human, so a guardian edge from a live feed is still `MockEventSource`-only. The
+  Python surface can express it; AT cannot yet supply it.
+
+- **D34: the renewal carries the rite, because the recurring ceremony was the one with
+  no measurable cost.**
+  D29 built the five movements and named one follow-up: the doctrine's "periodic
+  re-affirmation includes a full re-recitation of the five movements" had no record
+  shape, so re-affirmation kept its bare self-signed form. Measuring it found the tier
+  did not merely omit the re-recitation. **It refused it.** Three behaviours, through the
+  running code:
+
+  | what a polity does | authority pass | freshness | erosion |
+  |---|---|---|---|
+  | members click a bare `reaffirm_member`, 3 cycles, no rite since founding | clean | 0 of 3 stale | `None` |
+  | a member performs the full five-movement re-recitation | **5 violations** — "rite movement for an already-inducted member" | still 3 of 3 stale | — |
+  | nobody re-affirms at all | clean | 3 of 3 stale | `Concern` |
+
+  So the pass rewarded the empty form and punished obedience to the doctrine. Worse, the
+  faithful re-recitation landed in the log as an **abandoned** rite, because the
+  completion it needed could never come: an `Induction` was refused for an
+  already-inducted member, and a `ReAffirmation` was refused if it cited any movements at
+  all. The ceremony did not even refresh the member's `last_affirmed`, so a member stayed
+  overdue after performing it.
+
+  This is the third variant of the corpus's recurring shape, and one worse than the
+  second. D29's own F1 was legibility without refusal — the line kith-covenant's §2 had
+  just crossed. Here there was not even legibility, because **induction is instrumented
+  and happens once per member, while the renewal happens forever and carried nothing**:
+  no movements, no span, no attendance. A polity could hold its transmission measure
+  green indefinitely at zero ceremonial cost.
+
+  *Required, not optional.* A `RiteMovement` now carries `kind: AffirmationKind`, and a
+  `ReAffirmation` must cite exactly five `ReAffirmation`-kind movements for that member,
+  in order, forming the rite completed at that point — the induction's citation rule,
+  reused rather than restated. A bare renewal is refused. The kind is **carried rather
+  than inferred** from whether the member happens to be inducted at that log index,
+  because a carried claim can be checked against the state: `Induction` requires that
+  they do not yet hold the substrate, `ReAffirmation` that they do, so a mismatch is
+  refused instead of silently reinterpreted. That is D29's own principle for `Movement` —
+  each variant carries only what it can be held to, and what a rule must check is in the
+  type.
+
+  *Recorded, not gated.* `witnesses` must equal the rite's `attended_throughout()`
+  exactly, so a member can neither over- nor under-report who was there; it may be
+  **empty**, and it is never a threshold. The signers stay exactly the member. This is
+  D14's standing rule that self-signed acts "are never gated: they are precisely the acts
+  no one else may condition" — attendance is a fact about the ceremony, not a condition
+  on it.
+
+  *Nobody attends their own ceremony.* An attendee may not be the reciter. At an
+  induction this was already impossible, because attendees must hold the substrate and
+  the inductee does not; but a renewing member does hold it, so without the rule they
+  would attend their own ceremony and inflate its attendance. D28's arithmetic again:
+  count the people present, not the signatures collected.
+
+  *One ceremony completes one affirmation.* Nothing else stops a member replaying a
+  single re-recitation to reset their freshness every cycle — the induction path is
+  protected by the no-double-induction rule, and a renewal repeats by nature. This
+  became reachable only because renewals began citing rites at all, and it is the one
+  rule in the slice that the design did not anticipate; reading what the repaired tests
+  actually asserted is what surfaced it.
+
+  *The coherence checks now bind renewals too*, which is a real gain and not incidental:
+  a polity that amends its commitments and never re-recites becomes visible, because its
+  next renewal must commit to the amended set. `Rite` carries its kind and `completed_at`
+  is set by the completing affirmation of the *matching* kind, so a renewal awaiting its
+  `ReAffirmation` is open exactly as an induction is rather than permanently abandoned.
+  `en-cohesion`'s ceremony-cheapening lens filters to `Induction`, its meaning unchanged,
+  and renewal-cheapening is a sibling component measured **within** renewals: comparing
+  an induction's span against a renewal's would be meaningless, since one happens once
+  per member and the other recurs. Each is graded against its own **first**, not its
+  median — `gap_widening_since_founding`'s lesson, and the plateau is where the two
+  baselines diverge. A ceremony that thinned once and stayed thin has made the cheapened
+  form into what its own recent history calls normal. Both are capped at `Notice`, like
+  D29's other trends.
+
+  The interval stays a query-time parameter. D29 made the affirmation cadence a query
+  argument rather than a charter term, and the doctrine's generational cadence is stated
+  one tier up, so `stale_members(cadence_seconds, as_of)` already covers "overdue" and no
+  `PolityCharter` change was needed.
+
+  **Honest limits.** A polity with no willing attendees can still renew alone, which is
+  the price of D14 and is the right price. Nothing checks that a recitation was *meant* —
+  the statement text is required to be non-empty and is never read — which is D24 and
+  D28's standing line: this tier measures form, and sincerity is not a thing a log can
+  hold. And the *authority pass* is what refuses the bare form; the freshness read-model
+  is descriptive of the log and still reports a refused renewal's `last_affirmed`, which
+  is the tier's standing separation between describing the record and judging it, not
+  something this slice introduced (a four-of-five induction citation has always read as
+  inducted). A polity that ignores `check_authority` can still tell itself it is fresh.
 
 
 ## Questions and resolutions (round 2)

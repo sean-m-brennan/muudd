@@ -44,6 +44,9 @@ MOVEMENTS = (
     "This compact is not our ultimate.",
 )
 
+# §4 caps a mediator's term: a seat with no end is a permanent mediator class.
+MEDIATOR_TERM = 365 * 24 * 3600
+
 
 def _first_reason(violations):
     return violations[0][1] if violations else "(none)"
@@ -77,7 +80,7 @@ def main() -> int:
     for name in ("Pool-A", "Pool-B", "Pool-C"):
         c = new_identity(arch, name, t0)
         m = new_mediator()
-        register_mediators(arch, c, [m], valid_from=t0 - 10)
+        register_mediators(arch, c, [m], valid_from=t0 - 10, valid_until=t0 - 10 + MEDIATOR_TERM)
         pool.append(m)
 
     completions = []

@@ -60,7 +60,7 @@ def main() -> int:
         return 1
 
     # --- Continuous execution (§10.3) -------------------------------------
-    print("\nContinuous execution: the same eight scenarios at drawn parameters,")
+    print("\nContinuous execution: the same ten scenarios at drawn parameters,")
     print("accumulating latency and damage across rounds (fixed seed).\n")
     cont = run_continuous(rounds=10, seed=20260729, stop_on_failure=False)
     print(f"  {cont.rounds_run} rounds in {cont.elapsed_seconds:.1f}s, "

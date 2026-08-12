@@ -968,6 +968,14 @@ pub enum AffirmationKind {
     Induction,
     /// A member renews their standing affirmation of the substrate. Self-signed;
     /// its freshness decays, so a community that stops re-affirming shows erosion.
+    ///
+    /// Since **D34** a renewal carries a **full re-recitation of the five movements**,
+    /// as the doctrine requires of it, and is refused without one. Before D34 it was a
+    /// bare record, which made the *recurring* ceremony the one with no measurable cost:
+    /// a polity could hold its transmission measure green forever without performing the
+    /// rite once, and a polity that did perform it produced five authority violations.
+    /// It stays **self-signed** — attendance is recorded through the movements and never
+    /// required, because a renewal is precisely the act no one else may condition (D14).
     ReAffirmation,
 }
 
@@ -1036,8 +1044,18 @@ impl Movement {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RiteMovement {
     pub polity: DidKey,
-    /// The member being inducted. They recite, so they sign.
+    /// The member reciting. They recite, so they sign.
     pub member: DidKey,
+    /// Which ceremony this movement belongs to (design **D34**): a first acquisition of
+    /// the substrate, or its periodic renewal.
+    ///
+    /// Carried rather than inferred from whether the member happens to be inducted at
+    /// this point in the log, so the authority rule can **check** the claim against
+    /// their actual state — `Induction` requires that they do not yet hold the
+    /// substrate, `ReAffirmation` that they do. A mismatch is then refused instead of
+    /// silently reinterpreted, which is the same reason [`Movement`]'s variants carry
+    /// only what each can be held to.
+    pub kind: AffirmationKind,
     pub movement: Movement,
     /// What was said, in the polity's own terms. Required to be non-empty — a
     /// movement is *performed*, and an empty one was not — but never read: the tier
@@ -1062,16 +1080,23 @@ pub struct Affirmation {
     pub member: DidKey,
     pub kind: AffirmationKind,
     /// For an `Induction`, the roll members who witness (receive) the inductee;
-    /// they co-sign alongside the inductee. Empty for a `ReAffirmation` (the
-    /// member is the sole signer).
+    /// they co-sign alongside the inductee.
     ///
     /// Since **D29** a witness counts only if they attended **every** movement of the
     /// rite. Otherwise a week-long ceremony is five records with disjoint signers and
     /// nobody actually attended it — D28's arithmetic, one record over: count the
     /// people present, not the signatures collected.
+    ///
+    /// For a `ReAffirmation` since **D34** this records who attended the re-recitation,
+    /// and it is **derived, not chosen**: it must equal the rite's attendance-throughout
+    /// exactly, so a member can neither over- nor under-report who was there. It may be
+    /// empty — nobody's attendance is required — and it is never a threshold. The
+    /// renewal's signer is still the member alone.
     pub witnesses: Vec<DidKey>,
-    /// For an `Induction`, the [`RiteMovement`] records this completes, in order
-    /// (design **D29**). Empty for a `ReAffirmation`.
+    /// The [`RiteMovement`] records this affirmation completes, in order (design
+    /// **D29** for an induction, **D34** for a renewal). Five of them, always: a
+    /// re-affirmation without a full re-recitation is refused, because that is what the
+    /// doctrine means by periodic re-affirmation.
     ///
     /// **Cited, not carried** — the opposite of D15/D27's rule for guardian evidence,
     /// and for the reason that rule exists: a citation is unsafe when what it points

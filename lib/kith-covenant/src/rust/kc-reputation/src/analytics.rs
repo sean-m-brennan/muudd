@@ -27,15 +27,16 @@
 //! they can range over the whole compact (all communities, all sponsors) in a
 //! single pass.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use kc_archive::{probationary_at, ArchiveEntry, InMemoryArchive};
 use kc_ceremony::inter::AntiSpiralFeature;
 use kc_commons::sanction_rank;
-use kc_conduct::{ConductBearing, ConductKind};
+use kc_conduct::{AttestedFunction, ConductBearing, ConductKind};
 use kc_constitution::{AmendmentKind, FastPeriod, IncapableMatter};
 use kc_core::{time, Cid, DidKey, Timestamp};
-use kc_escalation::dispute_ladder_rank;
+use kc_escalation::{dispute_ladder_rank, ReexaminationOutcome};
+use kc_mediation::MediatorRegistry;
 use kc_observer::ObserverRegistry;
 
 /// One sponsor→entrant edge as of the query time, carrying the record CID so
@@ -269,6 +270,30 @@ pub struct EventProvenance {
     pub undisclosed_interests_found: Vec<(DidKey, String)>,
     /// The faction the event is conveniently aligned with, if any.
     pub aligned_faction: Option<DidKey>,
+    /// The mediators who invoked the structured-skepticism protocol on this event
+    /// (§4), across every invocation. Empty means the pool never invoked, which is
+    /// not the same as the event being unremarkable — most events never reach the
+    /// pool at all.
+    pub invoked_by: Vec<DidKey>,
+    /// The criteria the **pool** found met, as distinct from the triggers the
+    /// originator declared. Union across invocations.
+    pub invoked_criteria: Vec<String>,
+    /// The criteria the pool found that the originator did **not** declare. This is
+    /// the divergence worth reading: it is the pool contradicting an originator's
+    /// account of its own claim, which is the whole reason the invocation is the
+    /// pool's and not the originator's.
+    pub undeclared_criteria: Vec<String>,
+    /// The longest hold any invocation imposed, if any.
+    pub invoked_hold_seconds: Option<i64>,
+    /// Reviewers who have examined the hold on this event, across every review.
+    pub reviewed_by: Vec<DidKey>,
+    /// Whether a review found the hold pretextual, releasing the event.
+    pub released_as_pretextual: bool,
+    /// Whether the event is under the protocol at all — by the originator's own
+    /// declaration or by the pool's invocation, and not released. This is what the
+    /// archive's hold actually turns on; `qualifies` alone is only the originator's
+    /// half of it.
+    pub under_protocol: bool,
 }
 
 /// Provenance and corroboration status of every event report in the archive
@@ -284,16 +309,44 @@ pub struct SkepticismReport {
 }
 
 impl SkepticismReport {
-    /// Number of events that meet the structured-skepticism criteria.
+    /// Number of events under the structured-skepticism protocol — declared by their
+    /// originator or invoked by the pool, and not released.
+    ///
+    /// This counts `under_protocol` rather than `qualifies`, and every filter below
+    /// does the same. Reading the originator's declaration alone would leave the lens
+    /// blind to exactly the events the pool's invocation exists to reach: the ones
+    /// whose originator declared them mundane.
     pub fn qualifying_events(&self) -> usize {
-        self.events.iter().filter(|e| e.qualifies).count()
+        self.events.iter().filter(|e| e.under_protocol).count()
     }
-    /// The CIDs of qualifying events with fewer than `min` distinct
+    /// The CIDs of events under the protocol with fewer than `min` distinct
     /// corroborators — the loudest-interpreter window still open.
     pub fn under_corroborated(&self, min: usize) -> Vec<Cid> {
         self.events
             .iter()
-            .filter(|e| e.qualifies && e.corroborators.len() < min)
+            .filter(|e| e.under_protocol && e.corroborators.len() < min)
+            .map(|e| e.event_cid)
+            .collect()
+    }
+    /// The CIDs of events under a hold that **no panel has reviewed**. §4 makes the
+    /// pool answerable for its invocations ("invocations are auditable"), and a hold
+    /// nobody has examined is the state that answers to nobody — the one a faction
+    /// suppressing an urgent matter would leave the compact in.
+    pub fn unreviewed_holds(&self) -> Vec<Cid> {
+        self.events
+            .iter()
+            .filter(|e| e.under_protocol && e.reviewed_by.is_empty())
+            .map(|e| e.event_cid)
+            .collect()
+    }
+    /// The CIDs of events where the pool found a criterion the originator did not
+    /// declare. Not a verdict on anybody: it is the pool's reading of an event set
+    /// against its originator's, which is the disagreement the invocation authority
+    /// exists to make possible.
+    pub fn declaration_divergences(&self) -> Vec<Cid> {
+        self.events
+            .iter()
+            .filter(|e| !e.undeclared_criteria.is_empty())
             .map(|e| e.event_cid)
             .collect()
     }
@@ -306,7 +359,7 @@ impl SkepticismReport {
     pub fn under_translated(&self, min: usize) -> Vec<Cid> {
         self.events
             .iter()
-            .filter(|e| e.qualifies && e.translated_corroborators.len() < min)
+            .filter(|e| e.under_protocol && e.translated_corroborators.len() < min)
             .map(|e| e.event_cid)
             .collect()
     }
@@ -318,7 +371,7 @@ impl SkepticismReport {
     pub fn retroactively_impugned(&self) -> Vec<Cid> {
         self.events
             .iter()
-            .filter(|e| e.qualifies && !e.undisclosed_interests_found.is_empty())
+            .filter(|e| e.under_protocol && !e.undisclosed_interests_found.is_empty())
             .map(|e| e.event_cid)
             .collect()
     }
@@ -328,6 +381,14 @@ impl SkepticismReport {
 /// (default now). Corroborators are counted as **distinct communities other
 /// than the originator**, keyed by DID, so an originator cannot self-corroborate
 /// or a single ally corroborate repeatedly to fake independent support.
+/// The pool's invocations on one event, folded: the invoking mediators across all of
+/// them, every criterion they found, and the longest hold imposed.
+type InvocationTally = (BTreeMap<String, DidKey>, BTreeSet<String>, i64);
+
+/// The reviews of one event's hold, folded: the reviewers, and whether any of them found
+/// the hold pretextual.
+type ReviewTally = (BTreeMap<String, DidKey>, bool);
+
 pub fn structured_skepticism(
     archive: &InMemoryArchive,
     as_of: Option<Timestamp>,
@@ -339,6 +400,9 @@ pub fn structured_skepticism(
     let mut translations: BTreeMap<String, BTreeMap<String, DidKey>> = BTreeMap::new();
     // event_cid string → retroactive undisclosed-interest findings (finder, interest).
     let mut findings: BTreeMap<String, Vec<(DidKey, String)>> = BTreeMap::new();
+    // event_cid string → what the pool did about that event, and what came of it.
+    let mut invocations: BTreeMap<String, InvocationTally> = BTreeMap::new();
+    let mut reviews: BTreeMap<String, ReviewTally> = BTreeMap::new();
     let mut events: Vec<(Cid, &kc_provenance::EventReport)> = Vec::new();
     for (cid, entry) in archive.iter() {
         match entry {
@@ -369,6 +433,37 @@ pub fn structured_skepticism(
                             c.corroborating_community.as_str().to_string(),
                             c.corroborating_community.clone(),
                         );
+                }
+            }
+            ArchiveEntry::SkepticismInvoked(signed) => {
+                let i = &signed.payload;
+                if i.invoked_at > as_of {
+                    continue;
+                }
+                let e = invocations
+                    .entry(i.event_cid.to_string())
+                    .or_insert_with(|| (BTreeMap::new(), BTreeSet::new(), 0i64));
+                for m in &i.panel {
+                    e.0.insert(m.as_str().to_string(), m.clone());
+                }
+                for c in &i.criteria {
+                    e.1.insert(c.as_str().to_string());
+                }
+                e.2 = e.2.max(i.hold_seconds);
+            }
+            ArchiveEntry::SkepticismReviewed(signed) => {
+                let r = &signed.payload;
+                if r.reviewed_at > as_of {
+                    continue;
+                }
+                let e = reviews
+                    .entry(r.event_cid.to_string())
+                    .or_insert_with(|| (BTreeMap::new(), false));
+                for m in &r.reviewers {
+                    e.0.insert(m.as_str().to_string(), m.clone());
+                }
+                if r.answer == kc_provenance::ReviewAnswer::Pretextual {
+                    e.1 = true;
                 }
             }
             ArchiveEntry::RetroactiveInterestFound(signed) => {
@@ -416,6 +511,28 @@ pub fn structured_skepticism(
                     .collect()
             })
             .unwrap_or_default();
+        let (invoked_by, invoked_criteria, invoked_hold_seconds) = match invocations.get(&key) {
+            None => (Vec::new(), Vec::new(), None),
+            Some((panel, criteria, hold)) => (
+                panel.values().cloned().collect(),
+                criteria.iter().cloned().collect::<Vec<String>>(),
+                Some(*hold),
+            ),
+        };
+        let (reviewed_by, released_as_pretextual) = match reviews.get(&key) {
+            None => (Vec::new(), false),
+            Some((panel, released)) => (panel.values().cloned().collect(), *released),
+        };
+        let declared: BTreeSet<&str> = e.qualifying_triggers().into_iter().collect();
+        let undeclared_criteria: Vec<String> = invoked_criteria
+            .iter()
+            .filter(|c| !declared.contains(c.as_str()))
+            .cloned()
+            .collect();
+        // What the archive's hold actually turns on: either source places the event
+        // under the protocol, and a pretextual finding releases it from either.
+        let under_protocol =
+            (e.qualifies() || !invoked_by.is_empty()) && !released_as_pretextual;
         report.events.push(EventProvenance {
             event_cid: cid,
             originator: e.originator.clone(),
@@ -431,6 +548,13 @@ pub fn structured_skepticism(
             translated_corroborators,
             undisclosed_interests_found,
             aligned_faction: e.aligned_faction.clone(),
+            invoked_by,
+            invoked_criteria,
+            undeclared_criteria,
+            invoked_hold_seconds,
+            reviewed_by,
+            released_as_pretextual,
+            under_protocol,
         });
     }
     report.events.sort_by_key(|e| e.reported_at);
@@ -668,6 +792,18 @@ fn plurality(counts: &BTreeMap<String, usize>) -> Option<String> {
         .map(|(k, _)| k.clone())
 }
 
+/// One principal's deduped output within a `(cohort, matter)`: the decision it
+/// produced, whether that decision favored its home community, and when.
+type PrincipalDecision = (String, bool, Timestamp);
+
+/// matter → cohort → principal DID → its latest decision.
+///
+/// Three levels of `BTreeMap` keyed by `String`, which is the shape the dedup rule
+/// needs: latest-per-principal, within a cohort, within a matter. Named because the
+/// nesting order is the rule — transposing cohort and matter would dedup across the
+/// wrong scope and still compile.
+type CohortDecisionIndex = BTreeMap<String, BTreeMap<String, BTreeMap<String, PrincipalDecision>>>;
+
 /// Build the collusive-cohort report over the whole archive as of `as_of`
 /// (default now). Outputs are deduped to the latest per distinct principal within
 /// each `(cohort, matter)`, so one prolific machine cannot swing its cohort's
@@ -677,10 +813,7 @@ pub fn collusive_cohorts(
     as_of: Option<Timestamp>,
 ) -> CohortCollusionReport {
     let as_of = as_of.unwrap_or_else(time::now);
-    // matter → cohort → principal DID → (decision, favors_home, produced_at).
-    #[allow(clippy::type_complexity)]
-    let mut data: BTreeMap<String, BTreeMap<String, BTreeMap<String, (String, bool, Timestamp)>>> =
-        BTreeMap::new();
+    let mut data: CohortDecisionIndex = BTreeMap::new();
 
     for (_, entry) in archive.iter() {
         if let ArchiveEntry::PrincipalOutputRecorded(signed) = entry {
@@ -1493,6 +1626,153 @@ pub fn observer_pool_concentration(
     ObserverPoolConcentration { shares, total_active, serving }
 }
 
+/// One community's share of the active mediator pool (§4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediatorPoolShare {
+    pub community: String,
+    pub active: usize,
+}
+
+/// One mediator currently seated, with the term end the rotation view sorts on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServingMediator {
+    pub mediator_did: String,
+    pub nominating_community: String,
+    pub term_end: Option<Timestamp>,
+    /// Who trained them, where the apprenticeship was recorded.
+    pub trained_by: Option<String>,
+}
+
+/// The §4 mediator pool's composition, by seating community and by training lineage.
+///
+/// The counterpart of [`ObserverPoolConcentration`], and it renders **no verdict** for
+/// the same reason: the no-majority share, term and rotation limits are *enforced* by
+/// the authority pass, and this board makes the finer drift visible before the hard cap
+/// bites.
+///
+/// The lineage half exists because §4's apprenticeship model carries its own named
+/// weakness — mediators trained under experienced mediators absorb genuine discernment,
+/// and are "susceptible to capture by the incumbent generation's biases"
+/// (`liminal_institutions.md` "Discernment training"). A pool that all traces to one
+/// trainer is that weakness realized. Reporting it is the whole of what this does: the
+/// same documents warn against "a certification barrier that becomes a gatekeeping
+/// mechanism", and the whitepaper lists the training pipeline as an open question, so
+/// **no rule reads `trained_by` to admit or refuse anyone.**
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MediatorPoolConcentration {
+    /// Active mediators per nominating community, descending by count then DID.
+    pub shares: Vec<MediatorPoolShare>,
+    /// Total active mediators across the pool.
+    pub total_active: usize,
+    /// Mediators currently seated, soonest term-end first (the rotation view).
+    pub serving: Vec<ServingMediator>,
+    /// Active mediators per recorded trainer, descending by count then DID. Mediators
+    /// with no recorded trainer are absent rather than grouped under a blank: an
+    /// unrecorded apprenticeship and no apprenticeship are not distinguished, and a
+    /// compact that does not practise it is not thereby irregular.
+    pub lineages: Vec<MediatorPoolShare>,
+    /// Active mediators with a recorded trainer — the denominator the lineage readings
+    /// are against, so a pool that records nothing reads as unknown rather than healthy.
+    pub with_lineage: usize,
+}
+
+impl MediatorPoolConcentration {
+    /// The largest single-community active count (0 if the pool is empty).
+    pub fn top_active(&self) -> usize {
+        self.shares.first().map_or(0, |s| s.active)
+    }
+
+    /// True when one community already holds a majority of the active pool — the
+    /// condition the pool-share authority rule refuses once past its floor.
+    pub fn majority_held(&self) -> bool {
+        self.total_active > 0 && 2 * self.top_active() > self.total_active
+    }
+
+    /// The largest single-trainer active count (0 if nothing is recorded).
+    pub fn top_lineage(&self) -> usize {
+        self.lineages.first().map_or(0, |s| s.active)
+    }
+
+    /// True when one trainer accounts for a majority of the mediators **whose lineage
+    /// is recorded** — the incumbent generation holding the pool.
+    ///
+    /// Measured against `with_lineage` rather than `total_active` deliberately. A pool
+    /// where one trainer is behind 3 of 4 recorded apprenticeships says that whatever
+    /// apprenticeship happened, one hand shaped it; padding the denominator with
+    /// mediators who recorded nothing would let a compact silence the reading by simply
+    /// not recording, which is the failure mode the whole erosion audit exists for.
+    /// `false` when nothing is recorded, so silence is never read as a finding.
+    pub fn lineage_majority_held(&self) -> bool {
+        self.with_lineage > 0 && 2 * self.top_lineage() > self.with_lineage
+    }
+}
+
+/// The active mediator pool as of `as_of`, respecting registry superseding (only the
+/// latest `MediatorRegistryUpdated` per nominating community with `issued_at <= as_of`
+/// contributes its active entries).
+pub fn mediator_pool_concentration(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> MediatorPoolConcentration {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut latest: BTreeMap<String, &MediatorRegistry> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::MediatorRegistryUpdated(s) = e {
+            if s.payload.issued_at <= as_of {
+                let key = s.payload.nominating_community.as_str().to_string();
+                let supersede = latest
+                    .get(&key)
+                    .is_none_or(|cur| s.payload.issued_at >= cur.issued_at);
+                if supersede {
+                    latest.insert(key, &s.payload);
+                }
+            }
+        }
+    }
+    let mut per_community: BTreeMap<String, usize> = BTreeMap::new();
+    let mut per_trainer: BTreeMap<String, usize> = BTreeMap::new();
+    let mut serving = vec![];
+    let (mut total_active, mut with_lineage) = (0usize, 0usize);
+    for reg in latest.values() {
+        for en in &reg.entries {
+            if en.active_at(as_of) {
+                total_active += 1;
+                *per_community
+                    .entry(reg.nominating_community.as_str().to_string())
+                    .or_insert(0) += 1;
+                if let Some(t) = &en.trained_by {
+                    with_lineage += 1;
+                    *per_trainer.entry(t.as_str().to_string()).or_insert(0) += 1;
+                }
+                serving.push(ServingMediator {
+                    mediator_did: en.mediator_did.as_str().to_string(),
+                    nominating_community: reg.nominating_community.as_str().to_string(),
+                    term_end: en.valid_until,
+                    trained_by: en.trained_by.as_ref().map(|t| t.as_str().to_string()),
+                });
+            }
+        }
+    }
+    let rank = |m: BTreeMap<String, usize>| {
+        let mut v: Vec<MediatorPoolShare> = m
+            .into_iter()
+            .map(|(community, active)| MediatorPoolShare { community, active })
+            .collect();
+        v.sort_by(|a, b| b.active.cmp(&a.active).then_with(|| a.community.cmp(&b.community)));
+        v
+    };
+    serving.sort_by(|a, b| {
+        a.term_end.cmp(&b.term_end).then_with(|| a.mediator_did.cmp(&b.mediator_did))
+    });
+    MediatorPoolConcentration {
+        shares: rank(per_community),
+        total_active,
+        serving,
+        lineages: rank(per_trainer),
+        with_lineage,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // §8 observer dashboard (read-only aggregation — the composition-drift board).
 // ---------------------------------------------------------------------------
@@ -1843,6 +2123,107 @@ impl ErosionSeverity {
     }
 }
 
+/// One decided dispute's deliberation, as the archive records it (§4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeliberationReading {
+    pub decision_cid: Cid,
+    pub dispute_cid: Cid,
+    /// How many arguments the decision answered.
+    pub argument_count: usize,
+    /// Seconds from the earliest cited argument to the decision. `None` when the
+    /// decision cited nothing datable.
+    pub span_seconds: Option<i64>,
+    pub decided_at: Timestamp,
+}
+
+/// The compact's deliberation over time, oldest decision first — §4's record of *how*
+/// it decided, which is what the §8 observer corps and the §9 erosion signals both
+/// assume can be audited.
+///
+/// Compact-wide rather than per-community, unlike the rite series: a mediation panel is
+/// drawn from non-party communities and decides for the compact, so there is no single
+/// community whose deliberation this is.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DeliberationDecay {
+    pub decisions: Vec<DeliberationReading>,
+}
+
+impl DeliberationDecay {
+    /// True when the latest decision answered fewer arguments than the **first**.
+    ///
+    /// Pinned to the compact's first decision, never to a rolling mean, for the reason
+    /// [`CeremonyCostDecay::witness_count_declined`] is: a deliberation that thins a
+    /// little each time drags a rolling baseline along behind it and the signal falls
+    /// silent exactly when the decay has finished setting. Only an absolute measure
+    /// sees a drift with no adversary behind it. Needs two decisions; `false`
+    /// otherwise, so nothing is fabricated from one data point.
+    pub fn argument_count_declined(&self) -> bool {
+        match (self.decisions.first(), self.decisions.last()) {
+            (Some(f), Some(l)) if self.decisions.len() >= 2 => {
+                l.argument_count < f.argument_count
+            }
+            _ => false,
+        }
+    }
+
+    /// True when the latest decision was reached in less time than the **first**, on
+    /// the same pinned baseline.
+    ///
+    /// The span is what §4's "async-compatible for light-lag" asks the record to carry:
+    /// a compact whose deliberation collapses from weeks to seconds has stopped
+    /// deliberating across the distances it exists to span, whatever it still files.
+    pub fn span_shortened(&self) -> bool {
+        match (
+            self.decisions.first().and_then(|d| d.span_seconds),
+            self.decisions.last().and_then(|d| d.span_seconds),
+        ) {
+            (Some(f), Some(l)) if self.decisions.len() >= 2 => l < f,
+            _ => false,
+        }
+    }
+}
+
+/// Read every mediation decision's deliberation off the archive, oldest first.
+///
+/// Content is never read. How long an argument's `position` is says nothing a rule may
+/// act on — the tier's standing line that no rule can weigh what was said, only record
+/// that it was put.
+pub fn deliberation_decay(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> DeliberationDecay {
+    let as_of_ts = as_of.unwrap_or_else(time::now);
+    let mut arguments: HashMap<String, Timestamp> = HashMap::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::ArgumentFiled(s) = entry {
+            arguments.insert(cid.to_string(), s.payload.submitted_at);
+        }
+    }
+    let mut decisions: Vec<DeliberationReading> = Vec::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::MediationDecided(s) = entry {
+            let d = &s.payload;
+            if d.decided_at > as_of_ts {
+                continue;
+            }
+            let earliest = d
+                .arguments
+                .iter()
+                .filter_map(|a| arguments.get(&a.to_string()).map(|t| t.as_second()))
+                .fold(None::<i64>, |acc, t| Some(acc.map_or(t, |a: i64| a.min(t))));
+            decisions.push(DeliberationReading {
+                decision_cid: *cid,
+                dispute_cid: d.dispute_cid,
+                argument_count: d.arguments.len(),
+                span_seconds: earliest.map(|e| d.decided_at.as_second() - e),
+                decided_at: d.decided_at,
+            });
+        }
+    }
+    decisions.sort_by_key(|d| d.decided_at);
+    DeliberationDecay { decisions }
+}
+
 /// The erosion alert (protocol-components §9 "erosion-detection alerting"): a
 /// graded, derived reading of [`SubstrateDeferenceReport`] that **escalates** as
 /// the erosion signals compound, so the observer corps sees a crossed threshold
@@ -1880,12 +2261,50 @@ pub struct ErosionAlert {
     /// hollowed out one witness per cycle cannot drag the reference along behind
     /// it (`CeremonyCostDecay::witness_count_declined`).
     pub hollowing_communities: Vec<String>,
+    /// The compact's deliberation is thinning: its latest mediation decision answered
+    /// fewer arguments than its first, or was reached in less time.
+    ///
+    /// Read against the compact's **own first** decision rather than its recent
+    /// average, which is the only kind of measure that sees a drift with nobody driving
+    /// it — the same reason `hollowing_communities` is pinned to the founding rite. The
+    /// §4 floor (every panelist argues, every party argument answered) makes a *bare*
+    /// decision impossible; this is what can still decay once the floor holds.
+    pub thinning_deliberation: Option<ThinningDeliberation>,
     /// Designations past their mandated re-examination date and still standing,
     /// longest-overdue first ([`overdue_reexaminations`]).
     ///
     /// Also an omission signal, and the one with a named party on the other end of
     /// it: an exclusion the compact undertook to revisit and did not.
     pub overdue_reexaminations: Vec<OverdueReexamination>,
+    /// Standing functions with no act and no attested null inside the cadence, longest
+    /// silence first ([`silent_functions`]).
+    ///
+    /// The omission signal for the compact's ordinary running rather than its ceremony.
+    /// A pool that stopped taking disputes and a corps that stopped filing reports leave
+    /// every relative measure untouched, which is why this one is against a clock.
+    pub silent_functions: Vec<SilentFunction>,
+    /// Standing functions a community once staffed and now has nobody seated in, longest
+    /// vacancy first ([`unstaffed_functions`]).
+    ///
+    /// The sharpest omission of the set, and the one no remediation item had named:
+    /// measuring found a compact with zero active mediators and zero active observers for
+    /// forty-three years reading clean on every instrument.
+    pub unstaffed_functions: Vec<UnstaffedFunction>,
+}
+
+/// Why the compact's deliberation reads as thinning, with both readings reported so a
+/// corps member can see which one fired.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ThinningDeliberation {
+    pub decisions: usize,
+    pub first_argument_count: usize,
+    pub latest_argument_count: usize,
+    pub first_span_seconds: Option<i64>,
+    pub latest_span_seconds: Option<i64>,
+    /// The latest decision answered fewer arguments than the first.
+    pub argument_count_declined: bool,
+    /// The latest decision was reached in less time than the first.
+    pub span_shortened: bool,
 }
 
 /// A designation whose mandated re-examination date has passed with the
@@ -1899,8 +2318,16 @@ pub struct OverdueReexamination {
     /// `Anathema`; `HostisHumaniGeneris` is excluded by construction, since that
     /// tier is forbidden a `reexamine_after` (it has no reversal path).
     pub tier: String,
+    /// The deadline that has passed unanswered. The designation's own
+    /// `reexamine_after` until a re-examination confirms it, and the date that
+    /// confirmation set thereafter.
     pub reexamine_after: Timestamp,
     pub seconds_overdue: i64,
+    /// How many times the designation has been re-examined and confirmed. A
+    /// designation overdue on its *third* renewal is a different reading from one
+    /// nobody ever looked at, and before the conclusion record existed the two were
+    /// the same number: zero.
+    pub confirmations: usize,
 }
 
 /// Designations whose `reexamine_after` has passed as of `as_of` and which are
@@ -1917,13 +2344,16 @@ pub struct OverdueReexamination {
 /// `DesignationLifted` conduct record naming the designation, or a `ReEntry`
 /// answering it — so there is one definition of a reversed designation.
 ///
-/// **Known limit.** A re-examination that *confirms* a designation leaves no
-/// record in the current model, so this lens cannot distinguish "nobody looked"
-/// from "the panel looked and let it stand". It therefore reports the weaker
-/// claim: the date passed and the designation is still in force. Closing that gap
-/// needs a signed re-examination record — an attested null, the same shape as
-/// `en-archive`'s pruning receipts (see
-/// `doc/architecture/erosion-legibility.md`, remediation item 5).
+/// **The limit this used to carry is closed.** A re-examination that *confirmed* a
+/// designation left no record, so the lens could not distinguish "nobody looked" from
+/// "the panel looked and let it stand", and reported the weaker claim about both. That
+/// is remediation item 5's own named first case, and
+/// `kc_escalation::ReexaminationConclusion` is the signed record it asked for. A
+/// confirmation now answers the deadline it was held for and sets the next one, so what
+/// this lens reports is the deadline standing *unanswered* at `as_of`, with
+/// `confirmations` saying how many renewals the designation has been through. A
+/// designation overdue on its third renewal and one nobody ever examined are no longer
+/// the same reading.
 pub fn overdue_reexaminations(
     archive: &InMemoryArchive,
     as_of: Option<Timestamp>,
@@ -1947,12 +2377,58 @@ pub fn overdue_reexaminations(
         }
     }
 
+    // Every re-examination the archive holds, per designation, in append order. A
+    // `Confirmed` conclusion answers the deadline it was held for and sets the next one,
+    // so what this lens now reports is the *unanswered* deadline rather than the original
+    // one. Before this record existed only a reversal could clear the reading, so a panel
+    // that re-examined a designation at the mandated date and let it stand looked exactly
+    // like a compact that had forgotten, forever: the lens punished the diligent panel
+    // (the erosion audit's finding K3, remediation item 5).
+    let mut conclusions: BTreeMap<String, Vec<(Timestamp, Option<Timestamp>, bool)>> =
+        BTreeMap::new();
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::ReexaminationConcluded(s) = entry {
+            let rc = &s.payload;
+            if rc.concluded_at > as_of {
+                continue;
+            }
+            conclusions.entry(rc.designation_cid.to_string()).or_default().push((
+                rc.concluded_at,
+                rc.next_reexamine_after,
+                matches!(rc.outcome, ReexaminationOutcome::Confirmed),
+            ));
+        }
+    }
+
     let mut overdue: Vec<OverdueReexamination> = Vec::new();
     for (cid, entry) in archive.iter() {
         if let ArchiveEntry::DesignationDecided(s) = entry {
             let d = &s.payload;
-            let Some(due) = d.reexamine_after else { continue };
-            if d.designated_at > as_of || due > as_of || reversed.contains(&cid.to_string()) {
+            let Some(mandated) = d.reexamine_after else { continue };
+            if d.designated_at > as_of || reversed.contains(&cid.to_string()) {
+                continue;
+            }
+            // Walk the confirmations forward: each answers the deadline standing at the
+            // time and replaces it with the one it set. A confirmation with no next date
+            // cannot occur (the authority pass refuses it), so an absent one leaves the
+            // deadline where it was rather than clearing it.
+            let mut due = mandated;
+            let mut confirmations = 0usize;
+            let empty = Vec::new();
+            let history = conclusions.get(&cid.to_string()).unwrap_or(&empty);
+            let mut sorted: Vec<_> = history.clone();
+            sorted.sort_by_key(|(at, _, _)| *at);
+            for (concluded_at, next, confirmed) in sorted {
+                if !confirmed || concluded_at < due {
+                    continue;
+                }
+                confirmations += 1;
+                match next {
+                    Some(n) => due = n,
+                    None => break,
+                }
+            }
+            if due > as_of {
                 continue;
             }
             overdue.push(OverdueReexamination {
@@ -1961,6 +2437,7 @@ pub fn overdue_reexaminations(
                 tier: format!("{:?}", d.tier),
                 reexamine_after: due,
                 seconds_overdue: as_of.as_second() - due.as_second(),
+                confirmations,
             });
         }
     }
@@ -1995,6 +2472,24 @@ pub struct OverdueReaffirmation {
 /// `doc/architecture/erosion-legibility.md`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErosionThresholds {
+    /// How long a standing function may go without either an act or an attested null
+    /// before the silence is reported (erosion remediation items 5 and 6).
+    ///
+    /// Shorter than the rite cadence by design and for a stated reason: a
+    /// re-affirmation is generational, while mediating and observing are the ordinary
+    /// running of the compact. A function that has produced nothing and said nothing
+    /// for a quarter is not yet a scandal, which is why this reports rather than
+    /// refuses, but it is a fact the corps should be reading.
+    ///
+    /// **It must sit inside the shortest roster term, and the first value chosen here
+    /// did not.** At one year it exactly equalled `DEFAULT_OBSERVER_MAX_TERM_SECONDS`,
+    /// so an observer corps could never be silent for a full cadence while staffed: its
+    /// seats expired first and it read as *unstaffed* instead. A silence reading longer
+    /// than the term it watches is unreachable by construction, and the fix is the
+    /// cadence rather than the term, since the term limit is doctrine (an observer must
+    /// return home) and the cadence is a calibration. Ninety days, matching §8's
+    /// rotation period.
+    pub attestation_cadence_seconds: i64,
     /// How long after its last sealed rite a community's re-affirmation counts as
     /// overdue.
     ///
@@ -2010,9 +2505,343 @@ pub struct ErosionThresholds {
 impl Default for ErosionThresholds {
     fn default() -> Self {
         ErosionThresholds {
+            attestation_cadence_seconds: 90 * 86_400,
             rite_cadence_seconds: 30 * 365 * 86_400,
         }
     }
+}
+
+/// One standing function of one community, with how long it has been since that function
+/// last produced either an act or an attested null.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SilentFunction {
+    pub community_did: String,
+    /// `Mediation` or `Observation`.
+    pub function: String,
+    /// Seconds since the last act or attestation. Measured from the seat's start when
+    /// there has never been either, because a function that has done nothing since the
+    /// day it was seated is the case the audit is most interested in.
+    pub seconds_since: i64,
+    pub cadence_seconds: i64,
+    /// True when the last thing on the record was an attested null rather than an act:
+    /// the compact said "nothing happened", which is evidence, and then stopped saying
+    /// even that.
+    pub last_was_a_null: bool,
+}
+
+/// One standing function a community once held and now has nobody seated in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnstaffedFunction {
+    pub community_did: String,
+    pub function: String,
+    /// When the last seat in this function expired.
+    pub vacant_since: Timestamp,
+    pub seconds_vacant: i64,
+}
+
+/// Functions that have gone quiet: no act and no attested null within the cadence
+/// (erosion remediation items 5 and 6).
+///
+/// An **absolute** measure, which is the whole point. Every relative reading of a
+/// mediator pool or an observer corps is unchanged by the pool simply stopping: the
+/// shares are the same shares, the concentration is the same concentration, and a corps
+/// with nothing to report and a corps that stopped looking file the same number of
+/// reports, namely none. Only a measure whose reference is a clock rather than the
+/// current population can see it (`erosion-legibility.md`, findings K1 and K4).
+///
+/// The attested null is what makes the reading fair. Before `ActivityAttestation` existed
+/// a quiet pool had no way to say so, and reporting its silence would have been reporting
+/// missing data as a finding. Now silence is either evidence (an attestation inside the
+/// cadence) or a fact about the compact (nothing at all), and this lens reports only the
+/// second.
+///
+/// Reports rather than refuses, deliberately: a compact that has stopped acting offers no
+/// act to refuse. The one refusal erosion remediation carries is in the authority pass,
+/// on citing a lapsed designation.
+pub fn silent_functions(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    cadence_seconds: i64,
+) -> Vec<SilentFunction> {
+    let as_of = as_of.unwrap_or_else(time::now);
+    // (community, function) -> (seat start, last act or null, whether it was a null)
+    let mut seats: BTreeMap<(String, String), Timestamp> = BTreeMap::new();
+    let mut last: BTreeMap<(String, String), (Timestamp, bool)> = BTreeMap::new();
+
+    let note = |map: &mut BTreeMap<(String, String), (Timestamp, bool)>,
+                community: String,
+                function: AttestedFunction,
+                at: Timestamp,
+                is_null: bool| {
+        let key = (community, function.as_str().to_string());
+        match map.get(&key) {
+            Some((prev, _)) if *prev >= at => {}
+            _ => {
+                map.insert(key, (at, is_null));
+            }
+        }
+    };
+
+    // Who holds which function, and from when. Latest roster per community wins, the
+    // same resolution the pool lenses use.
+    let mut med: BTreeMap<String, &MediatorRegistry> = BTreeMap::new();
+    let mut obs: BTreeMap<String, &ObserverRegistry> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        match e {
+            ArchiveEntry::MediatorRegistryUpdated(s) if s.payload.issued_at <= as_of => {
+                let key = s.payload.nominating_community.as_str().to_string();
+                if med.get(&key).is_none_or(|c| s.payload.issued_at >= c.issued_at) {
+                    med.insert(key, &s.payload);
+                }
+            }
+            ArchiveEntry::ObserverRegistryUpdated(s) if s.payload.issued_at <= as_of => {
+                let key = s.payload.nominating_community.as_str().to_string();
+                if obs.get(&key).is_none_or(|c| s.payload.issued_at >= c.issued_at) {
+                    obs.insert(key, &s.payload);
+                }
+            }
+            _ => {}
+        }
+    }
+    for reg in med.values() {
+        for en in &reg.entries {
+            if en.active_at(as_of) {
+                let key = (
+                    reg.nominating_community.as_str().to_string(),
+                    AttestedFunction::Mediation.as_str().to_string(),
+                );
+                let start = en.valid_from;
+                match seats.get(&key) {
+                    Some(prev) if *prev <= start => {}
+                    _ => {
+                        seats.insert(key, start);
+                    }
+                }
+            }
+        }
+    }
+    for reg in obs.values() {
+        for en in &reg.entries {
+            if en.active_at(as_of) {
+                let key = (
+                    reg.nominating_community.as_str().to_string(),
+                    AttestedFunction::Observation.as_str().to_string(),
+                );
+                let start = en.valid_from;
+                match seats.get(&key) {
+                    Some(prev) if *prev <= start => {}
+                    _ => {
+                        seats.insert(key, start);
+                    }
+                }
+            }
+        }
+    }
+
+    // Acts and nulls. A mediation act is credited to the *panelists'* home communities,
+    // since that is who exercised the function; a dispute filing is not an exercise of
+    // the pool and does not count.
+    for (_, e) in archive.iter() {
+        match e {
+            ArchiveEntry::ActivityAttested(s) if s.payload.attested_at <= as_of => {
+                note(
+                    &mut last,
+                    s.payload.attesting_community.as_str().to_string(),
+                    s.payload.function,
+                    s.payload.window_end.min(s.payload.attested_at),
+                    s.payload.acts.is_empty(),
+                );
+            }
+            ArchiveEntry::MediationDecided(s) if s.payload.decided_at <= as_of => {
+                for panelist in &s.payload.panel {
+                    if let Some(home) = mediator_home_at(&med, panelist.as_str(), s.payload.decided_at)
+                    {
+                        note(
+                            &mut last,
+                            home,
+                            AttestedFunction::Mediation,
+                            s.payload.decided_at,
+                            false,
+                        );
+                    }
+                }
+            }
+            ArchiveEntry::ObserverReportPublished(s) if s.payload.reported_at <= as_of => {
+                if let Some(home) = observer_home_at(&obs, s.payload.observer_did.as_str(), s.payload.reported_at)
+                {
+                    note(
+                        &mut last,
+                        home,
+                        AttestedFunction::Observation,
+                        s.payload.reported_at,
+                        false,
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let mut out: Vec<SilentFunction> = Vec::new();
+    for ((community, function), seated_from) in seats {
+        let key = (community.clone(), function.clone());
+        let (since, was_null) = match last.get(&key) {
+            Some((at, is_null)) => (*at, *is_null),
+            // Never an act and never a null: measured from the seat, so a function that
+            // has done nothing since the day it was staffed reads as what it is.
+            None => (seated_from, false),
+        };
+        let elapsed = as_of.as_second() - since.as_second();
+        if elapsed > cadence_seconds {
+            out.push(SilentFunction {
+                community_did: community,
+                function,
+                seconds_since: elapsed,
+                cadence_seconds,
+                last_was_a_null: was_null,
+            });
+        }
+    }
+    out.sort_by(|a, b| {
+        b.seconds_since
+            .cmp(&a.seconds_since)
+            .then_with(|| a.community_did.cmp(&b.community_did))
+            .then_with(|| a.function.cmp(&b.function))
+    });
+    out
+}
+
+/// The home community of a mediator at `at`, from an already-resolved roster map.
+fn mediator_home_at(
+    rosters: &BTreeMap<String, &MediatorRegistry>,
+    mediator_did: &str,
+    at: Timestamp,
+) -> Option<String> {
+    rosters.values().find_map(|reg| {
+        reg.entries
+            .iter()
+            .any(|e| e.mediator_did.as_str() == mediator_did && e.active_at(at))
+            .then(|| reg.nominating_community.as_str().to_string())
+    })
+}
+
+/// The home community of an observer at `at`, from an already-resolved roster map.
+fn observer_home_at(
+    rosters: &BTreeMap<String, &ObserverRegistry>,
+    observer_did: &str,
+    at: Timestamp,
+) -> Option<String> {
+    rosters.values().find_map(|reg| {
+        reg.entries
+            .iter()
+            .any(|e| e.observer_did.as_str() == observer_did && e.active_at(at))
+            .then(|| reg.nominating_community.as_str().to_string())
+    })
+}
+
+/// Functions a community once staffed and now has nobody seated in.
+///
+/// The sharper half of the same failure, and the one neither remediation item named.
+/// Measuring the tier found that a compact with **zero** active mediators and **zero**
+/// active observers for forty-three years, keeping its re-affirmation rites perfectly,
+/// read clean on every instrument: `deliberative_capacity` reads the member roll and
+/// probation, the pool lenses report shares of an empty pool without remarking that it is
+/// empty, and no alert dimension looked at staffing at all. An unexercised function and an
+/// abolished one are different failures, and this is the second.
+///
+/// A function **never** staffed is not reported: a compact that never seated observers has
+/// not abandoned the office, it declined to open it, and the absence of an office is not
+/// the same as an abandoned one. That is this lens's negative control.
+pub fn unstaffed_functions(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> Vec<UnstaffedFunction> {
+    let as_of = as_of.unwrap_or_else(time::now);
+    // (community, function) -> (ever seated, currently seated, last term end)
+    let mut state: BTreeMap<(String, String), (bool, bool, Option<Timestamp>)> = BTreeMap::new();
+
+    let mut record = |community: String,
+                      function: AttestedFunction,
+                      active_now: bool,
+                      term_end: Option<Timestamp>| {
+        let key = (community, function.as_str().to_string());
+        let e = state.entry(key).or_insert((false, false, None));
+        e.0 = true;
+        e.1 |= active_now;
+        // The latest end among expired seats is when the office actually fell vacant.
+        if let Some(end) = term_end {
+            if e.2.is_none_or(|prev| end > prev) {
+                e.2 = Some(end);
+            }
+        }
+    };
+
+    let mut med: BTreeMap<String, &MediatorRegistry> = BTreeMap::new();
+    let mut obs: BTreeMap<String, &ObserverRegistry> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        match e {
+            ArchiveEntry::MediatorRegistryUpdated(s) if s.payload.issued_at <= as_of => {
+                let key = s.payload.nominating_community.as_str().to_string();
+                if med.get(&key).is_none_or(|c| s.payload.issued_at >= c.issued_at) {
+                    med.insert(key, &s.payload);
+                }
+            }
+            ArchiveEntry::ObserverRegistryUpdated(s) if s.payload.issued_at <= as_of => {
+                let key = s.payload.nominating_community.as_str().to_string();
+                if obs.get(&key).is_none_or(|c| s.payload.issued_at >= c.issued_at) {
+                    obs.insert(key, &s.payload);
+                }
+            }
+            _ => {}
+        }
+    }
+    for reg in med.values() {
+        for en in &reg.entries {
+            if en.valid_from > as_of {
+                continue;
+            }
+            record(
+                reg.nominating_community.as_str().to_string(),
+                AttestedFunction::Mediation,
+                en.active_at(as_of),
+                en.valid_until.filter(|end| *end <= as_of),
+            );
+        }
+    }
+    for reg in obs.values() {
+        for en in &reg.entries {
+            if en.valid_from > as_of {
+                continue;
+            }
+            record(
+                reg.nominating_community.as_str().to_string(),
+                AttestedFunction::Observation,
+                en.active_at(as_of),
+                en.valid_until.filter(|end| *end <= as_of),
+            );
+        }
+    }
+
+    let mut out: Vec<UnstaffedFunction> = Vec::new();
+    for ((community, function), (ever, active_now, vacant_since)) in state {
+        if !ever || active_now {
+            continue;
+        }
+        let Some(since) = vacant_since else { continue };
+        out.push(UnstaffedFunction {
+            community_did: community,
+            function,
+            vacant_since: since,
+            seconds_vacant: as_of.as_second() - since.as_second(),
+        });
+    }
+    out.sort_by(|a, b| {
+        b.seconds_vacant
+            .cmp(&a.seconds_vacant)
+            .then_with(|| a.community_did.cmp(&b.community_did))
+            .then_with(|| a.function.cmp(&b.function))
+    });
+    out
 }
 
 /// Compute the erosion alert as of `as_of` (defaults to now), with the default
@@ -2136,6 +2965,47 @@ pub fn erosion_alert_with(
             compounding = true;
         }
     }
+    // §4's deliberation, on the same pinned baseline as the rite signals above.
+    let delib = deliberation_decay(archive, Some(as_of_ts));
+    let count_declined = delib.argument_count_declined();
+    let span_shortened = delib.span_shortened();
+    let thinning_deliberation = if count_declined || span_shortened {
+        let first = delib.decisions.first().expect("a reading fired, so there are two");
+        let latest = delib.decisions.last().expect("a reading fired, so there are two");
+        Some(ThinningDeliberation {
+            decisions: delib.decisions.len(),
+            first_argument_count: first.argument_count,
+            latest_argument_count: latest.argument_count,
+            first_span_seconds: first.span_seconds,
+            latest_span_seconds: latest.span_seconds,
+            argument_count_declined: count_declined,
+            span_shortened,
+        })
+    } else {
+        None
+    };
+    if let Some(t) = &thinning_deliberation {
+        dimensions += 1;
+        let mut which = Vec::new();
+        if t.argument_count_declined {
+            which.push(format!(
+                "{} argument(s) answered where the first decision answered {}",
+                t.latest_argument_count, t.first_argument_count
+            ));
+        }
+        if t.span_shortened {
+            which.push(format!(
+                "reached in {}s where the first took {}s",
+                t.latest_span_seconds.unwrap_or_default(),
+                t.first_span_seconds.unwrap_or_default()
+            ));
+        }
+        reasons.push(format!("deliberation thinning: {}", which.join("; ")));
+        // Both readings firing is no longer one isolated measure moving.
+        if t.argument_count_declined && t.span_shortened {
+            compounding = true;
+        }
+    }
     let overdue_reexaminations = overdue_reexaminations(archive, Some(as_of_ts));
     if !overdue_reexaminations.is_empty() {
         dimensions += 1;
@@ -2144,6 +3014,58 @@ pub fn erosion_alert_with(
             overdue_reexaminations.len()
         ));
         if overdue_reexaminations.len() > 1 {
+            compounding = true;
+        }
+    }
+
+    // The two function signals. They cannot double-count, and the reason is structural
+    // rather than a rule applied here: [`silent_functions`] reads only functions with a
+    // seat active at `as_of`, and [`unstaffed_functions`] reports only functions with
+    // none, so a single lapse contributes exactly one dimension.
+    //
+    // Worth stating because the guard against it was written first and then measured
+    // away. A filter here would have been a rule against an impossible state, which is
+    // the shape this codebase keeps finding on the other side (a value no rule reads);
+    // an invariant that holds by construction belongs in the lens definitions and in the
+    // test that pins it, not in a redundant caller check.
+    let unstaffed = unstaffed_functions(archive, Some(as_of_ts));
+    let silent = silent_functions(
+        archive,
+        Some(as_of_ts),
+        thresholds.attestation_cadence_seconds,
+    );
+
+    if !silent.is_empty() {
+        dimensions += 1;
+        reasons.push(format!(
+            "{} standing function(s) with no act and no attested null inside the cadence",
+            silent.len()
+        ));
+        // More than one function gone quiet, or one quiet for more than twice the
+        // cadence, is no longer an isolated lull. The same shape as the rite reading.
+        if silent.len() > 1
+            || silent
+                .iter()
+                .any(|f| f.seconds_since > 2 * thresholds.attestation_cadence_seconds)
+        {
+            compounding = true;
+        }
+    }
+    if !unstaffed.is_empty() {
+        dimensions += 1;
+        reasons.push(format!(
+            "{} standing function(s) with nobody seated at all",
+            unstaffed.len()
+        ));
+        // The same duration rule the silence reading uses, and for the same reason.
+        // Without it a compact whose office has stood empty for years graded *below*
+        // one still seated and merely quiet, which is backwards: the vacancy is the
+        // stronger claim, so it must not be the weaker grade.
+        if unstaffed.len() > 1
+            || unstaffed
+                .iter()
+                .any(|u| u.seconds_vacant > 2 * thresholds.attestation_cadence_seconds)
+        {
             compounding = true;
         }
     }
@@ -2162,7 +3084,10 @@ pub fn erosion_alert_with(
         active_fast_deviations: deviations,
         overdue_reaffirmations,
         hollowing_communities,
+        thinning_deliberation,
         overdue_reexaminations,
+        silent_functions: silent,
+        unstaffed_functions: unstaffed,
     }
 }
 
@@ -2220,6 +3145,14 @@ impl DeliberativeCapacity {
     /// the compact-incapable list, shortening a fast? The pair matters because a
     /// compact can be able to expand its protections and unable to contract them,
     /// which is the intended direction of the asymmetry.
+    // `>= quorum_threshold + 1` rather than the equivalent `> quorum_threshold` that
+    // clippy::int_plus_one prefers, for the same reason ethne keeps
+    // `majority(n) + 1 <= n` in en-charter's authority pass: "the ordinary quorum plus
+    // one" is the named bar §9 states, and the arithmetically identical form no longer
+    // says which rule this enforces. The +1 is also load-bearing rather than
+    // decorative — it is what stops the asymmetric contraction bar from collapsing into
+    // the ordinary quorum once probationary weight is counted.
+    #[allow(clippy::int_plus_one)]
     pub fn can_contract(&self) -> bool {
         self.standing() >= self.quorum_threshold + 1
     }

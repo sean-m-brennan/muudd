@@ -46,7 +46,7 @@ Detection latency and damage bounds are the primary metrics, per §10.
 so drift is caught as it accumulates rather than at one snapshot. Running
 ``run_harness()`` on a loop does not achieve that: with the parameters fixed it is
 a **constant function** — 200 consecutive runs return byte-identical latency and
-damage for all nine scenarios — so a scheduler around it recomputes the same nine
+damage for all ten scenarios — so a scheduler around it recomputes the same ten
 numbers forever. (That measurement establishes something else worth keeping: fresh
 Ed25519 keys are generated per run and several lenses tiebreak on DID ordering, so
 zero variation across 200 runs means the detectors are key-order-independent. It is
@@ -92,7 +92,8 @@ from kith_covenant.authoring import (
     new_identity, run_intra_rite, ratify_constitution, amend_compact_incapable,
     register_commons, apply_sanction, vouch, record_admission, attest_interpretation,
     report_event, corroborate_event, attest_principal, record_principal_output,
-    now_seconds,
+    new_mediator, register_mediators, new_observer, register_observers,
+    attest_activity, now_seconds,
 )
 from kith_covenant.reputation import (
     substrate_deference, ceremony_cost_decay, composition_graph,
@@ -142,6 +143,13 @@ MAX_DAMAGE_PRINCIPAL = 1
 # not by itself proof of corruption, only of something no longer being carried.
 MIN_SEVERITY_QUIET = "Notice"
 MAX_DAMAGE_QUIET = 1
+# The abandoned office (scenario 9): a compact whose standing functions go unexercised
+# and unattested must be graded at least this severe, within one cadence of the function
+# cadence elapsing. Weak for the same reason as scenario 8, and for one more: a quiet
+# pool may simply have had no disputes, which is why the attested null exists and why the
+# scenario's control is a compact that says so.
+MIN_SEVERITY_ABANDONED = "Notice"
+MAX_DAMAGE_ABANDONED = 1
 
 _YEAR = 365 * 24 * 3600
 
@@ -206,6 +214,14 @@ class HarnessParams:
     quiet_cadence_years: int = 4
     quiet_steps: int = 4
 
+    # Scenario 9: the standing-function attestation cadence, and how many cadences of
+    # an unexercised function to step through before giving up on the alert. In *days*,
+    # not years, and bounded so `(steps + 2) * cadence` stays inside §8's one-year
+    # observer term limit: a scenario whose seats expire mid-run would be measuring
+    # vacancy rather than silence.
+    abandoned_cadence_days: int = 30
+    abandoned_steps: int = 4
+
     @classmethod
     def canonical(cls) -> "HarnessParams":
         """The hand-authored case, byte-for-byte."""
@@ -234,6 +250,8 @@ class HarnessParams:
             cohort_size=rng.choice(PARAM_RANGES["cohort_size"]),
             quiet_cadence_years=rng.choice(PARAM_RANGES["quiet_cadence_years"]),
             quiet_steps=rng.choice(PARAM_RANGES["quiet_steps"]),
+            abandoned_cadence_days=rng.choice(PARAM_RANGES["abandoned_cadence_days"]),
+            abandoned_steps=rng.choice(PARAM_RANGES["abandoned_steps"]),
         )
 
     def normalized(self) -> "HarnessParams":
@@ -255,11 +273,16 @@ class HarnessParams:
             ),
             ceremony_declines=max(1, self.ceremony_declines),
             quiet_steps=max(2, self.quiet_steps),
+            abandoned_steps=max(2, self.abandoned_steps),
         )
 
     @property
     def quiet_cadence_seconds(self) -> int:
         return self.quiet_cadence_years * _YEAR
+
+    @property
+    def abandoned_cadence_seconds(self) -> int:
+        return self.abandoned_cadence_days * 86_400
 
     def witness_sequence(self) -> list[int]:
         """The witness counts move 3 steps through: a flat run, then a decline.
@@ -287,6 +310,8 @@ PARAM_RANGES: dict[str, tuple[int, ...]] = {
     "cohort_size": (2, 3, 4, 5),
     "quiet_cadence_years": (1, 2, 4, 8),
     "quiet_steps": (3, 4, 5, 6),
+    "abandoned_cadence_days": (7, 15, 30),
+    "abandoned_steps": (3, 4, 5, 6),
 }
 
 
@@ -351,6 +376,14 @@ def max_damage_quiet(p: HarnessParams) -> int:
     cadence buys the polity more time before the first alert, not more alerts."""
     _ = p
     return MAX_DAMAGE_QUIET
+
+
+def max_damage_abandoned(p: HarnessParams) -> int:
+    """One cadence of an unexercised, unattested function, whatever the cadence
+    length. Same reasoning as `max_damage_quiet`: the cadence sets when the first
+    reading is owed, not how many are forgiven."""
+    _ = p
+    return MAX_DAMAGE_ABANDONED
 
 
 @dataclass(frozen=True)
@@ -922,6 +955,109 @@ def _scenario_quiet_polity(p: HarnessParams) -> ScenarioResult:
     )
 
 
+def _scenario_abandoned_office(p: HarnessParams) -> ScenarioResult:
+    """Scenario 9 (not a capture move): the compact keeps the forms and stops doing
+    the work.
+
+    No adversary again, and a harder case than scenario 8. The compact holds its
+    re-affirmation rites **perfectly**, so every ceremony signal stays quiet; it seats a
+    mediator pool and an observer corps, so the rosters look healthy; and then neither
+    function is ever exercised and neither is ever accounted for. Every relative reading
+    is unchanged: the pool shares are the same shares, and a corps that files nothing
+    looks exactly like a corps with nothing to file.
+
+    The control is what makes the scenario honest. A quiet pool may simply have had no
+    disputes, which is why `attest_activity` exists: a compact that says "nothing
+    happened" is *evidence*, and the alert must not flag it. So the scenario runs both,
+    and requires the flag on the silent compact **and** silence on the attesting one.
+
+    Stepped in cadence-length intervals. Falsification criterion, stated in advance: the
+    alert must reach ``MIN_SEVERITY_ABANDONED`` within ``MAX_DAMAGE_ABANDONED`` cadences
+    of the function cadence elapsing, and the attesting control must never flag.
+    """
+    cadence = p.abandoned_cadence_seconds
+    ranks = {"None": 0, "Notice": 1, "Alert": 2}
+
+    def compact():
+        """A compact with a seated pool and corps whose terms outlast the whole run, so
+        what is measured is silence and never vacancy."""
+        arch = Archive()
+        t0 = now_seconds()
+        (com, other) = _founding(arch, ("Steward", "Partner"), t0)
+        run_intra_rite(arch, com, witness_count=5, sealed_at=t0 + 1)
+        run_intra_rite(arch, other, witness_count=5, sealed_at=t0 + 1)
+        term_end = t0 + 1 + (p.abandoned_steps + 2) * (cadence + 1)
+        register_mediators(
+            arch, com, [new_mediator()], valid_from=t0, valid_until=term_end,
+        )
+        register_observers(
+            arch, other, [(new_observer(), "outsider")],
+            valid_from=t0, valid_until=term_end,
+        )
+        return arch, t0, com, other
+
+    subject, t0, _s_com, _s_other = compact()
+    control, c_t0, c_com, c_other = compact()
+
+    detected = False
+    latency = None
+    damage = 0
+    severity = "None"
+    control_flagged = False
+
+    for step in range(0, p.abandoned_steps):
+        as_of = t0 + 1 + step * (cadence + 1)
+        al = erosion_alert(
+            subject, as_of=as_of, attestation_cadence_seconds=cadence,
+        )
+        severity = al.severity
+        # Nothing was rolled back, nothing was done during a fast, and every rite is
+        # current: if any other signal fired, the scenario is not measuring what it says.
+        assert not al.list_contraction and not al.fast_contraction
+        assert al.active_fast_deviations == 0
+        assert not al.overdue_reaffirmations and not al.hollowing_communities
+        # Never vacancy: the seats outlast the run, so this is the silence dimension.
+        assert not al.unstaffed_functions
+
+        # The control does the one thing the subject does not: it accounts for each
+        # window as the window closes. Both functions, since both are being watched.
+        c_as_of = c_t0 + 1 + step * (cadence + 1)
+        if step > 0:
+            window_start = c_t0 + 1 + (step - 1) * (cadence + 1)
+            for who, function in ((c_com, "Mediation"), (c_other, "Observation")):
+                attest_activity(
+                    control, who, function, window_start, c_as_of,
+                    statement="nothing arose in this window",
+                    attested_at=c_as_of,
+                )
+        c_al = erosion_alert(
+            control, as_of=c_as_of, attestation_cadence_seconds=cadence,
+        )
+        if ranks[c_al.severity] >= ranks[MIN_SEVERITY_ABANDONED]:
+            control_flagged = True
+
+        if step == 0:
+            assert severity == "None", "an unexercised function inside the cadence must not flag"
+            continue
+        if ranks[severity] >= ranks[MIN_SEVERITY_ABANDONED]:
+            detected = True
+            latency = step - 1
+            break
+        damage += 1
+
+    bound = max_damage_abandoned(p)
+    passed = detected and damage <= bound and not control_flagged
+    return ScenarioResult(
+        move=9, key="abandoned-office", name="the abandoned office (omission, no adversary)",
+        supported=True, detected=detected, detection_latency=latency, damage=damage,
+        threshold_latency=MAX_DETECTION_LATENCY_STEPS, threshold_damage=bound,
+        passed=passed,
+        notes=(
+            f"erosion_alert reached {severity} on the absolute function cadence with every "
+            "rite current and every seat still valid; the attesting control stayed quiet"
+        ),
+    )
+
 # --- Unsupported scenarios (detector deferred past this MVP) -----------------
 #
 # All seven capture-resistance scenarios now have a built detector; none remain
@@ -952,6 +1088,7 @@ SCENARIOS: tuple[Callable[[HarnessParams], ScenarioResult], ...] = (
     _scenario_admissions_capture,
     _scenario_probationary_weight,
     _scenario_quiet_polity,
+    _scenario_abandoned_office,
 )
 
 

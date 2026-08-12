@@ -175,6 +175,11 @@ fn publish_inter_nonadmission(
         .expect("append")
 }
 
+// The three lifecycle stamps at the end are the axes under test — issued, expires,
+// revoked — and the delegation's whole authority question is which of them are set
+// relative to the instant being checked. Collapsing them into a struct would hide the
+// combination each test is stating, which is the only thing these tests vary.
+#[allow(clippy::too_many_arguments)]
 fn publish_delegation(
     archive: &mut InMemoryArchive,
     community_did: &DidKey,
@@ -1110,6 +1115,60 @@ fn publish_dispute(
     archive.append(ArchiveEntry::DisputeFiled(signed)).expect("append")
 }
 
+/// Append one panelist argument on `dispute_cid` and return its CID. The erosion
+/// reading is a read-model, so these need no registry behind them.
+fn publish_argument(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    author: &DidKey,
+    author_priv: &PrivKey,
+    submitted_at: Timestamp,
+) -> Cid {
+    let arg = kc_mediation::ArgumentRecord {
+        dispute_cid,
+        author: author.clone(),
+        role: kc_mediation::ArgumentRole::Panelist,
+        position: "fixture".into(),
+        evidence: vec![],
+        submitted_at,
+    };
+    let signed = Signed::build(arg, &[(author.as_str(), author_priv)]).expect("sign argument");
+    archive.append(ArchiveEntry::ArgumentFiled(signed)).expect("append")
+}
+
+/// A decision citing `n` arguments, the earliest `span` seconds before it — the two
+/// things the deliberation reading measures.
+fn publish_deliberated_decision(
+    archive: &mut InMemoryArchive,
+    dispute_cid: Cid,
+    panel: &[(&DidKey, &PrivKey)],
+    n: usize,
+    span: i64,
+    decided_at: Timestamp,
+) -> Cid {
+    let arguments: Vec<Cid> = (0..n)
+        .map(|i| {
+            let (d, pk) = panel[i % panel.len()];
+            // The first argument sits `span` back; the rest follow it.
+            let at = t(decided_at.as_second() - span + i as i64);
+            publish_argument(archive, dispute_cid, d, pk, at)
+        })
+        .collect();
+    let panel_dids: Vec<DidKey> = panel.iter().map(|(d, _)| (*d).clone()).collect();
+    let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+    let dec = MediationDecision {
+        dispute_cid,
+        panel: panel_dids,
+        outcome: DecisionOutcome::Settled,
+        reasoning: "fixture".into(),
+        sealed: None,
+        arguments,
+        decided_at,
+    };
+    let signed = Signed::build(dec, &pairs).expect("sign decision");
+    archive.append(ArchiveEntry::MediationDecided(signed)).expect("append")
+}
+
 fn publish_decision(
     archive: &mut InMemoryArchive,
     dispute_cid: Cid,
@@ -1124,6 +1183,8 @@ fn publish_decision(
         panel: panel_dids,
         outcome,
         reasoning: "fixture".into(),
+        sealed: None,
+        arguments: vec![],
         decided_at,
     };
     let signed = Signed::build(dec, &pairs).expect("sign decision");
@@ -2339,6 +2400,91 @@ mod uniform_drift {
         assert_eq!(al.severity, ErosionSeverity::Notice);
     }
 
+    /// §4's deliberation, on the same pinned baseline as the rite signals: the latest
+    /// decision answered fewer arguments than the compact's **first**.
+    #[test]
+    fn thinning_deliberation_is_measured_against_the_first_decision() {
+        let (a_priv, _, ca) = fresh_id();
+        let (_, _, cb) = fresh_id();
+        let (m1_priv, _, m1) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let panel: Vec<(&DidKey, &PrivKey)> = vec![(&m1, &m1_priv)];
+
+        // Six arguments over a week, then four, and four, and four. The latest is below
+        // the FIRST while a rolling baseline has fully absorbed it: the median of the
+        // priors is 4, so a median reading calls this normal. The **plateau** is where
+        // the two baselines diverge — a monotone decline is caught by either, and it is
+        // the ceremony that thinned once and stayed thin that only an absolute measure
+        // sees.
+        for (n, at) in [(6usize, 1_000i64), (4, 2_000), (4, 3_000), (4, 4_000)] {
+            let d = publish_dispute(&mut a, &ca, &a_priv, &cb, t(at - 900));
+            publish_deliberated_decision(&mut a, d, &panel, n, 604_800, t(at));
+        }
+        let al = erosion_alert(&a, Some(t(5_000)));
+        let th = al.thinning_deliberation.expect("the reading fired");
+        assert!(th.argument_count_declined);
+        assert!(!th.span_shortened, "the span held at a week each time");
+        assert_eq!((th.first_argument_count, th.latest_argument_count), (6, 4));
+        assert_eq!(th.decisions, 4);
+        assert_eq!(al.severity, ErosionSeverity::Notice, "one dimension, not compounding");
+        assert!(al.reasons.iter().any(|r| r.contains("deliberation thinning")));
+    }
+
+    /// The span is the other half: a compact whose deliberation collapses from a week
+    /// to a second has stopped deliberating across the distances it exists to span,
+    /// whatever it still files.
+    #[test]
+    fn a_collapsing_deliberation_span_is_read_too() {
+        let (a_priv, _, ca) = fresh_id();
+        let (_, _, cb) = fresh_id();
+        let (m1_priv, _, m1) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let panel: Vec<(&DidKey, &PrivKey)> = vec![(&m1, &m1_priv)];
+
+        // Same count each time, but the week becomes two seconds.
+        for (span, at) in [(604_800i64, 1_000_000i64), (2, 2_000_000)] {
+            let d = publish_dispute(&mut a, &ca, &a_priv, &cb, t(at - 700_000));
+            publish_deliberated_decision(&mut a, d, &panel, 3, span, t(at));
+        }
+        let al = erosion_alert(&a, Some(t(3_000_000)));
+        let th = al.thinning_deliberation.expect("the reading fired");
+        assert!(th.span_shortened);
+        assert!(!th.argument_count_declined, "the count held at 3 each time");
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+
+        // Both readings firing is no longer one isolated measure moving.
+        let d = publish_dispute(&mut a, &ca, &a_priv, &cb, t(2_500_000));
+        publish_deliberated_decision(&mut a, d, &panel, 1, 1, t(2_600_000));
+        let al = erosion_alert(&a, Some(t(3_000_000)));
+        let th = al.thinning_deliberation.expect("the reading fired");
+        assert!(th.span_shortened && th.argument_count_declined);
+        assert_eq!(al.severity, ErosionSeverity::Alert, "two readings compound");
+    }
+
+    /// Negative control against inventing a trend: one decision is not a series, and a
+    /// deliberation that *grew* is not erosion.
+    #[test]
+    fn a_single_or_deepening_deliberation_is_not_thinning() {
+        let (a_priv, _, ca) = fresh_id();
+        let (_, _, cb) = fresh_id();
+        let (m1_priv, _, m1) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let panel: Vec<(&DidKey, &PrivKey)> = vec![(&m1, &m1_priv)];
+
+        let d = publish_dispute(&mut a, &ca, &a_priv, &cb, t(500));
+        publish_deliberated_decision(&mut a, d, &panel, 3, 100, t(1_000));
+        assert!(
+            erosion_alert(&a, Some(t(2_000))).thinning_deliberation.is_none(),
+            "one decision is not a series"
+        );
+
+        let d2 = publish_dispute(&mut a, &ca, &a_priv, &cb, t(1_500));
+        publish_deliberated_decision(&mut a, d2, &panel, 5, 200, t(2_000));
+        let al = erosion_alert(&a, Some(t(3_000)));
+        assert!(al.thinning_deliberation.is_none(), "more arguments over longer is not decay");
+        assert_eq!(al.severity, ErosionSeverity::None);
+    }
+
     #[test]
     fn a_community_that_never_sealed_a_rite_is_not_overdue() {
         // Negative control against inventing a cadence: with no rite there is no
@@ -2360,7 +2506,7 @@ mod uniform_drift {
         let as_of = Some(t(100 + 5000));
         assert_eq!(erosion_alert(&a, as_of).severity, ErosionSeverity::None);
 
-        let tight = ErosionThresholds { rite_cadence_seconds: 3600 };
+        let tight = ErosionThresholds { rite_cadence_seconds: 3600, ..Default::default() };
         let al = erosion_alert_with(&a, as_of, &tight);
         assert_eq!(al.severity, ErosionSeverity::Notice);
         assert_eq!(al.overdue_reaffirmations[0].cadence_seconds, 3600);
@@ -2844,7 +2990,57 @@ mod interpretive_plurality_lens {
 mod structured_skepticism_lens {
     use super::*;
     use crate::analytics::structured_skepticism;
-    use kc_provenance::{EventCorroboration, EventReport, RetroactiveInterestFinding};
+    use kc_provenance::{
+        EventCorroboration, EventReport, ReviewAnswer, RetroactiveInterestFinding,
+        SkepticismCriterion, SkepticismInvocation, SkepticismReview,
+    };
+
+    /// Three mediators standing in for the pool. The lens reads invocation and review
+    /// records without re-checking the panel rules, which the archive's authority pass
+    /// enforces, so these need only be well-formed.
+    fn panel() -> Vec<(DidKey, PrivKey)> {
+        (0..3)
+            .map(|_| {
+                let (p, _, d) = fresh_id();
+                (d, p)
+            })
+            .collect()
+    }
+
+    fn invoke(
+        a: &mut InMemoryArchive,
+        event_cid: Cid,
+        criteria: &[SkepticismCriterion],
+        hold_seconds: i64,
+        at: Timestamp,
+    ) -> Cid {
+        let pool = panel();
+        let pairs: Vec<(&str, &PrivKey)> = pool.iter().map(|(d, p)| (d.as_str(), p)).collect();
+        let rec = SkepticismInvocation {
+            event_cid,
+            panel: pool.iter().map(|(d, _)| d.clone()).collect(),
+            criteria: criteria.to_vec(),
+            grounds: "onset within the hour of the allocation vote".into(),
+            hold_seconds,
+            invoked_at: at,
+        };
+        let signed = Signed::build(rec, &pairs).expect("sign invocation");
+        a.append(ArchiveEntry::SkepticismInvoked(signed)).expect("append")
+    }
+
+    fn review(a: &mut InMemoryArchive, event_cid: Cid, answer: ReviewAnswer, at: Timestamp) -> Cid {
+        let pool = panel();
+        let pairs: Vec<(&str, &PrivKey)> = pool.iter().map(|(d, p)| (d.as_str(), p)).collect();
+        let rec = SkepticismReview {
+            event_cid,
+            reviewers: pool.iter().map(|(d, _)| d.clone()).collect(),
+            answer,
+            reasoning: "the criteria are met on the record".into(),
+            reviewed_at: at,
+        };
+        let signed = Signed::build(rec, &pairs).expect("sign review");
+        a.append(ArchiveEntry::SkepticismReviewed(signed)).expect("append")
+    }
 
     #[allow(clippy::too_many_arguments)]
     fn publish_event(
@@ -2939,6 +3135,85 @@ mod structured_skepticism_lens {
             vec![],
             at,
         )
+    }
+
+    /// The lens reads what the archive's hold reads: **either** source places an event
+    /// under the protocol.
+    ///
+    /// The measurement behind this: an event whose originator declared it mundane was
+    /// invisible to every filter here, because they all read the originator's own
+    /// declaration. That is exactly the event the pool's invocation exists to reach, so
+    /// a lens blind to it would report a clean compact at the moment the pool was
+    /// acting on a manufactured one.
+    #[test]
+    fn a_pool_invocation_brings_an_undeclared_event_under_the_lens() {
+        let (o_priv, _, originator) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        // Declared mundane by its originator: nothing here fires.
+        let ev = publish_event(
+            &mut a, &originator, &o_priv, false, false, false, None, "i", "h", vec![], t(100),
+        );
+        let before = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(before.qualifying_events(), 0);
+        assert!(before.under_corroborated(2).is_empty());
+        assert!(!before.events[0].under_protocol);
+
+        // The pool finds two criteria the originator did not declare.
+        invoke(
+            &mut a,
+            ev,
+            &[
+                SkepticismCriterion::SuddenOnset,
+                SkepticismCriterion::OriginatorHoldsStake,
+            ],
+            14 * 24 * 3600,
+            t(200),
+        );
+
+        let after = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(after.qualifying_events(), 1);
+        assert_eq!(after.under_corroborated(2).len(), 1);
+        assert!(after.events[0].under_protocol);
+        // The originator still declared nothing, and the divergence is legible.
+        assert!(!after.events[0].qualifies);
+        assert_eq!(after.events[0].undeclared_criteria.len(), 2);
+        assert_eq!(after.declaration_divergences().len(), 1);
+        assert_eq!(after.events[0].invoked_hold_seconds, Some(14 * 24 * 3600));
+    }
+
+    /// A hold nobody has reviewed is the state §4 makes the pool answerable for, and it
+    /// is legible whether the hold was invoked or self-declared.
+    #[test]
+    fn an_unreviewed_hold_is_reported_and_a_review_clears_the_signal() {
+        let (o_priv, _, originator) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        assert_eq!(structured_skepticism(&a, Some(t(1000))).unreviewed_holds().len(), 1);
+
+        review(&mut a, ev, ReviewAnswer::Upheld, t(200));
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert!(r.unreviewed_holds().is_empty());
+        // Upheld changes nothing else: the event is still under the protocol.
+        assert_eq!(r.qualifying_events(), 1);
+        assert_eq!(r.events[0].reviewed_by.len(), 3);
+    }
+
+    /// A pretextual finding releases the event, from a self-declared hold as much as
+    /// from an invoked one, and the lens stops reporting it as held.
+    #[test]
+    fn a_pretextual_finding_releases_the_event_in_the_lens_too() {
+        let (o_priv, _, originator) = fresh_id();
+        let mut a = InMemoryArchive::new();
+        let ev = manufactured(&mut a, &originator, &o_priv, &originator, t(100));
+        assert_eq!(structured_skepticism(&a, Some(t(1000))).qualifying_events(), 1);
+
+        review(&mut a, ev, ReviewAnswer::Pretextual, t(200));
+        let r = structured_skepticism(&a, Some(t(1000)));
+        assert_eq!(r.qualifying_events(), 0);
+        assert!(r.events[0].released_as_pretextual);
+        assert!(r.under_corroborated(2).is_empty());
+        // The originator's declaration is untouched: what changed is the hold.
+        assert!(r.events[0].qualifies);
     }
 
     #[test]
@@ -3726,5 +4001,661 @@ mod deliberative_capacity_lens {
         compact(&mut a, 3);
         let c = deliberative_capacity(&a, "fixture-compact", Q, Some(t(15)));
         assert!(c.members.is_empty(), "the admission is witnessed at t(20)");
+    }
+}
+
+/// §4.2 — the mediator pool's composition, by seating community and by training
+/// lineage. A read-only board: the caps themselves are enforced by the authority pass.
+mod mediator_pool {
+    use super::*;
+    use crate::analytics::{mediator_pool_concentration, MediatorPoolShare};
+    use kc_mediation::{MediatorEntry, MediatorRegistry};
+
+    const YEAR: i64 = 365 * 24 * 3600;
+
+    /// Seat `n` mediators for `community`, optionally all trained by one `trainer`.
+    fn seat(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        community_priv: &PrivKey,
+        n: usize,
+        trainer: Option<&DidKey>,
+        at: Timestamp,
+    ) -> Vec<DidKey> {
+        let mut entries = vec![];
+        let mut dids = vec![];
+        for _ in 0..n {
+            let (_p, pubk, did) = fresh_id();
+            let (_ep, epub, _ed) = fresh_id();
+            entries.push(MediatorEntry {
+                mediator_did: did.clone(),
+                mediator_pubkey: pubk,
+                encryption_pubkey: epub,
+                valid_from: at,
+                valid_until: Some(t(at.as_second() + YEAR)),
+                trained_by: trainer.cloned(),
+            });
+            dids.push(did);
+        }
+        let reg = MediatorRegistry {
+            nominating_community: community.clone(),
+            entries,
+            issued_at: at,
+        };
+        let signed = Signed::build(reg, &[(community.as_str(), community_priv)]).unwrap();
+        a.append(ArchiveEntry::MediatorRegistryUpdated(signed)).unwrap();
+        dids
+    }
+
+    /// As [`seat`], with a trainer per seat — a community's mediators need not all
+    /// have come up under the same elder.
+    fn seat_mixed(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        community_priv: &PrivKey,
+        trainers: &[Option<&DidKey>],
+        at: Timestamp,
+    ) {
+        let mut entries = vec![];
+        for trainer in trainers {
+            let (_p, pubk, did) = fresh_id();
+            let (_ep, epub, _ed) = fresh_id();
+            entries.push(MediatorEntry {
+                mediator_did: did,
+                mediator_pubkey: pubk,
+                encryption_pubkey: epub,
+                valid_from: at,
+                valid_until: Some(t(at.as_second() + YEAR)),
+                trained_by: trainer.map(|d| (*d).clone()),
+            });
+        }
+        let reg = MediatorRegistry {
+            nominating_community: community.clone(),
+            entries,
+            issued_at: at,
+        };
+        let signed = Signed::build(reg, &[(community.as_str(), community_priv)]).unwrap();
+        a.append(ArchiveEntry::MediatorRegistryUpdated(signed)).unwrap();
+    }
+
+    #[test]
+    fn the_pool_is_ranked_by_seating_community_and_flags_a_majority() {
+        let (a_priv, _, aa) = fresh_id();
+        let (b_priv, _, bb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        seat(&mut arc, &aa, &a_priv, 3, None, t(10));
+        seat(&mut arc, &bb, &b_priv, 2, None, t(10));
+
+        let pool = mediator_pool_concentration(&arc, Some(t(500)));
+        assert_eq!(pool.total_active, 5);
+        assert_eq!(
+            pool.shares[0],
+            MediatorPoolShare { community: aa.as_str().to_string(), active: 3 }
+        );
+        assert_eq!(pool.top_active(), 3);
+        assert!(pool.majority_held(), "3 of 5 — the domination front the cap watches");
+        assert_eq!(pool.serving.len(), 5);
+    }
+
+    /// The lineage half: §4's apprenticeship model is "susceptible to capture by the
+    /// incumbent generation's biases", and a pool that all traces to one trainer is
+    /// that weakness realized. Reported, never gated.
+    #[test]
+    fn one_trainer_behind_the_pool_is_reported() {
+        let (a_priv, _, aa) = fresh_id();
+        let (b_priv, _, bb) = fresh_id();
+        let (_tp, _tk, elder) = fresh_id();
+        let (_tp2, _tk2, other_elder) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        // Three seats each, so no community holds a majority — but one elder trained
+        // four of the six. The two measures see different things, which is why both
+        // exist: a pool can be perfectly balanced between communities and still be one
+        // teacher's pool.
+        seat_mixed(&mut arc, &aa, &a_priv, &[Some(&elder), Some(&elder), Some(&other_elder)], t(10));
+        seat_mixed(&mut arc, &bb, &b_priv, &[Some(&elder), Some(&elder), Some(&other_elder)], t(10));
+
+        let pool = mediator_pool_concentration(&arc, Some(t(500)));
+        assert_eq!(pool.total_active, 6);
+        assert!(!pool.majority_held(), "3 and 3 between the communities");
+        assert_eq!(pool.with_lineage, 6);
+        assert_eq!(pool.top_lineage(), 4);
+        assert!(pool.lineage_majority_held(), "one elder trained 4 of the 6");
+        assert_eq!(
+            pool.lineages[0],
+            MediatorPoolShare { community: elder.as_str().to_string(), active: 4 }
+        );
+    }
+
+    /// Silence is never read as a finding, and never as health either: a pool that
+    /// records no apprenticeship reports `with_lineage: 0`, and the lineage majority is
+    /// measured against what was recorded rather than against the whole pool — or a
+    /// compact could quiet the reading by simply not recording.
+    #[test]
+    fn an_unrecorded_lineage_is_unknown_rather_than_clean() {
+        let (a_priv, _, aa) = fresh_id();
+        let (_tp, _tk, elder) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        seat(&mut arc, &aa, &a_priv, 4, None, t(10));
+
+        let pool = mediator_pool_concentration(&arc, Some(t(500)));
+        assert_eq!(pool.total_active, 4);
+        assert_eq!(pool.with_lineage, 0);
+        assert!(pool.lineages.is_empty(), "no blank trainer group");
+        assert!(!pool.lineage_majority_held(), "nothing recorded is not a finding");
+
+        // Three of four recorded, all under one elder: the reading fires against the
+        // recorded three, not against the pool of four.
+        let (b_priv, _, bb) = fresh_id();
+        seat(&mut arc, &bb, &b_priv, 3, Some(&elder), t(10));
+        let pool = mediator_pool_concentration(&arc, Some(t(500)));
+        assert_eq!((pool.total_active, pool.with_lineage), (7, 3));
+        assert!(pool.lineage_majority_held(), "3 of the 3 recorded, though 3 of 7 seated");
+    }
+
+    /// The board respects superseding and term windows, like every other lens here.
+    #[test]
+    fn only_the_latest_registry_and_only_active_seats_count() {
+        let (a_priv, _, aa) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        seat(&mut arc, &aa, &a_priv, 4, None, t(10));
+        // A later registry from the same community supersedes it with two seats.
+        seat(&mut arc, &aa, &a_priv, 2, None, t(100));
+        assert_eq!(mediator_pool_concentration(&arc, Some(t(500))).total_active, 2);
+        // And past the term end, nobody is serving.
+        assert_eq!(
+            mediator_pool_concentration(&arc, Some(t(100 + YEAR + 1))).total_active,
+            0
+        );
+    }
+}
+
+// --- erosion remediation 5 and 6: attested nulls, a reporting cadence, and the
+// --- empty office
+//
+// The measured table this slice was built from, each row an assertion. Rows 1 and 2
+// are the K3 case: before `ReexaminationConclusion` existed, a panel that
+// re-examined a designation at the mandated date and confirmed it read *identically*
+// to a compact that had forgotten, forever. Rows 3 to 6 are the two function
+// signals. See `doc/architecture/erosion-legibility.md`.
+
+mod attested_nulls {
+    use super::*;
+    use crate::analytics::{
+        erosion_alert, erosion_alert_with, overdue_reexaminations, silent_functions,
+        unstaffed_functions, ErosionSeverity, ErosionThresholds,
+    };
+    use kc_conduct::{ActivityAttestation, AttestedFunction, ConductKind, ConductRecord, Severity};
+    use kc_escalation::{
+        Designation, DesignationTier, DesignationUrgency, ReexaminationConclusion,
+        ReexaminationOutcome,
+    };
+    use kc_mediation::{MediatorEntry, MediatorRegistry};
+    use kc_observer::{ObserverEntry, ObserverRegistry};
+
+    const YEAR: i64 = 365 * 86_400;
+    /// The default function cadence (one year).
+    const CADENCE: i64 = YEAR;
+
+    fn designate_due(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        signer: &PrivKey,
+        due: Timestamp,
+        at: Timestamp,
+    ) -> Cid {
+        let dz = Designation {
+            subject_community: subject.clone(),
+            tier: DesignationTier::Anathema,
+            urgency: DesignationUrgency::Expedited,
+            deliberators: vec![subject.clone()],
+            criteria: "c".into(),
+            cited_acts: vec![],
+            failed_restoration_cycles: vec![],
+            deliberation_cycles: vec![],
+            reversal_conditions: Some("rev".into()),
+            reexamine_after: Some(due),
+            decision_class: kc_conduct::DecisionClass::SecondClass,
+            designated_at: at,
+        };
+        let signed = Signed::build(dz, &[(subject.as_str(), signer)]).expect("sign");
+        a.append(ArchiveEntry::DesignationDecided(signed)).expect("append")
+    }
+
+    fn conclude(
+        a: &mut InMemoryArchive,
+        designation_cid: Cid,
+        who: &DidKey,
+        signer: &PrivKey,
+        outcome: ReexaminationOutcome,
+        next: Option<Timestamp>,
+        at: Timestamp,
+    ) -> Cid {
+        let rc = ReexaminationConclusion {
+            designation_cid,
+            outcome,
+            examiners: vec![who.clone()],
+            reasoning: "the pattern that named them has not changed".into(),
+            next_reexamine_after: next,
+            decision_class: kc_conduct::DecisionClass::SecondClass,
+            concluded_at: at,
+        };
+        let signed = Signed::build(rc, &[(who.as_str(), signer)]).expect("sign");
+        a.append(ArchiveEntry::ReexaminationConcluded(signed)).expect("append")
+    }
+
+    /// A conduct record about the designation: the nearest thing a diligent compact
+    /// could do *before* the conclusion record existed. Row 2 of the table.
+    fn note_about(
+        a: &mut InMemoryArchive,
+        designation_cid: Cid,
+        who: &DidKey,
+        signer: &PrivKey,
+        at: Timestamp,
+    ) {
+        let rec = ConductRecord {
+            subject_community: who.clone(),
+            reporters: vec![who.clone()],
+            reporter_perspective: None,
+            kind: ConductKind::Concern,
+            bearing: kc_conduct::ConductBearing::Other("designation re-examination".into()),
+            severity: Severity::Minor,
+            ladder_rung: None,
+            decision_class: kc_conduct::DecisionClass::FirstClass,
+            references: vec![designation_cid],
+            narrative: "re-examined at the mandated date; confirmed".into(),
+            observed_at: at,
+            recorded_at: at,
+        };
+        let signed = Signed::build(rec, &[(who.as_str(), signer)]).expect("sign");
+        a.append(ArchiveEntry::ConductAttested(signed)).expect("append");
+    }
+
+    fn seat_mediators(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        community_priv: &PrivKey,
+        from: Timestamp,
+        until: Option<Timestamp>,
+    ) -> DidKey {
+        let (_p, pubk, did) = fresh_id();
+        let (_ep, epub, _ed) = fresh_id();
+        let reg = MediatorRegistry {
+            nominating_community: community.clone(),
+            entries: vec![MediatorEntry {
+                mediator_did: did.clone(),
+                mediator_pubkey: pubk,
+                encryption_pubkey: epub,
+                valid_from: from,
+                valid_until: until,
+                trained_by: None,
+            }],
+            issued_at: from,
+        };
+        let signed = Signed::build(reg, &[(community.as_str(), community_priv)]).expect("sign");
+        a.append(ArchiveEntry::MediatorRegistryUpdated(signed)).expect("append");
+        did
+    }
+
+    fn seat_observers(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        community_priv: &PrivKey,
+        from: Timestamp,
+        until: Option<Timestamp>,
+    ) -> DidKey {
+        let (_p, pubk, did) = fresh_id();
+        let reg = ObserverRegistry {
+            nominating_community: community.clone(),
+            entries: vec![ObserverEntry {
+                observer_did: did.clone(),
+                observer_pubkey: pubk,
+                declared_perspective: "outsider".into(),
+                valid_from: from,
+                valid_until: until,
+            }],
+            issued_at: from,
+        };
+        let signed = Signed::build(reg, &[(community.as_str(), community_priv)]).expect("sign");
+        a.append(ArchiveEntry::ObserverRegistryUpdated(signed)).expect("append");
+        did
+    }
+
+    fn attest(
+        a: &mut InMemoryArchive,
+        community: &DidKey,
+        community_priv: &PrivKey,
+        function: AttestedFunction,
+        window: (Timestamp, Timestamp),
+        acts: Vec<Cid>,
+        at: Timestamp,
+    ) -> Cid {
+        let att = ActivityAttestation {
+            function,
+            attesting_community: community.clone(),
+            window_start: window.0,
+            window_end: window.1,
+            acts,
+            statement: "no disputes were filed in this window".into(),
+            attested_at: at,
+        };
+        let signed = Signed::build(att, &[(community.as_str(), community_priv)]).expect("sign");
+        a.append(ArchiveEntry::ActivityAttested(signed)).expect("append")
+    }
+
+    // --- rows 1 and 2: diligence and neglect no longer read the same -----------
+
+    #[test]
+    fn a_confirmed_re_examination_answers_its_deadline_and_sets_the_next() {
+        // Row 1. The panel looked at the mandated date and let the designation stand.
+        // Before this record the reading was "overdue, forever"; the lens punished the
+        // panel that did its job.
+        let mut a = InMemoryArchive::new();
+        let (sp, _, subj) = fresh_id();
+        let cid = designate_due(&mut a, &subj, &sp, t(1000), t(100));
+        conclude(
+            &mut a,
+            cid,
+            &subj,
+            &sp,
+            ReexaminationOutcome::Confirmed,
+            Some(t(1000 + 10 * YEAR)),
+            t(1010),
+        );
+
+        // Answered: nothing is owed until the date the confirmation set.
+        let al = erosion_alert(&a, Some(t(1500)));
+        assert!(al.overdue_reexaminations.is_empty());
+        assert_eq!(al.severity, ErosionSeverity::None);
+
+        // And owed again once that date passes, now on its first renewal.
+        let later = overdue_reexaminations(&a, Some(t(1000 + 10 * YEAR + 5)));
+        assert_eq!(later.len(), 1);
+        assert_eq!(later[0].confirmations, 1);
+        assert_eq!(later[0].reexamine_after, t(1000 + 10 * YEAR));
+        assert_eq!(later[0].seconds_overdue, 5);
+    }
+
+    #[test]
+    fn a_re_examination_nobody_held_still_reads_as_overdue() {
+        // Row 2, and the pair that matters: the same designation, no conclusion
+        // record, with a conduct record *about* it — the nearest thing a diligent
+        // compact could do before this slice. It reads as what it is: unanswered.
+        let mut a = InMemoryArchive::new();
+        let (sp, _, subj) = fresh_id();
+        let cid = designate_due(&mut a, &subj, &sp, t(1000), t(100));
+        note_about(&mut a, cid, &subj, &sp, t(1010));
+
+        let ignored = overdue_reexaminations(&a, Some(t(1500)));
+        assert_eq!(ignored.len(), 1);
+        assert_eq!(ignored[0].confirmations, 0);
+
+        // The measured row: the two archives now differ, where they used to agree.
+        let mut b = InMemoryArchive::new();
+        let (bp, _, bsubj) = fresh_id();
+        let bcid = designate_due(&mut b, &bsubj, &bp, t(1000), t(100));
+        conclude(
+            &mut b,
+            bcid,
+            &bsubj,
+            &bp,
+            ReexaminationOutcome::Confirmed,
+            Some(t(1000 + 10 * YEAR)),
+            t(1010),
+        );
+        assert!(overdue_reexaminations(&b, Some(t(1500))).is_empty());
+        assert_ne!(
+            overdue_reexaminations(&a, Some(t(1500))).len(),
+            overdue_reexaminations(&b, Some(t(1500))).len()
+        );
+    }
+
+    #[test]
+    fn a_confirmation_is_not_a_discharge() {
+        // Negative control, stated as a prediction first: one confirmation must not
+        // silence the lens for good. The next date it sets is a real deadline, and
+        // the renewal count keeps rising.
+        let mut a = InMemoryArchive::new();
+        let (sp, _, subj) = fresh_id();
+        let cid = designate_due(&mut a, &subj, &sp, t(1000), t(100));
+        conclude(&mut a, cid, &subj, &sp, ReexaminationOutcome::Confirmed, Some(t(5000)), t(1010));
+        conclude(&mut a, cid, &subj, &sp, ReexaminationOutcome::Confirmed, Some(t(9000)), t(5010));
+
+        assert!(overdue_reexaminations(&a, Some(t(8000))).is_empty());
+        let owed = overdue_reexaminations(&a, Some(t(9500)));
+        assert_eq!(owed.len(), 1);
+        assert_eq!(owed[0].confirmations, 2, "both renewals counted");
+    }
+
+    // --- rows 3 to 5: the silent function -------------------------------------
+
+    #[test]
+    fn a_function_that_stops_acting_and_stops_attesting_is_reported() {
+        // Row 3/4. A pool (or corps) that acted once and then went quiet for a
+        // generation, with its seats still valid so this is silence and not vacancy.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + 50 * YEAR)));
+
+        let silent = silent_functions(&a, Some(t(100 + 3 * YEAR)), CADENCE);
+        assert_eq!(silent.len(), 1);
+        assert_eq!(silent[0].community_did, comm.as_str());
+        assert_eq!(silent[0].function, "Mediation");
+        assert!(!silent[0].last_was_a_null, "there was never even a null");
+        // Measured from the seat, so a function that has done nothing since the day
+        // it was staffed reads as three years quiet rather than as brand new.
+        assert_eq!(silent[0].seconds_since, 3 * YEAR);
+    }
+
+    #[test]
+    fn an_attested_null_is_the_difference_between_quiet_and_stopped() {
+        // Row 5, the one the whole record exists for. Two compacts, both with an
+        // active pool, both with no disputes: one said so, one did not. Before
+        // `ActivityAttestation` the two were the same silence.
+        let mut quiet = InMemoryArchive::new();
+        let (qp, _, q) = fresh_id();
+        seat_mediators(&mut quiet, &q, &qp, t(100), Some(t(100 + 50 * YEAR)));
+        attest(
+            &mut quiet,
+            &q,
+            &qp,
+            AttestedFunction::Mediation,
+            (t(100), t(100 + 2 * YEAR)),
+            vec![],
+            t(100 + 2 * YEAR),
+        );
+
+        let mut stopped = InMemoryArchive::new();
+        let (sp, _, s) = fresh_id();
+        seat_mediators(&mut stopped, &s, &sp, t(100), Some(t(100 + 50 * YEAR)));
+
+        let as_of = t(100 + 2 * YEAR + 10);
+        assert!(
+            silent_functions(&quiet, Some(as_of), CADENCE).is_empty(),
+            "an attested null inside the cadence is evidence, not silence"
+        );
+        let flagged = silent_functions(&stopped, Some(as_of), CADENCE);
+        assert_eq!(flagged.len(), 1);
+        assert!(!flagged[0].last_was_a_null);
+    }
+
+    #[test]
+    fn a_null_stops_counting_once_it_is_itself_stale() {
+        // The null buys one cadence, not immunity. A compact that attested once and
+        // then stopped attesting is silent again, and the reading says the last thing
+        // on the record was a null.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + 50 * YEAR)));
+        attest(
+            &mut a,
+            &comm,
+            &cp,
+            AttestedFunction::Mediation,
+            (t(100), t(100 + YEAR)),
+            vec![],
+            t(100 + YEAR),
+        );
+
+        assert!(silent_functions(&a, Some(t(100 + YEAR + 10)), CADENCE).is_empty());
+        let stale = silent_functions(&a, Some(t(100 + 3 * YEAR)), CADENCE);
+        assert_eq!(stale.len(), 1);
+        assert!(stale[0].last_was_a_null, "it spoke once, then stopped");
+    }
+
+    #[test]
+    fn silence_inside_the_cadence_is_not_reported() {
+        // Negative control: a pool seated last month has not gone quiet.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + 50 * YEAR)));
+        assert!(silent_functions(&a, Some(t(100 + CADENCE)), CADENCE).is_empty());
+    }
+
+    // --- row 6: the empty office ----------------------------------------------
+
+    #[test]
+    fn a_function_with_nobody_seated_is_reported() {
+        // Row 6, the hole neither remediation item named. Measured before the fix: a
+        // compact with zero active mediators and zero active observers for forty-three
+        // years read clean on every instrument.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + YEAR)));
+        seat_observers(&mut a, &comm, &cp, t(100), Some(t(100 + YEAR)));
+
+        let as_of = t(100 + 43 * YEAR);
+        let vacant = unstaffed_functions(&a, Some(as_of));
+        assert_eq!(vacant.len(), 2);
+        assert_eq!(vacant[0].vacant_since, t(100 + YEAR));
+        assert_eq!(vacant[0].seconds_vacant, 42 * YEAR);
+        let al = erosion_alert(&a, Some(as_of));
+        assert_ne!(al.severity, ErosionSeverity::None);
+        assert_eq!(al.unstaffed_functions.len(), 2);
+    }
+
+    #[test]
+    fn a_function_never_staffed_is_not_abandoned() {
+        // The negative control for row 6, and a real distinction: declining to open an
+        // office is not abandoning one. A compact with no observer corps at all must
+        // not read the same as one that let its corps lapse.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + 50 * YEAR)));
+        let vacant = unstaffed_functions(&a, Some(t(100 + 3 * YEAR)));
+        assert!(
+            vacant.is_empty(),
+            "mediation is staffed and observation was never opened"
+        );
+    }
+
+    #[test]
+    fn a_seat_still_running_is_not_vacant() {
+        // Negative control: an active term is not a vacancy, and an open-ended one
+        // (legacy entries carry `valid_until: None`) is never vacant either.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + 50 * YEAR)));
+        seat_observers(&mut a, &comm, &cp, t(100), None);
+        assert!(unstaffed_functions(&a, Some(t(100 + 3 * YEAR))).is_empty());
+    }
+
+    #[test]
+    fn one_lapse_is_one_dimension_not_two() {
+        // The grading concern this slice designed a guard for, and then measured away.
+        // The prediction was that a lapsed roster would fire *both* readings, since an
+        // unstaffed function cannot attest, and that counting each would reach Alert on
+        // compounding alone. It does not: `silent_functions` reads only functions with an
+        // active seat and `unstaffed_functions` only functions with none, so the two are
+        // disjoint by construction and the filter written for it was a rule against an
+        // impossible state. This test pins the invariant that makes the filter
+        // unnecessary, which is the thing worth keeping.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + YEAR)));
+
+        // Read shortly after the seat lapses, so the duration rule is not what is
+        // being measured: one *fresh* lapse is one dimension.
+        let as_of = t(100 + YEAR + 86_400);
+        assert!(
+            silent_functions(&a, Some(as_of), CADENCE).is_empty(),
+            "a vacant function is not read as a quiet one"
+        );
+        let al = erosion_alert(&a, Some(as_of));
+        assert_eq!(al.unstaffed_functions.len(), 1);
+        assert!(al.silent_functions.is_empty());
+        assert_eq!(
+            al.severity,
+            ErosionSeverity::Notice,
+            "one lapse is one dimension, not two"
+        );
+
+        // And a long-standing vacancy compounds on duration, exactly as a long
+        // silence does: the stronger claim must not carry the weaker grade.
+        let long_after = erosion_alert(&a, Some(t(100 + 10 * YEAR)));
+        assert_eq!(long_after.unstaffed_functions.len(), 1);
+        assert_eq!(long_after.severity, ErosionSeverity::Alert);
+    }
+
+    #[test]
+    fn the_function_cadence_is_a_parameter() {
+        // Like the rite cadence, and for the same reason: the calibration is an open
+        // question, so it is tunable rather than a constant.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + 50 * YEAR)));
+        let as_of = t(100 + 2 * YEAR);
+        let loose = ErosionThresholds {
+            attestation_cadence_seconds: 10 * YEAR,
+            ..Default::default()
+        };
+        assert!(erosion_alert_with(&a, Some(as_of), &loose).silent_functions.is_empty());
+        let tight = ErosionThresholds {
+            attestation_cadence_seconds: YEAR,
+            ..Default::default()
+        };
+        assert_eq!(
+            erosion_alert_with(&a, Some(as_of), &tight).silent_functions.len(),
+            1
+        );
+    }
+
+    #[test]
+    fn an_act_by_the_pool_is_not_silence() {
+        // A mediation decision is an exercise of the function, credited to the
+        // panelists' home community. The pool that is working does not need to attest
+        // that it is working.
+        let mut a = InMemoryArchive::new();
+        let (cp, _, comm) = fresh_id();
+        let med = seat_mediators(&mut a, &comm, &cp, t(100), Some(t(100 + 50 * YEAR)));
+        let (pp, _, party_a) = fresh_id();
+        let (_qp, _, party_b) = fresh_id();
+        let dispute = kc_mediation::DisputeRecord {
+            complainant: party_a.clone(),
+            respondent: party_b.clone(),
+            rung: kc_conduct::LadderRung::MediatedArbitration,
+            summary: "s".into(),
+            references: vec![],
+            filed_at: t(100 + YEAR),
+        };
+        let signed_d = Signed::build(dispute, &[(party_a.as_str(), &pp)]).expect("sign");
+        let dispute_cid = a.append(ArchiveEntry::DisputeFiled(signed_d)).expect("append");
+        let dec = kc_mediation::MediationDecision {
+            dispute_cid,
+            panel: vec![med.clone()],
+            outcome: kc_mediation::DecisionOutcome::Upheld,
+            reasoning: "r".into(),
+            sealed: None,
+            arguments: vec![],
+            decided_at: t(100 + 2 * YEAR),
+        };
+        let signed = Signed::build(dec, &[(med.as_str(), &cp)]).expect("sign");
+        a.append(ArchiveEntry::MediationDecided(signed)).expect("append");
+
+        // Read inside a cadence of the decision: the function has acted.
+        assert!(silent_functions(&a, Some(t(100 + 2 * YEAR + 10)), CADENCE).is_empty());
+        // And past it, the silence resumes from the act rather than from the seat.
+        let later = silent_functions(&a, Some(t(100 + 5 * YEAR)), CADENCE);
+        assert_eq!(later.len(), 1);
+        assert_eq!(later[0].seconds_since, 3 * YEAR);
     }
 }

@@ -31,6 +31,16 @@
 //! advocacy is openly partisan, adjudication is neutral), so downstream
 //! analytics can discount declared
 //! partiality rather than pretend to neutrality they do not have.
+//!
+//! The crate also carries the **attested null** ([`ActivityAttestation`]): a community's
+//! signed account of one window in a standing function it holds, whose *empty* act list
+//! is the point of the record. It lives here rather than in §4 or §8 because the
+//! requirement is identical on both sides, and because an account of conduct or its
+//! absence is what this crate is for. Without it, silence is missing data: a mediator
+//! pool with no disputes to take and one that stopped answering read the same, and so do
+//! an observer corps with nothing to report and one that stopped looking. The erosion
+//! lenses in `kc-reputation` read it (see
+//! `doc/architecture/erosion-legibility.md`, remediation items 5 and 6).
 
 mod record;
 
@@ -38,5 +48,6 @@ mod record;
 mod tests;
 
 pub use record::{
-    ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity,
+    ActivityAttestation, AttestedFunction, ConductBearing, ConductKind, ConductRecord,
+    DecisionClass, LadderRung, Severity,
 };

@@ -109,14 +109,14 @@ def test_a_founding_member_cannot_be_inducted_again(polity):
 def test_reaffirmation_presupposes_induction(polity):
     joiner = Signer.generate()
     admit_member(polity.archive, polity.did, joiner, polity.founders[:2], decided_at=200)
-    reaffirm_member(polity.archive, polity.did, joiner, affirmed_at=300)
+    reaffirm_member(polity.archive, polity.did, joiner, [], affirmed_at=300)
     polity.archive.verify_all()
     assert any("never inducted" in r for r in _reasons(polity.archive))
 
 
 def test_affirmation_by_a_non_member_is_unauthorized(polity):
     stranger = Signer.generate()
-    reaffirm_member(polity.archive, polity.did, stranger, affirmed_at=200)
+    reaffirm_member(polity.archive, polity.did, stranger, [], affirmed_at=200)
     assert any("non-member" in r for r in _reasons(polity.archive))
 
 
@@ -124,7 +124,7 @@ def test_nothing_is_authorized_after_dissolution(polity):
     from ethne.authoring import dissolve_charter
 
     dissolve_charter(polity.archive, polity.did, polity.founders[:2], dissolved_at=200)
-    reaffirm_member(polity.archive, polity.did, polity.founders[0], affirmed_at=300)
+    reaffirm_member(polity.archive, polity.did, polity.founders[0], [], affirmed_at=300)
     polity.archive.verify_all()
     assert any("after its dissolution" in r for r in _reasons(polity.archive))
 
@@ -141,7 +141,7 @@ def test_an_office_change_before_the_charter_is_unauthorized():
 
 
 def test_violations_carry_the_offending_cid(polity):
-    reaffirm_member(polity.archive, polity.did, Signer.generate(), affirmed_at=200)
+    reaffirm_member(polity.archive, polity.did, Signer.generate(), [], affirmed_at=200)
     violations = polity.archive.authority_violations()
     assert len(violations) == 1
     cid, _reason = violations[0]
