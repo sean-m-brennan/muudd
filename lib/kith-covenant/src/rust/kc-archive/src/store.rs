@@ -98,6 +98,19 @@ impl InMemoryArchive {
                 }
             }
         }
+        // 1b. A chartered compact's own key, on the same terms as a community root and
+        //     for the same reason: the charter derives the DID from the key it carries
+        //     and the authority pass requires the compact's own signature on it, so
+        //     every record answering to this DID carries the same key. Without this step
+        //     a compact could be chartered and then never sign anything, since nothing
+        //     would resolve its key.
+        for (_, entry) in self.iter() {
+            if let ArchiveEntry::CompactChartered(s) = entry {
+                if s.payload.did.as_str() == did {
+                    return Some(s.payload.root_pubkey.clone());
+                }
+            }
+        }
         // 2. Speaker delegation: the record with the greatest `issued_at <= at`
         //    wins (supersession), so an appended revocation — a superseding
         //    record with `revoked_at` set and a later `issued_at` — overrides an
@@ -372,6 +385,18 @@ impl Archive for InMemoryArchive {
                 let at = s.payload.recorded_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
+            ArchiveEntry::UsageOpened(s) => {
+                let at = s.payload.opened_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::CommonsEscalated(s) => {
+                let at = s.payload.escalated_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::CompactChartered(s) => {
+                let at = s.payload.chartered_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
             ArchiveEntry::SanctionApplied(s) => {
                 let at = s.payload.decided_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
@@ -413,6 +438,14 @@ impl Archive for InMemoryArchive {
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
             ArchiveEntry::FastCadenceAmended(s) => {
+                let at = s.payload.decided_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::MinimumContentAdopted(s) => {
+                let at = s.payload.adopted_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::MinimumContentAmended(s) => {
                 let at = s.payload.decided_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }

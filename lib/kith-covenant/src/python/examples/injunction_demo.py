@@ -19,9 +19,14 @@ revoking named compact-gated capabilities while the harm is investigated. The
 capability gate reflects the revocation immediately. The full compact confirms
 the injunction before it would lapse, so it persists past its 90-day window. A
 *different* mediator panel later overturns it on challenge, and the revoked
-capabilities are restored. Finally two moves the protocol refuses are shown with
-the violation each reports: a panel drawn from the subject's own community, and a
-challenge heard by the very panel that issued the injunction.
+capabilities are restored.
+
+A capability is a service or an office, and the second half of the demo shows the
+distinction biting: a community held out of the offices keeps every relation of
+exchange and may no longer staff the rosters or sit on the panels that decide who is
+sanctioned. Finally two moves the protocol refuses are shown with the violation each
+reports: a panel drawn from the subject's own community, and a challenge heard by the
+very panel that issued the injunction.
 
 Everything below is authored through the public Python API, crypto-verified,
 and passes the §9 authority check.
@@ -34,6 +39,7 @@ from kith_covenant import (
     Archive, new_identity, new_mediator, register_mediators,
     issue_injunction, confirm_injunction, challenge_injunction,
     reputation_of, has_capability, now_seconds,
+    SERVICE_CAPABILITIES, OFFICE_CAPABILITIES,
 )
 
 # §4 caps a mediator's term: a seat with no end is a permanent mediator class.
@@ -113,6 +119,34 @@ def main() -> int:
           f"revoked now: {list(v.revoked_capabilities)}.")
     assert v.injunctions[0].status == "Overturned"
     assert has_capability(arch, subject.did, "Trade", as_of=ruled_at + 100)
+
+    # --- Services and offices are separate holdings -----------------------
+    # An injunction that suspends every relation of exchange leaves the rosters open;
+    # one that names the offices holds the community out of judgment and nothing else.
+    offices = Archive.load_json(arch.dump_json())
+    off_at = ruled_at + 10_000
+    issue_injunction(
+        offices, subject.did, issuing,
+        harm="repeated failures of the forbearance owed at the boundary",
+        protective_measures="held out of the roles that select who is sanctioned",
+        revoked_capabilities=list(OFFICE_CAPABILITIES), issued_at=off_at,
+    )
+    offices.verify_all()
+    offices.check_authority()
+    kept = [c for c in SERVICE_CAPABILITIES
+            if has_capability(offices, subject.did, c, as_of=off_at + 100)]
+    lost = [c for c in OFFICE_CAPABILITIES
+            if not has_capability(offices, subject.did, c, as_of=off_at + 100)]
+    print(f"\nHeld out of office: keeps {len(kept)} services, loses {len(lost)} offices "
+          f"({', '.join(lost)}).")
+    assert len(kept) == 5 and len(lost) == 5
+
+    # And the roster itself is refused, naming the office it withheld.
+    register_mediators(offices, subject, [new_mediator()],
+                       valid_from=off_at + 100,
+                       valid_until=off_at + 100 + MEDIATOR_TERM)
+    print(f"Refused (seating mediators while held out): "
+          f"{_first_reason(offices.authority_violations())}")
 
     # --- Two moves the protocol refuses -----------------------------------
     # (a) A panel that includes a mediator from the subject's own community.

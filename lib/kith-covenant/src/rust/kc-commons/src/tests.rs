@@ -74,7 +74,9 @@ fn commons_registration_roundtrips_json() {
         name: "shared atmosphere loop".into(),
         description: "the sealed-habitat atmosphere and water recycling commons".into(),
         appropriators: vec![a.clone(), b.clone()],
+        level: Default::default(),
         provision_rule: "provision scales with draw; overdraw is the gravest violation".into(),
+        draw_allowance: None,
         registered_by: vec![a, b],
         registered_at: t(100),
     };
@@ -90,6 +92,7 @@ fn usage_record_roundtrips_json() {
         community: did(),
         consumed: 1200,
         contributed: 300,
+        sealed: None,
         period_start: t(1000),
         period_end: t(1000 + 30 * 24 * 3600),
         recorded_at: t(1000 + 30 * 24 * 3600),

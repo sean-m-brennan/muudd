@@ -22,6 +22,7 @@ from kith_covenant import (
     Archive, new_identity, new_mediator, register_mediators,
     issue_injunction, confirm_injunction, challenge_injunction,
     reputation_of, has_capability, now_seconds, CAPABILITIES,
+    SERVICE_CAPABILITIES, OFFICE_CAPABILITIES,
 )
 
 # §4 caps a mediator's term: a seat with no end is a permanent mediator class.
@@ -49,10 +50,45 @@ def _fixture():
     return arch, t0, subject, panel
 
 
-def test_capabilities_tuple_is_the_five_gated_services():
-    assert set(CAPABILITIES) == {
+def test_capabilities_are_five_services_and_five_offices():
+    assert set(SERVICE_CAPABILITIES) == {
         "RescueCoordination", "Navigation", "Trade", "CommonsWithdrawal", "Communication",
     }
+    assert set(OFFICE_CAPABILITIES) == {
+        "MediatorSeat", "ObserverSeat", "ExaminerSeat", "Deliberation",
+        "EmergencyPanelSeat",
+    }
+    # The two kinds are disjoint and together are the whole: a name in neither would be
+    # accepted by the facade and gate nothing.
+    assert not set(SERVICE_CAPABILITIES) & set(OFFICE_CAPABILITIES)
+    assert set(CAPABILITIES) == set(SERVICE_CAPABILITIES) | set(OFFICE_CAPABILITIES)
+
+
+def test_an_office_is_revocable_apart_from_every_service():
+    """The split, through the Python surface: a member cut out of the roles that select
+    who is sanctioned keeps every relation of exchange, and the refusal names the
+    office. Before the office capabilities existed, an injunction revoking everything
+    the compact could express left all three rosters open."""
+    arch, t0, s, panel = _fixture()
+    issue_injunction(arch, s.did, panel, harm="withheld rescue at the boundary",
+                     protective_measures="held out of office",
+                     revoked_capabilities=list(OFFICE_CAPABILITIES), issued_at=t0)
+    arch.verify_all()
+    arch.check_authority()
+
+    # Every service intact, every office withheld.
+    for cap in SERVICE_CAPABILITIES:
+        assert has_capability(arch, s.did, cap, as_of=t0 + 100)
+    for cap in OFFICE_CAPABILITIES:
+        assert not has_capability(arch, s.did, cap, as_of=t0 + 100)
+
+    # And the authority pass refuses the roster, naming the office it withheld.
+    register_mediators(arch, s, [new_mediator()],
+                       valid_from=t0 + 100, valid_until=t0 + 100 + MEDIATOR_TERM)
+    assert any(
+        "MediatorSeat" in reason and "held out of" in reason
+        for _cid, reason in arch.authority_violations()
+    )
 
 
 def test_issue_revokes_capabilities_and_gate_reflects_it():

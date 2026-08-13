@@ -116,7 +116,19 @@ full comprehensive doctrine (the 613 Mosaic commandments). The minimum
 was not arbitrary: it was the threshold below which the framework could
 not function. Kith-covenant's three substrate requirements are the
 Noahide analogue, elbow room for theological diversity that stops short
-of incoherence. A member who does not hold the substrate will ultimately
+of incoherence.
+
+This is not the same minimum as the thin functional one the compact adopts
+as the ground of its conduct toward parties that have not joined it
+([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)), and the two
+answer different objections. The Noahide analogue answers the Rawlsian by
+saying how little the compact asks of a *candidate*. The functional minimum
+answers a different charge, that the compact acts on a standard it has not
+derived at the edges where consent has run out, by saying what the compact
+owes regardless of what anyone asks of it. Conflating them would make the
+compact look as though it had found a doctrine-neutral substrate after all,
+which it has not: the functional minimum grounds conduct and supplies no
+ultimate before which an oath can be sworn. A member who does not hold the substrate will ultimately
 break the compact, because when their interests conflict with the
 compact's requirements they lack the substrate-level commitment that
 would resolve the conflict in the compact's favor.

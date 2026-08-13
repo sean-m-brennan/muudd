@@ -231,6 +231,39 @@ one insider filing against two different communities is linkable across those fi
 This is the cost of flood detection, and it is a real disclosure: a pseudonym, not an
 identity, but a durable one.
 
+## The third use, and a new primitive: committed usage
+
+§7 accounting reuses `ThresholdCustody` a third time, holding a community's draw and
+return figures so a quorum of fellow appropriators can open them for an audit. That part
+is the §4 pattern again, with communities as custodians for the same reason.
+
+What is new is `kc-core::pedersen`: a Pedersen commitment and a proof that a committed
+value is within a public bound. The commitment reuses `ring.rs`'s generator `H`, which
+already has unknown discrete log relative to the basepoint and is cofactor-cleared, so no
+new setup assumption enters the tree. The bound proof is bit decomposition with a
+one-of-two proof per bit, the same Chaum-Pedersen shape `DlEqProof` carries, one
+composition further: each bit commitment is shown to open to zero or one, and the bit
+commitments are constrained to recombine to the value's own commitment. Proving both `v`
+and `bound - v` in range gives `0 <= v <= bound`.
+
+Three things about it are worth stating plainly.
+
+**Both challenges are published.** The natural instinct is to publish one and derive the
+other from the Fiat-Shamir hash, which is circular: the hash is taken over nonce
+commitments the verifier can only reconstruct from the challenges. Carrying both costs 32
+bytes a bit and makes the check acyclic.
+
+**It is not succinct.** About 15 KB per bound proof, verification linear in the bit width.
+Affordable for periodic accounting on a replicated archive, and not for anything
+high-volume. The figure is asserted in a test so it cannot drift.
+
+**Points from untrusted input are checked for torsion**, which the signature paths do not
+need to do. A bit commitment carrying a low-order component would recombine and pass its
+own proof while committing to something the proof does not constrain.
+
+This is more unreviewed cryptography on a tree that already has four unreviewed
+primitives, and the review item in `TODO.md` counts it now.
+
 ## The second use: sealed mediation proceedings
 
 `ThresholdCustody` now serves §4 as well, holding a sealed decision's reasoning until

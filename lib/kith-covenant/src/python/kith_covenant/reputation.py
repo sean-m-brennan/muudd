@@ -610,9 +610,14 @@ def rejection_pattern(archive, as_of: Optional[int] = None) -> RejectionPattern:
 @dataclass(frozen=True)
 class UsageTally:
     community: str
+    # Summed over this community's PUBLIC records only. A nonzero `sealed_count`
+    # means these understate the real draw.
     consumed: int
     contributed: int
+    # Every record filed, sealed or public.
     record_count: int
+    # How many were sealed, and so counted here without being summed.
+    sealed_count: int
     evidence: tuple[str, ...]
 
 
@@ -623,6 +628,15 @@ class FreeRiderReport:
     total_contributed: int
     # (community_did, net_draw), descending net draw, for net-positive drawers.
     by_net_draw: tuple[tuple[str, int], ...]
+    # Whether every record is public, so the totals are the whole account and not a floor.
+    is_complete: bool
+    # (community_did, sealed_record_count) for communities that sealed at least one.
+    partially_sealed: tuple[tuple[str, int], ...]
+    # The most the sealed records could hide: sealed x allowance. None when the commons
+    # states no allowance, which is also when nothing on it can be sealed.
+    max_hidden_draw: Optional[int]
+    # The commons' per-period draw allowance, if it states one.
+    allowance: Optional[int]
 
 
 def free_rider_signals(
@@ -631,7 +645,15 @@ def free_rider_signals(
     """§7 free-rider lens over a commons's usage records (Ostrom monitoring /
     tragedy-of-the-virtues): per-appropriator consumed/contributed tallies plus
     the net-draw ranking. Surfaces the asymmetry between what communities drew and
-    returned; renders no verdict on whether it is free-riding."""
+    returned; renders no verdict on whether it is free-riding.
+
+    The tallies sum **public** records only. A community accounting under §7's
+    surveillance threshold seals its figures, and a sealed record is counted in
+    `record_count` and `sealed_count` without being summed, so `is_complete` says whether
+    the totals are the whole account or a floor, and `max_hidden_draw` turns the sealed
+    records' bound proofs into the worst case a reader has to reason about. Without that
+    a sealed record would simply vanish from the tally, and sealing would be a way to
+    disappear from the detector."""
     r = archive.free_rider_signals(commons_cid, as_of)
     return FreeRiderReport(
         tallies=tuple(
@@ -640,13 +662,18 @@ def free_rider_signals(
                 consumed=t[1],
                 contributed=t[2],
                 record_count=t[3],
-                evidence=tuple(t[4]),
+                sealed_count=t[4],
+                evidence=tuple(t[5]),
             )
             for t in r.tallies
         ),
         total_consumed=r.total_consumed,
         total_contributed=r.total_contributed,
         by_net_draw=tuple(tuple(x) for x in r.by_net_draw),
+        is_complete=r.is_complete,
+        partially_sealed=tuple(tuple(x) for x in r.partially_sealed),
+        max_hidden_draw=r.max_hidden_draw,
+        allowance=r.allowance,
     )
 
 
@@ -969,10 +996,23 @@ class FastPeriod:
 
 
 @dataclass(frozen=True)
+class Forbearance:
+    key: str
+    description: str
+    # one of MINIMUM_SITES: where in the compact's conduct the forbearance operates
+    site: str
+
+
+@dataclass(frozen=True)
 class ConstitutionState:
     ratified: bool
     compact_incapable: tuple[IncapableMatter, ...]
     fast_periods: tuple[FastPeriod, ...]
+    # whether the compact has adopted the functional minimum as the ground of its own
+    # conduct — a separate act from ratification
+    minimum_adopted: bool = False
+    # the forbearances in force; never compact-incapable matters, and none immutable
+    minimum_content: tuple[Forbearance, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -996,6 +1036,12 @@ class SubstrateDeferenceReport:
     fast_seconds_total: int
     fast_contractions: int
     fast_deviations: tuple[FastDeviation, ...]
+    # forbearances in force, and the two directions of amendment. A narrowing is folded
+    # into contraction_detected: the pressure on the compact's own ground is the same
+    # one-way pressure the deference instruments carry.
+    minimum_current: int = 0
+    minimum_broadened: int = 0
+    minimum_narrowed: int = 0
 
 
 def constitution_state(archive, as_of: Optional[int] = None) -> ConstitutionState:
@@ -1009,7 +1055,18 @@ def constitution_state(archive, as_of: Optional[int] = None) -> ConstitutionStat
             FastPeriod(lbl, start, end, recurrence)
             for (lbl, start, end, recurrence) in s.fast_periods
         ),
+        minimum_adopted=s.minimum_adopted,
+        minimum_content=tuple(Forbearance(k, d, site) for (k, d, site) in s.minimum_content),
     )
+
+
+def minimum_forbearance(archive, forbearance_key: str, as_of: Optional[int] = None) -> bool:
+    """§9 self-binding gate: True if `forbearance_key` is part of the ground the
+    compact has bound its own conduct to, as of `as_of`. The twin of
+    `compact_incapable`, and the two never answer each other's question: that one is
+    about a matter belonging to a member, this one about what the compact will not do
+    itself where consent has run out."""
+    return archive.minimum_forbearance(forbearance_key, as_of)
 
 
 def compact_incapable(archive, matter_key: str, as_of: Optional[int] = None) -> bool:
@@ -1046,6 +1103,9 @@ def _substrate_from(r) -> SubstrateDeferenceReport:
         fast_deviations=tuple(
             FastDeviation(d[0], d[1], d[2], d[3]) for d in r.fast_deviations
         ),
+        minimum_current=r.minimum_current,
+        minimum_broadened=r.minimum_broadened,
+        minimum_narrowed=r.minimum_narrowed,
     )
 
 
@@ -1178,6 +1238,8 @@ class ErosionAlert:
     # one human-readable reason per active erosion signal
     reasons: tuple[str, ...]
     list_contraction: bool
+    # a forbearance narrowed out of the compact's own adopted ground
+    minimum_contraction: bool
     fast_contraction: bool
     active_fast_deviations: int
     # communities overdue for re-affirmation, longest-overdue first
@@ -1201,8 +1263,9 @@ def erosion_alert(
     """§9 erosion-detection alerting: a graded, derived reading that escalates
     (None→Notice→Alert) as the erosion signals compound.
 
-    Nine signals. Three fire on an *act*: a list contraction, a fast contraction,
-    deliberative acts during a fast. Six fire on *omission against a reference that is
+    Ten signals. Four fire on an *act*: a contraction of the compact-incapable list, a
+    narrowing of the compact's own adopted ground, a fast contraction, deliberative acts
+    during a fast. Six fire on *omission against a reference that is
     not the current population*, which is the only kind that sees a drift with nobody
     driving it: a re-affirmation overdue against an absolute generational cadence, a
     ceremony drawing fewer witnesses than it did at founding, a deliberation thinner than
@@ -1236,6 +1299,7 @@ def _erosion_from(a) -> ErosionAlert:
         severity=a.severity,
         reasons=tuple(a.reasons),
         list_contraction=a.list_contraction,
+        minimum_contraction=a.minimum_contraction,
         fast_contraction=a.fast_contraction,
         active_fast_deviations=a.active_fast_deviations,
         overdue_reaffirmations=tuple(

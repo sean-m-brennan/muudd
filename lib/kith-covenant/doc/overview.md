@@ -362,6 +362,16 @@ encountered. What the compact does at the frontier is scoped,
 not fully answered; that the frontier exists and matters is named here
 rather than suppressed.
 
+One part of it is no longer merely scoped. The compact's forbearance
+toward a party at the frontier no longer waits on reciprocal exposure to
+justify it, because the compact grounds that forbearance on the thin
+functional minimum it has adopted: the short list any viable order among
+vulnerable, approximately equal, imperfectly altruistic parties contains
+([`background/natural_law.md`](background/natural_law.md#the-ground-the-compact-claims-for-itself)).
+Mutual vulnerability remains uneven and the ground does not even it out.
+What changes is that the asymmetry is no longer also a gap in the
+compact's account of why it owes anything to a party it does not need.
+
 ## 4. Relation to autonomous-trust
 
 Autonomous-trust sits underneath kith-covenant. Its scope is
@@ -527,6 +537,19 @@ who are not in the compact and not designated, but whom the compact
 is nevertheless bound to treat as neighbors *within the encounter*
 with the Samaritan's discernment. See [`background/recognition_protocols.md`](background/recognition_protocols.md#members-neighbors-enemies-the-four-categories)
 and [`background/justus_hostis.md`](background/justus_hostis.md#hostis-humani-generis-limits-of-the-justus-hostis-frame).
+
+Two of the four categories name parties that have consented to nothing,
+and the compact's conduct toward both rests on a stated ground: the thin
+functional minimum of [`background/natural_law.md`](background/natural_law.md#the-ground-the-compact-claims-for-itself),
+which is what any viable order among vulnerable, approximately equal,
+imperfectly altruistic parties contains. It is not the compact's own
+authority, which reaches its members by their consent, and it is not any
+member's substrate, which the compact receives and does not speak for.
+The same ground carries both directions: it is why the duty to the
+non-member encountered is not discretionary where reciprocity is absent,
+and it is why the *hostis humani generis* is bound rather than merely
+opposed. It also stops at the compact's boundary and grants no writ
+inside a member community.
 
 ### 5d. Liminal institutions
 
@@ -921,6 +944,24 @@ place it is exposed, and says so.
   corrects structurally for the colonial recapitulation but does not
   claim the frontier problem is solved. See §3d and §5c above, and hole
   #5 below.
+- **No verdict on a member's interior until it touches the covenant.** The
+  compact's conduct where consent has run out rests on a thin functional
+  minimum, stated in
+  [natural_law.md §"The ground the compact claims for itself"](background/natural_law.md#the-ground-the-compact-claims-for-itself),
+  and that ground reaches the compact's boundary and stops there. The stop
+  is a commitment and not a shortfall. The compact forms no verdict on a
+  member community's internal morality until that morality reaches the
+  covenant, through conduct toward another member, conduct at the
+  boundary, conduct toward a party that arrived through a compact channel,
+  what its envoys carry into compact business, or a hollowing its own
+  re-affirmation cannot survive. A compact that appoints itself judge of
+  its members' interiors has claimed a superiority over them, which makes
+  it the ultimate that Movement 5 forecloses and hands whoever holds the
+  deliberative machinery a legitimate instrument for finding a member
+  deficient. The cost is real and is not hidden: the compact can carry a
+  member whose interior life it would not defend, and it does so knowingly,
+  holding that a compact confident enough to audit its members' souls
+  fails sooner and worse.
 - **A conceptual limit of the frame.** The *justus hostis* inversion
   has an outer boundary: the *hostis humani generis* who cannot be
   given bounded-enemy standing.
@@ -968,7 +1009,12 @@ directly with disposition:
    §3d and addressed structurally by the four-category framework in
    §5c; the non-member-encountered category is designed to prevent
    the colonial recapitulation without claiming the frontier problem
-   is solved.
+   is solved. One half of it has since closed: the *ground* of what the
+   compact owes at the frontier is stated rather than implicit, and it
+   does not depend on reciprocal exposure
+   ([`background/natural_law.md`](background/natural_law.md#the-ground-the-compact-claims-for-itself)).
+   The practice at the frontier remains scoped, and the asymmetry itself
+   is unchanged.
 6. **Succession under doctrinal drift.** Answered in §6d: the
    succession ceremony *is* the re-binding, and drift is absorbed
    into the generational cadence. A community that cannot honestly

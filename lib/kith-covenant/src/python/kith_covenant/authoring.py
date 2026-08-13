@@ -67,10 +67,17 @@ DESIGNATION_URGENCIES = ("Normal", "Expedited")
 REEXAMINATION_OUTCOMES = ("Confirmed", "Reversed")
 # The standing functions whose exercise is attested on a cadence (§4 and §8).
 ATTESTED_FUNCTIONS = ("Mediation", "Observation")
-# §9 compact-gated capabilities an interim injunction can suspend.
-CAPABILITIES = (
+# §9 capabilities an interim injunction can suspend, in two kinds. A SERVICE is a
+# relation of exchange; an OFFICE is a role that selects who is sanctioned. They are
+# revoked independently, so a member can be held out of judgment while every relation
+# of exchange it holds stays intact.
+SERVICE_CAPABILITIES = (
     "RescueCoordination", "Navigation", "Trade", "CommonsWithdrawal", "Communication",
 )
+OFFICE_CAPABILITIES = (
+    "MediatorSeat", "ObserverSeat", "ExaminerSeat", "Deliberation", "EmergencyPanelSeat",
+)
+CAPABILITIES = SERVICE_CAPABILITIES + OFFICE_CAPABILITIES
 # §7 the five compact-level commons.
 COMMONS_KINDS = (
     "LifeSupport", "Communication", "Navigation", "KnowledgeArchive", "Rescue",
@@ -861,6 +868,8 @@ CONSENT_ANSWERS = ("Given", "Withheld")
 
 REVIEW_ANSWERS = ("Upheld", "Pretextual")
 
+APPROPRIATOR_LEVELS = ("Community", "Compact")
+
 SKEPTICISM_CRITERIA = (
     "HighInterpretiveCharge",
     "SuddenOnset",
@@ -1496,15 +1505,28 @@ def register_commons(
     description: str = "",
     provision_rule: str = "",
     registered_at: Optional[int] = None,
+    draw_allowance: Optional[int] = None,
+    level: str = "Community",
 ) -> str:
-    """Register a compact-level commons (§7), co-signed by `registrars`. `kind` is
-    one of `COMMONS_KINDS`; `appropriators` are the member DIDs with draw rights
-    (Ostrom's boundary). Registration is a second-class act: the authority pass
-    requires a distinct-community quorum, and every registrar must itself be an
-    appropriator. Returns the commons CID (pass it to `record_usage`,
-    `apply_sanction`, and the reputation gate)."""
+    """Register a commons (§7), co-signed by `registrars`. `kind` is one of
+    `COMMONS_KINDS`; `appropriators` are the DIDs with draw rights (Ostrom's boundary).
+    Registration is a second-class act: the authority pass requires a distinct-community
+    quorum, and every registrar must itself be an appropriator. Returns the commons CID
+    (pass it to `record_usage`, `apply_sanction`, and the reputation gate).
+
+    `draw_allowance` is `provision_rule`'s machine-readable half: the per-period cap on
+    one appropriator's draw, in the commons' own units. Without it the stated rule binds
+    nothing, and the commons cannot host sealed usage since there would be no bound to
+    prove against.
+
+    `level` is one of `APPROPRIATOR_LEVELS`. At `"Compact"` the appropriators are whole
+    compacts (see `charter_compact`) rather than communities, and **subsidiarity**
+    applies: a sanction or escalation on that commons names a compact, never one of its
+    member communities. A compact answers for its members; its members answer to it."""
     if kind not in COMMONS_KINDS:
         raise ValueError(f"kind must be one of {COMMONS_KINDS}, got {kind!r}")
+    if level not in APPROPRIATOR_LEVELS:
+        raise ValueError(f"level must be one of {APPROPRIATOR_LEVELS}, got {level!r}")
     if not registrars:
         raise ValueError("registration needs at least one registrar")
     if not appropriators:
@@ -1512,6 +1534,7 @@ def register_commons(
     return archive.register_commons(
         [s.priv for s in registrars], [s.did for s in registrars],
         kind, name, description, list(appropriators), provision_rule, registered_at,
+        draw_allowance, level,
     )
 
 
@@ -1525,15 +1548,140 @@ def record_usage(
     period_start: Optional[int] = None,
     period_end: Optional[int] = None,
     recorded_at: Optional[int] = None,
+    seal_custodian_dids: Optional[Sequence[str]] = None,
+    seal_threshold: Optional[int] = None,
 ) -> str:
     """Record `community`'s self-reported usage of a commons (§7), signed by and
     attributed to it. First-class; the authority pass requires the reporter be an
     appropriator of `commons_cid`. `consumed`/`contributed` are dimensionless
     units in the commons' own terms and feed `free_rider_signals`. Returns the
-    CID."""
+    CID.
+
+    **To account under the surveillance threshold** rather than in public, pass
+    `seal_custodian_dids`. The figures are committed instead of published, a
+    zero-knowledge proof that the draw is within the commons' `draw_allowance` goes on
+    the record, and the figures themselves are sealed under k-of-n custody keyed to those
+    communities. §7 asks for "configurable disclosure levels", and a community that must
+    publish every figure to account honestly is disclosing its capacity, its consumption
+    pattern and its reserves to every other member.
+
+    The custodians must be fellow appropriators and may not include the reporter, so a
+    community cannot hold a quorum over its own account. A quorum opens the figures later
+    with `open_usage`.
+
+    Sealing does not hide a community from `free_rider_signals`: the lens counts sealed
+    records separately, reports the commons' accounting as incomplete, and turns each
+    proof into a bound on what is hidden."""
     return archive.record_usage(
         community.priv, community.did, commons_cid,
         int(consumed), int(contributed), period_start, period_end, recorded_at,
+        list(seal_custodian_dids) if seal_custodian_dids else None,
+        seal_threshold,
+    )
+
+
+def open_usage_share(archive, usage_cid: str, custodian: Signer) -> str:
+    """Open `custodian`'s own share of a sealed usage record (§7), returning it as JSON
+    to be gathered into an `open_usage` call. A share is useless alone."""
+    return archive.open_usage_share(usage_cid, custodian.priv, custodian.did)
+
+
+def open_usage(
+    archive,
+    usage_cid: str,
+    custodians: Sequence[Signer],
+    consumed: int,
+    contributed: int,
+    shares: Sequence[str],
+    cause: str,
+    *,
+    opened_at: Optional[int] = None,
+) -> str:
+    """Open a sealed usage record's figures (§7), co-signed by the `custodians` whose
+    `shares` are presented and citing a `cause`.
+
+    The pass requires the shares to recover figures that open the record's own
+    commitments, so a custodian quorum cannot publish a number the community never
+    committed to. Unlike a sealed mediation decision there is no waiting period: the
+    threshold bounds *routine* disclosure, and an audit or a dispute is exactly the
+    occasion for opening. Returns the CID."""
+    if not custodians:
+        raise ValueError("an opening needs at least one custodian")
+    if not cause.strip():
+        raise ValueError("opening a sealed usage record must cite a cause")
+    return archive.open_usage(
+        [c.priv for c in custodians], [c.did for c in custodians],
+        usage_cid, int(consumed), int(contributed), list(shares), cause, opened_at,
+    )
+
+
+def charter_compact(
+    archive,
+    label: str,
+    compact: Signer,
+    members: Sequence[str],
+    charterers: Sequence[Signer],
+    *,
+    chartered_at: Optional[int] = None,
+) -> str:
+    """Charter a compact (§7, Ostrom principle 8): give it a DID of its own, co-signed by
+    the compact's key and a quorum of its member communities.
+
+    Ostrom's nested-enterprise principle gives three layers, and
+    `commons_federation.md` left the third as a forward pointer: commons shared between
+    compacts, if compacts federate. Nothing at that level can be said until a compact is
+    a thing that can be named, which before this was only a self-declared string.
+
+    A community's identity is self-signed, because a community exists by its own act. A
+    compact does not: it is constituted by its members. Its own signature is required
+    too, or the DID would bind to a key nobody has shown they hold. Returns the CID.
+
+    Pass the compact's DID as an appropriator of a `level="Compact"` commons."""
+    if not members:
+        raise ValueError("a compact is constituted by its members and this names none")
+    if not charterers:
+        raise ValueError("a charter needs at least one chartering member")
+    return archive.charter_compact(
+        compact.priv, compact.pub, label, list(members),
+        [c.priv for c in charterers], [c.did for c in charterers], chartered_at,
+    )
+
+
+def escalate_commons(
+    archive,
+    commons_cid: str,
+    subject_did: str,
+    basis: str,
+    cited_sanctions: Sequence[str],
+    movers: Sequence[Signer],
+    *,
+    escalated_at: Optional[int] = None,
+) -> str:
+    """Find that a community's abuse of a commons has passed beyond what graduated
+    sanctions can answer (§7), co-signed by `movers`. Second-class.
+
+    This is the commons equivalent of the anathema designation, which
+    `commons_federation.md` lists under open questions: the ladder and the designation
+    track both existed and nothing joined them. The pass enforces four conditions, in the
+    shape §5's own four-condition test carries:
+
+    1. the subject is at `"Exclusion"` (graduated sanctions are the answer until they
+       have demonstrably failed);
+    2. it has arrived there more than once, which is defiance rather than compliance;
+    3. it has stood there long enough that restoration was available and not taken;
+    4. one arrival suffices on a life-critical commons (life support, rescue), which the
+       compact keeps running when it pauses everything else.
+
+    The finding gates nothing by itself. It is what a §5 designation may cite as its
+    commons-side basis, so the escalation ladder is untouched; the threshold lives in the
+    refusal to record it. Returns the CID."""
+    if not movers:
+        raise ValueError("a commons escalation needs at least one mover")
+    if not cited_sanctions:
+        raise ValueError("a commons escalation must cite the sanctions it rests on")
+    return archive.escalate_commons(
+        [m.priv for m in movers], [m.did for m in movers],
+        commons_cid, subject_did, basis, list(cited_sanctions), escalated_at,
     )
 
 
@@ -1793,6 +1941,12 @@ def exculpate_source(
 AMENDMENT_KINDS = ("Add", "Remove")
 # §9 structured-fast amendment directions.
 FAST_CHANGES = ("Extend", "Contract")
+# §9 the four sites of the adopted minimum content (natural_law.md "The four sites").
+MINIMUM_SITES = (
+    "NonMemberDuties", "HostisHumaniGeneris", "RestrictedMember", "BoundaryRefusal",
+)
+# §9 minimum-content amendment directions; Narrow carries the higher bar.
+FORBEARANCE_CHANGES = ("Broaden", "Narrow")
 
 
 def ratify_constitution(
@@ -1877,6 +2031,69 @@ def amend_fast_cadence(
     )
 
 
+def adopt_minimum_content(
+    archive,
+    adopters: Sequence[Signer],
+    forbearances: Sequence[tuple],
+    *,
+    decision_class: str = "SecondClass",
+    adopted_at: Optional[int] = None,
+) -> str:
+    """Adopt the functional minimum as the ground of the compact's own conduct (§9),
+    co-signed by `adopters`. `forbearances` is a list of `(key, description)` or
+    `(key, description, site)` where site is one of `MINIMUM_SITES`. Second-class and
+    a singleton per archive. Returns the CID.
+
+    Not an entry on the compact-incapable list: that list names matters belonging to a
+    member, this one binds the compact's own conduct at its boundary."""
+    if not adopters:
+        raise ValueError("an adoption needs at least one adopter")
+    if not forbearances:
+        raise ValueError("an adoption must name at least one forbearance")
+
+    def _forbearance(f):
+        key, description = f[0], f[1]
+        site = f[2] if len(f) > 2 and f[2] is not None else "NonMemberDuties"
+        if site not in MINIMUM_SITES:
+            raise ValueError(f"site must be one of {MINIMUM_SITES}, got {site!r}")
+        return (key, description, site)
+
+    return archive.adopt_minimum_content(
+        [s.priv for s in adopters], [s.did for s in adopters],
+        [_forbearance(f) for f in forbearances],
+        decision_class, adopted_at,
+    )
+
+
+def amend_minimum_content(
+    archive,
+    change: str,
+    forbearance_key: str,
+    deciders: Sequence[Signer],
+    *,
+    description: str = "",
+    site: str = "NonMemberDuties",
+    rationale: str = "",
+    decision_class: str = "SecondClass",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Amend the adopted minimum content (§9). `change` is one of
+    `FORBEARANCE_CHANGES`. `Broaden` uses the normal quorum; `Narrow` requires the
+    higher contraction bar — at every site, and for a founding forbearance too, which
+    is where this artifact parts from the compact-incapable list. Returns the CID."""
+    if change not in FORBEARANCE_CHANGES:
+        raise ValueError(f"change must be one of {FORBEARANCE_CHANGES}, got {change!r}")
+    if site not in MINIMUM_SITES:
+        raise ValueError(f"site must be one of {MINIMUM_SITES}, got {site!r}")
+    if not deciders:
+        raise ValueError("an amendment needs at least one decider")
+    return archive.amend_minimum_content(
+        [s.priv for s in deciders], [s.did for s in deciders],
+        change, forbearance_key, description, site, rationale, decision_class,
+        decided_at,
+    )
+
+
 __all__ = [
     "Signer", "new_identity", "delegate_speaker", "revoke_delegation", "vouch",
     "attest_interpretation", "attest_interpreter_independence",
@@ -1896,14 +2113,18 @@ __all__ = [
     "verify_restitution", "complete_reentry", "invoke_substantive_reengagement",
     "issue_injunction", "confirm_injunction", "challenge_injunction",
     "register_commons", "record_usage", "apply_sanction",
+    "open_usage_share", "open_usage", "charter_compact", "escalate_commons",
+    "APPROPRIATOR_LEVELS",
     "new_observer", "register_observers", "publish_observer_report",
     "respond_to_report", "insider_ring", "attest_insider", "file_whistleblower",
     "open_source_share", "reveal_source", "exculpate_source",
     "ratify_constitution", "amend_compact_incapable", "amend_fast_cadence",
-    "AMENDMENT_KINDS", "FAST_CHANGES",
+    "adopt_minimum_content", "amend_minimum_content",
+    "AMENDMENT_KINDS", "FAST_CHANGES", "MINIMUM_SITES", "FORBEARANCE_CHANGES",
     "now_seconds",
     "CONDUCT_KINDS", "ANTI_SPIRAL_FEATURES", "BEARINGS", "SEVERITIES",
     "LADDER_RUNGS", "DECISION_CLASSES", "DELEGATION_SCOPES", "DECISION_OUTCOMES",
     "DESIGNATION_TIERS", "DESIGNATION_URGENCIES", "CAPABILITIES",
+    "SERVICE_CAPABILITIES", "OFFICE_CAPABILITIES",
     "COMMONS_KINDS", "SANCTION_LEVELS",
 ]

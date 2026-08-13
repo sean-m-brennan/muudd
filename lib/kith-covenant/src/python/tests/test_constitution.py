@@ -25,7 +25,10 @@ from kith_covenant import (
     decide_designation, overdue_reexaminations,
     conclude_reexamination, attest_activity, silent_functions, unstaffed_functions,
     new_mediator, register_mediators, new_observer, register_observers,
+    record_conduct, adopt_minimum_content, amend_minimum_content,
+    minimum_forbearance,
     AMENDMENT_KINDS, FAST_CHANGES, REEXAMINATION_OUTCOMES, ATTESTED_FUNCTIONS,
+    MINIMUM_SITES, FORBEARANCE_CHANGES,
 )
 
 # The default generational re-affirmation cadence, in seconds (30 years).
@@ -63,6 +66,105 @@ def test_ratify_and_gates():
     assert not compact_incapable(arch, "commons-allocation", as_of=t0 + 10)
     assert in_structured_fast(arch, t0 + 1500) == "annual"
     assert in_structured_fast(arch, t0 + 5000) is None
+
+
+def test_constant_tuples_for_the_minimum_content():
+    assert MINIMUM_SITES == (
+        "NonMemberDuties", "HostisHumaniGeneris", "RestrictedMember", "BoundaryRefusal",
+    )
+    assert FORBEARANCE_CHANGES == ("Broaden", "Narrow")
+
+
+def test_adopt_the_ground_and_the_two_gates_stay_distinct():
+    """The compact's own ground, through the Python surface. It is a separate artifact
+    from the compact-incapable list on purpose: that list names matters belonging to a
+    member, this one binds the compact's conduct where consent has run out."""
+    arch, t0, a, b, c = _founded()
+    adopt_minimum_content(
+        arch, [a, b],
+        forbearances=[
+            ("rescue-at-the-frontier", "rescue where distress is present", "NonMemberDuties"),
+            ("no-victim-supplied", "no channel supplies a victim", "BoundaryRefusal"),
+        ],
+        adopted_at=t0 + 10,
+    )
+    arch.verify_all()
+    arch.check_authority()
+
+    st = constitution_state(arch, as_of=t0 + 20)
+    assert st.minimum_adopted
+    assert len(st.minimum_content) == 2
+    assert st.minimum_content[0].site in MINIMUM_SITES
+    # Each gate answers its own question and neither answers the other's.
+    assert minimum_forbearance(arch, "rescue-at-the-frontier", as_of=t0 + 20)
+    assert not compact_incapable(arch, "rescue-at-the-frontier", as_of=t0 + 20)
+    assert not minimum_forbearance(arch, "internal-theology", as_of=t0 + 20)
+    assert compact_incapable(arch, "internal-theology", as_of=t0 + 20)
+
+
+def test_narrowing_the_ground_needs_the_higher_bar_and_shows_on_the_alert():
+    """Broadening is ordinary business; narrowing carries the contraction bar and is
+    surfaced as erosion. Founding forbearances are included — a bar, not a lock, which
+    is the one place this artifact departs from the compact-incapable list."""
+    arch, t0, a, b, c = _founded()
+    adopt_minimum_content(
+        arch, [a, b],
+        forbearances=[("rescue-at-the-frontier", "rescue where distress is present")],
+        adopted_at=t0 + 10,
+    )
+    amend_minimum_content(arch, "Broaden", "no-victim-supplied", [a, b],
+                          description="no channel supplies a victim",
+                          site="BoundaryRefusal", decided_at=t0 + 20)
+    arch.check_authority()
+    assert erosion_alert(arch, as_of=t0 + 30).severity == "None"
+
+    # Two deciders do not narrow it.
+    amend_minimum_content(arch, "Narrow", "no-victim-supplied", [a, b],
+                          site="BoundaryRefusal", decided_at=t0 + 40)
+    assert any(
+        "narrowing the minimum content needs" in reason
+        for _cid, reason in arch.authority_violations()
+    )
+
+    # Three do, including for the founding forbearance, and the corps is told.
+    fresh, u0, x, y, z = _founded()
+    adopt_minimum_content(
+        fresh, [x, y],
+        forbearances=[("rescue-at-the-frontier", "rescue where distress is present")],
+        adopted_at=u0 + 10,
+    )
+    amend_minimum_content(fresh, "Narrow", "rescue-at-the-frontier", [x, y, z],
+                          decided_at=u0 + 40)
+    fresh.verify_all()
+    fresh.check_authority()
+    r = substrate_deference(fresh, as_of=u0 + 50)
+    assert r.minimum_narrowed == 1 and r.minimum_current == 0
+    assert r.contraction_detected
+    al = erosion_alert(fresh, as_of=u0 + 50)
+    assert al.minimum_contraction and not al.list_contraction
+    assert al.severity == "Notice"
+    assert any("adopted ground narrowed" in reason for reason in al.reasons)
+
+
+def test_the_adoption_is_a_singleton_and_rejects_an_empty_ground():
+    arch, t0, a, b, c = _founded()
+    adopt_minimum_content(
+        arch, [a, b],
+        forbearances=[("rescue-at-the-frontier", "d")],
+        adopted_at=t0 + 10,
+    )
+    adopt_minimum_content(
+        arch, [a, b], forbearances=[("courtesy-to-non-members", "d")], adopted_at=t0 + 20,
+    )
+    assert any(
+        "adoption is a singleton" in reason
+        for _cid, reason in arch.authority_violations()
+    )
+    # The facade refuses a ground with nothing in it before it reaches the archive.
+    with pytest.raises(ValueError):
+        adopt_minimum_content(arch, [a, b], forbearances=[], adopted_at=t0 + 30)
+    with pytest.raises(ValueError):
+        amend_minimum_content(arch, "Repeal", "rescue-at-the-frontier", [a, b])
 
 
 def test_recurring_fast_gate_and_state():
@@ -344,10 +446,19 @@ def _designated(arch, t0, a, b, c, due, *, subject=None, at=None):
     `check_authority`, so they could designate with two.)"""
     at = t0 + 100 if at is None else at
     subj = subject if subject is not None else new_identity(arch, "Subject", t0)
+    # The expedited path also needs a cited *covenant-facing* act by the subject: an
+    # attested adverse conduct record, not merely some record in the archive. This
+    # fixture used to cite `arch.cids()[0]`, community A's identity, which the rule
+    # refuses — so the two tests below were failing before this slice touched them.
+    act = record_conduct(
+        arch, a, subj.did, "Concern", "Charity",
+        severity="Serious", narrative="withheld rescue at the boundary",
+        observed_at=at - 40, recorded_at=at - 30,
+    )
     return decide_designation(
         arch, subj.did, [a, b, c], "named pattern",
         urgency="Expedited", reversal_conditions="rev",
-        cited_acts=[arch.cids()[0]], reexamine_after=due, designated_at=at,
+        cited_acts=[act], reexamine_after=due, designated_at=at,
         deliberation_cycles=[(0, [a.did], at - 20, at - 10, "we deliberated")],
     )
 
@@ -426,9 +537,15 @@ def test_a_lapsed_designation_may_not_be_cited_by_a_new_one():
     arch, t0, a, b, c = _founded()
     dz = _designated(arch, t0, a, b, c, t0 + 1_000)
     other = new_identity(arch, "D", t0)
+    # D's own covenant-facing act, so the expedited floor is met and what is on trial
+    # here is the citation of a lapsed obligation and nothing else.
+    act = record_conduct(
+        arch, a, other.did, "Concern", "Charity",
+        narrative="consorted with the designated", recorded_at=t0 + 4_000,
+    )
     decide_designation(
         arch, other.did, [a, b, c], "consorting with the designated",
-        urgency="Expedited", reversal_conditions="rev", cited_acts=[dz],
+        urgency="Expedited", reversal_conditions="rev", cited_acts=[dz, act],
         reexamine_after=t0 + 50_000, designated_at=t0 + 5_000,
         deliberation_cycles=[(0, [a.did], t0 + 4_980, t0 + 4_990, "we deliberated")],
     )
@@ -443,9 +560,13 @@ def test_a_designation_cited_inside_its_window_passes_the_gate():
     arch, t0, a, b, c = _founded()
     dz = _designated(arch, t0, a, b, c, t0 + 100_000)
     other = new_identity(arch, "D", t0)
+    act = record_conduct(
+        arch, a, other.did, "Concern", "Charity",
+        narrative="consorted with the designated", recorded_at=t0 + 4_000,
+    )
     decide_designation(
         arch, other.did, [a, b, c], "consorting with the designated",
-        urgency="Expedited", reversal_conditions="rev", cited_acts=[dz],
+        urgency="Expedited", reversal_conditions="rev", cited_acts=[dz, act],
         reexamine_after=t0 + 200_000, designated_at=t0 + 5_000,
         deliberation_cycles=[(0, [a.did], t0 + 4_980, t0 + 4_990, "we deliberated")],
     )

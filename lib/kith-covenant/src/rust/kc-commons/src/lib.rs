@@ -38,10 +38,17 @@
 //! Light-lag decision classes (commons_federation.md §"Light-lag-honest decision
 //! classes") are realized here as the existing multi-community quorum pass:
 //! second-class commons records validate only with a quorum spanning distinct
-//! communities. Deferred to later slices: the full CRDT/BFT consensus mechanics
-//! and the signature-latency window, nested inter-compact enterprises,
-//! threshold-sealed usage records, ZK selective-disclosure of usage, and the
-//! constitutional reclassification machinery (a §9 substrate-deference concern).
+//! communities.
+//!
+//! **Constitutional reclassification** was on this list and should not have stayed
+//! there. Moving a matter into or out of the compact-incapable list is
+//! `kc_constitution::CompactIncapableAmendment` with `AmendmentKind::{Add, Remove}`,
+//! built in the §9 slice with a genesis-immutability guard and an asymmetric bar on
+//! contraction. It was deferred here, built there, and the deferral note outlived the
+//! deferral by several slices, from which the tracker then copied it.
+//!
+//! Deferred still: the full CRDT/BFT consensus mechanics and the signature-latency
+//! window, which need real distributed hosts.
 
 mod record;
 
@@ -49,6 +56,7 @@ mod record;
 mod tests;
 
 pub use record::{
-    is_second_class_level, sanction_rank, CommonsKind, CommonsRegistration, CommonsSanction,
-    SanctionLevel, UsageRecord,
+    is_life_critical, is_second_class_level, sanction_rank, AppropriatorLevel, CommonsEscalation,
+    CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, SealedUsage, UsageFigures,
+    UsageOpened, UsageRecord,
 };

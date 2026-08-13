@@ -23,8 +23,14 @@ compact's to decide. Expansion of the list is easy (a single second-class
 quorum); contraction is hard (a higher bar) and a genesis matter cannot be
 removed at all. The erosion report makes drift toward ultimacy legible: net
 contraction of the list, fast shrinkage, and a deliberative act initiated during
-a fast (surfaced as a deviation, not hard-refused). Finally three moves the
-protocol refuses are shown with the violation each reports.
+a fast (surfaced as a deviation, not hard-refused).
+
+The compact's own adopted ground is the third artifact here and answers a different
+question: not what the compact will not decide *for a member*, but what it will not do
+*itself* at its boundary, where consent has run out. Broadening it is ordinary business
+and narrowing it carries the same asymmetric bar, including for a founding forbearance,
+which is where this artifact departs from the compact-incapable list. Finally four moves
+the protocol refuses are shown with the violation each reports.
 
 Everything below is authored through the public Python API, crypto-verified, and
 passes the §9 authority check.
@@ -39,6 +45,7 @@ from kith_covenant import (
     file_dispute, register_mediators, new_mediator,
     constitution_state, compact_incapable, in_structured_fast, substrate_deference,
     erosion_alert, now_seconds,
+    adopt_minimum_content, amend_minimum_content, minimum_forbearance,
 )
 
 
@@ -120,7 +127,42 @@ def main() -> int:
     assert alert2.severity == "Alert"
     assert alert2.list_contraction and alert2.active_fast_deviations == 1
 
-    # --- Three moves the protocol refuses ---------------------------------
+    # --- The compact's own adopted ground ---------------------------------
+    # Not a compact-incapable matter: this one binds the compact, that one names
+    # matters belonging to a member. The two gates never answer each other.
+    ground = Archive.load_json(arch.dump_json())
+    adopt_minimum_content(
+        ground, [a, b, c],
+        forbearances=[
+            ("rescue-at-the-frontier", "rescue where distress is present",
+             "NonMemberDuties"),
+            ("no-victim-supplied", "no compact channel supplies a victim",
+             "BoundaryRefusal"),
+        ],
+        adopted_at=t0 + 300,
+    )
+    ground.verify_all()
+    ground.check_authority()
+    st2 = constitution_state(ground, as_of=t0 + 400)
+    print(f"\nAdopted ground: {len(st2.minimum_content)} forbearances "
+          f"({', '.join(f.key for f in st2.minimum_content)}).")
+    assert minimum_forbearance(ground, "rescue-at-the-frontier", as_of=t0 + 400)
+    assert not compact_incapable(ground, "rescue-at-the-frontier", as_of=t0 + 400)
+
+    # Narrowed at the higher bar: authorized, and the corps is told.
+    narrowed = Archive.load_json(ground.dump_json())
+    amend_minimum_content(narrowed, "Narrow", "rescue-at-the-frontier", [a, b, c],
+                          rationale="the frontier duty is costly",
+                          decided_at=t0 + 500)
+    narrowed.verify_all()
+    narrowed.check_authority()
+    alert3 = erosion_alert(narrowed, as_of=t0 + 5000)
+    print(f"After narrowing a founding forbearance: {alert3.severity} "
+          f"({len(alert3.reasons)} signals). A bar, not a lock: it passed at "
+          f"quorum+1 and is on the board.")
+    assert alert3.minimum_contraction
+
+    # --- Four moves the protocol refuses ----------------------------------
     # (a) A second genesis (singleton).
     bad1 = Archive.load_json(arch.dump_json())
     ratify_constitution(bad1, [a, b], incapable=[("x", "x")], fast_periods=[], genesis_at=t0 + 600)
@@ -137,6 +179,14 @@ def main() -> int:
     amend_compact_incapable(bad3, "Remove", "internal-family-structure", [a, b],
                             rationale="two is not enough", decided_at=t0 + 800)
     print(f"Refused (contraction below the higher bar): {_first_reason(bad3.authority_violations())}")
+
+    # (d) Narrowing the adopted ground at the normal quorum.
+    bad4 = Archive.load_json(ground.dump_json())
+    amend_minimum_content(bad4, "Narrow", "no-victim-supplied", [a, b],
+                          rationale="two is not enough here either",
+                          decided_at=t0 + 900)
+    print(f"Refused (narrowing the ground below the higher bar): "
+          f"{_first_reason(bad4.authority_violations())}")
 
     print("\n✓ constitution_demo (Python): SUCCESS")
     return 0

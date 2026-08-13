@@ -58,12 +58,12 @@ use kc_provenance::{
     RetroactiveInterestFinding, SkepticismCriterion, SkepticismInvocation, SkepticismReview,
 };
 use kc_core::{
-    keys, time, Alg, Cid, DidKey, KcError, PrivKey, PubKey, RevealedShare, RingSigned, Signed,
-    SourcePreimage, ThresholdCustody, Timestamp,
+    keys, time, Alg, Blinding, BoundProof, Cid, Commitment, DidKey, KcError, PrivKey, PubKey,
+    RevealedShare, RingSigned, Signed, SourcePreimage, ThresholdCustody, Timestamp,
 };
 use kc_identity::{
-    CommunityIdentity, DelegationScope, MemberRoll, RollMember, SpeakerDelegation, WitnessEntry,
-    WitnessRegistry, WitnessRole,
+    CommunityIdentity, CompactCharter, DelegationScope, MemberRoll, RollMember, SpeakerDelegation,
+    WitnessEntry, WitnessRegistry, WitnessRole,
 };
 use kc_mediation::{
     ArgumentRecord, ArgumentRole, ConsentAnswer, DecisionOutcome, DecisionUnsealed,
@@ -71,7 +71,8 @@ use kc_mediation::{
     ProtectingPower, RecusalAnswer, RecusalDecision, RecusalRequest, SealedReasoning,
 };
 use kc_commons::{
-    CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, UsageRecord,
+    AppropriatorLevel, CommonsEscalation, CommonsKind, CommonsRegistration, CommonsSanction,
+    SanctionLevel, SealedUsage, UsageFigures, UsageOpened, UsageRecord,
 };
 use kc_observer::{
     InsiderClaim, ObserverEntry, ObserverRegistry, ObserverReport, ReportResponse,
@@ -79,7 +80,8 @@ use kc_observer::{
 };
 use kc_constitution::{
     AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
-    FastChange, FastPeriod, IncapableMatter,
+    FastChange, FastPeriod, Forbearance, ForbearanceChange, IncapableMatter,
+    MinimumContentAdoption, MinimumContentAmendment, MinimumSite,
 };
 use kc_escalation::{
     Capability, DeliberationCycle, Designation, DesignationTier, DesignationUrgency,
@@ -1302,7 +1304,16 @@ impl PyArchive {
     /// authority pass requires a distinct-community quorum, and every registrant
     /// must itself be an appropriator. Returns the commons' CID (referenced by
     /// usage and sanction records).
-    #[pyo3(signature = (registrar_privs, registrar_dids, kind, name, description, appropriators, provision_rule=String::new(), registered_at=None))]
+    ///
+    /// `draw_allowance` is `provision_rule`'s machine-readable half: the per-period cap
+    /// on one appropriator's draw, in the commons' own units. Without it the stated rule
+    /// binds nothing and the commons cannot host sealed usage, since there would be no
+    /// bound to prove against.
+    ///
+    /// `level` is an AppropriatorLevel name. At `"Compact"` the appropriators are whole
+    /// compacts rather than communities, and subsidiarity applies: sanctions and
+    /// escalations on the commons name a compact, never one of its member communities.
+    #[pyo3(signature = (registrar_privs, registrar_dids, kind, name, description, appropriators, provision_rule=String::new(), registered_at=None, draw_allowance=None, level="Community"))]
     #[allow(clippy::too_many_arguments)]
     fn register_commons(
         &mut self,
@@ -1314,6 +1325,8 @@ impl PyArchive {
         appropriators: Vec<String>,
         provision_rule: String,
         registered_at: Option<i64>,
+        draw_allowance: Option<u64>,
+        level: &str,
     ) -> PyResult<String> {
         let (ids, pairs_owned) = cosigners(&registrar_privs, &registrar_dids)?;
         let appropriator_dids: Vec<DidKey> =
@@ -1323,7 +1336,9 @@ impl PyArchive {
             name,
             description,
             appropriators: appropriator_dids,
+            level: parse_appropriator_level(level)?,
             provision_rule,
+            draw_allowance,
             registered_by: ids,
             registered_at: parse_as_of(registered_at)?.unwrap_or_else(time::now),
         };
@@ -1338,7 +1353,15 @@ impl PyArchive {
     /// Record a community's self-reported usage of a commons (§7), signed by that
     /// community. First-class; the authority pass requires the reporter be an
     /// appropriator of the referenced commons. Returns the CID.
-    #[pyo3(signature = (community_priv, community_did, commons_cid, consumed, contributed, period_start=None, period_end=None, recorded_at=None))]
+    ///
+    /// **To account under the surveillance threshold** rather than in public, pass
+    /// `seal_custodian_dids`: the figures are committed instead of published, a proof
+    /// that the draw is within the commons' `draw_allowance` goes on the record, and the
+    /// figures themselves are sealed under k-of-n custody keyed to those communities.
+    /// The custodians must be fellow appropriators and may not include the reporter, so
+    /// a community cannot hold a quorum over its own account. A quorum opens them later
+    /// with `open_usage`.
+    #[pyo3(signature = (community_priv, community_did, commons_cid, consumed, contributed, period_start=None, period_end=None, recorded_at=None, seal_custodian_dids=None, seal_threshold=None))]
     #[allow(clippy::too_many_arguments)]
     fn record_usage(
         &mut self,
@@ -1350,13 +1373,69 @@ impl PyArchive {
         period_start: Option<i64>,
         period_end: Option<i64>,
         recorded_at: Option<i64>,
+        seal_custodian_dids: Option<Vec<String>>,
+        seal_threshold: Option<usize>,
     ) -> PyResult<String> {
         let at = parse_as_of(recorded_at)?.unwrap_or_else(time::now);
+        let cid = parse_cid(commons_cid)?;
+        // Sealing, if asked for. The figures are committed, the draw is proven within
+        // the commons' allowance, and the figures themselves go under custody keyed to
+        // fellow appropriators, so the reporter cannot open its own account.
+        let sealed = match seal_custodian_dids {
+            None => None,
+            Some(custodians) => {
+                let allowance = match self.inner.get(&cid) {
+                    Some(ArchiveEntry::CommonsRegistered(s)) => s.payload.draw_allowance,
+                    _ => None,
+                }
+                .ok_or_else(|| {
+                    PyValueError::new_err(
+                        "sealing usage needs the commons to state a `draw_allowance`: \
+                         there would otherwise be no bound to prove against",
+                    )
+                })?;
+                let consumed_blinding = Blinding::random();
+                let contributed_blinding = Blinding::random();
+                let consumed_commitment = Commitment::new(consumed, &consumed_blinding);
+                let contributed_commitment = Commitment::new(contributed, &contributed_blinding);
+                let within_allowance = BoundProof::prove(
+                    consumed,
+                    &consumed_blinding,
+                    &consumed_commitment,
+                    allowance,
+                )
+                .map_err(kc_err_to_py)?;
+                let figures = UsageFigures {
+                    consumed,
+                    contributed,
+                    consumed_blinding: consumed_blinding.to_bytes(),
+                    contributed_blinding: contributed_blinding.to_bytes(),
+                };
+                let holders: Vec<DidKey> =
+                    custodians.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?;
+                let k = seal_threshold.unwrap_or(holders.len() / 2 + 1);
+                let custody = ThresholdCustody::seal(
+                    &SealedUsage::figure_bytes(&figures).map_err(kc_err_to_py)?,
+                    &holders,
+                    kc_core::didkey_encryption_resolver,
+                    k,
+                )
+                .map_err(kc_err_to_py)?;
+                Some(SealedUsage {
+                    consumed_commitment,
+                    contributed_commitment,
+                    within_allowance,
+                    custody,
+                })
+            }
+        };
+        let public = sealed.is_none();
         let u = UsageRecord {
-            commons_cid: parse_cid(commons_cid)?,
+            commons_cid: cid,
             community: parse_did(community_did)?,
-            consumed,
-            contributed,
+            consumed: if public { consumed } else { 0 },
+            contributed: if public { contributed } else { 0 },
+            sealed,
             period_start: parse_as_of(period_start)?.unwrap_or(at),
             period_end: parse_as_of(period_end)?.unwrap_or(at),
             recorded_at: at,
@@ -1365,6 +1444,158 @@ impl PyArchive {
         let signed = Signed::build(u, &[(community_did, &key)]).map_err(kc_err_to_py)?;
         self.inner
             .append(ArchiveEntry::UsageAccounted(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Charter a compact (§7, Ostrom principle 8): give it a DID of its own, co-signed
+    /// by the compact's key and a quorum of its member communities.
+    ///
+    /// A community's identity is self-signed because a community exists by its own act;
+    /// a compact does not, so its charter is constituted by its members. The compact's
+    /// own signature is required too, or the DID would bind to a key nobody has shown
+    /// they hold. Returns the CID.
+    #[pyo3(signature = (compact_priv, compact_pub, label, members, charterer_privs, charterer_dids, chartered_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn charter_compact(
+        &mut self,
+        compact_priv: Vec<u8>,
+        compact_pub: Vec<u8>,
+        label: String,
+        members: Vec<String>,
+        charterer_privs: Vec<Vec<u8>>,
+        charterer_dids: Vec<String>,
+        chartered_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&charterer_privs, &charterer_dids)?;
+        let member_dids: Vec<DidKey> =
+            members.iter().map(|d| parse_did(d)).collect::<PyResult<_>>()?;
+        let chartered: Vec<(DidKey, &PrivKey)> = ids
+            .iter()
+            .cloned()
+            .zip(pairs_owned.iter().map(|(_, k)| k))
+            .collect();
+        let signed = CompactCharter::new_signed(
+            label,
+            &priv_from_bytes(&compact_priv),
+            pub_from_bytes(&compact_pub),
+            member_dids,
+            &chartered,
+            parse_as_of(chartered_at)?.unwrap_or_else(time::now),
+        )
+        .map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::CompactChartered(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Find that a community's abuse of a commons has passed beyond graduated sanctions
+    /// (§7), co-signed by the finding communities. Second-class.
+    ///
+    /// This is the commons equivalent of the anathema designation, which
+    /// `commons_federation.md` left open. The authority pass enforces the four
+    /// conditions: the subject is at `Exclusion`, has arrived there more than once
+    /// (defiance rather than compliance, and once suffices on a life-critical commons),
+    /// has stood there long enough that restoration was available and not taken, and the
+    /// finding cites real sanctions on this pair. It gates nothing by itself: it is what
+    /// a §5 designation may cite as its commons-side basis. Returns the CID.
+    #[pyo3(signature = (mover_privs, mover_dids, commons_cid, subject_did, basis, cited_sanctions, escalated_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn escalate_commons(
+        &mut self,
+        mover_privs: Vec<Vec<u8>>,
+        mover_dids: Vec<String>,
+        commons_cid: &str,
+        subject_did: &str,
+        basis: String,
+        cited_sanctions: Vec<String>,
+        escalated_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&mover_privs, &mover_dids)?;
+        let rec = CommonsEscalation {
+            commons_cid: parse_cid(commons_cid)?,
+            subject_community: parse_did(subject_did)?,
+            basis,
+            cited_sanctions: cited_sanctions
+                .iter()
+                .map(|c| parse_cid(c))
+                .collect::<PyResult<_>>()?,
+            movers: ids,
+            decision_class: DecisionClass::SecondClass,
+            escalated_at: parse_as_of(escalated_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> =
+            pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(rec, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::CommonsEscalated(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// One custodian opens its own share of a sealed usage record (§7), returning it as
+    /// JSON to be gathered into an `open_usage` call. A share is useless alone.
+    fn open_usage_share(
+        &self,
+        usage_cid: &str,
+        holder_priv: Vec<u8>,
+        holder_did: &str,
+    ) -> PyResult<String> {
+        let cid = parse_cid(usage_cid)?;
+        let sealed = match self.inner.get(&cid) {
+            Some(ArchiveEntry::UsageAccounted(s)) => s.payload.sealed.as_ref(),
+            _ => None,
+        }
+        .ok_or_else(|| PyValueError::new_err(format!("{usage_cid} is not a sealed usage record")))?;
+        let share = sealed
+            .custody
+            .open_share(&parse_did(holder_did)?, &priv_from_bytes(&holder_priv))
+            .map_err(kc_err_to_py)?;
+        serde_json::to_string(&share).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Open a sealed usage record's figures (§7), co-signed by the custodians whose
+    /// `shares` are presented and citing a cause.
+    ///
+    /// The authority pass requires the shares to recover figures that open the record's
+    /// own commitments, so a custodian quorum cannot publish a number the community
+    /// never committed to. Returns the CID.
+    #[pyo3(signature = (custodian_privs, custodian_dids, usage_cid, consumed, contributed, shares, cause, opened_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn open_usage(
+        &mut self,
+        custodian_privs: Vec<Vec<u8>>,
+        custodian_dids: Vec<String>,
+        usage_cid: &str,
+        consumed: u64,
+        contributed: u64,
+        shares: Vec<String>,
+        cause: String,
+        opened_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&custodian_privs, &custodian_dids)?;
+        let shares: Vec<RevealedShare> = shares
+            .iter()
+            .map(|s| {
+                serde_json::from_str(s)
+                    .map_err(|e| PyValueError::new_err(format!("custody share: {e}")))
+            })
+            .collect::<PyResult<_>>()?;
+        let rec = UsageOpened {
+            usage_cid: parse_cid(usage_cid)?,
+            custodians: ids,
+            cause,
+            consumed,
+            contributed,
+            shares,
+            opened_at: parse_as_of(opened_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> =
+            pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(rec, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::UsageOpened(signed))
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
@@ -1910,6 +2141,92 @@ impl PyArchive {
             .append(ArchiveEntry::FastCadenceAmended(signed))
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
+    }
+
+    /// Adopt the functional minimum as the ground of the compact's own conduct (§9).
+    /// `forbearances` is a list of (key, description, site) where site is one of
+    /// "NonMemberDuties", "HostisHumaniGeneris", "RestrictedMember",
+    /// "BoundaryRefusal". Co-signed by the adopting communities; second-class, and a
+    /// singleton. Returns the CID.
+    ///
+    /// This is **not** an entry on the compact-incapable list and must not be filed as
+    /// one: that list names matters belonging to a member, this one binds the compact.
+    #[pyo3(signature = (adopter_privs, adopter_dids, forbearances, decision_class="SecondClass".to_string(), adopted_at=None))]
+    fn adopt_minimum_content(
+        &mut self,
+        adopter_privs: Vec<Vec<u8>>,
+        adopter_dids: Vec<String>,
+        forbearances: Vec<(String, String, String)>,
+        decision_class: String,
+        adopted_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&adopter_privs, &adopter_dids)?;
+        let list = forbearances
+            .into_iter()
+            .map(|(key, description, site)| {
+                Ok(Forbearance { key, description, site: parse_minimum_site(&site)? })
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let a = MinimumContentAdoption {
+            forbearances: list,
+            adopters: ids,
+            decision_class: parse_decision_class(&decision_class)?,
+            adopted_at: parse_as_of(adopted_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(a, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::MinimumContentAdopted(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Amend the adopted minimum content (§9). `change` is "Broaden" or "Narrow";
+    /// second-class. Broadenings use the normal quorum; narrowings carry the higher
+    /// contraction bar, at every site and including a founding forbearance — the
+    /// doctrine asks for a bar there, not a lock. Returns the CID.
+    #[pyo3(signature = (decider_privs, decider_dids, change, forbearance_key, description=String::new(), site="NonMemberDuties".to_string(), rationale=String::new(), decision_class="SecondClass".to_string(), decided_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn amend_minimum_content(
+        &mut self,
+        decider_privs: Vec<Vec<u8>>,
+        decider_dids: Vec<String>,
+        change: &str,
+        forbearance_key: String,
+        description: String,
+        site: String,
+        rationale: String,
+        decision_class: String,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        let (ids, pairs_owned) = cosigners(&decider_privs, &decider_dids)?;
+        let a = MinimumContentAmendment {
+            change: parse_forbearance_change(change)?,
+            forbearance: Forbearance {
+                key: forbearance_key,
+                description,
+                site: parse_minimum_site(&site)?,
+            },
+            rationale,
+            deciders: ids,
+            decision_class: parse_decision_class(&decision_class)?,
+            decided_at: parse_as_of(decided_at)?.unwrap_or_else(time::now),
+        };
+        let pairs: Vec<(&str, &PrivKey)> = pairs_owned.iter().map(|(x, k)| (x.as_str(), k)).collect();
+        let signed = Signed::build(a, &pairs).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::MinimumContentAmended(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// §9 self-binding gate: is `forbearance_key` part of the ground the compact has
+    /// bound its own conduct to, as of `as_of`? The twin of `compact_incapable`, and
+    /// the two never answer each other's question.
+    #[pyo3(signature = (forbearance_key, as_of=None))]
+    fn minimum_forbearance(&self, forbearance_key: &str, as_of: Option<i64>) -> PyResult<bool> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(kc_reputation::minimum_forbearance(&self.inner, forbearance_key, as_of_ts))
     }
 
     /// §9 constitutional state as of `as_of`: whether ratified, the in-force
@@ -3215,6 +3532,18 @@ fn parse_outcome(s: &str) -> PyResult<DecisionOutcome> {
     })
 }
 
+fn parse_appropriator_level(s: &str) -> PyResult<AppropriatorLevel> {
+    Ok(match s {
+        "Community" => AppropriatorLevel::Community,
+        "Compact" => AppropriatorLevel::Compact,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "unknown appropriator level: {other}"
+            )))
+        }
+    })
+}
+
 fn parse_consent_answer(s: &str) -> PyResult<ConsentAnswer> {
     Ok(match s {
         "Given" => ConsentAnswer::Given,
@@ -3269,6 +3598,28 @@ fn parse_designation_urgency(s: &str) -> PyResult<DesignationUrgency> {
     })
 }
 
+fn parse_minimum_site(s: &str) -> PyResult<MinimumSite> {
+    Ok(match s {
+        "NonMemberDuties" => MinimumSite::NonMemberDuties,
+        "HostisHumaniGeneris" => MinimumSite::HostisHumaniGeneris,
+        "RestrictedMember" => MinimumSite::RestrictedMember,
+        "BoundaryRefusal" => MinimumSite::BoundaryRefusal,
+        other => return Err(PyValueError::new_err(format!("unknown minimum-content site: {other}"))),
+    })
+}
+
+fn parse_forbearance_change(s: &str) -> PyResult<ForbearanceChange> {
+    Ok(match s {
+        "Broaden" => ForbearanceChange::Broaden,
+        "Narrow" => ForbearanceChange::Narrow,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "unknown forbearance change: {other}"
+            )))
+        }
+    })
+}
+
 fn parse_capability(s: &str) -> PyResult<Capability> {
     Ok(match s {
         "RescueCoordination" => Capability::RescueCoordination,
@@ -3276,6 +3627,13 @@ fn parse_capability(s: &str) -> PyResult<Capability> {
         "Trade" => Capability::Trade,
         "CommonsWithdrawal" => Capability::CommonsWithdrawal,
         "Communication" => Capability::Communication,
+        // The offices — the roles that select who is sanctioned, revocable apart from
+        // every relation of exchange above.
+        "MediatorSeat" => Capability::MediatorSeat,
+        "ObserverSeat" => Capability::ObserverSeat,
+        "ExaminerSeat" => Capability::ExaminerSeat,
+        "Deliberation" => Capability::Deliberation,
+        "EmergencyPanelSeat" => Capability::EmergencyPanelSeat,
         other => return Err(PyValueError::new_err(format!("unknown capability: {other}"))),
     })
 }
@@ -4436,13 +4794,27 @@ impl From<&rep::DeliberativeCapacity> for PyDeliberativeCapacity {
 #[pyclass(skip_from_py_object, name = "FreeRiderReport", get_all)]
 #[derive(Clone)]
 struct PyFreeRiderReport {
-    /// (community_did, consumed, contributed, record_count, [usage_cids]).
-    tallies: Vec<(String, u64, u64, usize, Vec<String>)>,
+    /// (community_did, consumed, contributed, record_count, sealed_count, [usage_cids]).
+    /// `consumed` and `contributed` are summed over that community's **public** records
+    /// only; a nonzero `sealed_count` means they understate the real draw.
+    tallies: Vec<(String, u64, u64, usize, usize, Vec<String>)>,
     total_consumed: u64,
     total_contributed: u64,
     /// (community_did, net_draw) for communities that drew more than they
     /// returned, descending by net draw.
     by_net_draw: Vec<(String, i128)>,
+    /// Whether every record here is public, so the totals are the whole account rather
+    /// than a floor.
+    is_complete: bool,
+    /// (community_did, sealed_record_count) for communities that sealed at least one
+    /// record. Not an accusation: sealing is permitted and proven within allowance.
+    partially_sealed: Vec<(String, usize)>,
+    /// The most the sealed records could be hiding: `sealed × allowance`. Each carries a
+    /// proof that its draw is within the allowance, so the hidden quantity is bounded
+    /// rather than unknown. `None` when the commons states no allowance.
+    max_hidden_draw: Option<u64>,
+    /// The commons' per-period draw allowance, if it states one.
+    allowance: Option<u64>,
 }
 
 impl From<&rep::FreeRiderReport> for PyFreeRiderReport {
@@ -4457,6 +4829,7 @@ impl From<&rep::FreeRiderReport> for PyFreeRiderReport {
                         t.consumed,
                         t.contributed,
                         t.record_count,
+                        t.sealed_count,
                         t.evidence.iter().map(|c| c.to_string()).collect(),
                     )
                 })
@@ -4464,6 +4837,10 @@ impl From<&rep::FreeRiderReport> for PyFreeRiderReport {
             total_consumed: r.total_consumed(),
             total_contributed: r.total_contributed(),
             by_net_draw: r.by_net_draw(),
+            is_complete: r.is_complete(),
+            partially_sealed: r.partially_sealed(),
+            max_hidden_draw: r.max_hidden_draw(),
+            allowance: r.allowance,
         }
     }
 }
@@ -4609,6 +4986,12 @@ struct PyConstitutionState {
     /// (label, start, end, recurrence) of each structured-fast period; `recurrence`
     /// is the cycle in seconds for a repeating fast, else None.
     fast_periods: Vec<(String, i64, i64, Option<i64>)>,
+    /// Whether the compact has adopted the functional minimum as the ground of its own
+    /// conduct. A separate act from ratification, so a separate flag.
+    minimum_adopted: bool,
+    /// (key, description, site) of each in-force forbearance. Never a compact-incapable
+    /// matter: this list binds the compact, that one names matters belonging to members.
+    minimum_content: Vec<(String, String, String)>,
 }
 
 impl From<&rep::ConstitutionState> for PyConstitutionState {
@@ -4625,6 +5008,12 @@ impl From<&rep::ConstitutionState> for PyConstitutionState {
                 .iter()
                 .map(|p| (p.label.clone(), p.start.as_second(), p.end.as_second(), p.recurrence))
                 .collect(),
+            minimum_adopted: s.minimum_adopted,
+            minimum_content: s
+                .minimum_content
+                .iter()
+                .map(|f| (f.key.clone(), f.description.clone(), f.site.as_str().to_string()))
+                .collect(),
         }
     }
 }
@@ -4640,6 +5029,12 @@ struct PySubstrateDeferenceReport {
     fast_period_count: usize,
     fast_seconds_total: i64,
     fast_contractions: usize,
+    /// Forbearances in the adopted minimum content currently in force.
+    minimum_current: usize,
+    /// `Broaden` amendments as of the query (the compact widening its own ground).
+    minimum_broadened: usize,
+    /// `Narrow` amendments as of the query. Folded into `contraction_detected`.
+    minimum_narrowed: usize,
     /// (record_cid, kind, at, fast_label) for each deliberative act during a fast.
     fast_deviations: Vec<(String, String, i64, String)>,
 }
@@ -4655,6 +5050,9 @@ impl From<&rep::SubstrateDeferenceReport> for PySubstrateDeferenceReport {
             fast_period_count: r.fast_period_count,
             fast_seconds_total: r.fast_seconds_total,
             fast_contractions: r.fast_contractions,
+            minimum_current: r.minimum_current,
+            minimum_broadened: r.minimum_broadened,
+            minimum_narrowed: r.minimum_narrowed,
             fast_deviations: r
                 .fast_deviations
                 .iter()
@@ -4672,6 +5070,9 @@ struct PyErosionAlert {
     /// One human-readable reason per active erosion signal.
     reasons: Vec<String>,
     list_contraction: bool,
+    /// A forbearance has been narrowed out of the compact's own adopted ground — the
+    /// signal with no constituency inside the compact to raise it.
+    minimum_contraction: bool,
     fast_contraction: bool,
     active_fast_deviations: usize,
     /// (community_did, last_rite_cid, seconds_since_last, cadence_seconds) for each
@@ -4712,6 +5113,7 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
             severity: a.severity.as_str().to_string(),
             reasons: a.reasons.clone(),
             list_contraction: a.list_contraction,
+            minimum_contraction: a.minimum_contraction,
             fast_contraction: a.fast_contraction,
             active_fast_deviations: a.active_fast_deviations,
             overdue_reaffirmations: a

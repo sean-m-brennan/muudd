@@ -94,6 +94,30 @@ needing the neighbor's help. This is the kith-covenant analogue of "every
 belligerent has wounded and POWs," and it should be the load-bearing
 premise of the whole compact.
 
+The argument has a name in jurisprudence, and the compact has adopted it as
+its stated ground rather than leaving it as a mechanical observation. Hart's
+minimum content of natural law derives a short list of forbearances from
+survival as an aim plus truisms about vulnerability, approximate equality,
+limited altruism, limited resources, and limited understanding, which is the
+mutual-vulnerability argument in another vocabulary. Kith-covenant takes that
+content as the ground of its own conduct at the two points where consent has
+run out: the duties owed to a party that has signed nothing, and the
+*hostis humani generis* designation. The statement, with the four sites it
+grounds and the four limits it carries, is in
+[natural_law.md "The ground the compact claims for itself"](natural_law.md#the-ground-the-compact-claims-for-itself).
+
+Two consequences bear on the mechanics described here. The first is that
+mutual vulnerability is *uneven*, and the ground does not repair the
+unevenness: communities inside the compact are mutually vulnerable in ways
+the compact can assume, and the frontier asymmetry that
+[overview.md §3d](../overview.md#3d-forcing-function-mutual-vulnerability)
+names remains exactly as asymmetric after the adoption as before. What
+changes is that the compact's forbearance at the frontier no longer waits on
+reciprocal exposure to justify it. The second is that the ground reaches the
+compact's boundary and not the interior of any member, which is Hart's own
+concession and not a softening of it. A member's treatment of those it counts
+as inside its own order is not a matter this premise decides.
+
 ## Common virtue, not non-negotiable rules
 
 The frame to replace "non-negotiable core" with is **common virtue**. The

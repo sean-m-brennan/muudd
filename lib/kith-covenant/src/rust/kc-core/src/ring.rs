@@ -74,7 +74,7 @@ const DOMAIN_DLEQ: &[u8] = b"kc:ring:dleq-challenge:v1";
 /// The second generator `H`: a curve point with unknown discrete log relative to the
 /// Ed25519 basepoint. Derived once per process from a fixed ASCII domain string by
 /// try-and-increment, then cofactor-cleared so it lies in the prime-order subgroup.
-fn h_point() -> &'static EdwardsPoint {
+pub(crate) fn h_point() -> &'static EdwardsPoint {
     static H: OnceLock<EdwardsPoint> = OnceLock::new();
     H.get_or_init(|| {
         for counter in 0u32..1000 {
@@ -97,7 +97,7 @@ fn h_point() -> &'static EdwardsPoint {
 
 /// Hash arbitrary framed input to a scalar. Blake3 in XOF mode gives 64 bytes, which
 /// `from_bytes_mod_order_wide` reduces with negligible bias.
-fn hash_to_scalar(domain: &[u8], parts: &[&[u8]]) -> Scalar {
+pub(crate) fn hash_to_scalar(domain: &[u8], parts: &[&[u8]]) -> Scalar {
     let mut hasher = blake3::Hasher::new();
     hasher.update(domain);
     for part in parts {
@@ -111,7 +111,7 @@ fn hash_to_scalar(domain: &[u8], parts: &[&[u8]]) -> Scalar {
 }
 
 /// A uniformly random scalar, drawn from the OS CSPRNG.
-fn random_scalar() -> Scalar {
+pub(crate) fn random_scalar() -> Scalar {
     use rand::RngCore;
     let mut wide = [0u8; 64];
     rand::rngs::OsRng.fill_bytes(&mut wide);

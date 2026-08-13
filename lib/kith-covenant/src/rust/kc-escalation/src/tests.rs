@@ -133,10 +133,24 @@ fn restitution_records_roundtrip_json() {
 }
 
 #[test]
-fn capability_names_are_stable_and_all_has_five() {
+fn capability_names_are_stable_and_services_and_offices_partition_all() {
     assert_eq!(Capability::RescueCoordination.as_str(), "RescueCoordination");
     assert_eq!(Capability::CommonsWithdrawal.as_str(), "CommonsWithdrawal");
-    assert_eq!(Capability::all().len(), 5);
+    assert_eq!(Capability::MediatorSeat.as_str(), "MediatorSeat");
+    assert_eq!(Capability::all().len(), 10);
+    // The two sets partition the whole, and `is_office` agrees with which set a
+    // capability came from — a capability that fell out of both, or answered `is_office`
+    // one way while sitting in the other list, would gate on nothing.
+    assert_eq!(Capability::services().len() + Capability::offices().len(), 10);
+    assert!(Capability::services().iter().all(|c| !c.is_office()));
+    assert!(Capability::offices().iter().all(|c| c.is_office()));
+    for c in Capability::all() {
+        assert!(
+            Capability::services().contains(&c) || Capability::offices().contains(&c),
+            "{} is in neither set",
+            c.as_str()
+        );
+    }
 }
 
 #[test]

@@ -185,6 +185,19 @@ what they are and what they are not (see
 Neighboring binds the compact to the ones it actually meets. It does not
 dissolve the compact's judgment about them.
 
+Fourth, the priority established here has a floor under it that does not depend
+on compact standing. Making neighbor-status prior to compact-status means the
+compact owes something to a party that has signed nothing, and the compact
+grounds what it owes on the thin functional minimum it has adopted rather than on
+its own authority or on any member's substrate
+([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). The parable
+supplies the shape of the duty, that it is actualized by encounter and discerned
+within it, and the minimum content supplies why the duty is not the compact's to
+waive at the frontier when reciprocity is absent. The two work at different
+levels and neither is doing the other's job: no functional argument produces the
+Samaritan's reversal, and the Samaritan's reversal is a member community's
+reading rather than a standard the compact may assert on its own account.
+
 ## Relationship to other documents
 
 - [recognition_protocols.md](recognition_protocols.md): the operational home of

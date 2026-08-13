@@ -14,12 +14,14 @@
    limitations under the License.
 */
 
+pub mod compact;
 pub mod delegation;
 pub mod keystore;
 pub mod roll;
 pub mod witness;
 
 pub use kc_core::{CommunityIdentity, SuccessorLink};
+pub use compact::CompactCharter;
 pub use delegation::{DelegationScope, SpeakerDelegation};
 pub use keystore::Keystore;
 pub use roll::{MemberRoll, RollMember};

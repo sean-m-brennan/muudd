@@ -1593,7 +1593,8 @@ mod commons_projection {
     use crate::analytics::free_rider_signals;
     use crate::lookup::commons_level;
     use kc_commons::{
-        CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, UsageRecord,
+        CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel, SealedUsage,
+        UsageFigures, UsageRecord,
     };
     use kc_conduct::DecisionClass;
 
@@ -1610,7 +1611,9 @@ mod commons_projection {
             name: "c".into(),
             description: "d".into(),
             appropriators: dids.clone(),
+            level: Default::default(),
             provision_rule: "r".into(),
+            draw_allowance: None,
             registered_by: dids,
             registered_at: at,
         };
@@ -1633,6 +1636,7 @@ mod commons_projection {
             community: who.clone(),
             consumed,
             contributed,
+            sealed: None,
             period_start: at,
             period_end: at,
             recorded_at: at,
@@ -1736,6 +1740,157 @@ mod commons_projection {
         assert_eq!(b_tally.record_count, 2);
         assert_eq!(b_tally.evidence.len(), 2);
         assert_eq!(b_tally.draw_ratio(), Some(1200.0 / 200.0));
+    }
+
+    /// A commons with a machine-readable cap, and a helper that seals a record's
+    /// figures the way `record_usage` does.
+    fn register_with_allowance(
+        a: &mut InMemoryArchive,
+        appropriators: &[&DidKey],
+        priv_: &PrivKey,
+        allowance: u64,
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = appropriators.iter().map(|d| (*d).clone()).collect();
+        let reg = CommonsRegistration {
+            kind: CommonsKind::Navigation,
+            name: "c".into(),
+            description: "d".into(),
+            appropriators: dids.clone(),
+            level: Default::default(),
+            provision_rule: "r".into(),
+            draw_allowance: Some(allowance),
+            registered_by: dids,
+            registered_at: at,
+        };
+        let signed = Signed::build(reg, &[(appropriators[0].as_str(), priv_)]).unwrap();
+        a.append(ArchiveEntry::CommonsRegistered(signed)).unwrap()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn sealed_usage(
+        a: &mut InMemoryArchive,
+        commons_cid: Cid,
+        who: &DidKey,
+        who_priv: &PrivKey,
+        consumed: u64,
+        contributed: u64,
+        allowance: u64,
+        custodians: &[&DidKey],
+        at: Timestamp,
+    ) -> Cid {
+        use kc_core::{Blinding, BoundProof, Commitment, ThresholdCustody};
+        let cb = Blinding::random();
+        let tb = Blinding::random();
+        let cc = Commitment::new(consumed, &cb);
+        let tc = Commitment::new(contributed, &tb);
+        let proof = BoundProof::prove(consumed, &cb, &cc, allowance).unwrap();
+        let figures = UsageFigures {
+            consumed,
+            contributed,
+            consumed_blinding: cb.to_bytes(),
+            contributed_blinding: tb.to_bytes(),
+        };
+        let holders: Vec<DidKey> = custodians.iter().map(|d| (*d).clone()).collect();
+        let custody = ThresholdCustody::seal(
+            &SealedUsage::figure_bytes(&figures).unwrap(),
+            &holders,
+            kc_core::didkey_encryption_resolver,
+            2,
+        )
+        .unwrap();
+        let u = UsageRecord {
+            commons_cid,
+            community: who.clone(),
+            consumed: 0,
+            contributed: 0,
+            sealed: Some(SealedUsage {
+                consumed_commitment: cc,
+                contributed_commitment: tc,
+                within_allowance: proof,
+                custody,
+            }),
+            period_start: at,
+            period_end: at,
+            recorded_at: at,
+        };
+        let signed = Signed::build(u, &[(who.as_str(), who_priv)]).unwrap();
+        a.append(ArchiveEntry::UsageAccounted(signed)).unwrap()
+    }
+
+    /// **The measurement that shaped the sealed-usage design.** A community that seals
+    /// its figures contributes nothing to the tally: sums, ranking and record count all
+    /// read exactly as if it had never accounted at all. Sealing without this would be a
+    /// way to disappear from the free-rider detector, so the lens has to say what it
+    /// cannot see.
+    #[test]
+    fn a_sealed_record_is_counted_as_sealed_rather_than_vanishing() {
+        let (a_priv, _, ca) = fresh_id();
+        let (b_priv, _, cb) = fresh_id();
+        let (c_priv, _, cc) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let commons = register_with_allowance(&mut arc, &[&ca, &cb, &cc], &a_priv, 1000, t(50));
+        // C accounts in public and draws modestly.
+        usage(&mut arc, commons, &cc, &c_priv, 100, 500, t(100));
+        // B seals, twice, at the top of its allowance both times.
+        sealed_usage(&mut arc, commons, &cb, &b_priv, 900, 0, 1000, &[&ca, &cc], t(200));
+        sealed_usage(&mut arc, commons, &cb, &b_priv, 950, 0, 1000, &[&ca, &cc], t(300));
+
+        let report = free_rider_signals(&arc, &commons, Some(t(1000)));
+        // The sums are still exactly the public sums. What changed is that the report
+        // now says so instead of presenting them as the whole account.
+        assert_eq!(report.total_consumed(), 100);
+        assert!(!report.is_complete(), "a sealed record makes the sums a floor, not a figure");
+
+        // B is present with both records counted and neither summed, and is named as a
+        // sealer rather than reading as a community that drew nothing.
+        let b = report.tallies.iter().find(|t| t.community == cb).expect("B is present");
+        assert_eq!(b.record_count, 2);
+        assert_eq!(b.sealed_count, 2);
+        assert_eq!(b.consumed, 0);
+        assert_eq!(report.partially_sealed(), vec![(cb.as_str().to_string(), 2)]);
+
+        // Sealing leaves a bound rather than a blindfold: each record proved its draw
+        // was within the allowance, so what B hid is at most two allowances.
+        assert_eq!(report.max_hidden_draw(), Some(2000));
+
+        // The public accounter is unaffected, and a silent appropriator still appears
+        // nowhere: sealing is distinguishable from not having accounted at all.
+        let c = report.tallies.iter().find(|t| t.community == cc).unwrap();
+        assert_eq!(c.sealed_count, 0);
+        assert_eq!(c.consumed, 100);
+        assert!(report.tallies.iter().all(|t| t.community != ca));
+    }
+
+    /// With no sealed records the report is a complete accounting and says so, and the
+    /// hidden-draw bound is zero rather than unknown.
+    #[test]
+    fn an_all_public_report_reads_as_complete() {
+        let (a_priv, _, ca) = fresh_id();
+        let (b_priv, _, cb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let commons = register_with_allowance(&mut arc, &[&ca, &cb], &a_priv, 1000, t(50));
+        usage(&mut arc, commons, &cb, &b_priv, 100, 0, t(100));
+        let report = free_rider_signals(&arc, &commons, Some(t(1000)));
+        assert!(report.is_complete());
+        assert!(report.partially_sealed().is_empty());
+        assert_eq!(report.max_hidden_draw(), Some(0));
+        assert_eq!(report.total_consumed(), 100);
+    }
+
+    /// A commons with no allowance can host no sealed record, so the hidden-draw bound
+    /// is *unknown* rather than zero: there is nothing a seal could have been proven
+    /// against. The two cases must not collapse into one answer.
+    #[test]
+    fn a_commons_without_an_allowance_reports_no_hidden_draw_bound() {
+        let (a_priv, _, ca) = fresh_id();
+        let (b_priv, _, cb) = fresh_id();
+        let mut arc = InMemoryArchive::new();
+        let commons = register(&mut arc, CommonsKind::Navigation, &[&ca, &cb], &a_priv, t(50));
+        usage(&mut arc, commons, &cb, &b_priv, 100, 0, t(100));
+        let report = free_rider_signals(&arc, &commons, Some(t(1000)));
+        assert!(report.is_complete());
+        assert_eq!(report.max_hidden_draw(), None);
     }
 
     #[test]
@@ -2102,11 +2257,12 @@ mod constitution_diag {
     use super::*;
     use crate::analytics::{
         compact_incapable, constitution_state, erosion_alert, in_structured_fast,
-        substrate_deference, ErosionSeverity,
+        minimum_forbearance, substrate_deference, ErosionSeverity,
     };
     use kc_constitution::{
         AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
-        FastChange, FastPeriod, IncapableMatter,
+        FastChange, FastPeriod, Forbearance, ForbearanceChange, IncapableMatter,
+        MinimumContentAdoption, MinimumContentAmendment, MinimumSite,
     };
     use kc_conduct::DecisionClass;
     use kc_mediation::DisputeRecord;
@@ -2281,6 +2437,130 @@ mod constitution_diag {
         assert_eq!(al.severity, ErosionSeverity::Alert);
         assert_eq!(al.reasons.len(), 1);
         assert!(al.list_contraction);
+    }
+
+    // --- the adopted minimum content, on the same instruments ---------------
+    //
+    // MEASUREMENT (item A, legibility), carried by the tests below.
+    // `narrowing_the_minimum_content_is_invisible_to_every_instrument` passed against
+    // unmodified code: with the narrowing recorded the only way available — an ordinary
+    // second-class decision about the compact's own conduct — `contraction_detected` was
+    // false, `erosion_alert` was `None` with no reasons, and `constitution_state` carried
+    // no minimum content at all, so the compact that narrowed its ground read exactly
+    // like one that never had a ground to narrow.
+
+    fn forbearance(k: &str) -> Forbearance {
+        Forbearance { key: k.into(), description: k.into(), site: MinimumSite::NonMemberDuties }
+    }
+
+    fn adopt(a: &mut InMemoryArchive, keys: &[&str], at: Timestamp) {
+        let (priv_, _, did) = fresh_id();
+        let ad = MinimumContentAdoption {
+            forbearances: keys.iter().map(|k| forbearance(k)).collect(),
+            adopters: vec![did.clone()],
+            decision_class: DecisionClass::SecondClass,
+            adopted_at: at,
+        };
+        let signed = Signed::build(ad, &[(did.as_str(), &priv_)]).unwrap();
+        a.append(ArchiveEntry::MinimumContentAdopted(signed)).unwrap();
+    }
+
+    fn amend_minimum(
+        a: &mut InMemoryArchive,
+        change: ForbearanceChange,
+        key: &str,
+        at: Timestamp,
+    ) {
+        let (priv_, _, did) = fresh_id();
+        let am = MinimumContentAmendment {
+            change,
+            forbearance: forbearance(key),
+            rationale: "r".into(),
+            deciders: vec![did.clone()],
+            decision_class: DecisionClass::SecondClass,
+            decided_at: at,
+        };
+        let signed = Signed::build(am, &[(did.as_str(), &priv_)]).unwrap();
+        a.append(ArchiveEntry::MinimumContentAmended(signed)).unwrap();
+    }
+
+    /// The state carries the ground as of a query time, and the two gates stay distinct:
+    /// a forbearance is never a compact-incapable matter, whatever it is named.
+    #[test]
+    fn state_carries_the_adopted_ground_and_the_gates_stay_distinct() {
+        let mut a = InMemoryArchive::new();
+        assert!(!constitution_state(&a, Some(t(10))).minimum_adopted);
+        adopt(&mut a, &["rescue-at-the-frontier"], t(50));
+        amend_minimum(&mut a, ForbearanceChange::Broaden, "no-victim-supplied", t(100));
+
+        let s70 = constitution_state(&a, Some(t(70)));
+        assert!(s70.minimum_adopted);
+        assert_eq!(s70.minimum_content.len(), 1);
+        assert_eq!(constitution_state(&a, Some(t(200))).minimum_content.len(), 2);
+
+        // The gate answers for the compact's own conduct; the incapable gate does not,
+        // and neither answers the other's question.
+        assert!(minimum_forbearance(&a, "rescue-at-the-frontier", Some(t(200))));
+        assert!(!compact_incapable(&a, "rescue-at-the-frontier", Some(t(200))));
+
+        // Narrowed back out, the gate closes.
+        amend_minimum(&mut a, ForbearanceChange::Narrow, "no-victim-supplied", t(300));
+        assert!(!minimum_forbearance(&a, "no-victim-supplied", Some(t(400))));
+        assert_eq!(constitution_state(&a, Some(t(400))).minimum_content.len(), 1);
+    }
+
+    /// Broadening the compact's own ground is not erosion; narrowing it is, on the same
+    /// terms as a contraction of the incapable list.
+    #[test]
+    fn narrowing_the_ground_is_erosion_and_broadening_it_is_not() {
+        let mut a = InMemoryArchive::new();
+        adopt(&mut a, &["rescue-at-the-frontier"], t(50));
+        amend_minimum(&mut a, ForbearanceChange::Broaden, "no-victim-supplied", t(100));
+        let clean = erosion_alert(&a, Some(t(5000)));
+        assert_eq!(clean.severity, ErosionSeverity::None);
+        assert!(!clean.minimum_contraction);
+        assert!(!substrate_deference(&a, Some(t(5000))).contraction_detected);
+
+        amend_minimum(&mut a, ForbearanceChange::Narrow, "no-victim-supplied", t(200));
+        let r = substrate_deference(&a, Some(t(5000)));
+        assert_eq!(r.minimum_broadened, 1);
+        assert_eq!(r.minimum_narrowed, 1);
+        assert_eq!(r.minimum_current, 1);
+        assert!(r.contraction_detected);
+
+        let al = erosion_alert(&a, Some(t(5000)));
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+        assert!(al.minimum_contraction && !al.list_contraction);
+        assert_eq!(al.reasons.len(), 1);
+        assert!(
+            al.reasons[0].contains("adopted ground narrowed"),
+            "the corps must be told which restraint moved, got: {:?}",
+            al.reasons
+        );
+    }
+
+    /// A second narrowing compounds within the one dimension, and a narrowing beside a
+    /// contraction of the list is two dimensions — the same escalation the other signals
+    /// get, so the compact's own ground is not a lesser instrument on the board.
+    #[test]
+    fn ground_narrowing_compounds_and_counts_as_its_own_dimension() {
+        let mut a = InMemoryArchive::new();
+        adopt(&mut a, &["rescue-at-the-frontier", "courtesy-to-non-members"], t(50));
+        amend_minimum(&mut a, ForbearanceChange::Narrow, "rescue-at-the-frontier", t(200));
+        amend_minimum(&mut a, ForbearanceChange::Narrow, "courtesy-to-non-members", t(300));
+        let al = erosion_alert(&a, Some(t(5000)));
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert_eq!(al.reasons.len(), 1, "one dimension, twice");
+
+        let mut b = InMemoryArchive::new();
+        ratify(&mut b, &["a", "b"], vec![FastPeriod { label: "annual".into(), start: t(1000), end: t(2000), recurrence: None }], t(50));
+        amend(&mut b, AmendmentKind::Remove, "a", t(200));
+        adopt(&mut b, &["rescue-at-the-frontier"], t(50));
+        amend_minimum(&mut b, ForbearanceChange::Narrow, "rescue-at-the-frontier", t(300));
+        let al2 = erosion_alert(&b, Some(t(5000)));
+        assert_eq!(al2.severity, ErosionSeverity::Alert);
+        assert_eq!(al2.reasons.len(), 2);
+        assert!(al2.list_contraction && al2.minimum_contraction);
     }
 }
 

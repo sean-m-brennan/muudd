@@ -499,7 +499,12 @@ Three design commitments follow:
    itself: the compact needs an explicit posture toward a member
    community mid-spiral, before external effects occur, that the
    internal-sovereignty principle does not currently supply. Both
-   constraints are flagged in the open questions below.
+   constraints are flagged in the open questions below. The
+   complementary case, a community not spiraling but in stable
+   equilibrium with the mechanism, is treated in
+   [sacrificial_equilibrium.md](sacrificial_equilibrium.md). The
+   proxies described here are tuned to the spiral and do not
+   detect it.
 
 These commitments are tuned to one failure mode: *sincere* failure.
 Salem believed; its features hollowed structurally, not by anyone's
@@ -652,6 +657,17 @@ and presenting them as equivalent would be dishonest. The compact holds
 the line at full membership because that is where the sacred-binding
 work happens, and keeps the door open everywhere short of that line.
 
+What binds a restricted member to the common virtues it commits to is not left
+unaccounted for. It is the thin functional minimum the compact has adopted,
+the same ground that carries the compact's own conduct where consent has run
+out, stated in
+[natural_law.md "The ground the compact claims for itself"](natural_law.md#the-ground-the-compact-claims-for-itself).
+The restricted member is held to the thin part of the standard on the only
+ground the compact claims for itself, which is what makes the category
+coherent rather than a courtesy. It is also why the category stays
+restricted: nothing in the thin part supplies the five anti-spiral features,
+and no functional minimum can be made to yield them.
+
 ### The Rawlsian objection and the durability hypothesis
 
 The Rawlsian liberal objects: requiring Creator acknowledgment as a
@@ -722,6 +738,20 @@ substrate-level commitment that would resolve the conflict in the
 compact's favor. The oath that is not sworn before something beyond
 the swearer's own interest is an oath that breaks the moment the
 swearer's interest changes.
+
+Two minima now appear in the design and they must not be run together. The
+Noahide analogue is a *substrate* minimum: the least a community must hold
+for the compact's binding mechanisms to work on it, and it is a condition of
+full membership. The adopted functional minimum is a *conduct* minimum: the
+least any viable order among vulnerable parties contains, and it is the ground
+of what the compact does at its own boundary, binding whether or not anyone
+has joined
+([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). The first is
+addressed to candidates and the second is addressed to the compact itself.
+Neither substitutes for the other, and the functional minimum in particular
+cannot be enlarged into the substrate requirement, because a floor derived
+from vulnerability and survival supplies no ultimate before which an oath
+could be sworn.
 
 This is a durability argument, not a justice argument. Rawls may be
 right that a doctrine-neutral framework is *fairer*. Kith-covenant's
@@ -822,6 +852,16 @@ function) that individual communities cannot provide for themselves,
 and in doing so it makes it *easier* for existing communities to
 maintain the virtues and substrate they already hold. But it cannot
 bootstrap them from nothing.
+
+The adopted functional minimum does not relieve this limitation and is not an
+attempt to. It states what any viable order among vulnerable parties contains,
+which is what the compact may assume of a party it has not met and what it
+holds itself to before any rite has been performed
+([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). It supplies no
+substrate, cultivates no virtue, and produces no community capable of carrying
+either. What it covers is the compact's own conduct in the meantime, which is
+not nothing at a frontier where the preconditions have not emerged, and is not
+a precondition.
 
 The limitation is shared by every cooperation framework that requires
 pre-existing trust. Ostrom's commons cases all presuppose communities
@@ -942,6 +982,20 @@ names precisely the actors this section concerns, and it substantially
 predates kith-covenant's reconstruction of the problem. The term is used
 throughout the rest of this discussion in preference to any
 English-and-Latin mix.
+
+The designation raises a question of authority that the category's Roman
+pedigree does not settle: the pirate has never accepted the standard being
+applied to him and does not share it. The compact's answer is the thin
+functional minimum it has adopted. What binds the *hostis humani generis* is
+not the compact's authority, which reaches its members and reaches them by
+their consent, and not any member community's substrate, which the compact
+does not speak for. It is the short list of forbearances that any viable
+order among vulnerable, approximately equal, imperfectly altruistic parties
+contains, and the designation names conduct that no such order can absorb.
+The compact is not claiming a jurisdiction it was never given. It is
+recognizing a standard that does not run through anyone's consent. The ground
+is stated in full, with the four limits that travel with it, in
+[natural_law.md "The ground the compact claims for itself"](natural_law.md#the-ground-the-compact-claims-for-itself).
 
 A note on the Schmittian connection before developing the category.
 Carl Schmitt's friend/enemy distinction (*Der Begriff des Politischen*,
@@ -1109,7 +1163,11 @@ piracy is especially violent but because the pirate has placed himself
 outside *every* cooperative framework, attacking anyone, protected by
 none. The *hostis humani generis* is the actor for whom anathema is
 insufficient because the designation's implicit offer of eventual
-return has no purchase on an actor who has no desire to return.
+return has no purchase on an actor who has no desire to return. Both tiers
+apply a standard the designated actor has not accepted, and both stand on the
+adopted minimum content rather than on the compact's own authority, for the
+reasons given above under
+[the limits of the frame](#hostis-humani-generis-limits-of-the-justus-hostis-frame).
 
 **This category is *extremely* rare.** The vast majority of actors
 who appear to be *hostis humani generis* are in fact anathema:

@@ -23,9 +23,14 @@ use kc_ceremony::inter::{
 };
 use kc_ceremony::intra::IntraCommunityRiteRecord;
 use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
-use kc_commons::{CommonsRegistration, CommonsSanction, UsageRecord};
+use kc_commons::{
+    CommonsEscalation, CommonsRegistration, CommonsSanction, UsageOpened, UsageRecord,
+};
 use kc_conduct::{ActivityAttestation, ConductRecord};
-use kc_constitution::{CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment};
+use kc_constitution::{
+    CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment, MinimumContentAdoption,
+    MinimumContentAmendment,
+};
 use kc_core::{Cid, KcResult, Signed};
 use kc_observer::{
     ObserverRegistry, ObserverReport, ReportResponse, SourceExculpation, SourceReveal,
@@ -36,7 +41,9 @@ use kc_escalation::{
     ReEntry, ReexaminationConclusion, RestitutionCompletion, RestitutionObligation,
     SubstantiveReEngagement,
 };
-use kc_identity::{CommunityIdentity, MemberRoll, SpeakerDelegation, WitnessRegistry};
+use kc_identity::{
+    CommunityIdentity, CompactCharter, MemberRoll, SpeakerDelegation, WitnessRegistry,
+};
 use kc_mediation::{
     ArgumentRecord, DecisionUnsealed, DisputeRecord, MediationDecision, MediatorRegistry,
     PanelConsent, ProtectingPower, RecusalDecision, RecusalRequest,
@@ -110,8 +117,20 @@ pub enum ArchiveEntry {
     /// Registration of a compact-level commons (§7), second-class, co-signed by
     /// the registering communities.
     CommonsRegistered(Signed<CommonsRegistration>),
-    /// A community's self-reported usage accounting for a commons (§7).
+    /// A community's self-reported usage accounting for a commons (§7). Its figures
+    /// are public, or committed with a proof that the draw is within allowance.
     UsageAccounted(Signed<UsageRecord>),
+    /// A custodian quorum opening a sealed usage record's figures (§7). Must open the
+    /// record's own commitments.
+    UsageOpened(Signed<UsageOpened>),
+    /// A compact's own identity (§7, Ostrom principle 8), constituted by a quorum of
+    /// its member communities and by the compact's own key. What the inter-compact
+    /// nesting level names its appropriators with.
+    CompactChartered(Signed<CompactCharter>),
+    /// The commons equivalent of the anathema designation (§7): a finding that a
+    /// community's abuse has passed beyond what graduated sanctions answer. Second-class;
+    /// citable by a §5 designation, and consequential of itself in no other way.
+    CommonsEscalated(Signed<CommonsEscalation>),
     /// A step along a commons' graduated-sanction ladder (§7); heavier levels are
     /// co-signed by the imposing quorum.
     SanctionApplied(Signed<CommonsSanction>),
@@ -149,6 +168,15 @@ pub enum ArchiveEntry {
     CompactIncapableAmended(Signed<CompactIncapableAmendment>),
     /// A second-class amendment to the structured-fast cadence (§9).
     FastCadenceAmended(Signed<FastCadenceAmendment>),
+    /// The compact's adoption of the functional minimum as the ground of its own
+    /// conduct where consent has run out (§9). Singleton per archive, and never an
+    /// entry on the compact-incapable list: this one binds the compact, that one
+    /// names matters belonging to a member.
+    MinimumContentAdopted(Signed<MinimumContentAdoption>),
+    /// A second-class amendment to the adopted minimum content (§9). `Narrow` carries
+    /// the asymmetric higher bar at every site, genesis-original forbearances
+    /// included.
+    MinimumContentAmended(Signed<MinimumContentAmendment>),
     /// A community's attested reading of its own substrate (capture move 1): one
     /// point on a traceable interpretive lineage. Multiple distinct lineages /
     /// interpreters are the plurality the protocol requires; the
@@ -225,6 +253,9 @@ impl ArchiveEntry {
             Self::InjunctionChallenged(_) => "InjunctionChallenged",
             Self::CommonsRegistered(_) => "CommonsRegistered",
             Self::UsageAccounted(_) => "UsageAccounted",
+            Self::UsageOpened(_) => "UsageOpened",
+            Self::CommonsEscalated(_) => "CommonsEscalated",
+            Self::CompactChartered(_) => "CompactChartered",
             Self::SanctionApplied(_) => "SanctionApplied",
             Self::ExaminerRegistryUpdated(_) => "ExaminerRegistryUpdated",
             Self::ObserverRegistryUpdated(_) => "ObserverRegistryUpdated",
@@ -237,6 +268,8 @@ impl ArchiveEntry {
             Self::ConstitutionRatified(_) => "ConstitutionRatified",
             Self::CompactIncapableAmended(_) => "CompactIncapableAmended",
             Self::FastCadenceAmended(_) => "FastCadenceAmended",
+            Self::MinimumContentAdopted(_) => "MinimumContentAdopted",
+            Self::MinimumContentAmended(_) => "MinimumContentAmended",
             Self::SubstrateInterpreted(_) => "SubstrateInterpreted",
             Self::InterpreterIndependenceAttested(_) => "InterpreterIndependenceAttested",
             Self::EventReported(_) => "EventReported",

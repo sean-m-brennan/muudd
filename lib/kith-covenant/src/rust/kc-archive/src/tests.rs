@@ -1386,6 +1386,24 @@ mod escalation {
         }
     }
 
+    /// An attested adverse act by `subject`, appended and returned by CID. What the
+    /// expedited path's covenant-facing floor requires a designation to cite.
+    fn adverse_act(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        signer: &DidKey,
+        signer_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        a.append(ArchiveEntry::ConductAttested(conduct(
+            vec![subject.clone()],
+            &[(signer, signer_priv)],
+            DecisionClass::FirstClass,
+            at,
+        )))
+        .unwrap()
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn designation(
         a: &mut InMemoryArchive,
@@ -1393,6 +1411,40 @@ mod escalation {
         tier: DesignationTier,
         urgency: DesignationUrgency,
         deliberators: &[(&DidKey, &PrivKey)],
+        cited: Vec<Cid>,
+        cycles: Vec<DeliberationCycle>,
+        criteria: &str,
+        reversal: Option<String>,
+        reexamine: Option<Timestamp>,
+        at: Timestamp,
+    ) -> Cid {
+        // The default citation names no archive record. Harmless on the normal path,
+        // where condition 1 carries the covenant-facing anchor; the expedited path
+        // needs `designation_citing` with a real act.
+        designation_citing(
+            a,
+            subject,
+            tier,
+            urgency,
+            deliberators,
+            vec![Cid::of_bytes(b"act")],
+            cited,
+            cycles,
+            criteria,
+            reversal,
+            reexamine,
+            at,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn designation_citing(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        tier: DesignationTier,
+        urgency: DesignationUrgency,
+        deliberators: &[(&DidKey, &PrivKey)],
+        acts: Vec<Cid>,
         cited: Vec<Cid>,
         cycles: Vec<DeliberationCycle>,
         criteria: &str,
@@ -1410,7 +1462,7 @@ mod escalation {
                 urgency,
                 deliberators: delibs,
                 criteria: criteria.into(),
-                cited_acts: vec![Cid::of_bytes(b"act")],
+                cited_acts: acts,
                 failed_restoration_cycles: cited,
                 deliberation_cycles: cycles,
                 reversal_conditions: reversal,
@@ -1547,8 +1599,11 @@ mod escalation {
         let (r, rp) = community(&mut a, "R", ts(1));
 
         // Three deliberators satisfy the expedited quorum (> DEFAULT_QUORUM_THRESHOLD).
-        let dz = designation(&mut a, &s, DesignationTier::Anathema, DesignationUrgency::Expedited,
-            &[(&p, &pp), (&qc, &qp), (&r, &rp)], vec![], vec![cycle(0, &p, 1000, 1100)],
+        let act = adverse_act(&mut a, &s, &p, &pp, ts(1500));
+        let dz = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited,
+            &[(&p, &pp), (&qc, &qp), (&r, &rp)], vec![act], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
             "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
         ok(&a, &dz);
 
@@ -1577,12 +1632,96 @@ mod escalation {
 
         // NEGATIVE CONTROL: a fourth, unencumbered deliberator restores the quorum.
         let (t, tp) = community(&mut a, "T", ts(1));
-        let restored = designation(&mut a, &s, DesignationTier::Anathema,
+        let restored = designation_citing(&mut a, &s, DesignationTier::Anathema,
             DesignationUrgency::Expedited,
-            &[(&p, &pp), (&qc, &qp), (&r, &rp), (&t, &tp)], vec![],
+            &[(&p, &pp), (&qc, &qp), (&r, &rp), (&t, &tp)], vec![act], vec![],
             vec![cycle(0, &p, 1000, 1100)],
             "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
         ok(&a, &restored);
+    }
+
+    /// The expedited path's covenant-facing floor.
+    ///
+    /// natural_law.md ("The interior of a member community") holds that the compact
+    /// forms no verdict on a member's internal morality until that morality touches
+    /// the covenant. The normal path carries that structurally: condition 1 resolves
+    /// three restitution chains through `RestitutionVerified` and `ConductAttested`,
+    /// which are compact-facing record kinds, so a normal designation cannot be
+    /// assembled out of claims about what a community does at home.
+    ///
+    /// **Measured before the rule.** The expedited path relaxes condition 1 by design,
+    /// and condition 3 checks only that `criteria` and `cited_acts` are non-empty
+    /// without ever resolving the CIDs. So an expedited designation citing
+    /// `Cid::of_bytes(b"act")`, which names no archive record whatsoever, was
+    /// authorized, as were the four expedited fixtures in this suite. An
+    /// `ObserverReport` carries a free-text `summary` about a subject community with
+    /// no constraint on its subject matter, so the same hole admits a designation
+    /// assembled entirely from reports about a member's internal life. This is the
+    /// emergency route, collapsed to a single deliberation cycle, which is the route
+    /// a spiral reaches for.
+    #[test]
+    fn expedited_designation_needs_a_cited_covenant_facing_act() {
+        let mut a = InMemoryArchive::new();
+        let (s, _sp) = community(&mut a, "S", ts(1));
+        let (p, pp) = community(&mut a, "P", ts(1));
+        let (qc, qp) = community(&mut a, "Q", ts(1));
+        let (r, rp) = community(&mut a, "R", ts(1));
+        let delibs: &[(&DidKey, &PrivKey)] = &[(&p, &pp), (&qc, &qp), (&r, &rp)];
+
+        // A citation naming no archive record at all: refused.
+        let dangling = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited, delibs, vec![Cid::of_bytes(b"act")], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        let err = authorize(&a, a.get(&dangling).unwrap(), Q, P)
+            .expect_err("an expedited designation citing nothing that resolves");
+        assert!(
+            err.to_string().contains("covenant-facing floor"),
+            "the refusal must name what is missing, got: {err}"
+        );
+
+        // A citation resolving to a record that is not conduct by the subject is not
+        // a covenant-facing act either. The subject's own community record resolves,
+        // which is what separates this control from the dangling one above.
+        let not_conduct = *a
+            .iter()
+            .find(|(_, e)| matches!(e, ArchiveEntry::CommunityIdentityPublished(_)))
+            .expect("the fixture appended community records")
+            .0;
+        let wrong_kind = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited, delibs, vec![not_conduct], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        bad(&a, &wrong_kind);
+
+        // An adverse act by a *different* community does not license this designation.
+        let (other, _op) = community(&mut a, "O", ts(1));
+        let other_act = adverse_act(&mut a, &other, &p, &pp, ts(1500));
+        let wrong_subject = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited, delibs, vec![other_act], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        bad(&a, &wrong_subject);
+
+        // NEGATIVE CONTROL: one attested adverse act by the subject, and the same
+        // designation is authorized. Nothing else about the record changed.
+        let act = adverse_act(&mut a, &s, &p, &pp, ts(1500));
+        let grounded = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited, delibs, vec![act], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        ok(&a, &grounded);
+
+        // NEGATIVE CONTROL: the floor is the expedited path's alone. A normal
+        // designation still passes on its restitution chains with the dangling
+        // citation the helper supplies, because condition 1 is its anchor.
+        let mut b = InMemoryArchive::new();
+        let (s2, (p2, pp2), (q2, qp2), cited) = designation_fixture(&mut b);
+        let normal = designation(&mut b, &s2, DesignationTier::Anathema,
+            DesignationUrgency::Normal, &[(&p2, &pp2), (&q2, &qp2)], cited,
+            vec![cycle(0, &p2, 1000, 1100), cycle(1, &p2, 1100 + W, 1200 + W)],
+            "criteria", Some("rev".into()), None, ts(2000));
+        ok(&b, &normal);
     }
 
     #[test]
@@ -1592,20 +1731,26 @@ mod escalation {
         let (p, pp) = community(&mut a, "P", ts(1));
         let (qc, qp) = community(&mut a, "Q", ts(1));
         let (r, rp) = community(&mut a, "R", ts(1));
+        let act = adverse_act(&mut a, &s, &p, &pp, ts(1500));
         // Expedited Anathema: 1 cycle, no restitution cycles cited, 3 deliberators
-        // (> quorum_threshold), mandatory re-examination -> authorized.
-        let ok_exp = designation(&mut a, &s, DesignationTier::Anathema, DesignationUrgency::Expedited,
-            &[(&p, &pp), (&qc, &qp), (&r, &rp)], vec![], vec![cycle(0, &p, 1000, 1100)],
+        // (> quorum_threshold), mandatory re-examination, one cited adverse act
+        // -> authorized.
+        let ok_exp = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited,
+            &[(&p, &pp), (&qc, &qp), (&r, &rp)], vec![act], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
             "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
         ok(&a, &ok_exp);
         // Expedited but only two deliberators -> below the higher quorum.
-        let low_q = designation(&mut a, &s, DesignationTier::Anathema, DesignationUrgency::Expedited,
-            &[(&p, &pp), (&qc, &qp)], vec![], vec![cycle(0, &p, 1000, 1100)],
+        let low_q = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited,
+            &[(&p, &pp), (&qc, &qp)], vec![act], vec![], vec![cycle(0, &p, 1000, 1100)],
             "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
         bad(&a, &low_q);
         // The hostis tier may never be expedited.
-        let hostis_exp = designation(&mut a, &s, DesignationTier::HostisHumaniGeneris,
-            DesignationUrgency::Expedited, &[(&p, &pp), (&qc, &qp), (&r, &rp)], vec![],
+        let hostis_exp = designation_citing(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+            DesignationUrgency::Expedited, &[(&p, &pp), (&qc, &qp), (&r, &rp)],
+            vec![act], vec![],
             vec![cycle(0, &p, 1000, 1100)], "acute harm", None, Some(ts(5000)), ts(2000));
         bad(&a, &hostis_exp);
     }
@@ -2266,7 +2411,9 @@ mod commons {
                 name: "shared resource".into(),
                 description: "a compact-level commons".into(),
                 appropriators: dids.clone(),
+                level: Default::default(),
                 provision_rule: "provision scales with draw".into(),
+                draw_allowance: None,
                 registered_by: dids,
                 registered_at: at,
             },
@@ -2291,6 +2438,7 @@ mod commons {
                 community: community.clone(),
                 consumed,
                 contributed,
+                sealed: None,
                 period_start: at,
                 period_end: at,
                 recorded_at: at,
@@ -2400,7 +2548,9 @@ mod commons {
                 name: "rescue net".into(),
                 description: "d".into(),
                 appropriators: vec![ca.clone(), cb.clone()],
+                level: Default::default(),
                 provision_rule: "r".into(),
+                draw_allowance: None,
                 registered_by: vec![ca.clone(), cc.clone()],
                 registered_at: ts(50),
             },
@@ -4064,7 +4214,8 @@ mod constitution {
     use super::*;
     use kc_constitution::{
         AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
-        FastChange, FastPeriod, IncapableMatter,
+        FastChange, FastPeriod, Forbearance, ForbearanceChange, IncapableMatter,
+        MinimumContentAdoption, MinimumContentAmendment, MinimumSite,
     };
 
     const Q: usize = DEFAULT_QUORUM_THRESHOLD;
@@ -4252,6 +4403,189 @@ mod constitution {
         let con3 = amend_fast(&mut a, FastChange::Contract,
             &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(300));
         ok(&a, &con3);
+    }
+
+    // --- the adopted minimum content ---------------------------------------
+    //
+    // MEASUREMENT (item A), which these tests now carry. Before the artifact existed,
+    // the compact's adopted ground had exactly two possible homes and both were the
+    // wrong rule. As an ordinary second-class decision it narrowed at the ordinary
+    // quorum with no asymmetry at all — `the_minimum_content_narrows_at_the_ordinary_
+    // quorum` passed against unmodified code. Filed on the compact-incapable list it
+    // acquired the asymmetry and two things with it: the compact declared its own
+    // boundary conduct a matter *belonging to a member*, and a genesis-original
+    // forbearance became unremovable at *any* bar — refused with "genesis-immutable",
+    // a lock where the doctrine specifies a bar.
+
+    fn forbearance(k: &str) -> Forbearance {
+        Forbearance { key: k.into(), description: k.into(), site: MinimumSite::NonMemberDuties }
+    }
+
+    fn adopt(
+        a: &mut InMemoryArchive,
+        keys: &[&str],
+        adopters: &[(&DidKey, &PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = adopters.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = adopters.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let ad = Signed::build(
+            MinimumContentAdoption {
+                forbearances: keys.iter().map(|k| forbearance(k)).collect(),
+                adopters: dids,
+                decision_class: DecisionClass::SecondClass,
+                adopted_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::MinimumContentAdopted(ad)).unwrap()
+    }
+
+    fn amend_minimum(
+        a: &mut InMemoryArchive,
+        change: ForbearanceChange,
+        key: &str,
+        deciders: &[(&DidKey, &PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let dids: Vec<DidKey> = deciders.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = deciders.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let am = Signed::build(
+            MinimumContentAmendment {
+                change,
+                forbearance: forbearance(key),
+                rationale: "r".into(),
+                deciders: dids,
+                decision_class: DecisionClass::SecondClass,
+                decided_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::MinimumContentAmended(am)).unwrap()
+    }
+
+    #[test]
+    fn adoption_quorum_and_singleton() {
+        // A single adopter fails the second-class quorum.
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        let solo = adopt(&mut a, &["rescue-at-the-frontier"], &[(&c[0].0, &c[0].1)], ts(50));
+        bad(&a, &solo);
+
+        // Fresh archive: two adopters authorized, a second adoption refused.
+        let mut b = InMemoryArchive::new();
+        let cb = communities(&mut b);
+        let ad = adopt(&mut b, &["rescue-at-the-frontier"],
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(60));
+        ok(&b, &ad);
+        let ad2 = adopt(&mut b, &["courtesy-to-non-members"],
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(70));
+        bad(&b, &ad2);
+    }
+
+    /// An adoption naming no forbearance is a form with no ground in it.
+    #[test]
+    fn an_empty_adoption_is_refused() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        let empty = adopt(&mut a, &[], &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        let err = authorize(&a, a.get(&empty).unwrap(), Q, P)
+            .expect_err("an adoption must name a forbearance");
+        assert!(err.to_string().contains("names no forbearance"), "got: {err}");
+    }
+
+    /// The compact's ground at its boundary does not wait on the artifact that lists
+    /// matters belonging to members: the two are separate acts, and an archive with no
+    /// `ConstitutionRatified` at all can still adopt and broaden its own ground.
+    #[test]
+    fn the_minimum_content_does_not_wait_on_a_ratified_constitution() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        let ad = adopt(&mut a, &["rescue-at-the-frontier"],
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        ok(&a, &ad);
+        let broaden = amend_minimum(&mut a, ForbearanceChange::Broaden, "no-victim-supplied",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(100));
+        ok(&a, &broaden);
+    }
+
+    /// The asymmetry the corpus states: broadening the ground is ordinary business,
+    /// narrowing it carries the contraction bar of quorum+1.
+    #[test]
+    fn narrowing_the_minimum_content_needs_the_higher_bar() {
+        // Ordinary quorum (2) fails the bar. (Isolated: an unauthorized Narrow still
+        // shifts the walked forbearance state for a later record.)
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        adopt(&mut a, &["rescue-at-the-frontier"],
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        let broaden = amend_minimum(&mut a, ForbearanceChange::Broaden, "no-victim-supplied",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(100));
+        ok(&a, &broaden);
+        let narrow2 = amend_minimum(&mut a, ForbearanceChange::Narrow, "no-victim-supplied",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(200));
+        let err = authorize(&a, a.get(&narrow2).unwrap(), Q, P)
+            .expect_err("the ordinary quorum does not narrow the compact's ground");
+        assert!(err.to_string().contains("narrowing the minimum content needs"), "got: {err}");
+
+        // Fresh archive: the same narrowing at the higher bar (3 distinct) is authorized.
+        let mut b = InMemoryArchive::new();
+        let cb = communities(&mut b);
+        adopt(&mut b, &["rescue-at-the-frontier"],
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(60));
+        amend_minimum(&mut b, ForbearanceChange::Broaden, "no-victim-supplied",
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1)], ts(100));
+        let narrow3 = amend_minimum(&mut b, ForbearanceChange::Narrow, "no-victim-supplied",
+            &[(&cb[0].0, &cb[0].1), (&cb[1].0, &cb[1].1), (&cb[2].0, &cb[2].1)], ts(300));
+        ok(&b, &narrow3);
+    }
+
+    /// The one deliberate difference from the compact-incapable list, asserted side by
+    /// side with it: a *founding* forbearance is contractible at the higher bar, where a
+    /// founding incapable matter is refused at every bar. A bar, not a lock — the
+    /// argument for narrowing what is owed at the frontier is always available and
+    /// always pragmatic, and what answers it is the asymmetry, not a prohibition.
+    #[test]
+    fn a_founding_forbearance_is_contractible_at_the_higher_bar() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        ratify(&mut a, &["internal-theology"], &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(50));
+        adopt(&mut a, &["rescue-at-the-frontier"],
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+
+        // The founding forbearance yields at the higher bar.
+        let narrow = amend_minimum(&mut a, ForbearanceChange::Narrow, "rescue-at-the-frontier",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(200));
+        ok(&a, &narrow);
+
+        // The founding incapable matter does not, at the same bar, in the same archive.
+        let rm = amend_incapable(&mut a, AmendmentKind::Remove, "internal-theology",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(300));
+        let err = authorize(&a, a.get(&rm).unwrap(), Q, P)
+            .expect_err("a genesis matter cannot be removed");
+        assert!(err.to_string().contains("genesis-immutable"), "got: {err}");
+    }
+
+    #[test]
+    fn minimum_amendment_before_adoption_and_absent_forbearance_rejected() {
+        let mut a = InMemoryArchive::new();
+        let c = communities(&mut a);
+        // Amendment before any adoption.
+        let early = amend_minimum(&mut a, ForbearanceChange::Broaden, "x",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(40));
+        bad(&a, &early);
+        adopt(&mut a, &["rescue-at-the-frontier"],
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(60));
+        // Broadening a forbearance already in force.
+        let dup = amend_minimum(&mut a, ForbearanceChange::Broaden, "rescue-at-the-frontier",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1)], ts(100));
+        bad(&a, &dup);
+        // Narrowing one that is not.
+        let absent = amend_minimum(&mut a, ForbearanceChange::Narrow, "never-adopted",
+            &[(&c[0].0, &c[0].1), (&c[1].0, &c[1].1), (&c[2].0, &c[2].1)], ts(200));
+        bad(&a, &absent);
     }
 }
 
@@ -5231,7 +5565,9 @@ mod probation_reach {
                 name: "relay".into(),
                 description: "a compact-level commons".into(),
                 appropriators: appropriators.clone(),
+                level: Default::default(),
                 provision_rule: "provision scales with draw".into(),
+                draw_allowance: None,
                 registered_by: appropriators,
                 registered_at: ts(200),
             },
@@ -5348,7 +5684,9 @@ mod probation_reach {
                 name: "relay".into(),
                 description: "a commons".into(),
                 appropriators: appropriators.clone(),
+                level: Default::default(),
                 provision_rule: "provision scales with draw".into(),
+                draw_allowance: None,
                 registered_by: appropriators,
                 registered_at: ts(200),
             },
@@ -5428,7 +5766,9 @@ mod probation_reach {
                 name: "relay".into(),
                 description: "a commons".into(),
                 appropriators: appropriators.clone(),
+                level: Default::default(),
                 provision_rule: "provision scales with draw".into(),
+                draw_allowance: None,
                 registered_by: appropriators,
                 registered_at: ts(200),
             },
@@ -6497,6 +6837,15 @@ mod attested_nulls {
         let (p, pp) = community(a, "P", ts(1));
         let (q, qp) = community(a, "Q", ts(1));
         let (r, rp) = community(a, "R", ts(1));
+        // The expedited path's covenant-facing floor: a real attested adverse act.
+        let act = a
+            .append(ArchiveEntry::ConductAttested(conduct(
+                vec![s.clone()],
+                &[(&p, &pp)],
+                DecisionClass::FirstClass,
+                ts(at - 20),
+            )))
+            .unwrap();
         let dz = Signed::build(
             Designation {
                 subject_community: s.clone(),
@@ -6504,7 +6853,7 @@ mod attested_nulls {
                 urgency: DesignationUrgency::Expedited,
                 deliberators: vec![p.clone(), q.clone(), r.clone()],
                 criteria: "the named pattern".into(),
-                cited_acts: vec![Cid::of_bytes(b"act")],
+                cited_acts: vec![act],
                 failed_restoration_cycles: vec![],
                 deliberation_cycles: vec![DeliberationCycle {
                     cycle_index: 0,
@@ -6681,6 +7030,16 @@ mod attested_nulls {
         let mut a = InMemoryArchive::new();
         let (dz, _s, (p, pp), (q, qp), (r, rp)) = designated(&mut a, 1000, 100);
         let (s2, _s2p) = community(&mut a, "S2", ts(1));
+        // S2's own attested adverse act: the expedited path's covenant-facing floor,
+        // which these tests are not about. The citation under test is `dz`.
+        let s2_act = a
+            .append(ArchiveEntry::ConductAttested(conduct(
+                vec![s2.clone()],
+                &[(&p, &pp)],
+                DecisionClass::FirstClass,
+                ts(4000),
+            )))
+            .unwrap();
         let cited = Signed::build(
             Designation {
                 subject_community: s2.clone(),
@@ -6688,7 +7047,7 @@ mod attested_nulls {
                 urgency: DesignationUrgency::Expedited,
                 deliberators: vec![p.clone(), q.clone(), r.clone()],
                 criteria: "consorting with the designated".into(),
-                cited_acts: vec![dz],
+                cited_acts: vec![dz, s2_act],
                 failed_restoration_cycles: vec![],
                 deliberation_cycles: vec![DeliberationCycle {
                     cycle_index: 0,
@@ -6716,6 +7075,16 @@ mod attested_nulls {
         let mut a = InMemoryArchive::new();
         let (dz, _s, (p, pp), (q, qp), (r, rp)) = designated(&mut a, 100_000, 100);
         let (s2, _s2p) = community(&mut a, "S2", ts(1));
+        // S2's own attested adverse act: the expedited path's covenant-facing floor,
+        // which these tests are not about. The citation under test is `dz`.
+        let s2_act = a
+            .append(ArchiveEntry::ConductAttested(conduct(
+                vec![s2.clone()],
+                &[(&p, &pp)],
+                DecisionClass::FirstClass,
+                ts(4000),
+            )))
+            .unwrap();
         let cited = Signed::build(
             Designation {
                 subject_community: s2.clone(),
@@ -6723,7 +7092,7 @@ mod attested_nulls {
                 urgency: DesignationUrgency::Expedited,
                 deliberators: vec![p.clone(), q.clone(), r.clone()],
                 criteria: "consorting with the designated".into(),
-                cited_acts: vec![dz],
+                cited_acts: vec![dz, s2_act],
                 failed_restoration_cycles: vec![],
                 deliberation_cycles: vec![DeliberationCycle {
                     cycle_index: 0,
@@ -6761,6 +7130,16 @@ mod attested_nulls {
             1010,
         );
         let (s2, _s2p) = community(&mut a, "S2", ts(1));
+        // S2's own attested adverse act: the expedited path's covenant-facing floor,
+        // which these tests are not about. The citation under test is `dz`.
+        let s2_act = a
+            .append(ArchiveEntry::ConductAttested(conduct(
+                vec![s2.clone()],
+                &[(&p, &pp)],
+                DecisionClass::FirstClass,
+                ts(4000),
+            )))
+            .unwrap();
         let cited = Signed::build(
             Designation {
                 subject_community: s2.clone(),
@@ -6768,7 +7147,7 @@ mod attested_nulls {
                 urgency: DesignationUrgency::Expedited,
                 deliberators: vec![p.clone(), q.clone(), r.clone()],
                 criteria: "consorting with the designated".into(),
-                cited_acts: vec![dz],
+                cited_acts: vec![dz, s2_act],
                 failed_restoration_cycles: vec![],
                 deliberation_cycles: vec![DeliberationCycle {
                     cycle_index: 0,
@@ -8163,5 +8542,1386 @@ mod sealed_decisions {
             &mut a, dispute, &two, &custodians, 2, TEXT, MIN_DECISION_SEAL_SECONDS, "", ts(200),
         );
         refused(&a, &dec, "mediation panel");
+    }
+}
+
+/// §7.1 — sealed usage, and the allowance that gives it something to prove.
+///
+/// The measurement this began from: a commons could state a provision rule and no rule
+/// read it, so a record drawing ten times the written cap was authorized exactly like
+/// one that honoured it. And every figure was public, so a community accounting honestly
+/// disclosed its capacity, its consumption pattern and its reserves to every other
+/// member, which is what §7's surveillance threshold exists to bound.
+mod sealed_usage {
+    use super::*;
+    use kc_commons::{
+        CommonsKind, CommonsRegistration, SealedUsage, UsageFigures, UsageOpened, UsageRecord,
+    };
+    use kc_core::{Blinding, BoundProof, Commitment, RevealedShare, ThresholdCustody};
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const ALLOWANCE: u64 = 1000;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), Q, P).expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+
+    /// Four appropriators of one commons, and the commons' CID. B is the reporter; A, C
+    /// and D are the custodian pool it must draw from.
+    #[allow(clippy::type_complexity)]
+    fn fixture(a: &mut InMemoryArchive, allowance: Option<u64>) -> (Vec<(DidKey, PrivKey)>, Cid) {
+        let parties: Vec<(DidKey, PrivKey)> = ["A", "B", "C", "D"]
+            .iter()
+            .map(|n| community(a, n, ts(10)))
+            .collect();
+        let dids: Vec<DidKey> = parties.iter().map(|(d, _)| d.clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> =
+            parties.iter().map(|(d, p)| (d.as_str(), p)).collect();
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind: CommonsKind::Communication,
+                name: "the relay".into(),
+                description: "shared bandwidth".into(),
+                appropriators: dids.clone(),
+                level: Default::default(),
+                provision_rule: "no member may draw more than 1000 units per period".into(),
+                draw_allowance: allowance,
+                registered_by: dids,
+                registered_at: ts(50),
+            },
+            &pairs,
+        )
+        .unwrap();
+        let commons = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        (parties, commons)
+    }
+
+    /// Build a sealed record. `bound` is what the proof is made against, which is the
+    /// allowance for an honest record and something else for the adversarial cases.
+    #[allow(clippy::too_many_arguments)]
+    fn seal(
+        a: &mut InMemoryArchive,
+        commons: Cid,
+        reporter: &(DidKey, PrivKey),
+        consumed: u64,
+        contributed: u64,
+        bound: u64,
+        custodians: &[&DidKey],
+        threshold: usize,
+        cleartext: (u64, u64),
+        at: Timestamp,
+    ) -> Cid {
+        let cb = Blinding::random();
+        let tb = Blinding::random();
+        let cc = Commitment::new(consumed, &cb);
+        let tc = Commitment::new(contributed, &tb);
+        let proof = BoundProof::prove(consumed.min(bound), &cb, &cc, bound)
+            .unwrap_or_else(|_| BoundProof::prove(0, &cb, &Commitment::new(0, &cb), bound).unwrap());
+        let figures = UsageFigures {
+            consumed,
+            contributed,
+            consumed_blinding: cb.to_bytes(),
+            contributed_blinding: tb.to_bytes(),
+        };
+        let holders: Vec<DidKey> = custodians.iter().map(|d| (*d).clone()).collect();
+        let custody = ThresholdCustody::seal(
+            &SealedUsage::figure_bytes(&figures).unwrap(),
+            &holders,
+            kc_core::didkey_encryption_resolver,
+            threshold,
+        )
+        .unwrap();
+        let u = Signed::build(
+            UsageRecord {
+                commons_cid: commons,
+                community: reporter.0.clone(),
+                consumed: cleartext.0,
+                contributed: cleartext.1,
+                sealed: Some(SealedUsage {
+                    consumed_commitment: cc,
+                    contributed_commitment: tc,
+                    within_allowance: proof,
+                    custody,
+                }),
+                period_start: at,
+                period_end: at,
+                recorded_at: at,
+            },
+            &[(reporter.0.as_str(), &reporter.1)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::UsageAccounted(u)).unwrap()
+    }
+
+    /// The honest case: B seals 900 of its 1000 allowance to A, C and D at 2-of-3.
+    fn honest(a: &mut InMemoryArchive) -> (Vec<(DidKey, PrivKey)>, Cid, Cid) {
+        let (parties, commons) = fixture(a, Some(ALLOWANCE));
+        let custodians = [&parties[0].0, &parties[2].0, &parties[3].0];
+        let u = seal(a, commons, &parties[1], 900, 100, ALLOWANCE, &custodians, 2, (0, 0), ts(100));
+        (parties, commons, u)
+    }
+
+    fn open_shares(a: &InMemoryArchive, usage: &Cid, holders: &[&(DidKey, PrivKey)]) -> Vec<RevealedShare> {
+        let sealed = match a.get(usage).unwrap() {
+            ArchiveEntry::UsageAccounted(s) => s.payload.sealed.as_ref().unwrap(),
+            _ => panic!("not a usage record"),
+        };
+        holders
+            .iter()
+            .map(|(d, p)| sealed.custody.open_share(d, p).expect("open own share"))
+            .collect()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn open(
+        a: &mut InMemoryArchive,
+        usage: Cid,
+        custodians: &[&(DidKey, PrivKey)],
+        consumed: u64,
+        contributed: u64,
+        shares: Vec<RevealedShare>,
+        cause: &str,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = UsageOpened {
+            usage_cid: usage,
+            custodians: custodians.iter().map(|(d, _)| d.clone()).collect(),
+            cause: cause.into(),
+            consumed,
+            contributed,
+            shares,
+            opened_at: at,
+        };
+        let signed = Signed::build(
+            rec,
+            &custodians.iter().map(|(d, p)| (d.as_str(), p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        a.append(ArchiveEntry::UsageOpened(signed)).unwrap()
+    }
+
+    /// THE MEASUREMENT, now the rule: a community accounts without publishing its draw,
+    /// and a custodian quorum can still recover the figures.
+    #[test]
+    fn a_community_can_account_without_publishing_its_draw() {
+        let mut a = InMemoryArchive::new();
+        let (parties, _commons, u) = honest(&mut a);
+        ok(&a, &u);
+        // Nothing in the clear.
+        match a.get(&u).unwrap() {
+            ArchiveEntry::UsageAccounted(s) => {
+                assert_eq!(s.payload.consumed, 0);
+                assert_eq!(s.payload.contributed, 0);
+                assert!(s.payload.sealed.is_some());
+            }
+            _ => panic!("expected a usage record"),
+        }
+        // Two of the three custodians recover them for an audit.
+        let holders = [&parties[0], &parties[2]];
+        let shares = open_shares(&a, &u, &holders);
+        let cid = open(&mut a, u, &holders, 900, 100, shares, "the annual audit", ts(500));
+        ok(&a, &cid);
+    }
+
+    /// **The allowance is what makes sealing meaningful.** A commons that states no
+    /// machine-readable cap cannot host a sealed record: there would be nothing to
+    /// prove, and the compact would hold a number it can neither see nor bound.
+    #[test]
+    fn a_commons_without_an_allowance_cannot_host_sealed_usage() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, None);
+        let custodians = [&parties[0].0, &parties[2].0, &parties[3].0];
+        let u = seal(&mut a, commons, &parties[1], 900, 100, ALLOWANCE, &custodians, 2, (0, 0), ts(100));
+        refused(&a, &u, "states no draw allowance");
+    }
+
+    /// A draw over the allowance cannot be sealed, because it cannot be proven. This is
+    /// the property the whole construction exists for, at the archive's boundary rather
+    /// than the crypto's.
+    #[test]
+    fn a_draw_over_the_allowance_cannot_be_sealed() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, Some(ALLOWANCE));
+        let custodians = [&parties[0].0, &parties[2].0, &parties[3].0];
+        // Commit to 1500 against a 1000 allowance. The proof cannot be made for the real
+        // value, so `seal` falls back to proving something else, and the archive catches
+        // that the proof does not match the commitment on the record.
+        let u = seal(&mut a, commons, &parties[1], 1500, 0, ALLOWANCE, &custodians, 2, (0, 0), ts(100));
+        refused(&a, &u, "does not prove its draw is within");
+
+        // NEGATIVE CONTROL: exactly at the allowance is within it.
+        let at_cap = seal(
+            &mut a, commons, &parties[1], ALLOWANCE, 0, ALLOWANCE, &custodians, 2, (0, 0), ts(200),
+        );
+        ok(&a, &at_cap);
+    }
+
+    /// A proof made against a looser bound than the commons' own does not verify: the
+    /// bound is not the prover's to choose.
+    #[test]
+    fn a_proof_against_some_other_bound_is_refused() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, Some(ALLOWANCE));
+        let custodians = [&parties[0].0, &parties[2].0, &parties[3].0];
+        let u = seal(
+            &mut a, commons, &parties[1], 900, 0, ALLOWANCE * 10, &custodians, 2, (0, 0), ts(100),
+        );
+        refused(&a, &u, "does not prove its draw is within");
+    }
+
+    /// A sealed record carries no cleartext figures: one draw, one account of it.
+    #[test]
+    fn a_sealed_record_carries_no_public_figures() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, Some(ALLOWANCE));
+        let custodians = [&parties[0].0, &parties[2].0, &parties[3].0];
+        let u = seal(
+            &mut a, commons, &parties[1], 900, 100, ALLOWANCE, &custodians, 2, (5, 5000), ts(100),
+        );
+        refused(&a, &u, "carries no cleartext figures");
+    }
+
+    /// **A community may not hold custody over its own figures**, and every custodian
+    /// must be a fellow appropriator: those are the parties the accounting is owed to.
+    #[test]
+    fn the_reporter_may_not_be_a_custodian_of_its_own_account() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, Some(ALLOWANCE));
+        // B seals to itself and two others.
+        let own = [&parties[1].0, &parties[0].0, &parties[2].0];
+        let u = seal(&mut a, commons, &parties[1], 900, 0, ALLOWANCE, &own, 2, (0, 0), ts(100));
+        refused(&a, &u, "holds a share of the custody over its own usage figures");
+
+        // An outsider to the commons has no standing to hold a share either.
+        let (stranger, _) = community(&mut a, "Stranger", ts(10));
+        let outside = [&parties[0].0, &parties[2].0, &stranger];
+        let u2 = seal(&mut a, commons, &parties[1], 900, 0, ALLOWANCE, &outside, 2, (0, 0), ts(200));
+        refused(&a, &u2, "not an appropriator of this commons");
+    }
+
+    /// **An opening must open what was sealed.** A custodian quorum cannot publish a
+    /// flattering figure in place of the one the community committed to.
+    #[test]
+    fn an_opening_cannot_publish_figures_the_custody_does_not_recover() {
+        let mut a = InMemoryArchive::new();
+        let (parties, _commons, u) = honest(&mut a);
+        let holders = [&parties[0], &parties[2]];
+        let shares = open_shares(&a, &u, &holders);
+
+        let lie = open(&mut a, u, &holders, 10, 900, shares.clone(), "audit", ts(500));
+        refused(&a, &lie, "figures the custody shares do not recover");
+
+        // One share short of the threshold recovers nothing at all.
+        let one = [&parties[0]];
+        let short = open_shares(&a, &u, &one);
+        let starved = open(&mut a, u, &one, 900, 100, short, "audit", ts(600));
+        refused(&a, &starved, "does not open the custody");
+
+        // NEGATIVE CONTROL: the true figures with a real quorum are authorized.
+        let honest_open = open(&mut a, u, &holders, 900, 100, shares, "audit", ts(700));
+        ok(&a, &honest_open);
+    }
+
+    /// Only the record's own custodians may open it, the list is derived from the
+    /// co-signers, and an opening owes a cause.
+    #[test]
+    fn only_custodians_open_a_record_and_they_owe_a_cause() {
+        let mut a = InMemoryArchive::new();
+        let (parties, _commons, u) = honest(&mut a);
+        let holders = [&parties[0], &parties[2]];
+        let shares = open_shares(&a, &u, &holders);
+
+        let bare = open(&mut a, u, &holders, 900, 100, shares.clone(), "  ", ts(500));
+        refused(&a, &bare, "must cite a cause");
+
+        // B, the reporter, holds no share and cannot join the opening.
+        let mut intruding: Vec<&(DidKey, PrivKey)> = holders.to_vec();
+        intruding.push(&parties[1]);
+        let cid = open(&mut a, u, &intruding, 900, 100, shares.clone(), "audit", ts(600));
+        refused(&a, &cid, "holds no share of this record's custody");
+
+        // Naming custodians who did not sign.
+        let rec = UsageOpened {
+            usage_cid: u,
+            custodians: vec![parties[0].0.clone(), parties[3].0.clone()],
+            cause: "audit".into(),
+            consumed: 900,
+            contributed: 100,
+            shares,
+            opened_at: ts(700),
+        };
+        let signed = Signed::build(
+            rec,
+            &holders.iter().map(|(d, p)| (d.as_str(), p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::UsageOpened(signed)).unwrap();
+        refused(&a, &cid, "must be exactly its co-signers");
+    }
+
+    /// An opening must reference a usage record, and one that was actually sealed.
+    #[test]
+    fn opening_needs_a_sealed_record_to_reference() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, Some(ALLOWANCE));
+        let plain = Signed::build(
+            UsageRecord {
+                commons_cid: commons,
+                community: parties[1].0.clone(),
+                consumed: 10,
+                contributed: 10,
+                sealed: None,
+                period_start: ts(100),
+                period_end: ts(100),
+                recorded_at: ts(100),
+            },
+            &[(parties[1].0.as_str(), &parties[1].1)],
+        )
+        .unwrap();
+        let plain = a.append(ArchiveEntry::UsageAccounted(plain)).unwrap();
+        let holders = [&parties[0], &parties[2]];
+        let cid = open(&mut a, plain, &holders, 10, 10, vec![], "audit", ts(200));
+        refused(&a, &cid, "whose figures were never sealed");
+
+        let cid = open(&mut a, commons, &holders, 10, 10, vec![], "audit", ts(300));
+        refused(&a, &cid, "is not a usage record");
+    }
+
+    /// Public accounting is untouched: a record with no seal behaves exactly as before,
+    /// on a commons with an allowance or without one. The allowance binds sealed records
+    /// and is deliberately not a cap on public ones, which the compact can already see
+    /// and weigh for itself.
+    #[test]
+    fn public_accounting_is_unchanged() {
+        for allowance in [None, Some(ALLOWANCE)] {
+            let mut a = InMemoryArchive::new();
+            let (parties, commons) = fixture(&mut a, allowance);
+            let u = Signed::build(
+                UsageRecord {
+                    commons_cid: commons,
+                    community: parties[1].0.clone(),
+                    consumed: 5000,
+                    contributed: 0,
+                    sealed: None,
+                    period_start: ts(100),
+                    period_end: ts(100),
+                    recorded_at: ts(100),
+                },
+                &[(parties[1].0.as_str(), &parties[1].1)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::UsageAccounted(u)).unwrap();
+            ok(&a, &cid);
+        }
+    }
+}
+
+/// §7.1 — the commons equivalent of the anathema designation.
+///
+/// The measurement this began from: a community could be excluded from a commons,
+/// restored, and excluded again, twice over across years, and reach §5's designation
+/// track by no commons-specific route at all. Both halves existed and nothing joined
+/// them. `commons_federation.md` leaves the threshold open in as many words, so this
+/// specifies it, in the shape §5's own four-condition anathema test carries.
+mod commons_escalation {
+    use super::*;
+    use kc_commons::{
+        CommonsEscalation, CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel,
+    };
+    use crate::authority::{
+        DEFAULT_COMMONS_ESCALATION_CYCLES, DEFAULT_COMMONS_EXCLUSION_DWELL_SECONDS,
+        DEFAULT_LIFE_CRITICAL_ESCALATION_CYCLES,
+    };
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const DWELL: i64 = DEFAULT_COMMONS_EXCLUSION_DWELL_SECONDS;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), Q, P).expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+
+    /// Appropriators A (subject), B and C (the quorum), and a commons of `kind`.
+    #[allow(clippy::type_complexity)]
+    fn fixture(a: &mut InMemoryArchive, kind: CommonsKind) -> (Vec<(DidKey, PrivKey)>, Cid) {
+        let parties: Vec<(DidKey, PrivKey)> = ["Subject", "B", "C"]
+            .iter()
+            .map(|n| community(a, n, ts(10)))
+            .collect();
+        let dids: Vec<DidKey> = parties.iter().map(|(d, _)| d.clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = parties.iter().map(|(d, p)| (d.as_str(), p)).collect();
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind,
+                name: "shared resource".into(),
+                description: "a compact-level commons".into(),
+                appropriators: dids.clone(),
+                level: Default::default(),
+                provision_rule: "provision scales with draw".into(),
+                draw_allowance: None,
+                registered_by: dids,
+                registered_at: ts(50),
+            },
+            &pairs,
+        )
+        .unwrap();
+        let commons = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        (parties, commons)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn step(
+        a: &mut InMemoryArchive,
+        commons: Cid,
+        subject: &DidKey,
+        from: SanctionLevel,
+        to: SanctionLevel,
+        movers: &[&(DidKey, PrivKey)],
+        at: i64,
+    ) -> Cid {
+        let dc = if kc_commons::is_second_class_level(to) {
+            DecisionClass::SecondClass
+        } else {
+            DecisionClass::FirstClass
+        };
+        let rec = Signed::build(
+            CommonsSanction {
+                commons_cid: commons,
+                subject_community: subject.clone(),
+                from_level: from,
+                to_level: to,
+                basis: "sustained overdraw".into(),
+                references: vec![],
+                imposers: movers.iter().map(|(d, _)| d.clone()).collect(),
+                decision_class: dc,
+                decided_at: ts(at),
+            },
+            &movers.iter().map(|(d, p)| (d.as_str(), p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        a.append(ArchiveEntry::SanctionApplied(rec)).unwrap()
+    }
+
+    /// Climb `None -> Exclusion`, returning the CIDs. `restore` drops back to `None`
+    /// afterwards, which is what makes the next climb a second arrival.
+    fn cycle(
+        a: &mut InMemoryArchive,
+        commons: Cid,
+        parties: &[(DidKey, PrivKey)],
+        start: i64,
+        restore: bool,
+    ) -> Vec<Cid> {
+        let subject = &parties[0].0;
+        let quorum = [&parties[1], &parties[2]];
+        let one = [&parties[1]];
+        let mut cids = vec![
+            step(a, commons, subject, SanctionLevel::None, SanctionLevel::Monitoring, &one, start),
+            step(a, commons, subject, SanctionLevel::Monitoring, SanctionLevel::Warning, &one, start + 10),
+            step(a, commons, subject, SanctionLevel::Warning, SanctionLevel::Restriction, &quorum, start + 20),
+            step(a, commons, subject, SanctionLevel::Restriction, SanctionLevel::Exclusion, &quorum, start + 30),
+        ];
+        if restore {
+            cids.push(step(
+                a, commons, subject, SanctionLevel::Exclusion, SanctionLevel::None, &one, start + 40,
+            ));
+        }
+        cids
+    }
+
+    fn escalate(
+        a: &mut InMemoryArchive,
+        commons: Cid,
+        parties: &[(DidKey, PrivKey)],
+        cited: Vec<Cid>,
+        at: i64,
+    ) -> Cid {
+        let movers = [&parties[1], &parties[2]];
+        let rec = Signed::build(
+            CommonsEscalation {
+                commons_cid: commons,
+                subject_community: parties[0].0.clone(),
+                basis: "twice excluded and twice restored, and drawing down again".into(),
+                cited_sanctions: cited,
+                movers: movers.iter().map(|(d, _)| d.clone()).collect(),
+                decision_class: DecisionClass::SecondClass,
+                escalated_at: ts(at),
+            },
+            &movers.iter().map(|(d, p)| (d.as_str(), p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        a.append(ArchiveEntry::CommonsEscalated(rec)).unwrap()
+    }
+
+    /// THE MEASUREMENT, now the rule: two full cycles, a year at exclusion, and the
+    /// finding stands.
+    #[test]
+    fn two_cycles_and_a_year_excluded_reach_the_designation_track() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::Communication);
+        let first = cycle(&mut a, commons, &parties, 100, true);
+        let second = cycle(&mut a, commons, &parties, 1000, false);
+        let cited: Vec<Cid> = first.iter().chain(second.iter()).copied().collect();
+        let e = escalate(&mut a, commons, &parties, cited, 1030 + DWELL);
+        ok(&a, &e);
+    }
+
+    /// **Condition 1.** A subject still climbing the ladder is still being answered by
+    /// it. Only exhaustion opens the question.
+    #[test]
+    fn a_subject_below_exclusion_is_not_escalated() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::Communication);
+        let first = cycle(&mut a, commons, &parties, 100, true);
+        let second = cycle(&mut a, commons, &parties, 1000, true);
+        // Restored after the second cycle: two arrivals, but not currently excluded.
+        let cited: Vec<Cid> = first.iter().chain(second.iter()).copied().collect();
+        let e = escalate(&mut a, commons, &parties, cited, 1040 + DWELL);
+        refused(&a, &e, "needs the subject at Exclusion");
+    }
+
+    /// **Condition 2.** One offence, however grave, is what the ladder is for. A single
+    /// exclusion on an ordinary commons is not defiance.
+    #[test]
+    fn one_exclusion_is_not_defiance() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::Communication);
+        let only = cycle(&mut a, commons, &parties, 100, false);
+        let e = escalate(&mut a, commons, &parties, only.clone(), 130 + DWELL);
+        refused(&a, &e, "one offence is what the ladder is for");
+        assert_eq!(DEFAULT_COMMONS_ESCALATION_CYCLES, 2);
+
+        // NEGATIVE CONTROL: restore and climb again, and the same finding stands.
+        step(
+            &mut a, commons, &parties[0].0, SanctionLevel::Exclusion, SanctionLevel::None,
+            &[&parties[1]], 200 + DWELL,
+        );
+        let second = cycle(&mut a, commons, &parties, 300 + DWELL, false);
+        let cited: Vec<Cid> = only.iter().chain(second.iter()).copied().collect();
+        let e2 = escalate(&mut a, commons, &parties, cited, 330 + 2 * DWELL);
+        ok(&a, &e2);
+    }
+
+    /// **Condition 4.** Life support and rescue are what the compact keeps running when
+    /// it pauses everything else, so one sustained exclusion is enough. The same history
+    /// on an ordinary commons is not.
+    #[test]
+    fn a_life_critical_commons_needs_only_one_cycle() {
+        for (kind, expected_ok) in [
+            (CommonsKind::LifeSupport, true),
+            (CommonsKind::Rescue, true),
+            (CommonsKind::Communication, false),
+            (CommonsKind::Navigation, false),
+            (CommonsKind::KnowledgeArchive, false),
+        ] {
+            let mut a = InMemoryArchive::new();
+            let (parties, commons) = fixture(&mut a, kind);
+            let only = cycle(&mut a, commons, &parties, 100, false);
+            let e = escalate(&mut a, commons, &parties, only, 130 + DWELL);
+            if expected_ok {
+                ok(&a, &e);
+            } else {
+                refused(&a, &e, "arrivals at Exclusion");
+            }
+        }
+        assert_eq!(DEFAULT_LIFE_CRITICAL_ESCALATION_CYCLES, 1);
+    }
+
+    /// **Condition 3.** Restoration is always available from exclusion, and the finding
+    /// is that it was available and not taken. A community a week into exclusion has not
+    /// refused it.
+    #[test]
+    fn a_subject_mid_restoration_is_not_escalated() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::LifeSupport);
+        let only = cycle(&mut a, commons, &parties, 100, false);
+        let early = escalate(&mut a, commons, &parties, only.clone(), 130 + 7 * 24 * 3600);
+        refused(&a, &early, "has not refused it");
+
+        // NEGATIVE CONTROL: the same history a year on.
+        let late = escalate(&mut a, commons, &parties, only, 130 + DWELL);
+        ok(&a, &late);
+    }
+
+    /// The dwell clock restarts on restoration: a community restored and re-excluded
+    /// stands at exclusion from the *new* arrival, not the old one.
+    #[test]
+    fn the_dwell_clock_runs_from_the_current_exclusion() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::Communication);
+        let first = cycle(&mut a, commons, &parties, 100, true);
+        // Re-excluded much later; the finding comes a week after that, though the first
+        // exclusion began long ago.
+        let second = cycle(&mut a, commons, &parties, 100 + 5 * DWELL, false);
+        let cited: Vec<Cid> = first.iter().chain(second.iter()).copied().collect();
+        let e = escalate(&mut a, commons, &parties, cited, 130 + 5 * DWELL + 7 * 24 * 3600);
+        refused(&a, &e, "has not refused it");
+    }
+
+    /// The finding cites the acts it rests on, as §5's designation does, and each must
+    /// be a sanction on this pair.
+    #[test]
+    fn the_finding_must_cite_sanctions_on_this_pair() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::LifeSupport);
+        let only = cycle(&mut a, commons, &parties, 100, false);
+
+        let bare = escalate(&mut a, commons, &parties, vec![], 130 + DWELL);
+        refused(&a, &bare, "must cite the sanctions it rests on");
+
+        // A sanction against a different community on the same commons.
+        let other = step(
+            &mut a, commons, &parties[1].0, SanctionLevel::None, SanctionLevel::Monitoring,
+            &[&parties[2]], 140,
+        );
+        let wrong = escalate(&mut a, commons, &parties, vec![other], 131 + DWELL);
+        refused(&a, &wrong, "a sanction on another commons or another community");
+
+        // Something that is not a sanction at all.
+        let not_a_sanction = escalate(&mut a, commons, &parties, vec![commons], 132 + DWELL);
+        refused(&a, &not_a_sanction, "not a commons sanction");
+
+        // NEGATIVE CONTROL: the real history cited.
+        let good = escalate(&mut a, commons, &parties, only, 133 + DWELL);
+        ok(&a, &good);
+    }
+
+    /// The finding is never one community's to make about another: it is second-class
+    /// and carries the distinct-community quorum generically.
+    #[test]
+    fn one_community_may_not_find_it_alone() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::Rescue);
+        let only = cycle(&mut a, commons, &parties, 100, false);
+        let solo = Signed::build(
+            CommonsEscalation {
+                commons_cid: commons,
+                subject_community: parties[0].0.clone(),
+                basis: "we alone find this".into(),
+                cited_sanctions: only,
+                movers: vec![parties[1].0.clone()],
+                decision_class: DecisionClass::SecondClass,
+                escalated_at: ts(130 + DWELL),
+            },
+            &[(parties[1].0.as_str(), &parties[1].1)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::CommonsEscalated(solo)).unwrap();
+        refused(&a, &cid, "second-class");
+    }
+
+    /// The subject must be an appropriator: a community with no draw rights has no
+    /// commons conduct to escalate.
+    #[test]
+    fn a_non_appropriator_has_no_commons_conduct_to_escalate() {
+        let mut a = InMemoryArchive::new();
+        let (parties, commons) = fixture(&mut a, CommonsKind::Rescue);
+        let only = cycle(&mut a, commons, &parties, 100, false);
+        let (outsider, _) = community(&mut a, "Outsider", ts(10));
+        let movers = [&parties[1], &parties[2]];
+        let rec = Signed::build(
+            CommonsEscalation {
+                commons_cid: commons,
+                subject_community: outsider,
+                basis: "an outsider".into(),
+                cited_sanctions: only,
+                movers: movers.iter().map(|(d, _)| d.clone()).collect(),
+                decision_class: DecisionClass::SecondClass,
+                escalated_at: ts(130 + DWELL),
+            },
+            &movers.iter().map(|(d, p)| (d.as_str(), p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::CommonsEscalated(rec)).unwrap();
+        refused(&a, &cid, "is not an appropriator of the commons");
+    }
+}
+
+/// §7.1 — the inter-compact nesting level, and the rule that makes nesting real.
+///
+/// The measurement this began from: nothing distinguished a compact-level commons from
+/// an inter-compact one, because a compact had no identity. `appropriators` was a flat
+/// list of community DIDs at every level, so a body governing a commons shared *between*
+/// compacts reached straight past a compact and sanctioned one of its member
+/// communities, and the archive authorized it.
+///
+/// Ostrom's principle 8 is not "there is a higher level" but that each level governs at
+/// its own scale. The scale of an inter-compact commons is compacts.
+mod inter_compact {
+    use super::*;
+    use kc_commons::{
+        AppropriatorLevel, CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel,
+    };
+    use kc_identity::CompactCharter;
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        verify_all(a).expect("signatures valid");
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    fn refused(a: &InMemoryArchive, cid: &Cid, needle: &str) {
+        verify_all(a).expect("signatures valid");
+        let err = authorize(a, a.get(cid).unwrap(), Q, P).expect_err("expected a refusal");
+        assert!(err.to_string().contains(needle), "expected {needle:?}, got: {err}");
+    }
+
+    /// A compact and the key it signs with.
+    struct Compact {
+        did: DidKey,
+        priv_: PrivKey,
+    }
+
+    /// Charter a compact over `members`, chartered by all of them.
+    fn charter(
+        a: &mut InMemoryArchive,
+        label: &str,
+        members: &[(DidKey, PrivKey)],
+        at: Timestamp,
+    ) -> (Compact, Cid) {
+        let (priv_, pub_) = keys::generate(Alg::Ed25519).unwrap();
+        let chartered: Vec<(DidKey, &PrivKey)> =
+            members.iter().map(|(d, p)| (d.clone(), p)).collect();
+        let signed = CompactCharter::new_signed(
+            label.into(),
+            &priv_,
+            pub_.clone(),
+            members.iter().map(|(d, _)| d.clone()).collect(),
+            &chartered,
+            at,
+        )
+        .unwrap();
+        let did = signed.payload.did.clone();
+        let cid = a.append(ArchiveEntry::CompactChartered(signed)).unwrap();
+        (Compact { did, priv_ }, cid)
+    }
+
+    /// Two compacts of two communities each, plus the inter-compact commons they share.
+    #[allow(clippy::type_complexity)]
+    fn federation(
+        a: &mut InMemoryArchive,
+    ) -> (Vec<(DidKey, PrivKey)>, Compact, Compact, Cid) {
+        let members: Vec<(DidKey, PrivKey)> = ["M1", "M2", "M3", "M4"]
+            .iter()
+            .map(|n| community(a, n, ts(10)))
+            .collect();
+        let (one, _) = charter(a, "CompactOne", &members[0..2], ts(50));
+        let (two, _) = charter(a, "CompactTwo", &members[2..4], ts(50));
+        let appropriators = vec![one.did.clone(), two.did.clone()];
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind: CommonsKind::Communication,
+                name: "the interstellar relay".into(),
+                description: "bandwidth shared between compacts".into(),
+                appropriators: appropriators.clone(),
+                level: AppropriatorLevel::Compact,
+                provision_rule: "each compact provisions in proportion".into(),
+                draw_allowance: None,
+                registered_by: appropriators,
+                registered_at: ts(100),
+            },
+            &[(one.did.as_str(), &one.priv_), (two.did.as_str(), &two.priv_)],
+        )
+        .unwrap();
+        let commons = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        (members, one, two, commons)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn sanction_by(
+        a: &mut InMemoryArchive,
+        commons: Cid,
+        subject: &DidKey,
+        from: SanctionLevel,
+        to: SanctionLevel,
+        movers: &[(&DidKey, &PrivKey)],
+        dc: DecisionClass,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = Signed::build(
+            CommonsSanction {
+                commons_cid: commons,
+                subject_community: subject.clone(),
+                from_level: from,
+                to_level: to,
+                basis: "sustained overdraw on the shared relay".into(),
+                references: vec![],
+                imposers: movers.iter().map(|(d, _)| (*d).clone()).collect(),
+                decision_class: dc,
+                decided_at: at,
+            },
+            &movers.iter().map(|(d, p)| (d.as_str(), *p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        a.append(ArchiveEntry::SanctionApplied(rec)).unwrap()
+    }
+
+    /// THE MEASUREMENT, now the rule. The higher level sanctions a *compact* and that
+    /// stands; it reaches past one to a member community and is refused, by name.
+    #[test]
+    fn the_higher_level_may_not_reach_past_a_compact_to_its_members() {
+        let mut a = InMemoryArchive::new();
+        let (members, one, two, commons) = federation(&mut a);
+
+        // Compact Two moves against a member of Compact One. Refused: that community
+        // answers to its own compact, not to this level.
+        let past = sanction_by(
+            &mut a,
+            commons,
+            &members[0].0,
+            SanctionLevel::None,
+            SanctionLevel::Monitoring,
+            &[(&two.did, &two.priv_)],
+            DecisionClass::FirstClass,
+            ts(200),
+        );
+        refused(&a, &past, "reaches");
+        let err = authorize(&a, a.get(&past).unwrap(), Q, P).unwrap_err().to_string();
+        assert!(
+            err.contains(one.did.as_str()),
+            "the refusal must name the compact it should have gone through, got: {err}"
+        );
+
+        // NEGATIVE CONTROL: the same move against the compact itself is authorized.
+        let proper = sanction_by(
+            &mut a,
+            commons,
+            &one.did,
+            SanctionLevel::None,
+            SanctionLevel::Monitoring,
+            &[(&two.did, &two.priv_)],
+            DecisionClass::FirstClass,
+            ts(300),
+        );
+        ok(&a, &proper);
+    }
+
+    /// Subsidiarity applies to the escalation finding too, not only to sanctions: the
+    /// heavier act is not the loophole.
+    #[test]
+    fn an_escalation_may_not_name_a_member_community_either() {
+        use kc_commons::CommonsEscalation;
+        let mut a = InMemoryArchive::new();
+        let (members, one, two, commons) = federation(&mut a);
+        // Both compacts move, so the second-class quorum is met and subsidiarity is what
+        // the refusal is actually about.
+        let rec = Signed::build(
+            CommonsEscalation {
+                commons_cid: commons,
+                subject_community: members[0].0.clone(),
+                basis: "reaching past the compact".into(),
+                cited_sanctions: vec![commons],
+                movers: vec![one.did.clone(), two.did.clone()],
+                decision_class: DecisionClass::SecondClass,
+                escalated_at: ts(400),
+            },
+            &[(one.did.as_str(), &one.priv_), (two.did.as_str(), &two.priv_)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::CommonsEscalated(rec)).unwrap();
+        refused(&a, &cid, "reaches");
+    }
+
+    /// An ordinary compact-level commons is untouched: subsidiarity is a rule about the
+    /// higher level and applies at no other.
+    #[test]
+    fn a_community_level_commons_is_unaffected() {
+        let mut a = InMemoryArchive::new();
+        let parties: Vec<(DidKey, PrivKey)> = ["A", "B", "C"]
+            .iter()
+            .map(|n| community(&mut a, n, ts(10)))
+            .collect();
+        let dids: Vec<DidKey> = parties.iter().map(|(d, _)| d.clone()).collect();
+        let reg = Signed::build(
+            CommonsRegistration {
+                kind: CommonsKind::Navigation,
+                name: "ephemerides".into(),
+                description: "shared".into(),
+                appropriators: dids.clone(),
+                level: AppropriatorLevel::Community,
+                provision_rule: "r".into(),
+                draw_allowance: None,
+                registered_by: dids,
+                registered_at: ts(50),
+            },
+            &parties.iter().map(|(d, p)| (d.as_str(), p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let commons = a.append(ArchiveEntry::CommonsRegistered(reg)).unwrap();
+        let s = sanction_by(
+            &mut a,
+            commons,
+            &parties[0].0,
+            SanctionLevel::None,
+            SanctionLevel::Monitoring,
+            &[(&parties[1].0, &parties[1].1)],
+            DecisionClass::FirstClass,
+            ts(200),
+        );
+        ok(&a, &s);
+    }
+
+    /// A compact is constituted by its members and by its own key. Without its own
+    /// signature the DID would bind to a key nobody has shown they hold, and every later
+    /// act signed by it would rest on an assumption never checked.
+    #[test]
+    fn a_charter_needs_the_compacts_own_signature() {
+        let mut a = InMemoryArchive::new();
+        let members: Vec<(DidKey, PrivKey)> = ["M1", "M2"]
+            .iter()
+            .map(|n| community(&mut a, n, ts(10)))
+            .collect();
+        let (_priv, pub_) = keys::generate(Alg::Ed25519).unwrap();
+        let did = DidKey::from_pubkey(&pub_).unwrap();
+        let unsigned = Signed::build(
+            CompactCharter {
+                label: "Unheld".into(),
+                did,
+                root_pubkey: pub_,
+                members: members.iter().map(|(d, _)| d.clone()).collect(),
+                chartered_by: members.iter().map(|(d, _)| d.clone()).collect(),
+                chartered_at: ts(50),
+            },
+            &members.iter().map(|(d, p)| (d.as_str(), p)).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::CompactChartered(unsigned)).unwrap();
+        refused(&a, &cid, "did not sign its own charter");
+    }
+
+    /// The DID must be derived from the key on the record, or the charter names one
+    /// compact and binds another's key.
+    ///
+    /// Checked at the authority layer directly, because the signature layer catches this
+    /// first: a charter whose DID and key disagree cannot verify, since the DID is what
+    /// the archive resolves the signature against. The authority rule is the second of
+    /// two, and it is here so the refusal says what is wrong rather than only that a
+    /// signature failed.
+    #[test]
+    fn a_charters_did_must_match_its_key() {
+        let mut a = InMemoryArchive::new();
+        let members: Vec<(DidKey, PrivKey)> = ["M1", "M2"]
+            .iter()
+            .map(|n| community(&mut a, n, ts(10)))
+            .collect();
+        let (priv_, pub_) = keys::generate(Alg::Ed25519).unwrap();
+        let (_, other_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let did = DidKey::from_pubkey(&pub_).unwrap();
+        let mismatched = Signed::build(
+            CompactCharter {
+                label: "Mismatched".into(),
+                did: did.clone(),
+                root_pubkey: other_pub,
+                members: members.iter().map(|(d, _)| d.clone()).collect(),
+                chartered_by: members.iter().map(|(d, _)| d.clone()).collect(),
+                chartered_at: ts(50),
+            },
+            &{
+                let mut v: Vec<(&str, &PrivKey)> = vec![(did.as_str(), &priv_)];
+                v.extend(members.iter().map(|(d, p)| (d.as_str(), p)));
+                v
+            },
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::CompactChartered(mismatched)).unwrap();
+        assert!(
+            matches!(a.verify(&cid), Err(KcError::SignatureInvalid)),
+            "the signature layer catches it first"
+        );
+        let err = authorize(&a, a.get(&cid).unwrap(), Q, P).expect_err("and so does the rule");
+        assert!(
+            err.to_string().contains("must be derived from the key it carries"),
+            "got: {err}"
+        );
+    }
+
+    /// Only members charter a compact, and every member must be a community the archive
+    /// knows: a compact constituted by names rather than by communities is a claim, not
+    /// a body.
+    #[test]
+    fn a_charter_is_constituted_by_real_members() {
+        let mut a = InMemoryArchive::new();
+        let members: Vec<(DidKey, PrivKey)> = ["M1", "M2"]
+            .iter()
+            .map(|n| community(&mut a, n, ts(10)))
+            .collect();
+        let (outsider, outsider_priv) = community(&mut a, "Outsider", ts(10));
+
+        // A non-member chartering it.
+        let (priv_, pub_) = keys::generate(Alg::Ed25519).unwrap();
+        let did = DidKey::from_pubkey(&pub_).unwrap();
+        let signed = Signed::build(
+            CompactCharter {
+                label: "Interloped".into(),
+                did: did.clone(),
+                root_pubkey: pub_,
+                members: members.iter().map(|(d, _)| d.clone()).collect(),
+                chartered_by: vec![members[0].0.clone(), outsider.clone()],
+                chartered_at: ts(50),
+            },
+            &[
+                (did.as_str(), &priv_),
+                (members[0].0.as_str(), &members[0].1),
+                (outsider.as_str(), &outsider_priv),
+            ],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::CompactChartered(signed)).unwrap();
+        refused(&a, &cid, "without being one of its members");
+
+        // A member that has published no identity at all.
+        let (ghost_priv, ghost_pub) = keys::generate(Alg::Ed25519).unwrap();
+        let ghost = DidKey::from_pubkey(&ghost_pub).unwrap();
+        let _ = ghost_priv;
+        let (priv2, pub2) = keys::generate(Alg::Ed25519).unwrap();
+        let did2 = DidKey::from_pubkey(&pub2).unwrap();
+        let mut roster: Vec<DidKey> = members.iter().map(|(d, _)| d.clone()).collect();
+        roster.push(ghost);
+        let signed2 = Signed::build(
+            CompactCharter {
+                label: "Ghostly".into(),
+                did: did2.clone(),
+                root_pubkey: pub2,
+                members: roster,
+                chartered_by: members.iter().map(|(d, _)| d.clone()).collect(),
+                chartered_at: ts(50),
+            },
+            &{
+                let mut v: Vec<(&str, &PrivKey)> = vec![(did2.as_str(), &priv2)];
+                v.extend(members.iter().map(|(d, p)| (d.as_str(), p)));
+                v
+            },
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::CompactChartered(signed2)).unwrap();
+        refused(&a, &cid, "has published no community identity");
+    }
+
+    /// A chartered compact's own key resolves, so it can sign for itself thereafter.
+    /// Without this step in `resolve_did` a compact could be chartered and then never
+    /// act, since nothing would verify anything it signed.
+    #[test]
+    fn a_chartered_compacts_key_resolves() {
+        let mut a = InMemoryArchive::new();
+        let (_members, _one, two, commons) = federation(&mut a);
+        // The registration above is signed by both compacts' own keys, and verifying the
+        // whole archive is what proves those signatures resolve.
+        verify_all(&a).expect("a chartered compact's signature verifies");
+        ok(&a, &commons);
+        let _ = two;
+    }
+
+    /// A compact is second-class to constitute: one member may not charter it alone.
+    #[test]
+    fn one_member_may_not_charter_a_compact_alone() {
+        let mut a = InMemoryArchive::new();
+        let members: Vec<(DidKey, PrivKey)> = ["M1", "M2"]
+            .iter()
+            .map(|n| community(&mut a, n, ts(10)))
+            .collect();
+        let (_c, cid) = charter(&mut a, "Solo", &members[0..1], ts(50));
+        refused(&a, &cid, "second-class");
+    }
+}
+
+// --- office capabilities: the roles that select who is sanctioned ------------
+//
+// `Capability` named five services and no office, so an injunction could suspend
+// every relation of exchange a community holds and leave untouched every role that
+// decides who is sanctioned. The trigger is covenant-facing by construction — an
+// in-force injunction is the only thing that revokes a capability — and never the
+// member's interior (`natural_law.md` "The interior of a member community").
+
+mod office_capability {
+    use super::*;
+    use kc_ceremony::inter::{ExaminerEntry, ExaminerRegistry};
+    use kc_escalation::{Capability, InterimInjunction};
+    use kc_observer::{ObserverEntry, ObserverRegistry};
+
+    const Q: usize = DEFAULT_QUORUM_THRESHOLD;
+    const P: usize = DEFAULT_PANEL_MIN;
+    const NINETY_DAYS: i64 = 90 * 24 * 3600;
+    const TERM: i64 = 365 * 24 * 3600;
+    /// Inside the §2 examiner and §8 observer term maxima, which are shorter than §4's.
+    const SHORT_TERM: i64 = 90 * 24 * 3600;
+
+    fn ok(a: &InMemoryArchive, cid: &Cid) {
+        authorize(a, a.get(cid).unwrap(), Q, P).expect("expected authorized");
+    }
+    /// Refused, and the refusal names the office that was withheld.
+    fn refuses(a: &InMemoryArchive, cid: &Cid, office: &str) {
+        let err = authorize(a, a.get(cid).unwrap(), Q, P).expect_err("expected rejection");
+        let msg = err.to_string();
+        assert!(
+            msg.contains(office) && msg.contains("held out of"),
+            "the refusal must name the {office} office, got: {msg}"
+        );
+    }
+
+    /// Seat one mediator for `c`, returning the registry CID (unlike `add_mediators`,
+    /// which discards it) so the registration itself can be put to the authority pass.
+    fn seat_mediator(
+        a: &mut InMemoryArchive,
+        c: &DidKey,
+        root: &PrivKey,
+        at: i64,
+    ) -> (Cid, DidKey, PrivKey) {
+        let (mpriv, mpub) = keys::generate(Alg::Ed25519).unwrap();
+        let mdid = DidKey::from_pubkey(&mpub).unwrap();
+        let (_epriv, epub) = keys::generate(Alg::Ed25519).unwrap();
+        let reg = Signed::build(
+            MediatorRegistry {
+                nominating_community: c.clone(),
+                entries: vec![MediatorEntry {
+                    mediator_did: mdid.clone(),
+                    mediator_pubkey: mpub,
+                    encryption_pubkey: epub,
+                    valid_from: ts(at),
+                    valid_until: Some(ts(at + TERM)),
+                    trained_by: None,
+                }],
+                issued_at: ts(at),
+            },
+            &[(c.as_str(), root)],
+        )
+        .unwrap();
+        let cid = a.append(ArchiveEntry::MediatorRegistryUpdated(reg)).unwrap();
+        (cid, mdid, mpriv)
+    }
+
+    fn seat_observer(a: &mut InMemoryArchive, c: &DidKey, root: &PrivKey, at: i64) -> Cid {
+        let (_opriv, opub) = keys::generate(Alg::Ed25519).unwrap();
+        let odid = DidKey::from_pubkey(&opub).unwrap();
+        let reg = Signed::build(
+            ObserverRegistry {
+                nominating_community: c.clone(),
+                entries: vec![ObserverEntry {
+                    observer_did: odid,
+                    observer_pubkey: opub,
+                    declared_perspective: "labor-rights".into(),
+                    valid_from: ts(at),
+                    valid_until: Some(ts(at + SHORT_TERM)),
+                }],
+                issued_at: ts(at),
+            },
+            &[(c.as_str(), root)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ObserverRegistryUpdated(reg)).unwrap()
+    }
+
+    fn seat_examiner(a: &mut InMemoryArchive, c: &DidKey, root: &PrivKey, at: i64) -> Cid {
+        let (_xpriv, xpub) = keys::generate(Alg::Ed25519).unwrap();
+        let xdid = DidKey::from_pubkey(&xpub).unwrap();
+        let reg = Signed::build(
+            ExaminerRegistry {
+                nominating_community: c.clone(),
+                entries: vec![ExaminerEntry {
+                    examiner_did: xdid,
+                    examiner_pubkey: xpub,
+                    valid_from: ts(at),
+                    valid_until: Some(ts(at + SHORT_TERM)),
+                }],
+                issued_at: ts(at),
+            },
+            &[(c.as_str(), root)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::ExaminerRegistryUpdated(reg)).unwrap()
+    }
+
+    fn issue(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        revoked: Vec<Capability>,
+        panel: &[(&DidKey, &PrivKey)],
+        at: i64,
+    ) -> Cid {
+        let panel_dids = panel.iter().map(|(d, _)| (*d).clone()).collect();
+        let pairs: Vec<(&str, &PrivKey)> = panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let inj = Signed::build(
+            InterimInjunction {
+                subject_community: subject.clone(),
+                dispute_cid: None,
+                harm: "ongoing interference at the boundary".into(),
+                protective_measures: "suspend the named capabilities".into(),
+                revoked_capabilities: revoked,
+                panel: panel_dids,
+                issued_at: ts(at),
+                expires_at: ts(at + NINETY_DAYS),
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::InjunctionIssued(inj)).unwrap()
+    }
+
+    /// Subject S (with its root key) plus three non-party communities each seating one
+    /// mediator, so an emergency panel can be composed against S.
+    fn fixture(a: &mut InMemoryArchive) -> ((DidKey, PrivKey), Vec<(DidKey, PrivKey)>) {
+        let s = community(a, "S", ts(1));
+        let mut pool = vec![];
+        for name in ["C", "D", "E"] {
+            let (c, cp) = community(a, name, ts(1));
+            let (_cid, mdid, mpriv) = seat_mediator(a, &c, &cp, 1);
+            pool.push((mdid, mpriv));
+        }
+        (s, pool)
+    }
+
+    /// MEASUREMENT (item B), now the regression test. Against unmodified code this ran as
+    /// `an_injunction_cannot_hold_a_community_out_of_office` and passed: an injunction
+    /// revoking `Capability::all()` — every capability the compact could then express —
+    /// left the subject seating mediators, nominating observers, seating examiners, and
+    /// supplying a mediator to a third party's emergency panel. All five acts authorized,
+    /// because all five capabilities were relations of exchange and none was an office.
+    #[test]
+    fn an_injunction_holds_a_community_out_of_every_office() {
+        let mut a = InMemoryArchive::new();
+        let ((s, sp), pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+
+        // The offices, revoked, in force from t=100 for ninety days.
+        let inj = issue(&mut a, &s, Capability::offices().to_vec(), &panel, 100);
+        ok(&a, &inj);
+
+        // Each roster refuses, and the refusal names the office it withheld.
+        let (mreg, s_mediator, s_mediator_priv) = seat_mediator(&mut a, &s, &sp, 200);
+        refuses(&a, &mreg, "MediatorSeat");
+        let oreg = seat_observer(&mut a, &s, &sp, 200);
+        refuses(&a, &oreg, "ObserverSeat");
+        let xreg = seat_examiner(&mut a, &s, &sp, 200);
+        refuses(&a, &xreg, "ExaminerSeat");
+
+        // The mediator S seated before the injunction may not sit on an emergency panel
+        // while it is in force. (Seated at t=1 by the fixture, so the seat itself stands.)
+        let (before, before_priv) = {
+            let (_cid, d, p) = seat_mediator(&mut a, &s, &sp, 1);
+            (d, p)
+        };
+        let (other, _op) = community(&mut a, "Other", ts(1));
+        let mixed: Vec<(&DidKey, &PrivKey)> = vec![
+            (&pool[0].0, &pool[0].1),
+            (&pool[1].0, &pool[1].1),
+            (&before, &before_priv),
+        ];
+        let inj2 = issue(&mut a, &other, vec![Capability::Trade], &mixed, 300);
+        refuses(&a, &inj2, "EmergencyPanelSeat");
+        let _ = (s_mediator, s_mediator_priv);
+    }
+
+    /// CONTROL: the same four acts by a community under **no** injunction. They must stay
+    /// authorized, or the gate is refusing office to the whole compact rather than to the
+    /// held-out member.
+    #[test]
+    fn a_community_under_no_injunction_holds_every_office() {
+        let mut a = InMemoryArchive::new();
+        let ((s, sp), pool) = fixture(&mut a);
+        let (mreg, s_mediator, s_mediator_priv) = seat_mediator(&mut a, &s, &sp, 200);
+        ok(&a, &mreg);
+        let oreg = seat_observer(&mut a, &s, &sp, 200);
+        ok(&a, &oreg);
+        let xreg = seat_examiner(&mut a, &s, &sp, 200);
+        ok(&a, &xreg);
+        let (other, _op) = community(&mut a, "Other", ts(1));
+        let mixed: Vec<(&DidKey, &PrivKey)> = vec![
+            (&pool[0].0, &pool[0].1),
+            (&pool[1].0, &pool[1].1),
+            (&s_mediator, &s_mediator_priv),
+        ];
+        let inj = issue(&mut a, &other, vec![Capability::Trade], &mixed, 300);
+        ok(&a, &inj);
+    }
+
+    /// CONTROL, the other direction and the whole point of the split: an injunction that
+    /// suspends every **service** leaves every office intact. A member cut out of trade,
+    /// navigation, rescue coordination, commons and communication still seats mediators
+    /// and observers, because what it holds in exchange and what it holds in judgment are
+    /// separate holdings.
+    #[test]
+    fn revoking_every_service_touches_no_office() {
+        let mut a = InMemoryArchive::new();
+        let ((s, sp), pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let inj = issue(&mut a, &s, Capability::services().to_vec(), &panel, 100);
+        ok(&a, &inj);
+        let (mreg, _d, _p) = seat_mediator(&mut a, &s, &sp, 200);
+        ok(&a, &mreg);
+        let oreg = seat_observer(&mut a, &s, &sp, 200);
+        ok(&a, &oreg);
+        let xreg = seat_examiner(&mut a, &s, &sp, 200);
+        ok(&a, &xreg);
+    }
+
+    /// A lapsed injunction holds nobody out: the office returns when the order does not
+    /// stand, on the same in-force reading every other injunction rule uses.
+    #[test]
+    fn a_lapsed_injunction_restores_the_office() {
+        let mut a = InMemoryArchive::new();
+        let ((s, sp), pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let inj = issue(&mut a, &s, vec![Capability::MediatorSeat], &panel, 100);
+        ok(&a, &inj);
+        // Inside the window: refused. After it: seated.
+        let (during, _d, _p) = seat_mediator(&mut a, &s, &sp, 200);
+        refuses(&a, &during, "MediatorSeat");
+        let (after, _d2, _p2) = seat_mediator(&mut a, &s, &sp, 100 + NINETY_DAYS + 1);
+        ok(&a, &after);
+    }
+
+    /// The `Deliberation` office reaches the count of weight itself, so a held-out
+    /// community's signature stops carrying a second-class quorum — and the shortfall
+    /// says why, rather than reading as an ordinary want of signatures.
+    #[test]
+    fn withholding_deliberation_withholds_the_second_class_quorum() {
+        let mut a = InMemoryArchive::new();
+        let ((s, sp), pool) = fixture(&mut a);
+        let panel: Vec<(&DidKey, &PrivKey)> = pool.iter().map(|(d, p)| (d, p)).collect();
+        let (x, x_priv) = community(&mut a, "X", ts(1));
+        let inj = issue(&mut a, &s, vec![Capability::Deliberation], &panel, 100);
+        ok(&a, &inj);
+
+        // Two communities co-sign a second-class act, one of them held out: the quorum of
+        // two is not met.
+        let held = a
+            .append(ArchiveEntry::ConductAttested(conduct(
+                vec![s.clone(), x.clone()],
+                &[(&s, &sp), (&x, &x_priv)],
+                DecisionClass::SecondClass,
+                ts(200),
+            )))
+            .unwrap();
+        let err = authorize(&a, a.get(&held).unwrap(), Q, P)
+            .expect_err("a held-out community carries no deliberative weight");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("held out of the Deliberation office"),
+            "the shortfall must say why, got: {msg}"
+        );
+
+        // CONTROL: the same act by two communities neither of which is held out.
+        let (y, y_priv) = community(&mut a, "Y", ts(1));
+        let fine = a
+            .append(ArchiveEntry::ConductAttested(conduct(
+                vec![y.clone(), x.clone()],
+                &[(&y, &y_priv), (&x, &x_priv)],
+                DecisionClass::SecondClass,
+                ts(200),
+            )))
+            .unwrap();
+        ok(&a, &fine);
     }
 }

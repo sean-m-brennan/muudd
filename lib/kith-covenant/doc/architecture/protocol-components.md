@@ -398,6 +398,27 @@ sees it, which makes this accountability rather than prevention.
   further escalation act, which is the one refusal the erosion audit's
   remediation carries (see
   [erosion-legibility.md](erosion-legibility.md)).
+- **The expedited path's covenant-facing floor**: an expedited
+  designation must cite at least one attested adverse `ConductRecord`
+  naming the subject and recorded no later than the designation itself.
+  The normal path carries this structurally, since condition 1 resolves
+  three restitution chains through `RestitutionVerified` and
+  `ConductAttested`, both compact-facing record kinds. The expedited
+  path relaxes condition 1 by design, and condition 3 checks only that
+  `criteria` and `cited_acts` are non-empty without resolving the CIDs,
+  so before this rule the emergency route was the one place a
+  designation could be assembled out of records describing what a
+  community does inside itself, or out of CIDs naming no archive record
+  at all. Measured before the rule: an expedited designation citing
+  `Cid::of_bytes(b"act")` was authorized, as were all four expedited
+  fixtures in the suite. What the rule protects is
+  [natural_law.md "The interior of a member community"](../background/natural_law.md#the-interior-of-a-member-community):
+  the compact forms no verdict on a member's internal morality until
+  that morality touches the covenant, and the emergency route may
+  shorten the pattern without dispensing with a covenant-facing act.
+  The *gravity* of the cited act is not machine-checked and remains the
+  deliberators' judgment, the same design limit `sustained_bad_faith`
+  carries for condition 1's "each more serious than the last".
 - **Restitution tracking**: restoration obligations, verification of
   completion.
 - **Re-entry procedure**: examination, witnessing, re-recitation
@@ -446,14 +467,83 @@ sees it, which makes this accountability rather than prevention.
   capacity, communication relays, navigation beacons) with Ostrom-style
   boundary definitions.
 - **Usage accounting**: consumption, contribution, free-rider
-  detection.
+  detection. *Sealed usage is built.* A commons may state a
+  `draw_allowance`, which is `provision_rule`'s machine-readable half
+  and the only part of Ostrom's proportionality a rule can act on:
+  before it, a record drawing ten times the written cap was authorized
+  exactly like one that honoured it, and the two were
+  indistinguishable to the archive. A community may then account
+  under §7's surveillance threshold rather than in public, committing
+  its figures and publishing a **zero-knowledge proof that the draw is
+  within the allowance**, with the figures themselves under threshold
+  custody keyed to fellow appropriators. A community that must publish
+  every figure to account honestly is disclosing its capacity, its
+  consumption pattern and its reserves to every other member, which is
+  what the threshold exists to bound.
+
+  Sealing is not a way to disappear from the detector, and it took a
+  measurement to see that it would have been. `free_rider_signals`
+  summed the figures, so a community sealing 1,850 units read as
+  `consumed: 0` and ranked nowhere: not merely absent but apparently
+  the most scrupulous member of the compact. The lens now counts
+  sealed records separately, reports whether the accounting is
+  complete, and turns each proof into a bound on what is hidden, so
+  the totals are honestly a floor rather than dishonestly a figure.
+
+  The proof is bit-decomposition with a Chaum-Pedersen OR-proof per
+  bit, about 15 KB per record, built on the generator and hashing
+  `kc-core` already carries for §8. It is more hand-rolled
+  cryptography on a tree that has none externally reviewed, and the
+  review item in `TODO.md` says so.
 - **Graduated-sanctions ledger**: progression from monitoring to
   warning to restriction to exclusion, with restoration paths.
+  *The commons equivalent of the anathema designation is built.*
+  `commons_federation.md` lists it under open questions: the ladder
+  and §5's designation track both existed and nothing joined them, so
+  a community could be excluded, restored and excluded again across
+  years and reach the designation track by no commons-specific route.
+  `kc-commons::CommonsEscalation` is the threshold, specified in the
+  shape §5's own four-condition anathema test carries: the subject is
+  at `Exclusion`, has arrived there more than once (defiance rather
+  than compliance, which is the distinction the source document draws),
+  has stood there long enough that restoration was available and not
+  taken, and one arrival suffices on a life-critical commons, which
+  the compact keeps running when it pauses everything else. The
+  finding gates nothing by itself; it is what a §5 designation may
+  cite, so the ladder is untouched and the threshold lives in the
+  refusal to record it.
 - **Light-lag-tolerant consensus**: CRDT-like where semantics permit;
   BFT-style where they do not. Eventually-consistent governance is
   the baseline assumption (per `commons_federation.md`).
 - **Nested-enterprise support**: hierarchical commons (community-level
   → regional → compact-wide) with appropriate authority at each level.
+  *The inter-compact level is built*, which
+  `commons_federation.md` had left as "a forward pointer". Nothing at
+  that level could be said while a compact had no identity: the only
+  compact-level name in the tier was a self-declared string, so two
+  witnesses could write the same label and mean different compacts.
+  `kc-identity::CompactCharter` gives a compact a DID of its own,
+  co-signed by a quorum of its member communities **and** by the
+  compact's own key. That asymmetry with `CommunityIdentity`, which is
+  self-signed, is the content of "a higher nesting level" as this tier
+  realizes it: a community exists by its own act, and a compact is
+  constituted by its members. A `CommonsRegistration` then carries an
+  appropriator level, and at the compact level its appropriators are
+  whole compacts.
+
+  What makes the nesting real rather than decorative is one rule:
+  **the inter-compact level may not reach past a compact to its member
+  communities.** A sanction or escalation on such a commons names a
+  compact, never one of its members. A federation that could
+  discipline a member community directly would be governing at the
+  compact's scale while answering to nobody at it, which is the
+  sovereignty drift `liminal_institutions.md` warns about arriving one
+  level up. Measured before the rule: nothing stopped it, because
+  nothing distinguished the levels at all.
+
+  The habitat level remains autonomous_trust's, and the compact of
+  compacts is not itself a further governance tier here: what is built
+  is the level's identity, its commons, and its limit.
 - **Decision-class enforcement**:
   cryptographic enforcement of the first-class / second-class
   distinction (per §3 metadata above). Second-class decisions
@@ -466,7 +556,14 @@ sees it, which makes this accountability rather than prevention.
   decisions fall into which class is a constitutional-layer
   commitment; reclassification is itself a second-class decision
   (the classification is self-protecting in this specific
-  structural sense). Specified in detail in
+  structural sense). *Reclassification is built* and has been since
+  the §9 slice: `kc-constitution::CompactIncapableAmendment` with
+  `AmendmentKind::{Add, Remove}` moves a matter into or out of the
+  compact-incapable list, genesis matters excepted, with the harder
+  bar on contraction. It was deferred in §7's own slice and built in
+  §9's, and the deferral note in `kc-commons` outlived the deferral by
+  several slices, from which the tracker copied it: the item read as
+  outstanding for as long as nobody checked. Specified in detail in
   [commons_federation.md "Light-lag-honest decision classes"](../background/commons_federation.md#light-lag-honest-decision-classes).
 
 ### 8. Jester and observer function
@@ -540,6 +637,22 @@ Three candidate mechanisms, layerable:
   trade, commons withdrawals) are revocable at protocol level when a
   community ignores an injunction. The teeth are withdrawal of
   protocol-level services, not external coercion.
+
+  As built, a capability is a **service** or an **office**, and the two
+  are revoked independently. The services are the relations of exchange
+  just listed. The offices are the roles that select who is sanctioned:
+  a mediator-pool seat, an observer or jester seat, an examining seat,
+  deliberative weight in a second-class decision, a seat on an
+  emergency panel. Without the second kind, an injunction could suspend
+  every relation of exchange a community held and leave untouched every
+  role by which it judged others, which is the option the design wanted
+  and could not express. What may trigger the withholding stays bounded
+  by the covenant: an in-force injunction is the only thing that
+  revokes a capability, and an injunction answers to conduct at the
+  boundary. Holding a community out of office for what it does at home
+  would be a verdict on a member's interior, which
+  [natural_law.md](../background/natural_law.md#the-interior-of-a-member-community)
+  forbids the compact to form.
 - **Transparency-as-teeth.** Violations are published immediately and
   durably. The reputational and material cost is downstream of
   publication; the protocol's job is ensuring publication is reliable
@@ -572,11 +685,30 @@ rather than by an external force:
   initiated. Life-critical commons proceed; the deliberative and
   adjudicative functions pause. The cadence is part of the
   constitutional layer; observer corps surfaces deviations.
+- **The adopted minimum content as a protected artifact.** The thin
+  functional minimum the compact has adopted as the ground of its own
+  conduct where consent has run out
+  ([natural_law.md](../background/natural_law.md#the-ground-the-compact-claims-for-itself))
+  is a second constitutional artifact, adopted once by quorum and
+  amendable only by second-class procedure. It is **not** a row on the
+  compact-incapable list and may not be filed as one: that list names
+  matters belonging to a member, and these forbearances bind the
+  compact. Two differences from the list are load-bearing. Narrowing
+  the ground carries the same asymmetric higher bar as contracting the
+  list, at every one of the four sites. And a *founding* forbearance
+  is contractible at that bar rather than immutable, because the
+  pressure the doctrine defends against is an argument that is always
+  available and always pragmatic, which a bar answers and a lock does
+  not.
 - **Erosion-detection alerting.** The audit commons surfaces
-  trends in either dimension (exceptions multiplying in the
-  compact-incapable list, the structured-fast period contracting
-  under pragmatic argument) to the observer corps and to the
-  member communities.
+  trends in any of the three dimensions (exceptions multiplying in the
+  compact-incapable list, forbearances narrowed out of the compact's own
+  adopted ground, the structured-fast period contracting under
+  pragmatic argument) to the observer corps and to the
+  member communities. The narrowing signal is the one with no
+  constituency inside the compact to raise it: nobody is asked to
+  endorse the minimum content, so no member holds it as a commitment to
+  defend when the argument for narrowing arrives.
 
 The substrate-deference test is operational and diagnostic
 (both functions are live in the test's continuous performance);
@@ -750,6 +882,9 @@ beside it:
 | Substantive-re-engagement state machine rung | §5 | `kc-escalation` (`SubstantiveReEngagement`, the ladder's terminal rung) |
 | Manufactured-event provenance tagging in archive | §3 | `kc-provenance` (`EventReport` carries declared incentives, information history, disclosed interests) |
 | Decision-class metadata and cryptographic enforcement | §3, §7 | `DecisionClass` on the record; enforced in `kc-archive::authority` by counting *distinct communities' verified signatures*, so a faction cannot supply a quorum by asserting one |
+| Sealed usage with a proof of allowance | §7 | `CommonsRegistration.draw_allowance` gives `provision_rule` a machine-readable half, and `SealedUsage` commits the figures with a bit-decomposition bound proof (`kc-core::pedersen`, ~15 KB) plus threshold custody keyed to fellow appropriators. `free_rider_signals` counts sealed records rather than dropping them, so sealing bounds what a reader cannot see instead of hiding it |
+| Commons equivalent of the anathema designation | §7 | `CommonsEscalation` and its four conditions: at `Exclusion`, arrived there more than once, stood there past the restoration window, and a lower bar for life-critical commons. Cites specific sanctions, and gates nothing itself: a §5 designation may cite it |
+| Nested inter-compact enterprises | §7 | `kc-identity::CompactCharter` (a compact DID constituted by its members and its own key) plus `AppropriatorLevel` on the registration, and the subsidiarity rule: the higher level names compacts, never their member communities |
 | Structured-skepticism protocol invocation | §4 | `SkepticismInvocation` + `SkepticismReview`, plus the hold on `EventActionInvoked`: an action premised on an under-corroborated qualifying event is refused, not merely flagged. Either the originator's own declaration or the pool's invocation places the hold, and a `Pretextual` review releases it from either. The invocation is what reaches an event whose originator declared it mundane, and the review is what makes a hold answerable to somebody. The `structured_skepticism` lens reads both, so a pool-held event is no longer invisible to it |
 | Consent to the panel as constituted | §4 | `PanelConsent`, self-signed, naming the panel in full. Gates a `Settled` outcome and nothing else: requiring consent to decide would hand either party a veto, but a settlement the parties did not consent to is not a settlement |
 | Sealed decisions with threshold-reveal | §4 | `SealedReasoning` + `DecisionUnsealed` over `kc_core::ThresholdCustody`, the §8 primitive at its second use. Custodians are **communities**, because §4's two-year mediator term cannot carry a twenty-five-year seal; no party holds a share and no quorum sits with the panel's own communities |
@@ -763,6 +898,8 @@ beside it:
 | Designation re-examination follow-through | §5 | `kc-escalation::ReexaminationConclusion` plus the gate on citing a lapsed designation. Closes the confirm-leaves-no-record limit the erosion audit stated rather than papered over |
 | Compact-incapable list as constitutional artifact | §9 | `kc-constitution` (`ConstitutionGenesis`; genesis-immutable matters, asymmetric amendment) |
 | Structured-fast cadence as protocol-enforced operating mode | §9 | `FastPeriod` + `in_structured_fast`; hard refusal *during* a fast is a documented non-goal (a fast is a disposition, not a compliance regime) |
+| The adopted minimum content as a protected artifact | §9 | `kc-constitution::MinimumContentAdoption` (a singleton, keyed to the four sites) + `MinimumContentAmendment`, whose `Narrow` carries the asymmetric bar and counts *weight*. Deliberately not a row on the compact-incapable list, and deliberately without genesis-immutability: a founding forbearance yields at the higher bar, since the doctrine asks for a bar and not a lock. `minimum_forbearance` is the self-binding gate beside `compact_incapable`, and a narrowing is a contraction on `substrate_deference` and its own dimension on `erosion_alert` |
+| Offices distinguished from services in the capability set | §9 | `Capability::offices()` beside `Capability::services()`: `MediatorSeat`, `ObserverSeat`, `ExaminerSeat`, `Deliberation`, `EmergencyPanelSeat`, gated at the three rosters, both emergency panels, and inside `deliberative_weight` itself. Before it, an injunction revoking every capability the compact could express left all three rosters open and every panel seat available. The trigger is an in-force injunction and nothing else, so the withholding is covenant-facing and never a reading of a member's interior |
 | Composition-drift dashboard maintained by observer corps | §8 | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
 | Capture-resistance scenario simulation in test harness | §10 | `harness.py`: ten scenarios scored against criteria stated in advance, run continuously over a parameterized space. Two of the ten have no adversary (the quiet polity, the abandoned office), which is what the omission signals need |
 | Sponsor-stake tracking | §2 | `SponsorshipRecord` + sponsor concentration in `composition_graph` |

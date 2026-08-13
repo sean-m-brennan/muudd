@@ -1302,6 +1302,20 @@ Operationally:
   (if it leads there) to a fresh recognition ceremony establishing
   full membership.
 
+The ground of the self-binding is the thin functional minimum the compact
+has adopted. The virtues the compact draws on its own behavior at the
+frontier are not owed because the encountered party has joined, has
+recited anything, or is in a position to reciprocate, and they are not
+owed on the strength of any one member's substrate, which the compact
+does not speak for. They are what any viable order among vulnerable,
+approximately equal, imperfectly altruistic parties contains, which is
+why the compact does not treat them as discretionary where reciprocity
+is absent
+([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). The same
+ground carries the *hostis humani generis* designation at the other
+edge, and it stops at the compact's own boundary: it says nothing about
+whom a member community counts as within its own order.
+
 What the compact does *not* have, on this framing, is responsibility
 toward communities it does not encounter. This is not a moral
 shrinkage (no compact can bear responsibility for all human
@@ -1381,7 +1395,13 @@ Two subcases:
   and 5 in their full theistic form. They commit to the virtues,
   acknowledge their own fallenness, and recognize the other; they
   do not name a transcendent moral authority they do not believe in. The compact accepts
-  the asymmetry and names it as such.
+  the asymmetry and names it as such. What binds such a community to the
+  virtues it commits to is the adopted functional minimum rather than a
+  substrate it has declined to name
+  ([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)), which is
+  what makes the category coherent and not a courtesy. The thinness of that
+  ground is also why the category remains restricted: it supplies no
+  anti-spiral features and cannot be enlarged to yield them.
 - **Closed materialism**: a community that asserts materialism as
   the final word and holds that other communities' theistic claims
   are simply false. Such a community cannot honestly recite Movement
@@ -1538,7 +1558,11 @@ itself a measurable property and should be tested explicitly.
   arrangements stable, or do they corrode the compact over time
   through asymmetric expectations? The Mongol case (Tengrist
   tolerance grounded in the view that other monotheisms were variants
-  of Tengrism) is suggestive but not directly applicable.
+  of Tengrism) is suggestive but not directly applicable. What binds a
+  restricted member is settled (the adopted functional minimum, see
+  [natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)); whether the
+  arrangement holds over generations is the part that remains open, and a
+  coherent ground is not the same thing as a durable one.
 - **Detection of inauthenticity at first reception** is a virtue, not
   a procedure. The compact's mediator and recipient roles must
   cultivate this discernment, but how, and against what corrupting

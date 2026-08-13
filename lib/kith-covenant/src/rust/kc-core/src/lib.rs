@@ -23,6 +23,8 @@ pub mod did;
 pub mod error;
 pub mod keys;
 #[cfg(feature = "source-protection")]
+pub mod pedersen;
+#[cfg(feature = "source-protection")]
 pub mod ring;
 pub mod signature;
 pub mod time;
@@ -36,6 +38,8 @@ pub use custody::{
 pub use did::DidKey;
 pub use error::{KcError, KcResult};
 pub use keys::{Alg, PrivKey, PubKey, Signature};
+#[cfg(feature = "source-protection")]
+pub use pedersen::{Blinding, BoundProof, Commitment, RANGE_BITS};
 #[cfg(feature = "source-protection")]
 pub use ring::{Bytes32, DlEqProof, KeyImage, RingSignature, RingSigned};
 pub use signature::{SignatureEntry, Signed};

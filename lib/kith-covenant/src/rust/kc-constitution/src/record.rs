@@ -162,3 +162,106 @@ pub struct FastCadenceAmendment {
     pub decision_class: DecisionClass,
     pub decided_at: Timestamp,
 }
+
+/// Where in the compact's conduct a forbearance operates (natural_law.md "The four
+/// sites"). Recorded so a reader can see which part of the boundary a contraction
+/// reaches; the amendment rule is the same at every site.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MinimumSite {
+    /// Duties owed to a non-member met in trade, transit, rescue, or disaster.
+    NonMemberDuties,
+    /// The standard the *hostis humani generis* designation rests on.
+    HostisHumaniGeneris,
+    /// What binds a restricted member that names no transcendent authority.
+    RestrictedMember,
+    /// The refusals governing what the compact does to those outside it.
+    BoundaryRefusal,
+}
+
+impl MinimumSite {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::NonMemberDuties => "NonMemberDuties",
+            Self::HostisHumaniGeneris => "HostisHumaniGeneris",
+            Self::RestrictedMember => "RestrictedMember",
+            Self::BoundaryRefusal => "BoundaryRefusal",
+        }
+    }
+}
+
+/// One forbearance in the adopted minimum content: something the compact will not do
+/// at its boundary, whatever anyone there has consented to. `key` is the stable
+/// identifier amendments match on; `description` is for the reader.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Forbearance {
+    pub key: String,
+    pub description: String,
+    pub site: MinimumSite,
+}
+
+/// The compact's adoption of the functional minimum as the ground of its own conduct
+/// where consent has run out (natural_law.md "The ground the compact claims for
+/// itself"), quorum-ratified. There is **exactly one** adoption per archive; a second
+/// is refused.
+///
+/// This is **not** an entry on the compact-incapable list and must never be filed as
+/// one. That list names matters belonging to a *member* that the compact will not
+/// decide; these forbearances restrain the compact's *own* conduct, which is the one
+/// thing it has always been free to bind. "Recognizing a standard and holding a writ
+/// are different things, and only the second would be a matter belonging to a member."
+///
+/// Unlike the genesis compact-incapable matters, a genesis-original forbearance is
+/// **not** immutable: contracting the minimum content carries the asymmetric higher
+/// bar and nothing more. The doctrine asks for a bar rather than a lock, because the
+/// pressure it defends against is an argument that is "always available and always
+/// pragmatic" rather than an argument that is never legitimate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MinimumContentAdoption {
+    pub forbearances: Vec<Forbearance>,
+    /// The adopting communities (each co-signs); a distinct-community quorum.
+    pub adopters: Vec<DidKey>,
+    pub decision_class: DecisionClass,
+    pub adopted_at: Timestamp,
+}
+
+/// Whether an amendment to the minimum content adds a forbearance or removes one.
+/// Narrowing is the capture-risk direction and carries the higher bar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ForbearanceChange {
+    /// Add a forbearance to the adopted ground (expansion — easy).
+    Broaden,
+    /// Remove one (contraction — hard, at every site and including genesis-original
+    /// forbearances).
+    Narrow,
+}
+
+impl ForbearanceChange {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Broaden => "Broaden",
+            Self::Narrow => "Narrow",
+        }
+    }
+    /// Contraction (the capture-risk direction) carries the higher quorum bar.
+    pub fn is_contraction(&self) -> bool {
+        matches!(self, Self::Narrow)
+    }
+}
+
+/// A second-class amendment to the adopted minimum content. Co-signed by the
+/// deciders. `Broaden` requires the normal distinct-community quorum; `Narrow`
+/// requires the higher contraction bar.
+///
+/// The bar is doing work member conviction cannot: nobody in the compact is asked to
+/// endorse this ground, so "when the argument for narrowing the forbearance owed at
+/// the frontier arrives, no member holds the minimum content as its own commitment to
+/// defend" (natural_law.md, limit 4). The protection is procedural for that reason.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MinimumContentAmendment {
+    pub change: ForbearanceChange,
+    pub forbearance: Forbearance,
+    pub rationale: String,
+    pub deciders: Vec<DidKey>,
+    pub decision_class: DecisionClass,
+    pub decided_at: Timestamp,
+}

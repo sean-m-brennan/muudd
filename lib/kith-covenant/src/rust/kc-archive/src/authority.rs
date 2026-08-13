@@ -46,12 +46,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use kc_ceremony::inter::{ExaminerRegistry, InterCommunityWitnessRecord, SponsorshipRecord};
 use kc_commons::{is_second_class_level, sanction_rank, CommonsSanction, SanctionLevel, UsageRecord};
 use kc_conduct::{ActivityAttestation, AttestedFunction, DecisionClass};
-use kc_constitution::{AmendmentKind, CompactIncapableAmendment, FastCadenceAmendment};
+use kc_constitution::{
+    AmendmentKind, CompactIncapableAmendment, FastCadenceAmendment, ForbearanceChange,
+    MinimumContentAmendment,
+};
 use kc_core::{Cid, DidKey, KcError, KcResult, Timestamp};
 use kc_escalation::{
-    dispute_ladder_rank, is_second_class_rung, Designation, DesignationTier, DesignationUrgency,
-    InjunctionChallenge, InterimInjunction, LadderTransition, ReEntry, ReexaminationConclusion,
-    ReexaminationOutcome, RestitutionCompletion,
+    dispute_ladder_rank, is_second_class_rung, Capability, Designation, DesignationTier,
+    DesignationUrgency, InjunctionChallenge, InterimInjunction, LadderTransition, ReEntry,
+    ReexaminationConclusion, ReexaminationOutcome, RestitutionCompletion,
 };
 use kc_identity::DelegationScope;
 use kc_mediation::{ArgumentRecord, ArgumentRole, MediationDecision};
@@ -122,6 +125,24 @@ pub const MIN_DECISION_SEAL_SECONDS: i64 = 25 * 365 * 24 * 3600;
 /// below because a deterministic reveal that a panel could set a century out is not a
 /// deferral of publication but the end of it.
 pub const MAX_DECISION_SEAL_SECONDS: i64 = 30 * 365 * 24 * 3600;
+
+/// Distinct arrivals at `Exclusion` before a commons escalation may be found (§7,
+/// condition 2). Two: a community that returns to exclusion after being restored is not
+/// failing to understand the rule, which is the distinction `commons_federation.md`
+/// draws when it warns that disproportionate response "produces defiance rather than
+/// compliance". One offence, however grave, is what the ladder is for.
+pub const DEFAULT_COMMONS_ESCALATION_CYCLES: usize = 2;
+
+/// The same count for a life-critical commons (§7, condition 4). One: life support and
+/// rescue are what the compact keeps running when it pauses everything else, and a
+/// habitat cannot wait out a second cycle to find out whether the first meant anything.
+pub const DEFAULT_LIFE_CRITICAL_ESCALATION_CYCLES: usize = 1;
+
+/// How long a subject must have stood at `Exclusion` before a commons escalation may be
+/// found (§7, condition 3). One year: restoration is always available from exclusion,
+/// and the finding is that it was available and not taken, which cannot be said of a
+/// community still in the middle of taking it.
+pub const DEFAULT_COMMONS_EXCLUSION_DWELL_SECONDS: i64 = 365 * 24 * 3600;
 
 /// The shortest hold a mediator pool may impose (§4). One hour: the doctrine calibrates
 /// the interval to the event class and puts the floor of that range at "hours to days"
@@ -381,8 +402,9 @@ fn probationary_at_excluding(
     false
 }
 
-/// How many of `dids` carry deliberative weight at `at` — distinct communities,
-/// minus those inside a probation window (§2).
+/// How many of `dids` carry deliberative weight at `at` — distinct communities, minus
+/// those inside a probation window (§2) and those held out of the `Deliberation`
+/// office by an in-force injunction (§9).
 ///
 /// The *one* representation of "counting weight rather than signatures", so a
 /// component-level bar and the generic quorum cannot disagree about who counts.
@@ -416,6 +438,14 @@ fn deliberative_weight<'a>(
             tally.probationary += 1;
             continue;
         }
+        // The office of deliberation, withheld by an in-force injunction. It belongs
+        // here rather than at each bar for the reason the probation filter does: the
+        // count and the floor must read the same rule, or the bar that counts
+        // signatures becomes the cheaper of the two.
+        if capability_revoked(archive, did, Capability::Deliberation, at) {
+            tally.without_office += 1;
+            continue;
+        }
         tally.counted += 1;
     }
     tally
@@ -432,6 +462,9 @@ struct ProbationTally {
     counted: usize,
     /// How many were dropped for being inside a probation window.
     probationary: usize,
+    /// How many were dropped for being held out of the deliberation office by an
+    /// in-force injunction (§9).
+    without_office: usize,
     /// Whether the `barred` community was among them.
     barred: bool,
 }
@@ -445,6 +478,13 @@ impl ProbationTally {
             why.push(format!(
                 "{} of {} bound communities are probationary",
                 self.probationary, self.distinct
+            ));
+        }
+        if self.without_office > 0 {
+            why.push(format!(
+                "{} of {} bound communities are held out of the Deliberation office by \
+                 an in-force injunction",
+                self.without_office, self.distinct
             ));
         }
         if self.barred {
@@ -483,11 +523,17 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         // §7 commons acts an envoy may sign on the community's behalf.
         ArchiveEntry::CommonsRegistered(_)
         | ArchiveEntry::UsageAccounted(_)
-        | ArchiveEntry::SanctionApplied(_) => &[Envoy],
+        | ArchiveEntry::SanctionApplied(_)
+        | ArchiveEntry::CommonsEscalated(_) => &[Envoy],
+        // Opening a sealed usage record is the custodians' act, authorized by the
+        // custody it opens rather than by principal binding; this set is unused.
+        ArchiveEntry::UsageOpened(_) => &[],
         // §9 constitutional acts a community may co-sign via an envoy.
         ArchiveEntry::ConstitutionRatified(_)
         | ArchiveEntry::CompactIncapableAmended(_)
-        | ArchiveEntry::FastCadenceAmended(_) => &[Envoy],
+        | ArchiveEntry::FastCadenceAmended(_)
+        | ArchiveEntry::MinimumContentAdopted(_)
+        | ArchiveEntry::MinimumContentAmended(_) => &[Envoy],
         // Move 1: a community's reading of its own substrate, and a third party's
         // attestation of an interpreter's independence; an envoy may sign either.
         ArchiveEntry::SubstrateInterpreted(_)
@@ -526,6 +572,9 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         | ArchiveEntry::ReEntryCompleted(_)
         | ArchiveEntry::SubstantiveReEngagementInvoked(_)
         | ArchiveEntry::InjunctionConfirmed(_) => &[Envoy],
+        // A charter is signed by the compact's own key and its members' roots in
+        // person: constituting a body is not a thing a delegate does.
+        ArchiveEntry::CompactChartered(_) => &[],
         ArchiveEntry::IntraCommunityRite(_)
         | ArchiveEntry::SpeakerDelegated(_)
         | ArchiveEntry::WitnessRegistryUpdated(_)
@@ -597,8 +646,9 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         // party-side principal binding itself because only one of the two roles has a
         // community principal at all.
         ArchiveEntry::MediationDecided(_) | ArchiveEntry::ArgumentFiled(_) => None,
-        // Opening a seal is the custodians' act, checked by its own rule below.
-        ArchiveEntry::DecisionUnsealed(_) => None,
+        // Opening a seal is the custodians' act, checked by its own rule below. A
+        // usage opening is the same shape one component over.
+        ArchiveEntry::DecisionUnsealed(_) | ArchiveEntry::UsageOpened(_) => None,
         // §4.2. A recusal request and a protecting-power designation are the parties'
         // and protectors' own acts; a recusal *decision* is answered by mediators, who
         // are people in the pool rather than communities, so it carries no principal at
@@ -657,6 +707,19 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         ArchiveEntry::UsageAccounted(s) => {
             Some(ra(vec![s.payload.community.clone()], s.payload.recorded_at, false))
         }
+        // A charter is constituted by its members: second-class, so the
+        // distinct-community quorum arrives generically. The compact's own signature is
+        // required by the structural rule rather than counted here, since the compact is
+        // not one of the communities constituting it.
+        ArchiveEntry::CompactChartered(s) => {
+            Some(ra(s.payload.chartered_by.clone(), s.payload.chartered_at, true))
+        }
+        // The commons escalation finding is always second-class: it is never one
+        // community's to make about another, so the distinct-community quorum comes for
+        // free with the flag.
+        ArchiveEntry::CommonsEscalated(s) => {
+            Some(ra(s.payload.movers.clone(), s.payload.escalated_at, true))
+        }
         // A commons sanction's heavier levels (restriction, exclusion) are
         // second-class; the flag is set from the record's own decision class and
         // cross-checked against `to_level` in the structural rule.
@@ -699,6 +762,12 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
             Some(ra(s.payload.deciders.clone(), s.payload.decided_at, true))
         }
         ArchiveEntry::FastCadenceAmended(s) => {
+            Some(ra(s.payload.deciders.clone(), s.payload.decided_at, true))
+        }
+        ArchiveEntry::MinimumContentAdopted(s) => {
+            Some(ra(s.payload.adopters.clone(), s.payload.adopted_at, true))
+        }
+        ArchiveEntry::MinimumContentAmended(s) => {
             Some(ra(s.payload.deciders.clone(), s.payload.decided_at, true))
         }
         // Move 1. A substrate interpretation is the community speaking for
@@ -790,6 +859,9 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::InjunctionChallenged(s) => dids(s),
         ArchiveEntry::CommonsRegistered(s) => dids(s),
         ArchiveEntry::UsageAccounted(s) => dids(s),
+        ArchiveEntry::UsageOpened(s) => dids(s),
+        ArchiveEntry::CommonsEscalated(s) => dids(s),
+        ArchiveEntry::CompactChartered(s) => dids(s),
         ArchiveEntry::SanctionApplied(s) => dids(s),
         ArchiveEntry::ExaminerRegistryUpdated(s) => dids(s),
         ArchiveEntry::MemberRollPublished(s) => dids(s),
@@ -802,6 +874,8 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::ConstitutionRatified(s) => dids(s),
         ArchiveEntry::CompactIncapableAmended(s) => dids(s),
         ArchiveEntry::FastCadenceAmended(s) => dids(s),
+        ArchiveEntry::MinimumContentAdopted(s) => dids(s),
+        ArchiveEntry::MinimumContentAmended(s) => dids(s),
         ArchiveEntry::SubstrateInterpreted(s) => dids(s),
         ArchiveEntry::InterpreterIndependenceAttested(s) => dids(s),
         ArchiveEntry::EventReported(s) => dids(s),
@@ -1099,6 +1173,13 @@ fn authorize_mediator_registry(
     self_cid: &Cid,
     caps: MediatorCaps,
 ) -> KcResult<()> {
+    require_office(
+        archive,
+        &reg.nominating_community,
+        Capability::MediatorSeat,
+        reg.issued_at,
+        "seating mediators",
+    )?;
     if probationary_at(archive, &reg.nominating_community, reg.issued_at) {
         return Err(KcError::Authority(format!(
             "community {} is probationary at {}; a probationary community carries no \
@@ -2552,6 +2633,30 @@ fn authorize_designation(
         )));
     }
 
+    // The expedited path's covenant-facing floor.
+    //
+    // Condition 1 is relaxed above for the emergency path, and condition 3 checks only
+    // that `criteria` is non-empty and `cited_acts` is non-empty. The CIDs themselves are
+    // never resolved, so without this the emergency route is the one place a designation
+    // may be assembled out of records describing what a community does inside itself, or
+    // out of CIDs naming no archive record at all.
+    //
+    // natural_law.md ("The interior of a member community") holds that the compact forms
+    // no verdict on a member's internal morality until that morality touches the covenant.
+    // The normal path carries that structurally, because condition 1's restitution chains
+    // resolve through `RestitutionVerified` and `ConductAttested`, which are compact-facing
+    // by construction. This is the expedited path's equivalent: the emergency route may
+    // shorten the pattern, and may not dispense with a covenant-facing act altogether.
+    if matches!(d.urgency, DesignationUrgency::Expedited)
+        && !cites_adverse_conduct(archive, &d.subject_community, &d.cited_acts, d.designated_at)
+    {
+        return Err(KcError::Authority(
+            "expedited designation must cite at least one attested adverse act by the \
+             subject: the covenant-facing floor that the relaxed condition 1 leaves"
+                .into(),
+        ));
+    }
+
     // Anti-weaponization safeguard #1 (liminal_institutions.md): a community that
     // supplied a mediator to an in-force emergency injunction against this subject
     // may not also deliberate the permanent designation.
@@ -2567,6 +2672,30 @@ fn authorize_designation(
         }
     }
     Ok(())
+}
+
+/// True if any entry in `cited` resolves to an attested adverse `ConductRecord`
+/// naming `subject` and recorded no later than the designation itself. The
+/// expedited path's covenant-facing floor; see `authorize_designation`.
+///
+/// Note (design limit, the same one `sustained_bad_faith` carries): this asks that
+/// a covenant-facing act be cited, not that the *pattern* be one. A single adverse
+/// record satisfies it, which is what "expedited" means. The gravity of the act is
+/// not machine-checked and remains the deliberators' judgment.
+fn cites_adverse_conduct(
+    archive: &InMemoryArchive,
+    subject: &DidKey,
+    cited: &[Cid],
+    at: Timestamp,
+) -> bool {
+    cited.iter().any(|cid| match archive.get(cid) {
+        Some(ArchiveEntry::ConductAttested(s)) => {
+            &s.payload.subject_community == subject
+                && s.payload.kind.is_adverse()
+                && s.payload.recorded_at <= at
+        }
+        _ => false,
+    })
 }
 
 /// Number of cited restitution cycles that were satisfied and then re-violated
@@ -2711,17 +2840,16 @@ fn authorize_commons_registration(reg: &kc_commons::CommonsRegistration) -> KcRe
     Ok(())
 }
 
-/// The appropriators of the commons registered at `commons_cid`, or an error if
-/// it does not resolve to a `CommonsRegistered` entry.
-fn commons_appropriators<'a>(
+/// The commons registered at `commons_cid`, or an error if it does not resolve to a
+/// `CommonsRegistered` entry. The registration itself, rather than only its appropriator
+/// set, because a sealed usage record needs the draw allowance too.
+fn commons_registration<'a>(
     archive: &'a InMemoryArchive,
     commons_cid: &Cid,
     context: &str,
-) -> KcResult<BTreeSet<&'a str>> {
+) -> KcResult<&'a kc_commons::CommonsRegistration> {
     match archive.get(commons_cid) {
-        Some(ArchiveEntry::CommonsRegistered(s)) => {
-            Ok(s.payload.appropriators.iter().map(|d| d.as_str()).collect())
-        }
+        Some(ArchiveEntry::CommonsRegistered(s)) => Ok(&s.payload),
         _ => Err(KcError::Authority(format!(
             "{context} references {commons_cid} which is not a registered commons"
         ))),
@@ -2732,12 +2860,428 @@ fn commons_appropriators<'a>(
 /// reporting community must be one of that commons' appropriators (a usage claim
 /// from a non-appropriator is meaningless). Principal binding is already enforced
 /// generically before this runs.
+///
+/// A record that accounts under the **surveillance threshold** rather than in public is
+/// held to more: see [`authorize_sealed_usage`].
 fn authorize_usage(archive: &InMemoryArchive, u: &UsageRecord) -> KcResult<()> {
-    let appropriators = commons_appropriators(archive, &u.commons_cid, "usage record")?;
-    if !appropriators.contains(u.community.as_str()) {
+    let reg = commons_registration(archive, &u.commons_cid, "usage record")?;
+    if !reg
+        .appropriators
+        .iter()
+        .any(|a| a.as_str() == u.community.as_str())
+    {
         return Err(KcError::Authority(format!(
             "usage community {} is not an appropriator of the commons",
             u.community.as_str()
+        )));
+    }
+    if let Some(sealed) = &u.sealed {
+        authorize_sealed_usage(u, reg, sealed)?;
+    }
+    Ok(())
+}
+
+/// §7 sealed-usage rule: what a community must show when it accounts under the
+/// surveillance threshold instead of in public.
+///
+/// Four things, and the first is the one that keeps this from being a way to disappear.
+///
+/// **There must be something to prove.** A commons with no `draw_allowance` states no
+/// machine-readable cap, so a sealed record against it would commit figures and
+/// demonstrate nothing about them, which is worse than publishing: the compact would
+/// hold a number it cannot see and cannot bound. Sealing is available exactly where the
+/// commons has said what "within bounds" means.
+///
+/// **The proof must verify** against the commons' allowance and this record's own
+/// commitment. It cannot be lifted from another record, another commons or another
+/// bound; the bit commitments recombine to one commitment and no other.
+///
+/// **The cleartext fields must be zero.** A record carries its figures once. Otherwise a
+/// community could publish a flattering number beside a sealed real one, and no rule
+/// could ever hold the two to each other, which is the same reason a sealed §4 decision
+/// carries no public summary.
+///
+/// **The custody must not be the reporter's own.** Every custodian is a fellow
+/// appropriator of that commons and none is the reporting community: a community holding
+/// a quorum of the shares over its own figures has sealed nothing from anyone who
+/// matters, and the appropriator set is the right custodian pool because those are the
+/// parties the accounting is owed to.
+fn authorize_sealed_usage(
+    u: &UsageRecord,
+    reg: &kc_commons::CommonsRegistration,
+    sealed: &kc_commons::SealedUsage,
+) -> KcResult<()> {
+    let allowance = reg.draw_allowance.ok_or_else(|| {
+        KcError::Authority(
+            "this commons states no draw allowance, so a sealed usage record would commit \
+             figures and prove nothing about them"
+                .into(),
+        )
+    })?;
+    if u.consumed != 0 || u.contributed != 0 {
+        return Err(KcError::Authority(
+            "a sealed usage record carries no cleartext figures: a public number beside a \
+             sealed one is a second account of the same draw, and nothing could hold the \
+             two to each other"
+                .into(),
+        ));
+    }
+    sealed
+        .within_allowance
+        .verify(&sealed.consumed_commitment, allowance)
+        .map_err(|e| {
+            KcError::Authority(format!(
+                "sealed usage does not prove its draw is within the {allowance} allowance: {e}"
+            ))
+        })?;
+    sealed
+        .custody
+        .check_shape()
+        .map_err(|e| KcError::Authority(format!("sealed usage custody: {e}")))?;
+    let appropriators: BTreeSet<&str> = reg.appropriators.iter().map(|d| d.as_str()).collect();
+    for holder in sealed.custody.holders() {
+        if holder.as_str() == u.community.as_str() {
+            return Err(KcError::Authority(format!(
+                "{} holds a share of the custody over its own usage figures",
+                holder.as_str()
+            )));
+        }
+        if !appropriators.contains(holder.as_str()) {
+            return Err(KcError::Authority(format!(
+                "{} is not an appropriator of this commons, so has no standing to hold a \
+                 share of its usage figures",
+                holder.as_str()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// §7 usage-opening rule: a custodian quorum recovering a sealed record's figures.
+///
+/// Mirrors §4's `authorize_decision_unsealed`. The custodians are derived from the
+/// co-signers, each must actually hold a share, and the presented shares must recover
+/// figures that **open both commitments** — so a quorum cannot publish a number the
+/// community never committed to. A cause is required, since opening is an act somebody
+/// should have to account for even though it needs no waiting period.
+fn authorize_usage_opened(
+    archive: &InMemoryArchive,
+    op: &kc_commons::UsageOpened,
+    signers: &[&str],
+) -> KcResult<()> {
+    let usage = match archive.get(&op.usage_cid) {
+        Some(ArchiveEntry::UsageAccounted(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "usage opening references {} which is not a usage record",
+                op.usage_cid
+            )))
+        }
+    };
+    let sealed = match &usage.sealed {
+        Some(s) => s,
+        None => {
+            return Err(KcError::Authority(
+                "usage opening references a record whose figures were never sealed".into(),
+            ))
+        }
+    };
+    if op.cause.trim().is_empty() {
+        return Err(KcError::Authority(
+            "opening a sealed usage record must cite a cause".into(),
+        ));
+    }
+    let claimed: BTreeSet<&str> = op.custodians.iter().map(|d| d.as_str()).collect();
+    let actual: BTreeSet<&str> = signers.iter().copied().collect();
+    if claimed != actual {
+        return Err(KcError::Authority(format!(
+            "a usage opening's custodians must be exactly its co-signers; it names {} and \
+             {} signed",
+            claimed.len(),
+            actual.len()
+        )));
+    }
+    let holders: BTreeSet<String> = sealed
+        .custody
+        .holders()
+        .iter()
+        .map(|d| d.as_str().to_string())
+        .collect();
+    if let Some(stranger) = signers.iter().find(|s| !holders.contains(**s)) {
+        return Err(KcError::Authority(format!(
+            "{stranger} holds no share of this record's custody, so has nothing to open"
+        )));
+    }
+    let plaintext = sealed.custody.recover(&op.shares).map_err(|e| {
+        KcError::Authority(format!("usage opening does not open the custody: {e}"))
+    })?;
+    let figures = kc_commons::SealedUsage::figures_from(&plaintext).map_err(|e| {
+        KcError::Authority(format!("what the custody recovered is not usage figures: {e}"))
+    })?;
+    let consumed_blinding = kc_core::Blinding::from_bytes(&figures.consumed_blinding)
+        .map_err(|e| KcError::Authority(format!("recovered consumed blinding: {e}")))?;
+    let contributed_blinding = kc_core::Blinding::from_bytes(&figures.contributed_blinding)
+        .map_err(|e| KcError::Authority(format!("recovered contributed blinding: {e}")))?;
+    if !sealed
+        .consumed_commitment
+        .opens_to(figures.consumed, &consumed_blinding)
+        || !sealed
+            .contributed_commitment
+            .opens_to(figures.contributed, &contributed_blinding)
+    {
+        return Err(KcError::Authority(
+            "the recovered figures do not open the record's own commitments".into(),
+        ));
+    }
+    if op.consumed != figures.consumed || op.contributed != figures.contributed {
+        return Err(KcError::Authority(
+            "the opening discloses figures the custody shares do not recover".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// §7 compact-charter rule (Ostrom principle 8): what constitutes a compact.
+///
+/// A community's identity is self-signed, because a community exists by its own act. A
+/// compact does not: it is constituted by its members, so the charter needs a quorum of
+/// them (generic, via the second-class flag) **and** the compact's own signature.
+///
+/// The compact's own signature is not ceremony. The DID is derived from the key on the
+/// record, and without a signature proving somebody holds that key, a quorum could
+/// charter a compact around a key nobody has, and every later act signed by it would rest
+/// on an assumption the archive never checked. It is also what stops a compact being
+/// chartered around a key its members hold jointly and no compact-level body holds at
+/// all.
+fn authorize_compact_charter(
+    archive: &InMemoryArchive,
+    c: &kc_identity::CompactCharter,
+    signers: &[&str],
+) -> KcResult<()> {
+    if c.label.trim().is_empty() {
+        return Err(KcError::Authority("a compact charter must be named".into()));
+    }
+    if c.members.is_empty() {
+        return Err(KcError::Authority(
+            "a compact is constituted by its members and this charter names none".into(),
+        ));
+    }
+    let derived = DidKey::from_pubkey(&c.root_pubkey)
+        .map_err(|e| KcError::Authority(format!("compact charter key: {e}")))?;
+    if derived != c.did {
+        return Err(KcError::Authority(
+            "a compact charter's DID must be derived from the key it carries".into(),
+        ));
+    }
+    if !signers.contains(&c.did.as_str()) {
+        return Err(KcError::Authority(format!(
+            "the compact {} did not sign its own charter, so nothing shows the key it \
+             will act under is held by anyone",
+            c.did.as_str()
+        )));
+    }
+    let members: BTreeSet<&str> = c.members.iter().map(|d| d.as_str()).collect();
+    for ch in &c.chartered_by {
+        if !members.contains(ch.as_str()) {
+            return Err(KcError::Authority(format!(
+                "{} charters this compact without being one of its members",
+                ch.as_str()
+            )));
+        }
+    }
+    // Every member must be a community the archive knows, or the compact is constituted
+    // by names rather than by communities.
+    for m in &c.members {
+        if community_root_pubkey(archive, m).is_none() {
+            return Err(KcError::Authority(format!(
+                "{} is named a member of this compact but has published no community \
+                 identity",
+                m.as_str()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The compact chartered at some point in the archive that has `community` as a member,
+/// if any. Used by the subsidiarity rule to find the body a community answers through.
+fn compact_of(archive: &InMemoryArchive, community: &DidKey) -> Option<DidKey> {
+    archive.iter().find_map(|(_, e)| match e {
+        ArchiveEntry::CompactChartered(s)
+            if s.payload.members.iter().any(|m| m == community) =>
+        {
+            Some(s.payload.did.clone())
+        }
+        _ => None,
+    })
+}
+
+/// §7 **subsidiarity**: the inter-compact level may not reach past a compact to its
+/// member communities.
+///
+/// This is what makes nesting real rather than decorative. Ostrom's principle 8 is not
+/// "there is a higher level" but that each level governs at its own scale, and the scale
+/// of an inter-compact commons is compacts. A federation that could sanction a member
+/// community directly would be governing at the compact's scale while answering to
+/// nobody at it, which is exactly the sovereignty drift `liminal_institutions.md` warns
+/// about, arriving one level up. Measured before the rule: nothing stopped it, because
+/// nothing distinguished the levels at all.
+///
+/// So on a `Compact`-level commons, the subject of a sanction or an escalation must be
+/// one of its appropriator compacts. A compact answers for its members; its members
+/// answer to it.
+fn check_subsidiarity(
+    archive: &InMemoryArchive,
+    reg: &kc_commons::CommonsRegistration,
+    subject: &DidKey,
+    what: &str,
+) -> KcResult<()> {
+    if reg.level != kc_commons::AppropriatorLevel::Compact {
+        return Ok(());
+    }
+    let is_appropriator = reg.appropriators.iter().any(|a| a == subject);
+    if is_appropriator {
+        return Ok(());
+    }
+    if let Some(compact) = compact_of(archive, subject) {
+        return Err(KcError::Authority(format!(
+            "{what} names the member community {}, but this commons is held at the \
+             inter-compact level: it reaches {} only through its compact {}",
+            subject.as_str(),
+            subject.as_str(),
+            compact.as_str()
+        )));
+    }
+    Err(KcError::Authority(format!(
+        "{what} names {}, which is not an appropriator compact of this inter-compact \
+         commons",
+        subject.as_str()
+    )))
+}
+
+/// §7 commons-escalation rule: the four conditions under which a compact may find that
+/// a community's abuse of a commons has passed beyond graduated sanctions.
+///
+/// This is the threshold `commons_federation.md` leaves open ("the trigger threshold for
+/// commons-specific violations needs specification"), specified in the shape §5's own
+/// four-condition anathema test already carries, so the two read as one family. The
+/// distinct-community quorum arrives generically: the record is always second-class.
+///
+/// Insertion order is authoritative throughout, as it is for a dispute's rung and a
+/// commons' current level, so a sanction appended after the finding cannot retroactively
+/// make it valid or invalid.
+fn authorize_commons_escalation(
+    archive: &InMemoryArchive,
+    e: &kc_commons::CommonsEscalation,
+    self_cid: &Cid,
+) -> KcResult<()> {
+    let reg = commons_registration(archive, &e.commons_cid, "commons escalation")?;
+    check_subsidiarity(archive, reg, &e.subject_community, "a commons escalation")?;
+    if !reg
+        .appropriators
+        .iter()
+        .any(|a| a.as_str() == e.subject_community.as_str())
+    {
+        return Err(KcError::Authority(format!(
+            "commons escalation subject {} is not an appropriator of the commons",
+            e.subject_community.as_str()
+        )));
+    }
+    if e.basis.trim().is_empty() {
+        return Err(KcError::Authority(
+            "a commons escalation must state the pattern it finds".into(),
+        ));
+    }
+
+    // Condition 3's citation half, borrowed from §5: a finding this heavy cites the
+    // specific acts it rests on, and each must be a sanction on this pair.
+    if e.cited_sanctions.is_empty() {
+        return Err(KcError::Authority(
+            "a commons escalation must cite the sanctions it rests on".into(),
+        ));
+    }
+    for cid in &e.cited_sanctions {
+        match archive.get(cid) {
+            Some(ArchiveEntry::SanctionApplied(s))
+                if s.payload.commons_cid == e.commons_cid
+                    && s.payload.subject_community == e.subject_community => {}
+            Some(ArchiveEntry::SanctionApplied(_)) => {
+                return Err(KcError::Authority(format!(
+                    "commons escalation cites {cid}, a sanction on another commons or another \
+                     community"
+                )))
+            }
+            _ => {
+                return Err(KcError::Authority(format!(
+                    "commons escalation cites {cid} which is not a commons sanction"
+                )))
+            }
+        }
+    }
+
+    // Walk this pair's ladder history up to the finding, counting arrivals at Exclusion
+    // and remembering when the standing one began.
+    let self_key = self_cid.to_string();
+    let mut level = SanctionLevel::None;
+    let mut arrivals = 0usize;
+    let mut excluded_since: Option<Timestamp> = None;
+    for (cid, entry) in archive.iter() {
+        if cid.to_string() == self_key {
+            break;
+        }
+        if let ArchiveEntry::SanctionApplied(s) = entry {
+            let sanc = &s.payload;
+            if sanc.commons_cid != e.commons_cid
+                || sanc.subject_community != e.subject_community
+            {
+                continue;
+            }
+            if sanc.to_level == SanctionLevel::Exclusion && level != SanctionLevel::Exclusion {
+                arrivals += 1;
+                excluded_since = Some(sanc.decided_at);
+            }
+            if sanc.to_level != SanctionLevel::Exclusion {
+                excluded_since = None;
+            }
+            level = sanc.to_level;
+        }
+    }
+
+    // Condition 1: the ladder is exhausted.
+    if level != SanctionLevel::Exclusion {
+        return Err(KcError::Authority(format!(
+            "commons escalation needs the subject at Exclusion and it is at {}: graduated \
+             sanctions are the answer until they have demonstrably failed",
+            level.as_str()
+        )));
+    }
+
+    // Conditions 2 and 4: defiance rather than compliance, counted lower for a commons
+    // the compact cannot pause.
+    let required = if kc_commons::is_life_critical(reg.kind) {
+        DEFAULT_LIFE_CRITICAL_ESCALATION_CYCLES
+    } else {
+        DEFAULT_COMMONS_ESCALATION_CYCLES
+    };
+    if arrivals < required {
+        return Err(KcError::Authority(format!(
+            "commons escalation needs {required} arrivals at Exclusion on a {} commons and \
+             the subject has {arrivals}: one offence is what the ladder is for",
+            reg.kind.as_str()
+        )));
+    }
+
+    // Condition 3: restoration was available and not taken.
+    let since = excluded_since.ok_or_else(|| {
+        KcError::Authority("the subject's exclusion has no recorded beginning".into())
+    })?;
+    let dwelt = e.escalated_at.as_second() - since.as_second();
+    if dwelt < DEFAULT_COMMONS_EXCLUSION_DWELL_SECONDS {
+        return Err(KcError::Authority(format!(
+            "commons escalation needs {}s at Exclusion and the subject has stood {dwelt}s: \
+             restoration is available from exclusion, and a community in the middle of \
+             taking it has not refused it",
+            DEFAULT_COMMONS_EXCLUSION_DWELL_SECONDS
         )));
     }
     Ok(())
@@ -2784,8 +3328,13 @@ fn authorize_commons_sanction(
     self_cid: &Cid,
     quorum_threshold: usize,
 ) -> KcResult<()> {
-    let appropriators = commons_appropriators(archive, &s.commons_cid, "commons sanction")?;
-    if !appropriators.contains(s.subject_community.as_str()) {
+    let reg = commons_registration(archive, &s.commons_cid, "commons sanction")?;
+    check_subsidiarity(archive, reg, &s.subject_community, "a commons sanction")?;
+    if !reg
+        .appropriators
+        .iter()
+        .any(|a| a.as_str() == s.subject_community.as_str())
+    {
         return Err(KcError::Authority(format!(
             "sanction subject {} is not an appropriator of the commons",
             s.subject_community.as_str()
@@ -3188,6 +3737,13 @@ fn authorize_observer_registry(
     self_cid: &Cid,
     caps: ObserverCaps,
 ) -> KcResult<()> {
+    require_office(
+        archive,
+        &reg.nominating_community,
+        Capability::ObserverSeat,
+        reg.issued_at,
+        "nominating observers",
+    )?;
     let seats: Vec<Seat> = reg
         .entries
         .iter()
@@ -3227,6 +3783,13 @@ fn authorize_examiner_registry(
 ) -> KcResult<()> {
     // §2's first withholding reaches the examining pool too: seating examiners is
     // a compact function, and a probationary community does not staff it.
+    require_office(
+        archive,
+        &reg.nominating_community,
+        Capability::ExaminerSeat,
+        reg.issued_at,
+        "seating examiners",
+    )?;
     if probationary_at(archive, &reg.nominating_community, reg.issued_at) {
         return Err(KcError::Authority(format!(
             "community {} is probationary at {}; a probationary community does not \
@@ -3558,6 +4121,15 @@ fn authorize_reception_panel(
     panel_min: usize,
     what: &str,
 ) -> KcResult<()> {
+    // A reception panel acts before any hearing, on a filing nobody may answer yet, so
+    // it is an emergency panel in the sense that matters here.
+    require_panel_office(
+        archive,
+        signers,
+        at,
+        Capability::EmergencyPanelSeat,
+        &format!("sitting on a {what} panel"),
+    )?;
     let barred: BTreeSet<String> = [accused.as_str().to_string()].into_iter().collect();
     check_mediator_panel(
         archive,
@@ -4148,6 +4720,153 @@ fn authorize_fast_amendment(
     Ok(())
 }
 
+/// The forbearance keys in the adopted minimum content as of `self_cid` (exclusive):
+/// the adoption's own forbearances plus every `Broaden` minus every `Narrow` among
+/// the amendments preceding it in insertion order.
+///
+/// No genesis-original set is computed here, and that absence is the rule. The
+/// compact-incapable list keeps its founding matters immutable; the minimum content
+/// does not distinguish a founding forbearance from a later one, because the
+/// protection the doctrine asks for is the asymmetric bar and not a lock
+/// (natural_law.md "Interaction with the deference instruments").
+fn current_forbearance_keys(archive: &InMemoryArchive, self_cid: &Cid) -> BTreeSet<String> {
+    let self_key = self_cid.to_string();
+    let mut keys: BTreeSet<String> = BTreeSet::new();
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            break;
+        }
+        match e {
+            ArchiveEntry::MinimumContentAdopted(s) => {
+                for f in &s.payload.forbearances {
+                    keys.insert(f.key.clone());
+                }
+            }
+            ArchiveEntry::MinimumContentAmended(s) => match s.payload.change {
+                ForbearanceChange::Broaden => {
+                    keys.insert(s.payload.forbearance.key.clone());
+                }
+                ForbearanceChange::Narrow => {
+                    keys.remove(&s.payload.forbearance.key);
+                }
+            },
+            _ => {}
+        }
+    }
+    keys
+}
+
+/// True if an adoption of the minimum content exists at or before `self_cid` in
+/// insertion order.
+fn adoption_present_before(archive: &InMemoryArchive, self_cid: &Cid) -> bool {
+    let self_key = self_cid.to_string();
+    for (cid, e) in archive.iter() {
+        if cid.to_string() == self_key {
+            return false;
+        }
+        if matches!(e, ArchiveEntry::MinimumContentAdopted(_)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// §9 minimum-content adoption rule: the adoption is a **singleton** — a second
+/// `MinimumContentAdopted` is refused, and it must name at least one forbearance.
+/// The distinct-community quorum on the adopters is enforced generically.
+///
+/// Deliberately independent of `ConstitutionRatified`. The compact's ground at its
+/// boundary is not a matter belonging to a member, so it does not wait on the
+/// artifact that lists those matters; requiring a prior genesis would make the ground
+/// hostage to an unrelated ratification.
+fn authorize_minimum_adoption(archive: &InMemoryArchive, self_cid: &Cid) -> KcResult<()> {
+    if adoption_present_before(archive, self_cid) {
+        return Err(KcError::Authority(
+            "the minimum content is already adopted; adoption is a singleton".into(),
+        ));
+    }
+    match archive.get(self_cid) {
+        Some(ArchiveEntry::MinimumContentAdopted(s)) if s.payload.forbearances.is_empty() => {
+            Err(KcError::Authority(
+                "an adoption of the minimum content names no forbearance".into(),
+            ))
+        }
+        _ => Ok(()),
+    }
+}
+
+/// §9 minimum-content amendment rule (self-binding, asymmetric): requires a prior
+/// adoption; a `Broaden` must name a forbearance not already in force; a `Narrow`
+/// must name one that is in force and carries the higher contraction bar
+/// (>= `quorum_threshold + 1` distinct deciders). The normal quorum is enforced
+/// generically before this runs.
+///
+/// The one structural difference from [`authorize_incapable_amendment`]: there is no
+/// genesis-immutability branch. A founding forbearance is contractible at the higher
+/// bar like any other, which is what the doctrine specifies — the argument for
+/// narrowing what is owed at the frontier is "always available and always pragmatic",
+/// so it gets a bar, not a refusal.
+fn authorize_minimum_amendment(
+    archive: &InMemoryArchive,
+    a: &MinimumContentAmendment,
+    self_cid: &Cid,
+    quorum_threshold: usize,
+) -> KcResult<()> {
+    if !adoption_present_before(archive, self_cid) {
+        return Err(KcError::Authority(
+            "minimum-content amendment before the minimum content is adopted".into(),
+        ));
+    }
+    let current = current_forbearance_keys(archive, self_cid);
+    match a.change {
+        ForbearanceChange::Broaden => {
+            if current.contains(&a.forbearance.key) {
+                return Err(KcError::Authority(format!(
+                    "forbearance {:?} is already in force",
+                    a.forbearance.key
+                )));
+            }
+        }
+        ForbearanceChange::Narrow => {
+            if !current.contains(&a.forbearance.key) {
+                return Err(KcError::Authority(format!(
+                    "forbearance {:?} is not in force, cannot narrow",
+                    a.forbearance.key
+                )));
+            }
+            // Weight, not signatures — see the compact-incapable contraction bar (§2).
+            let tally = deliberative_weight(archive, a.deciders.iter(), a.decided_at, None, None);
+            if tally.counted < quorum_threshold + 1 {
+                return Err(KcError::Authority(format!(
+                    "narrowing the minimum content needs >= {} distinct communities, got {}{}",
+                    quorum_threshold + 1,
+                    tally.counted,
+                    tally.because().unwrap_or_default()
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Refuse a panel when any co-signer's home community is held out of `capability`.
+/// Signers whose home does not resolve are left to the panel rule itself, which
+/// refuses them for not being active registered mediators.
+fn require_panel_office(
+    archive: &InMemoryArchive,
+    signers: &[&str],
+    at: Timestamp,
+    capability: Capability,
+    act: &str,
+) -> KcResult<()> {
+    for signer in signers {
+        if let Some(home) = mediator_home(archive, signer, at) {
+            require_office(archive, &home, capability, at, act)?;
+        }
+    }
+    Ok(())
+}
+
 /// The communities that may not sit on an injunction's panel: the subject, plus
 /// (if the injunction arises from a dispute) that dispute's parties.
 fn injunction_barred_communities(
@@ -4181,6 +4900,13 @@ fn authorize_injunction(
             "injunction must expire after it is issued".into(),
         ));
     }
+    require_panel_office(
+        archive,
+        signers,
+        inj.issued_at,
+        Capability::EmergencyPanelSeat,
+        "issuing an interim injunction",
+    )?;
     let barred = injunction_barred_communities(archive, &inj.subject_community, inj.dispute_cid.as_ref());
     check_mediator_panel(
         archive,
@@ -4262,31 +4988,7 @@ fn active_injunction_panel_communities(
             }
             _ => continue,
         };
-        if inj.issued_at.as_second() > at.as_second() {
-            continue;
-        }
-        // Overturned by a ruled challenge decided on or before `at`?
-        let overturned = archive.iter().any(|(_, e2)| match e2 {
-            ArchiveEntry::InjunctionChallenged(s) => {
-                s.payload.injunction_cid == *cid
-                    && s.payload.overturned
-                    && s.payload.decided_at.as_second() <= at.as_second()
-            }
-            _ => false,
-        });
-        if overturned {
-            continue;
-        }
-        // In force: within the window, or confirmed before it lapsed.
-        let confirmed = archive.iter().any(|(_, e2)| match e2 {
-            ArchiveEntry::InjunctionConfirmed(s) => {
-                s.payload.injunction_cid == *cid
-                    && s.payload.confirmed_at.as_second() <= inj.expires_at.as_second()
-            }
-            _ => false,
-        });
-        let in_window = at.as_second() <= inj.expires_at.as_second();
-        if !(in_window || confirmed) {
+        if !injunction_in_force(archive, cid, inj, at) {
             continue;
         }
         for panelist in &inj.panel {
@@ -4296,6 +4998,97 @@ fn active_injunction_panel_communities(
         }
     }
     communities
+}
+
+/// Is the injunction at `cid` in force as of `at` — issued by then, not overturned by
+/// a ruled challenge, and either inside its window or confirmed before it lapsed?
+///
+/// One reading, shared by every rule that asks. `kc_reputation`'s projection derives
+/// the same status for the dashboard; a third copy here, per caller, is how two rules
+/// come to disagree about whether a member is under an injunction.
+fn injunction_in_force(
+    archive: &InMemoryArchive,
+    cid: &Cid,
+    inj: &InterimInjunction,
+    at: Timestamp,
+) -> bool {
+    if inj.issued_at.as_second() > at.as_second() {
+        return false;
+    }
+    let overturned = archive.iter().any(|(_, e)| match e {
+        ArchiveEntry::InjunctionChallenged(s) => {
+            s.payload.injunction_cid == *cid
+                && s.payload.overturned
+                && s.payload.decided_at.as_second() <= at.as_second()
+        }
+        _ => false,
+    });
+    if overturned {
+        return false;
+    }
+    // Confirmation keeps an injunction in force past its window, but only once it has
+    // happened: a confirmation dated after `at` says nothing about the compact's state
+    // at `at`.
+    let confirmed = archive.iter().any(|(_, e)| match e {
+        ArchiveEntry::InjunctionConfirmed(s) => {
+            s.payload.injunction_cid == *cid
+                && s.payload.confirmed_at.as_second() <= at.as_second()
+                && s.payload.confirmed_at.as_second() <= inj.expires_at.as_second()
+        }
+        _ => false,
+    });
+    at.as_second() <= inj.expires_at.as_second() || confirmed
+}
+
+/// Is `capability` withheld from `community` by an injunction in force as of `at`?
+///
+/// The archive-side twin of `kc_reputation::has_capability`, which this crate cannot
+/// call (the dependency runs the other way). An in-force injunction is the only thing
+/// that withholds a capability, so this is the whole trigger: covenant-facing by
+/// construction, and never a reading of a member's interior.
+fn capability_revoked(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    capability: Capability,
+    at: Timestamp,
+) -> bool {
+    for (cid, e) in archive.iter() {
+        let inj = match e {
+            ArchiveEntry::InjunctionIssued(s) if &s.payload.subject_community == community => {
+                &s.payload
+            }
+            _ => continue,
+        };
+        if inj.revoked_capabilities.contains(&capability)
+            && injunction_in_force(archive, cid, inj, at)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Refuse `act` when `community` is held out of `capability` by an in-force injunction.
+/// One message shape for all five offices, so a refusal always names the office, the
+/// act it blocked, and the community held out.
+fn require_office(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    capability: Capability,
+    at: Timestamp,
+    act: &str,
+) -> KcResult<()> {
+    if capability_revoked(archive, community, capability, at) {
+        return Err(KcError::Authority(format!(
+            "community {} is held out of the {} office by an injunction in force at {}; \
+             {} is refused (its services are untouched)",
+            community.as_str(),
+            capability.as_str(),
+            at,
+            act
+        )));
+    }
+    Ok(())
 }
 
 /// If `signer_did` is an active delegate at `at`, its (community_did, scope).
@@ -4383,9 +5176,19 @@ pub fn authorize_with_caps(
         return authorize_decision(archive, &s.payload, &signers, panel_min, &self_cid);
     }
     // Opening a seal is authorized by the custody it opens, not by principal binding.
+    //
+    // These two dispatch **here**, before the generic pass, and not in the structural
+    // match further down. `record_authority` returns `None` for both (no community
+    // speaks for them), and a `None` there returns `Ok(())` immediately — so a rule
+    // placed in that match would exist, compile, and never run. It happened: the usage
+    // rule sat there authorizing everything until the refusal tests caught it.
     if let ArchiveEntry::DecisionUnsealed(s) = entry {
         let signers = signer_dids(entry);
         return authorize_decision_unsealed(archive, &s.payload, &signers);
+    }
+    if let ArchiveEntry::UsageOpened(s) = entry {
+        let signers = signer_dids(entry);
+        return authorize_usage_opened(archive, &s.payload, &signers);
     }
     // An argument is authorized by its own role rule (§4), not principal binding: a
     // panelist is a person in the pool rather than a community.
@@ -4585,6 +5388,12 @@ pub fn authorize_with_caps(
         ArchiveEntry::UsageAccounted(s) => {
             authorize_usage(archive, &s.payload)?;
         }
+        ArchiveEntry::CommonsEscalated(s) => {
+            authorize_commons_escalation(archive, &s.payload, &entry.cid()?)?;
+        }
+        ArchiveEntry::CompactChartered(s) => {
+            authorize_compact_charter(archive, &s.payload, &signer_dids(entry))?;
+        }
         ArchiveEntry::SanctionApplied(s) => {
             let self_cid = entry.cid()?;
             authorize_commons_sanction(archive, &s.payload, &self_cid, quorum_threshold)?;
@@ -4617,6 +5426,14 @@ pub fn authorize_with_caps(
         ArchiveEntry::FastCadenceAmended(s) => {
             let self_cid = entry.cid()?;
             authorize_fast_amendment(archive, &s.payload, &self_cid, quorum_threshold)?;
+        }
+        ArchiveEntry::MinimumContentAdopted(_) => {
+            let self_cid = entry.cid()?;
+            authorize_minimum_adoption(archive, &self_cid)?;
+        }
+        ArchiveEntry::MinimumContentAmended(s) => {
+            let self_cid = entry.cid()?;
+            authorize_minimum_amendment(archive, &s.payload, &self_cid, quorum_threshold)?;
         }
         _ => {}
     }

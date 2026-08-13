@@ -33,7 +33,7 @@ use kc_archive::{probationary_at, ArchiveEntry, InMemoryArchive};
 use kc_ceremony::inter::AntiSpiralFeature;
 use kc_commons::sanction_rank;
 use kc_conduct::{AttestedFunction, ConductBearing, ConductKind};
-use kc_constitution::{AmendmentKind, FastPeriod, IncapableMatter};
+use kc_constitution::{AmendmentKind, FastPeriod, Forbearance, ForbearanceChange, IncapableMatter};
 use kc_core::{time, Cid, DidKey, Timestamp};
 use kc_escalation::{dispute_ladder_rank, ReexaminationOutcome};
 use kc_mediation::MediatorRegistry;
@@ -1432,9 +1432,20 @@ pub fn ceremony_cost_decay_all(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsageTally {
     pub community: DidKey,
+    /// Summed over this community's **public** records only. A nonzero
+    /// [`sealed_count`](Self::sealed_count) means this understates the real draw.
     pub consumed: u64,
+    /// Summed over public records only, as above.
     pub contributed: u64,
+    /// Every record this community filed, sealed or public.
     pub record_count: usize,
+    /// How many of them were sealed, and so are counted here but not summed.
+    ///
+    /// Without this the tally would read as a complete account of a community that
+    /// happened to draw nothing, which is what a sealed record made it read as before
+    /// the field existed: measured, a community sealing 1,850 units showed `consumed: 0`
+    /// and ranked nowhere, looking like the most scrupulous member of the compact.
+    pub sealed_count: usize,
     pub evidence: Vec<Cid>,
 }
 
@@ -1467,9 +1478,50 @@ impl UsageTally {
 pub struct FreeRiderReport {
     /// Per-appropriator tallies, ordered by community DID.
     pub tallies: Vec<UsageTally>,
+    /// The commons' per-period draw allowance, if it states one. What every sealed
+    /// record on it carries a proof against, and so what bounds the draw those records
+    /// hide.
+    pub allowance: Option<u64>,
 }
 
 impl FreeRiderReport {
+    /// Is every record in this report public, so the sums below are the whole account?
+    ///
+    /// A reader that treats `total_consumed` as *the* total is right only when this
+    /// holds. Sealing is a legitimate exercise of §7's surveillance threshold, but it
+    /// makes the sums a floor rather than a figure, and the report says which it is
+    /// rather than leaving the reader to assume.
+    pub fn is_complete(&self) -> bool {
+        self.tallies.iter().all(|t| t.sealed_count == 0)
+    }
+
+    /// Communities that sealed at least one record, and how many, ordered by community.
+    /// Not an accusation: sealing is permitted and proven within allowance. It is the
+    /// fact a reader needs in order to know what the tally does not cover.
+    pub fn partially_sealed(&self) -> Vec<(String, usize)> {
+        self.tallies
+            .iter()
+            .filter(|t| t.sealed_count > 0)
+            .map(|t| (t.community.as_str().to_string(), t.sealed_count))
+            .collect()
+    }
+
+    /// The most that could be hidden behind every sealed record in this report:
+    /// `sealed records × allowance`.
+    ///
+    /// This is what sealing actually costs the compact's monitoring, and it is a bound
+    /// rather than a blindfold. Each sealed record carries a proof that its draw is at
+    /// most the allowance, so the hidden quantity is not unknown, only unresolved. Adding
+    /// this to `total_consumed` gives the worst case a reader has to reason about.
+    ///
+    /// `None` when the commons states no allowance, which is also the case in which no
+    /// record on it can be sealed.
+    pub fn max_hidden_draw(&self) -> Option<u64> {
+        let allowance = self.allowance?;
+        let sealed: u64 = self.tallies.iter().map(|t| t.sealed_count as u64).sum();
+        Some(sealed.saturating_mul(allowance))
+    }
+
     pub fn total_consumed(&self) -> u64 {
         self.tallies.iter().map(|t| t.consumed).sum()
     }
@@ -1500,26 +1552,43 @@ pub fn free_rider_signals(
 ) -> FreeRiderReport {
     let as_of = as_of.unwrap_or_else(time::now);
     let mut tallies: BTreeMap<String, UsageTally> = BTreeMap::new();
+    let mut allowance = None;
     for (cid, entry) in archive.iter() {
-        if let ArchiveEntry::UsageAccounted(signed) = entry {
-            let u = &signed.payload;
-            if &u.commons_cid != commons_cid || u.recorded_at > as_of {
-                continue;
+        match entry {
+            ArchiveEntry::CommonsRegistered(signed) if cid == commons_cid => {
+                allowance = signed.payload.draw_allowance;
             }
-            let t = tallies.entry(u.community.as_str().to_string()).or_insert_with(|| UsageTally {
-                community: u.community.clone(),
-                consumed: 0,
-                contributed: 0,
-                record_count: 0,
-                evidence: vec![],
-            });
-            t.consumed = t.consumed.saturating_add(u.consumed);
-            t.contributed = t.contributed.saturating_add(u.contributed);
-            t.record_count += 1;
-            t.evidence.push(*cid);
+            ArchiveEntry::UsageAccounted(signed) => {
+                let u = &signed.payload;
+                if &u.commons_cid != commons_cid || u.recorded_at > as_of {
+                    continue;
+                }
+                let t =
+                    tallies.entry(u.community.as_str().to_string()).or_insert_with(|| UsageTally {
+                        community: u.community.clone(),
+                        consumed: 0,
+                        contributed: 0,
+                        record_count: 0,
+                        sealed_count: 0,
+                        evidence: vec![],
+                    });
+                // A sealed record is counted and not summed. Its figures are committed
+                // rather than published, so there is nothing honest to add; what it
+                // carries instead is a proof that the draw is within the allowance,
+                // which `max_hidden_draw` turns into the bound a reader needs.
+                if u.sealed.is_some() {
+                    t.sealed_count += 1;
+                } else {
+                    t.consumed = t.consumed.saturating_add(u.consumed);
+                    t.contributed = t.contributed.saturating_add(u.contributed);
+                }
+                t.record_count += 1;
+                t.evidence.push(*cid);
+            }
+            _ => {}
         }
     }
-    FreeRiderReport { tallies: tallies.into_values().collect() }
+    FreeRiderReport { tallies: tallies.into_values().collect(), allowance }
 }
 
 // ---------------------------------------------------------------------------
@@ -1888,13 +1957,20 @@ pub fn observer_dashboard(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
 
 /// The compact's constitutional state as of a query time: whether it is ratified,
 /// the compact-incapable matters currently in force (genesis + adds − removes),
-/// and the current structured-fast cadence (genesis periods overlaid by the
-/// latest amendment per label).
+/// the current structured-fast cadence (genesis periods overlaid by the latest
+/// amendment per label), and the adopted minimum content (adoption + broadenings −
+/// narrowings).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ConstitutionState {
     pub ratified: bool,
     pub compact_incapable: Vec<IncapableMatter>,
     pub fast_periods: Vec<FastPeriod>,
+    /// Whether the compact has adopted the functional minimum as the ground of its own
+    /// conduct. Independent of `ratified`: the two artifacts are separate acts.
+    pub minimum_adopted: bool,
+    /// The forbearances in force (adoption + broadenings − narrowings). Unlike
+    /// `compact_incapable`, no entry here is immutable.
+    pub minimum_content: Vec<Forbearance>,
 }
 
 /// Compute the constitution as of `as_of` (defaults to now). Amendments with
@@ -1904,6 +1980,8 @@ pub fn constitution_state(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
     let mut ratified = false;
     let mut matters: BTreeMap<String, IncapableMatter> = BTreeMap::new();
     let mut periods: BTreeMap<String, FastPeriod> = BTreeMap::new();
+    let mut minimum_adopted = false;
+    let mut forbearances: BTreeMap<String, Forbearance> = BTreeMap::new();
     for (_, e) in archive.iter() {
         match e {
             ArchiveEntry::ConstitutionRatified(s) if s.payload.genesis_at <= as_of => {
@@ -1928,6 +2006,23 @@ pub fn constitution_state(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
             ArchiveEntry::FastCadenceAmended(s) if s.payload.decided_at <= as_of => {
                 periods.insert(s.payload.period.label.clone(), s.payload.period.clone());
             }
+            ArchiveEntry::MinimumContentAdopted(s) if s.payload.adopted_at <= as_of => {
+                minimum_adopted = true;
+                for f in &s.payload.forbearances {
+                    forbearances.insert(f.key.clone(), f.clone());
+                }
+            }
+            ArchiveEntry::MinimumContentAmended(s) if s.payload.decided_at <= as_of => {
+                match s.payload.change {
+                    ForbearanceChange::Broaden => {
+                        forbearances
+                            .insert(s.payload.forbearance.key.clone(), s.payload.forbearance.clone());
+                    }
+                    ForbearanceChange::Narrow => {
+                        forbearances.remove(&s.payload.forbearance.key);
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -1935,6 +2030,8 @@ pub fn constitution_state(archive: &InMemoryArchive, as_of: Option<Timestamp>) -
         ratified,
         compact_incapable: matters.into_values().collect(),
         fast_periods: periods.into_values().collect(),
+        minimum_adopted,
+        minimum_content: forbearances.into_values().collect(),
     }
 }
 
@@ -1950,6 +2047,22 @@ pub fn compact_incapable(
         .compact_incapable
         .iter()
         .any(|m| m.key == matter_key)
+}
+
+/// §9 self-binding gate: is `forbearance_key` part of the ground the compact has
+/// bound its own conduct to (in force as of `as_of`)? The twin of
+/// [`compact_incapable`], and the asymmetry between them is the doctrine's: that one
+/// answers what the compact will not decide *for a member*, this one what the compact
+/// will not do *itself*, wherever it acts and consent has run out.
+pub fn minimum_forbearance(
+    archive: &InMemoryArchive,
+    forbearance_key: &str,
+    as_of: Option<Timestamp>,
+) -> bool {
+    constitution_state(archive, as_of)
+        .minimum_content
+        .iter()
+        .any(|f| f.key == forbearance_key)
 }
 
 /// §9 temporal-deference gate: the label of the structured-fast period containing
@@ -1990,7 +2103,8 @@ pub struct SubstrateDeferenceReport {
     /// `Remove` amendments as of the query (contraction).
     pub incapable_removed: usize,
     /// True when any protection has been rolled back — a compact-incapable matter
-    /// removed or a fast period contracted. The erosion signal: contraction of the
+    /// removed, a fast period contracted, or a forbearance narrowed out of the
+    /// compact's own adopted ground. The erosion signal: contraction of the
     /// deference commitments is exactly the early sign of drift toward ultimacy the
     /// observer corps should see (surfaced, not judged). (Note: a *net* count is
     /// not the signal — a matter can only be removed if it was earlier added, so
@@ -2003,6 +2117,14 @@ pub struct SubstrateDeferenceReport {
     pub fast_seconds_total: i64,
     /// Fast-cadence `Contract` amendments as of the query (shrinkage).
     pub fast_contractions: usize,
+    /// Forbearances in the adopted minimum content currently in force.
+    pub minimum_current: usize,
+    /// `Broaden` amendments as of the query (expansion of the compact's own ground).
+    pub minimum_broadened: usize,
+    /// `Narrow` amendments as of the query (contraction). Counted separately from the
+    /// incapable list because the two artifacts answer different questions, and folded
+    /// into `contraction_detected` because the pressure on them is the same.
+    pub minimum_narrowed: usize,
     /// Deliberative acts initiated during a fast window, oldest first.
     pub fast_deviations: Vec<FastDeviation>,
 }
@@ -2045,6 +2167,8 @@ pub fn substrate_deference(
     let mut added = 0usize;
     let mut removed = 0usize;
     let mut fast_contractions = 0usize;
+    let mut minimum_broadened = 0usize;
+    let mut minimum_narrowed = 0usize;
     for (_, e) in archive.iter() {
         match e {
             ArchiveEntry::CompactIncapableAmended(s) if s.payload.decided_at <= as_of => {
@@ -2057,6 +2181,12 @@ pub fn substrate_deference(
                 if s.payload.decided_at <= as_of && s.payload.change.is_contraction() =>
             {
                 fast_contractions += 1;
+            }
+            ArchiveEntry::MinimumContentAmended(s) if s.payload.decided_at <= as_of => {
+                match s.payload.change {
+                    ForbearanceChange::Broaden => minimum_broadened += 1,
+                    ForbearanceChange::Narrow => minimum_narrowed += 1,
+                }
             }
             _ => {}
         }
@@ -2084,10 +2214,13 @@ pub fn substrate_deference(
         incapable_current: state.compact_incapable.len(),
         incapable_added: added,
         incapable_removed: removed,
-        contraction_detected: removed > 0 || fast_contractions > 0,
+        contraction_detected: removed > 0 || fast_contractions > 0 || minimum_narrowed > 0,
         fast_period_count: state.fast_periods.len(),
         fast_seconds_total: state.fast_periods.iter().map(|p| p.seconds()).sum(),
         fast_contractions,
+        minimum_current: state.minimum_content.len(),
+        minimum_broadened,
+        minimum_narrowed,
         fast_deviations: deviations,
     }
 }
@@ -2239,6 +2372,13 @@ pub struct ErosionAlert {
     pub reasons: Vec<String>,
     /// A compact-incapable matter has been removed (categorical-list contraction).
     pub list_contraction: bool,
+    /// A forbearance has been narrowed out of the compact's own adopted ground.
+    ///
+    /// The signal with no constituency behind it: nobody in the compact is asked to
+    /// endorse the minimum content, so no member holds it as a commitment to defend
+    /// when the argument for narrowing what is owed at the frontier arrives. The
+    /// asymmetric bar refuses the cheap narrowing; this makes the dear one legible.
+    pub minimum_contraction: bool,
     /// A structured-fast period has been shortened (temporal-cadence contraction).
     pub fast_contraction: bool,
     /// Deliberative acts initiated during a fast window (temporal deference eroding
@@ -2876,6 +3016,7 @@ pub fn erosion_alert_with(
     let r = substrate_deference(archive, Some(as_of_ts));
 
     let list_contraction = r.incapable_removed > 0;
+    let minimum_contraction = r.minimum_narrowed > 0;
     let fast_contraction = r.fast_contractions > 0;
     let deviations = r.fast_deviations.len();
 
@@ -2916,6 +3057,16 @@ pub fn erosion_alert_with(
             r.incapable_removed
         ));
         if r.incapable_removed > 1 {
+            compounding = true;
+        }
+    }
+    if minimum_contraction {
+        dimensions += 1;
+        reasons.push(format!(
+            "the compact's own adopted ground narrowed: {} forbearance(s) removed",
+            r.minimum_narrowed
+        ));
+        if r.minimum_narrowed > 1 {
             compounding = true;
         }
     }
@@ -3080,6 +3231,7 @@ pub fn erosion_alert_with(
         severity,
         reasons,
         list_contraction,
+        minimum_contraction,
         fast_contraction,
         active_fast_deviations: deviations,
         overdue_reaffirmations,

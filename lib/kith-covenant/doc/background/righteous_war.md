@@ -232,7 +232,14 @@ without becoming what it fights, and the doctrine's answer is meant to be hard.
   target's existence licenses an attack on life-support, on rescue, on the
   knowledge commons, or on non-combatants. The enemy of all humankind is still
   owed the standing that hatred would deny. What changes is only that no path of
-  return is held open, not that the manner of opposition is unbounded.
+  return is held open, not that the manner of opposition is unbounded. That
+  standing is owed on a ground the designated actor has never accepted and does
+  not share, which is the thin functional minimum the compact has adopted rather
+  than the compact's own authority
+  ([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). The ground cuts
+  both ways, and this is the practical importance of adopting it: the same
+  minimum that makes the designation available at all is what forbids the compact
+  to fight without limit under it.
 - **Designation is the most dangerous moment in the compact's life, and is
   guarded as such.** It requires compact-wide deliberation, an evidentiary
   threshold higher than anathema (the destructive orientation must be shown to be
@@ -274,6 +281,10 @@ compact loses that order, it has not won its war. It has changed sides.
 - [liminal_institutions.md](liminal_institutions.md): the mediator pool and
   observer corps that hold the right authority to escalate, since no single
   community may declare the compact's wars.
+- [natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself): the thin
+  functional minimum grounding the compact's conduct toward parties that have
+  not joined it, which is what the *hostis humani generis* case in this document
+  stands on, in both directions.
 
 ## References
 

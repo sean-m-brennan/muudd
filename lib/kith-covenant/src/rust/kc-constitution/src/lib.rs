@@ -36,6 +36,17 @@
 //!   and the Iroquois Condolence period. Adjusting the cadence is likewise
 //!   asymmetric: lengthening a fast is easy, shortening it is hard.
 //!
+//! A third artifact stands beside those two and is not a form of deference at all:
+//! the **adopted minimum content**, the short list of forbearances that ground the
+//! compact's own conduct wherever it acts and consent has run out (natural_law.md
+//! "The ground the compact claims for itself"). It is deliberately not an entry on
+//! the compact-incapable list — that list names matters belonging to *members*, and
+//! this one binds the compact — but it is exposed to the same one-way pressure, so
+//! contracting it carries the same asymmetric higher bar. Two differences from the
+//! list are load-bearing: a genesis-original forbearance is **removable at that bar**
+//! rather than immutable, and a narrowing is surfaced by the erosion report on the
+//! same terms as a contraction of the list.
+//!
 //! This crate carries only the *record* shapes. The genesis singleton, the
 //! quorum on ratification, and the asymmetric-amendment / genesis-immutability
 //! rules are enforced at the archive's authority layer (`kc_archive::authority`),
@@ -72,5 +83,6 @@ mod tests;
 
 pub use record::{
     AmendmentKind, CompactIncapableAmendment, ConstitutionGenesis, FastCadenceAmendment,
-    FastChange, FastPeriod, IncapableMatter,
+    FastChange, FastPeriod, Forbearance, ForbearanceChange, IncapableMatter,
+    MinimumContentAdoption, MinimumContentAmendment, MinimumSite,
 };

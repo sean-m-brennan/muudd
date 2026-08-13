@@ -314,9 +314,24 @@ pub struct ReEntry {
 // Interim injunction (§9 enforcement, capability-gating)
 // -------------------------------------------------------------------------
 
-/// A compact-gated service an injunction can suspend (protocol-components.md §9
-/// "capability-based access"; §7 commons). Membership implies access to all of
-/// them unless an active injunction revokes it.
+/// Something an injunction can suspend (protocol-components.md §9 "capability-based
+/// access"; §7 commons). Membership implies all of them unless an active injunction
+/// revokes it.
+///
+/// Two kinds, and the distinction is the point. A **service** is a relation of
+/// exchange: rescue coordination, navigation, trade, commons withdrawal,
+/// communication. An **office** is a role that selects who is sanctioned: a
+/// mediator-pool seat, an observer or jester seat, an examining seat, deliberative
+/// weight, a seat on an emergency panel. The two sets are revoked independently, so a
+/// member can be held out of the roles that judge while every relation of exchange it
+/// holds stays intact — the option the design wants and could not express while every
+/// capability was a service.
+///
+/// What may trigger the withholding is bounded by the covenant, not by this type: an
+/// in-force injunction is the only thing that revokes anything, and an injunction
+/// answers to conduct at the boundary. Barring a community from office for what it
+/// does at home would be a verdict on a member's interior, which the compact does not
+/// form (natural_law.md "The interior of a member community").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Capability {
     /// Rescue-coordination endpoints (the inviolable rescue duty is separate;
@@ -330,6 +345,22 @@ pub enum Capability {
     CommonsWithdrawal,
     /// Access to compact communication relays.
     Communication,
+    /// Seating mediators in the compact's pool (§4) — the office that supplies the
+    /// panels which decide disputes, injunctions and restitution.
+    MediatorSeat,
+    /// Nominating observers to the corps (§8), the jester's office included: the corps
+    /// carries the jester as a function of the same seat rather than a separate role.
+    ObserverSeat,
+    /// Seating examiners for anti-spiral-feature credentialing (§2) — the office that
+    /// decides who is admitted at all.
+    ExaminerSeat,
+    /// Deliberative weight in the compact's second-class decisions: a designation, a
+    /// contraction of the deference instruments, a charter. Withholding this leaves
+    /// membership and every service intact and removes the vote.
+    Deliberation,
+    /// Supplying a mediator to an emergency panel (§9) — the injunction and
+    /// whistleblower-reception panels, which act before any hearing.
+    EmergencyPanelSeat,
 }
 
 impl Capability {
@@ -340,17 +371,61 @@ impl Capability {
             Self::Trade => "Trade",
             Self::CommonsWithdrawal => "CommonsWithdrawal",
             Self::Communication => "Communication",
+            Self::MediatorSeat => "MediatorSeat",
+            Self::ObserverSeat => "ObserverSeat",
+            Self::ExaminerSeat => "ExaminerSeat",
+            Self::Deliberation => "Deliberation",
+            Self::EmergencyPanelSeat => "EmergencyPanelSeat",
         }
     }
 
-    /// Every capability — the default set a member holds absent any revocation.
-    pub fn all() -> [Capability; 5] {
+    /// True for the offices — the roles that select who is sanctioned.
+    pub fn is_office(&self) -> bool {
+        matches!(
+            self,
+            Self::MediatorSeat
+                | Self::ObserverSeat
+                | Self::ExaminerSeat
+                | Self::Deliberation
+                | Self::EmergencyPanelSeat
+        )
+    }
+
+    /// The relations of exchange.
+    pub fn services() -> [Capability; 5] {
         [
             Self::RescueCoordination,
             Self::Navigation,
             Self::Trade,
             Self::CommonsWithdrawal,
             Self::Communication,
+        ]
+    }
+
+    /// The roles that select who is sanctioned.
+    pub fn offices() -> [Capability; 5] {
+        [
+            Self::MediatorSeat,
+            Self::ObserverSeat,
+            Self::ExaminerSeat,
+            Self::Deliberation,
+            Self::EmergencyPanelSeat,
+        ]
+    }
+
+    /// Every capability — the default set a member holds absent any revocation.
+    pub fn all() -> [Capability; 10] {
+        [
+            Self::RescueCoordination,
+            Self::Navigation,
+            Self::Trade,
+            Self::CommonsWithdrawal,
+            Self::Communication,
+            Self::MediatorSeat,
+            Self::ObserverSeat,
+            Self::ExaminerSeat,
+            Self::Deliberation,
+            Self::EmergencyPanelSeat,
         ]
     }
 }

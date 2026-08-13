@@ -561,6 +561,65 @@ answered, not fully. The four-category framework prevents the structural
 collapse; it does not solve the frontier problem. Further work is
 documented in §10 and in the research corpus.
 
+### 5.2 The ground of the consent-free edges
+
+Two of the four categories name parties that have consented to nothing. A
+community encountered in trade, transit, or distress has signed no compact,
+and the actor designated *hostis humani generis* is condemned by a standard it
+has never accepted. In both directions the compact acts where consent has run
+out, and it states the ground on which it acts rather than leaving the
+behavior unexplained.
+
+That ground is a thin functional minimum, adopted rather than derived. Given
+survival as an aim of the parties present, and truisms about human
+vulnerability, approximate equality, limited altruism, limited resources, and
+limited understanding, any viable order among such parties contains a short
+list of forbearances. This is Hart's minimum content of natural law, and it is
+the mutual-vulnerability argument of this section in the vocabulary of
+jurisprudence. The compact takes its content as the standard for its own
+conduct at the edges. It is not the compact's authority, which reaches its
+members and reaches them by their consent, and it is not any member
+community's substrate, which the compact receives and does not speak for.
+
+The adoption is deliberately small, and three limits define it. It derives
+none of the common virtues, which remain received from member substrates. It
+is hypothetical rather than categorical, asserting what an order must contain
+to persist among parties of this kind and asserting nothing about what anyone
+is owed in virtue of what they are, so a member community may read the aim as
+a created good, a convention, or an illusion without changing what the compact
+does at its boundary. And it reaches the boundary and not the interior: Hart's
+own text concedes that these forbearances need extend only to those an order
+counts as within it, so the minimum settles what is owed and never who is
+counted. Whom the compact itself counts at its frontier is its own commitment,
+carried by its members' substrates and recorded in the four-category framework;
+what removing the ground would license is not a denial that the party is
+vulnerable but the treatment of the forbearance owed as a courtesy the stronger
+party may withdraw, which is the form the colonial failure actually took.
+
+That the ground stops at the boundary coincides with a commitment the compact
+makes on its own account, and the coincidence is not accidental. **The compact
+forms no verdict on a member community's internal morality until that morality
+touches the covenant**: conduct toward another member, conduct at the boundary,
+conduct toward a party that arrived through a compact channel, what a member's
+envoys carry into compact business, or a hollowing its own re-affirmation
+cannot survive. Until then the question is not deferred pending better
+instruments; it is not the compact's question. A compact that appoints itself
+judge of its members' interiors has claimed a superiority over them, and the
+claim is poisonous to the cooperation the compact exists to carry: it makes the
+compact the ultimate that Movement 5 forecloses, installs the compact's own
+reading as the standard the compact-incapable list forbids it to install, and
+hands whoever holds the deliberative machinery a legitimate instrument for
+finding a member deficient. What the compact watches instead is effects, which
+are legible in a way interiors are not. The cost is real and we do not hide it:
+the compact can carry a member whose interior life it would not defend, and it
+does so knowingly, holding that a compact confident enough to audit its
+members' souls fails sooner and worse. With respect
+to the internal governance the compact structurally refuses to decide, that
+limit is a feature. With respect to a victim class inside a member, it is a
+hazard. Both halves are stated because they are the same fact. Full treatment
+in the research corpus, `background/natural_law.md` §"The minimum content,
+adopted".
+
 ---
 
 ## 6. Social mechanism
@@ -1710,7 +1769,10 @@ to build.
    not by claiming perfect discrimination.
 5. **Colonialism and the frontier asymmetry**: *scoped* (§5.1, §6.4).
    The four-category framework prevents structural collapse; the frontier
-   problem is not solved.
+   problem is not solved. The *ground* of what the compact owes at the
+   frontier is answered (§5.2) and does not depend on reciprocal exposure;
+   the practice at the frontier remains scoped and the asymmetry itself
+   is unchanged.
 6. **Succession under doctrinal drift**: *answered* (§7.5). The
    succession ceremony *is* the re-binding; drift is absorbed into the
    generational cadence or the community exits as the drift becomes
@@ -1760,6 +1822,15 @@ Further open questions below the level of these seven:
   countermeasures (§6.8, move 7) assume a compact large enough for
   lot-drawn panels and multi-community quorums; the founding cohort
   is protected only by the founders' mutual examination.
+- **Where the interior line falls.** The compact forms no verdict on a
+  member's internal morality until it touches the covenant (§5.2), and
+  both ends of that rule are clear. The middle is a judgment: a member's
+  treatment of its own people reaches the covenant when a party that
+  arrived through a compact channel is drawn into it, when it appears in
+  an envoy's conduct, or when the community can no longer re-affirm
+  honestly. Which further effects count is not fully specifiable in
+  advance, and instruments built for effects will register the interior
+  case late. The rule is correct and does not feel correct.
 
 ---
 

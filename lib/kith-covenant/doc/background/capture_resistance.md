@@ -186,6 +186,33 @@ compact-formation and protected by the same genesis-immutability that
 protects the recognition statement's five movements
 ([recognition_protocols.md "The capture attempt via recognition itself"](recognition_protocols.md#the-capture-attempt-via-recognition-itself)).
 
+One item that is *not* compact-incapable, and that must not be filed there by
+analogy, is the thin functional minimum the compact has adopted as the ground of
+its conduct toward parties that have not joined it
+([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). The
+compact-incapable list names matters belonging to members that the compact will
+not decide. The minimum content decides nothing belonging to a member; it binds
+the compact's own conduct, which is the one thing the compact has always been
+free to bind, and it grants no writ inside any member. The distinction matters in
+the direction of protection rather than permission. Because the minimum content
+is a restraint on the compact rather than a deference to members, the pressure on
+it runs the same way pressure on the deference categories runs: an argument for
+narrowing the forbearance owed at the frontier is always available and always
+pragmatic. Contracting the minimum content therefore carries the same asymmetric
+*higher* bar this document specifies for contracting the compact-incapable list
+(see the probation treatment under move 7 below), and its contraction is a
+capture signal on the same terms, observable to members, recordable by the audit
+commons, and nameable by the jester.
+
+The bar is a rule and not a statement about one. The adopted ground is its own
+constitutional artifact, quorum-adopted once, and a narrowing is refused unless it
+carries the contraction quorum, counted as weight so probationary entrants cannot
+supply it. One difference from the compact-incapable list is deliberate: the list
+keeps its founding matters immutable, and a founding forbearance is contractible at
+the higher bar. What the doctrine asks for here is an asymmetry answering an argument
+that is always available, which is a bar. A lock would say instead that the argument
+is never legitimate, and the compact does not know that in advance.
+
 *Temporal deference (the structured-fast pattern).* Periods of structured
 non-action during which the compact's ordinary operations are suspended on
 all but life-critical commons. The historical models are the liturgical

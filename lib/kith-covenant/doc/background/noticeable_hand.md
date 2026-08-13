@@ -613,6 +613,19 @@ Across all three readings:
   recognition (or its functional equivalent in other traditions),
   treating each person as bearing equal standing regardless of their
   community of origin.
+- Kith-Covenant may ground its own conduct toward parties that have not
+  joined it on the thin functional minimum it has adopted
+  ([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)), because
+  that minimum is reading-independent. It follows from survival as an aim
+  plus truisms about vulnerability, and all three readings grant those
+  premises: the Christian-particularist and perennialist readings hold that
+  the premises are true and that more besides is true, and the naturalist
+  reading holds that the premises are all there is. Adopting the minimum
+  therefore commits the compact to none of the three, which is why the
+  adoption is compatible with the agnosticism this document declines to
+  resolve. What the minimum cannot do is stand in for the substrate
+  requirement, since a floor derived from vulnerability supplies no
+  transcendent reference and none of the five anti-spiral features.
 
 The nuance: **kith-covenant's documentation should say outright that
 the historical evidence weighs in particular directions, rather than
