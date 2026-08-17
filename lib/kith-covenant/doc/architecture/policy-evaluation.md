@@ -1,16 +1,18 @@
+*Previous: [Machine participation](machine-participation.md)*
+
 # Policy Evaluation Architecture
 
 The Kith-Covenant evaluation framework connects the AutonomousTrust (AT) simulator to Kith-Covenant group protocol policies. It observes live AT message traffic, translates it into typed events, scores policy compliance, and produces a single fitness value suitable for automated comparison or future ML-driven optimization.
 
 ## Scope: what the fitness function is for
 
-This harness sits inside a corpus whose own tragedy-of-the-virtues argument ([commons_federation.md](../background/commons_federation.md), whitepaper §6.6) says that optimizing legible proxies of virtue is the compact's characteristic failure mode. The fence between that argument and this artifact must be explicit.
+This harness sits inside a corpus whose own tragedy-of-the-virtues argument ([commons_federation.md](../background/commons_federation.md), whitepaper §6.6) says that optimizing legible proxies of virtue is the characteristic failure mode of the compact. The fence between that argument and this artifact must be explicit.
 
-The fitness function below is **simulation instrumentation, not a virtue metric**. It exists to compare protocol-parameter configurations (thresholds, cooldowns, group sizes) against each other under identical simulated traffic, and to detect regressions when the protocol implementation changes. Its scalar output is meaningful only relative to another run of the same scenario; it is not a measure of a community's standing, sincerity, or compliance-in-spirit, and no compact procedure may consume it as one.
+The fitness function below is **simulation instrumentation, not a virtue metric**. It exists to compare protocol-parameter configurations (thresholds, cooldowns, group sizes) against each other under identical simulated traffic, and to detect regressions when the protocol implementation changes. Its scalar output is meaningful only relative to another run of the same scenario; it is not a measure of the standing, sincerity, or compliance-in-spirit of a community, and no compact procedure may consume it as one.
 
 What it deliberately cannot measure is everything the corpus assigns to human discernment: whether cooperation was genuine or performative, whether compliance honored the spirit or gamed the letter, whether a recitation was alive or hollow. A policy that maximizes this fitness function has demonstrated only that its parameters produce good throughput and stability in simulation. Feeding such scores into admission, escalation, or designation decisions would be precisely the letter-optimization the virtue frame exists to expose.
 
-On ML-generated policies: a future model emitting `KithCovenantPolicy` candidates does not violate the non-emergence claim ([m2m_interaction.md](../background/m2m_interaction.md)), because a policy here is a set of numeric thresholds inside a schema humans authored, evaluated by a harness humans authored, adopted (if ever) by human decision. Nothing substrate-like originates in the optimization loop; the loop tunes parameters within an envelope its principals defined. The moment a proposed policy schema exceeds parameter-tuning (new event types, new obligations, new categories), it exits this harness's scope and enters the compact's ordinary human deliberation.
+On ML-generated policies, a future model emitting `KithCovenantPolicy` candidates does not violate the non-emergence claim ([m2m_interaction.md](../background/m2m_interaction.md)), because a policy here is a set of numeric thresholds inside a schema humans authored, evaluated by a harness humans authored, adopted (if ever) by human decision. Nothing substrate-like originates in the optimization loop; the loop tunes parameters within an envelope its principals defined. The moment a proposed policy schema exceeds parameter-tuning (new event types, new obligations, new categories), it exits the scope of this harness and enters the ordinary human deliberation of the compact.
 
 ## Split-Package Design
 
@@ -25,7 +27,7 @@ The simulator imports from the Kith-Covenant library. The Kith-Covenant library 
 
 ## Event Model
 
-The `KithCovenantObserver` process receives raw AT `Message` objects from the simulator's message bus and translates them into frozen dataclasses defined in `kith_covenant.interface`. Policies reason exclusively about these typed events, never about raw messages.
+The `KithCovenantObserver` process receives raw AT `Message` objects from the message bus of the simulator and translates them into frozen dataclasses defined in `kith_covenant.interface`. Policies reason exclusively about these typed events, never about raw messages.
 
 ```mermaid
 flowchart LR
@@ -81,7 +83,7 @@ A frozen dataclass in `kith_covenant.policy` holding numeric thresholds that gov
 
 The AT simulator's `_TeeQueue` wraps the real message queue and copies every `put()` call to a list of observer queues. Observer processes declare themselves with a class attribute `is_tee_observer = True`. During startup, `InstrumentedAT.run_forever()` discovers all observer processes, collects their queue references, and passes them to `_TeeQueue`.
 
-This generalizes the original single-observer design (MetricsCollector only) to N observers. The constructor accepts either a single queue or a list for backward compatibility. If an observer's queue is full, the copy is silently dropped: observers must not block the main message path.
+This generalizes the original single-observer design (MetricsCollector only) to N observers. The constructor accepts either a single queue or a list for backward compatibility. If an observer's queue is full, the copy is silently dropped, because observers must not block the main message path.
 
 ## Fitness Function
 
@@ -123,3 +125,7 @@ The intended end-to-end flow:
 5. *(Future)* Feed scores to an ML model that generates the next policy candidate.
 
 Steps 1 through 4 are implemented. Step 5 is the integration point: `KithCovenantPolicy.from_dict()` accepts model output directly.
+
+---
+
+*Next: [Whistleblower cryptography](whistleblower-crypto.md)*

@@ -1,0 +1,588 @@
+{
+  "$comment": "Ordered reading chain for the MUUDD narrative. Paths are relative to the muudd repository root. Every document listed here carries a 'Previous' link at the top and a 'Next' link at the bottom, and the order below is authoritative for both. Consumed by the sustainable-space website build, which strips the navigation lines and lifts each document's lead section as its summary.",
+  "entry": "README.md",
+  "parts": [
+    {
+      "id": "I",
+      "title": "MUUDD: the physical layer",
+      "kind": "spine",
+      "documents": [
+        {
+          "n": 1,
+          "path": "doc/muudd.md",
+          "title": "Why user-owned networks"
+        },
+        {
+          "n": 2,
+          "path": "doc/audience_profile.md",
+          "title": "Who this is for"
+        },
+        {
+          "n": 3,
+          "path": "doc/hardware_design.md",
+          "title": "Nodes and radios"
+        },
+        {
+          "n": 4,
+          "path": "doc/device_model.md",
+          "title": "What a person carries"
+        },
+        {
+          "n": 5,
+          "path": "doc/software_architecture.md",
+          "title": "What runs on a node"
+        },
+        {
+          "n": 6,
+          "path": "doc/anonymous_communication.md",
+          "title": "Speaking without being identified"
+        },
+        {
+          "n": 7,
+          "path": "doc/verifiable_infrastructure.md",
+          "title": "Trusting the metal"
+        },
+        {
+          "n": 8,
+          "path": "doc/the-stack.md",
+          "title": "The optional stack"
+        }
+      ]
+    },
+    {
+      "id": "II",
+      "title": "AutonomousTrust: who may cooperate",
+      "kind": "spine",
+      "documents": [
+        {
+          "n": 9,
+          "path": "lib/autonomous_trust/doc/concept.md",
+          "title": "Trust as a live value"
+        },
+        {
+          "n": 10,
+          "path": "lib/autonomous_trust/doc/architecture/overview.md",
+          "title": "How a node is built"
+        },
+        {
+          "n": 11,
+          "path": "lib/autonomous_trust/doc/architecture/identity-protocol.md",
+          "title": "Becoming a peer"
+        },
+        {
+          "n": 12,
+          "path": "lib/autonomous_trust/doc/architecture/negotiation.md",
+          "title": "Getting work done"
+        },
+        {
+          "n": 13,
+          "path": "lib/autonomous_trust/doc/architecture/reputation.md",
+          "title": "Earning standing"
+        },
+        {
+          "n": 14,
+          "path": "lib/autonomous_trust/doc/architecture/trust-tiers.md",
+          "title": "Standing turned into capability"
+        },
+        {
+          "n": 15,
+          "path": "lib/autonomous_trust/doc/architecture/operator-attended.md",
+          "title": "The human behind the machine"
+        },
+        {
+          "n": 16,
+          "path": "lib/autonomous_trust/doc/example-application.md",
+          "title": "A worked scenario"
+        }
+      ]
+    },
+    {
+      "id": "III",
+      "title": "Ethne: what a community is",
+      "kind": "spine",
+      "documents": [
+        {
+          "n": 17,
+          "path": "lib/ethne/doc/concept.md",
+          "title": "From cooperation to community"
+        },
+        {
+          "n": 18,
+          "path": "lib/ethne/doc/charter.md",
+          "title": "Founding a polity"
+        },
+        {
+          "n": 19,
+          "path": "lib/ethne/doc/guardianship.md",
+          "title": "Which human answers for which machine"
+        },
+        {
+          "n": 20,
+          "path": "lib/ethne/doc/transmission.md",
+          "title": "The rite"
+        },
+        {
+          "n": 21,
+          "path": "lib/ethne/doc/cohesion.md",
+          "title": "Watching for erosion"
+        },
+        {
+          "n": 22,
+          "path": "lib/ethne/doc/uplift.md",
+          "title": "What crosses to the compact"
+        }
+      ]
+    },
+    {
+      "id": "IV",
+      "title": "Kith-Covenant: how communities treat one another",
+      "kind": "spine",
+      "documents": [
+        {
+          "n": 23,
+          "path": "lib/kith-covenant/doc/concept.md",
+          "title": "Cooperation without a sovereign"
+        },
+        {
+          "n": 24,
+          "path": "lib/kith-covenant/doc/substrate.md",
+          "title": "The ground each community stands on"
+        },
+        {
+          "n": 25,
+          "path": "lib/kith-covenant/doc/recognition.md",
+          "title": "Two layers of recognition"
+        },
+        {
+          "n": 26,
+          "path": "lib/kith-covenant/doc/standing.md",
+          "title": "Four categories of standing"
+        },
+        {
+          "n": 27,
+          "path": "lib/kith-covenant/doc/disputes.md",
+          "title": "When communities disagree"
+        },
+        {
+          "n": 28,
+          "path": "lib/kith-covenant/doc/commons.md",
+          "title": "The five commons"
+        },
+        {
+          "n": 29,
+          "path": "lib/kith-covenant/doc/jester.md",
+          "title": "Protected dissent"
+        },
+        {
+          "n": 30,
+          "path": "lib/kith-covenant/doc/machines.md",
+          "title": "Machines as delegates"
+        },
+        {
+          "n": 31,
+          "path": "lib/kith-covenant/doc/capture.md",
+          "title": "Capture resistance"
+        },
+        {
+          "n": 32,
+          "path": "lib/kith-covenant/doc/limits.md",
+          "title": "What only humans can do"
+        }
+      ]
+    },
+    {
+      "id": "A",
+      "title": "Appendix A: MUUDD reference",
+      "kind": "appendix",
+      "documents": [
+        {
+          "n": "A1",
+          "path": "doc/rural-network.md",
+          "title": "A rural deployment, worked in full"
+        },
+        {
+          "n": "A2",
+          "path": "doc/architecture/gateway-uplinks.md",
+          "title": "Gateway uplinks"
+        },
+        {
+          "n": "A3",
+          "path": "docs/network_simulation.md",
+          "title": "Simulating a community mesh"
+        },
+        {
+          "n": "A4",
+          "path": "docs/system-simulation.md",
+          "title": "Terrain to asteroid belt"
+        },
+        {
+          "n": "A5",
+          "path": "docs/space-protocol-timeouts.md",
+          "title": "Protocol timeouts at deep-space latency"
+        },
+        {
+          "n": "A6",
+          "path": "doc/decentralization_momentum.md",
+          "title": "The case for decentralized communications"
+        },
+        {
+          "n": "A7",
+          "path": "doc/decentralization_momentum_alt.md",
+          "title": "Infrastructure independence"
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "title": "Appendix B: AutonomousTrust reference",
+      "kind": "appendix",
+      "documents": [
+        {
+          "n": "B1",
+          "path": "lib/autonomous_trust/doc/architecture/process-architecture.md",
+          "title": "Process architecture"
+        },
+        {
+          "n": "B2",
+          "path": "lib/autonomous_trust/doc/architecture/node-lifecycle.md",
+          "title": "Node lifecycle"
+        },
+        {
+          "n": "B3",
+          "path": "lib/autonomous_trust/doc/architecture/networking.md",
+          "title": "Networking"
+        },
+        {
+          "n": "B4",
+          "path": "lib/autonomous_trust/doc/architecture/network-connection-pooling.md",
+          "title": "Connection pooling"
+        },
+        {
+          "n": "B5",
+          "path": "lib/autonomous_trust/doc/architecture/partition-recovery.md",
+          "title": "Partition recovery"
+        },
+        {
+          "n": "B6",
+          "path": "lib/autonomous_trust/doc/architecture/cohort-clock-skew.md",
+          "title": "Cohort clock skew"
+        },
+        {
+          "n": "B7",
+          "path": "lib/autonomous_trust/doc/architecture/persistent-cohort.md",
+          "title": "Persistent cohort"
+        },
+        {
+          "n": "B8",
+          "path": "lib/autonomous_trust/doc/architecture/gateway-reputation-tree.md",
+          "title": "The gateway reputation tree"
+        },
+        {
+          "n": "B9",
+          "path": "lib/autonomous_trust/doc/architecture/reputation-vs-blockchain-analysis.md",
+          "title": "Reputation against blockchain"
+        },
+        {
+          "n": "B10",
+          "path": "lib/autonomous_trust/doc/architecture/operator-access.md",
+          "title": "Operator access"
+        },
+        {
+          "n": "B11",
+          "path": "lib/autonomous_trust/doc/architecture/app-peer-carrier.md",
+          "title": "The app-facing peer carrier"
+        },
+        {
+          "n": "B12",
+          "path": "lib/autonomous_trust/doc/architecture/native-ffi-dual-implementation.md",
+          "title": "The dual implementation"
+        },
+        {
+          "n": "B13",
+          "path": "lib/autonomous_trust/doc/architecture/zta-integration.md",
+          "title": "Zero Trust integration"
+        },
+        {
+          "n": "B14",
+          "path": "lib/autonomous_trust/doc/architecture/zta-python-parity.md",
+          "title": "Zero Trust parity in Python"
+        },
+        {
+          "n": "B15",
+          "path": "lib/autonomous_trust/doc/security.md",
+          "title": "The security model"
+        },
+        {
+          "n": "B16",
+          "path": "lib/autonomous_trust/doc/architecture/security-hardening.md",
+          "title": "Security hardening"
+        },
+        {
+          "n": "B17",
+          "path": "lib/autonomous_trust/doc/m2m_security.md",
+          "title": "Machine-to-machine security"
+        },
+        {
+          "n": "B18",
+          "path": "lib/autonomous_trust/doc/correctness-proofs.md",
+          "title": "Correctness proofs"
+        },
+        {
+          "n": "B19",
+          "path": "lib/autonomous_trust/doc/verification_oracle.md",
+          "title": "The verification oracle"
+        },
+        {
+          "n": "B20",
+          "path": "lib/autonomous_trust/doc/testing.md",
+          "title": "Testing approach"
+        },
+        {
+          "n": "B21",
+          "path": "lib/autonomous_trust/doc/architecture/integration-testing.md",
+          "title": "Integration testing"
+        },
+        {
+          "n": "B22",
+          "path": "lib/autonomous_trust/doc/architecture/adversarial-testing.md",
+          "title": "Adversarial testing"
+        },
+        {
+          "n": "B23",
+          "path": "lib/autonomous_trust/doc/architecture/sg2-detection-walkthrough.md",
+          "title": "A compromise, detected"
+        },
+        {
+          "n": "B24",
+          "path": "lib/autonomous_trust/doc/architecture/space-communications.md",
+          "title": "Space communications"
+        },
+        {
+          "n": "B25",
+          "path": "lib/autonomous_trust/doc/dtn.md",
+          "title": "Delay-tolerant networking"
+        },
+        {
+          "n": "B26",
+          "path": "lib/autonomous_trust/doc/at-over-dtn.md",
+          "title": "AutonomousTrust over DTN"
+        },
+        {
+          "n": "B27",
+          "path": "lib/autonomous_trust/doc/at-internet-traffic.md",
+          "title": "Traffic over the open internet"
+        },
+        {
+          "n": "B28",
+          "path": "lib/autonomous_trust/doc/api.md",
+          "title": "The integration API"
+        },
+        {
+          "n": "B29",
+          "path": "lib/autonomous_trust/doc/whitepaper/AutonomousTrust.md",
+          "title": "AutonomousTrust whitepaper"
+        },
+        {
+          "n": "B30",
+          "path": "lib/autonomous_trust/doc/whitepaper/HighTrust.md",
+          "title": "High-trust computing whitepaper"
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "title": "Appendix C: ethne reference",
+      "kind": "appendix",
+      "documents": [
+        {
+          "n": "C1",
+          "path": "lib/ethne/doc/crates.md",
+          "title": "The crates, and what each one holds"
+        },
+        {
+          "n": "C2",
+          "path": "lib/ethne/doc/design.md",
+          "title": "Design decisions D1 to D34"
+        },
+        {
+          "n": "C3",
+          "path": "lib/ethne/doc/architecture/build-and-toolchain.md",
+          "title": "Build and toolchain"
+        }
+      ]
+    },
+    {
+      "id": "D",
+      "title": "Appendix D: Kith-Covenant reference",
+      "kind": "appendix",
+      "documents": [
+        {
+          "n": "D1",
+          "path": "lib/kith-covenant/doc/background/justus_hostis.md",
+          "title": "Justus hostis"
+        },
+        {
+          "n": "D2",
+          "path": "lib/kith-covenant/doc/background/bounded_conflict.md",
+          "title": "Bounded conflict"
+        },
+        {
+          "n": "D3",
+          "path": "lib/kith-covenant/doc/background/neighbor.md",
+          "title": "The neighbor"
+        },
+        {
+          "n": "D4",
+          "path": "lib/kith-covenant/doc/background/natural_law.md",
+          "title": "Natural law"
+        },
+        {
+          "n": "D5",
+          "path": "lib/kith-covenant/doc/background/noticeable_hand.md",
+          "title": "The noticeable hand"
+        },
+        {
+          "n": "D6",
+          "path": "lib/kith-covenant/doc/background/control_system_hypothesis.md",
+          "title": "The control system hypothesis"
+        },
+        {
+          "n": "D7",
+          "path": "lib/kith-covenant/doc/background/historical_cases.md",
+          "title": "Historical cases"
+        },
+        {
+          "n": "D8",
+          "path": "lib/kith-covenant/doc/background/christendom_cases.md",
+          "title": "Christendom cases"
+        },
+        {
+          "n": "D9",
+          "path": "lib/kith-covenant/doc/background/buddhist_sangha.md",
+          "title": "The Buddhist sangha"
+        },
+        {
+          "n": "D10",
+          "path": "lib/kith-covenant/doc/background/tacit_coordination.md",
+          "title": "Tacit coordination"
+        },
+        {
+          "n": "D11",
+          "path": "lib/kith-covenant/doc/background/recognition_protocols.md",
+          "title": "Recognition protocols"
+        },
+        {
+          "n": "D12",
+          "path": "lib/kith-covenant/doc/background/liminal_institutions.md",
+          "title": "Liminal institutions"
+        },
+        {
+          "n": "D13",
+          "path": "lib/kith-covenant/doc/background/commons_federation.md",
+          "title": "Commons federation"
+        },
+        {
+          "n": "D14",
+          "path": "lib/kith-covenant/doc/background/jester_and_dissent.md",
+          "title": "Jester and dissent"
+        },
+        {
+          "n": "D15",
+          "path": "lib/kith-covenant/doc/background/exit_and_succession.md",
+          "title": "Exit and succession"
+        },
+        {
+          "n": "D16",
+          "path": "lib/kith-covenant/doc/background/capture_resistance.md",
+          "title": "Capture resistance"
+        },
+        {
+          "n": "D17",
+          "path": "lib/kith-covenant/doc/background/sacrificial_equilibrium.md",
+          "title": "Sacrificial equilibrium"
+        },
+        {
+          "n": "D18",
+          "path": "lib/kith-covenant/doc/background/righteous_war.md",
+          "title": "Righteous war"
+        },
+        {
+          "n": "D19",
+          "path": "lib/kith-covenant/doc/background/m2m_interaction.md",
+          "title": "Machine-to-machine interaction"
+        },
+        {
+          "n": "D20",
+          "path": "lib/kith-covenant/doc/background/reputation_bridges.md",
+          "title": "Reputation bridges"
+        },
+        {
+          "n": "D21",
+          "path": "lib/kith-covenant/doc/background/objections.md",
+          "title": "Objections"
+        },
+        {
+          "n": "D22",
+          "path": "lib/kith-covenant/doc/crates.md",
+          "title": "The crates, and what each one holds"
+        },
+        {
+          "n": "D23",
+          "path": "lib/kith-covenant/doc/architecture/protocol-components.md",
+          "title": "Protocol components"
+        },
+        {
+          "n": "D24",
+          "path": "lib/kith-covenant/doc/architecture/machine-participation.md",
+          "title": "Machine participation"
+        },
+        {
+          "n": "D25",
+          "path": "lib/kith-covenant/doc/architecture/policy-evaluation.md",
+          "title": "Policy evaluation"
+        },
+        {
+          "n": "D26",
+          "path": "lib/kith-covenant/doc/architecture/whistleblower-crypto.md",
+          "title": "Whistleblower cryptography"
+        },
+        {
+          "n": "D27",
+          "path": "lib/kith-covenant/doc/architecture/erosion-legibility.md",
+          "title": "Erosion legibility"
+        },
+        {
+          "n": "D28",
+          "path": "lib/kith-covenant/doc/architecture/autonomous-trust-integration.md",
+          "title": "The AutonomousTrust integration"
+        },
+        {
+          "n": "D29",
+          "path": "lib/kith-covenant/doc/architecture/build-and-toolchain.md",
+          "title": "Build and toolchain"
+        },
+        {
+          "n": "D30",
+          "path": "lib/kith-covenant/doc/whitepaper/whitepaper.md",
+          "title": "Kith-Covenant whitepaper"
+        }
+      ]
+    }
+  ],
+  "off_chain_indexes": [
+    "doc/architecture/README.md",
+    "lib/autonomous_trust/doc/autonomous_trust.md",
+    "lib/autonomous_trust/doc/architecture/README.md",
+    "lib/kith-covenant/doc/kith_covenant.md",
+    "lib/kith-covenant/doc/architecture/README.md"
+  ],
+  "excluded": [
+    "lib/autonomous_trust/doc/tekfive/**",
+    "lib/*/doc/research/**",
+    "lib/autonomous_trust/doc/architecture/_generated/**",
+    "**/TODO.md",
+    "**/ISSUES.md",
+    "**/CLAUDE.md",
+    "docs/superpowers/**"
+  ]
+}

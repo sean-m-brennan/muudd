@@ -1,18 +1,42 @@
-*[Sustainable Space](../../../../../doc/sustainable_space.md) > [MUUDD](../../../doc/muudd.md) > Kith-Covenant*
+# Kith-Covenant: the reference corpus
 
-# Kith-Covenant: Shared Civil Protocols
+This is the index to appendix D, being the research and architecture documents
+behind Kith-Covenant. The readable path through the same material is Part IV of
+the MUUDD narrative, which begins at [cooperation without a
+sovereign](concept.md) and runs for ten chapters. For everything in one
+standalone document, read [the whitepaper](whitepaper/whitepaper.md).
 
-For a ~500-word plain-language summary, see [summary.md](summary.md). For a standalone argument that develops the claims below into a single narrative, see [overview.md](overview.md). For the consolidated synthesis (executive summary, full argument, software architecture, historical appendices, and bibliography in a single document), see [whitepaper.md](whitepaper/whitepaper.md).
+Kith-covenant is the social-governance layer of the MUUDD stack: a civil
+protocol by which independent communities that share no purpose, creed, or
+sovereign can cooperate durably. Its target setting is permanent space
+inhabitation, where habitats separated by light-lag can neither federate under a
+central authority nor walk away from a bad neighbor, but its proving ground is
+Earth, where exit is cheap and a compact that holds has demonstrated that it
+binds voluntarily. The design is drawn from the historical regimes that solved
+versions of this problem (Westphalia, the Hanseatic League, lex mercatoria, the
+Iroquois Council Fire, the Buddhist sangha) and from the failure modes of the
+regimes that did not.
 
-Kith-covenant is the social-governance layer of the MUUDD stack: a civil protocol by which independent communities that share no purpose, creed, or sovereign can cooperate durably. Its target setting is permanent space inhabitation, where habitats separated by light-lag can neither federate under a central authority nor walk away from a bad neighbor, but its proving ground is Earth, where exit is cheap and a compact that holds has demonstrated that it binds voluntarily. The design is drawn from the historical regimes that solved versions of this problem (Westphalia, the Hanseatic League, lex mercatoria, the Iroquois Council Fire, the Buddhist sangha) and from the failure modes of the regimes that did not.
+The protocol's foundation is a finding about substrate: durable full compacts
+rest on each member community's own anchor to a transcendent moral authority,
+carried in five anti-spiral features, with the compact itself structurally
+refused the role of ultimate. On that foundation sit the operational mechanisms:
+a two-layer recognition ceremony, four categories of standing, an escalation
+ladder with restitution and return at every rung, liminal institutions, commons
+governance, protected dissent, and capture resistance woven through all of it.
+Machines participate on derived terms only, each bound to a named human
+guardian; nothing originates at the machine layer outside its principals'
+authorization.
 
-The protocol's foundation is a finding about substrate: durable full compacts rest on each member community's own anchor to a transcendent moral authority, carried in five anti-spiral features, with the compact itself structurally refused the role of ultimate. On that foundation sit the operational mechanisms: a two-layer recognition ceremony, four categories of standing, an escalation ladder with restitution and return at every rung, liminal institutions, commons governance, protected dissent, and capture resistance woven through all of it. Machines participate on derived terms only, each bound to a named human guardian; nothing originates at the machine layer outside its principals' authorization.
-
-The research documents below develop the argument and the evidence; the architecture documents decompose the software that carries the protocol's procedural layer. The [overview](overview.md) is the argument in one narrative, the [orientation](orientation.md) is the guided walk, and the [whitepaper](whitepaper/whitepaper.md) is the consolidated synthesis.
+The research documents below develop the argument and the evidence, and the
+architecture documents decompose the software that carries the procedural layer
+of the protocol. Each is also a link in the appendix chain, which starts at
+[justus hostis](background/justus_hostis.md) and carries a Previous and a Next
+line like every other document in the narrative.
 
 ## Research
 
-- [Social Framework for Space Habitats](social_framework.md): social technologies for sustainable space inhabitation
+
 - [Justus Hostis: Cooperation Derived From Bounded Conflict](background/justus_hostis.md): theoretical anchor; sacred substrate, fallen-actor anthropology, the Christendom question, and **the five anti-spiral features** (fallen-actor anthropology, grace over merit, scapegoat-revelation or equivalent, enemy-love as operational norm, non-ultimacy of the political community) as the load-bearing form of the substrate requirement
 - [The Neighbor: Enacted Nearness and the Limit of Categories](background/neighbor.md): the philology of *re'a* and *plēsion* and the Samaritan reversal; **why no definition of the neighbor ever holds**, and why that refusal is the working part rather than vagueness; the new-Israel problem; the three things the protocol takes from it (credentialing examines operative practice and not confessed creed, enemy-love is written as an operational norm, and the four standing categories rest on encounter rather than roster), with discernment-within-the-encounter as the guardrail against fantasy-universal love
 - [Bounded Conflict: Escalation Ladders and the Common Virtue](background/bounded_conflict.md): operational ladder, common virtue (not non-negotiable rules), gamification, Earth-first testing, and 2nd/3rd-order effects
