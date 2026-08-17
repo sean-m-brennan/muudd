@@ -378,6 +378,23 @@ combination blocks the purity spiral:
    and **diagnostic** (its erosion is observable as early-stage
    capture).
 
+**Features 3 and 5 are two countermeasures against one entity, and
+they come from two different accounts of it.** Feature 3 is
+Girardian, and its remedy is exposure: the mechanism is disarmed by
+being seen, named, and refused for what it is, which assumes there is
+something anomalous to see. Feature 5 is closer to Wink's account of the Powers, whose
+fall is the claim to ultimacy and whose remedy is renunciation rather
+than exposure. Stacking both is not redundancy. The two answer
+failures that arrive by different routes, are defeated by different
+means, and leave different traces, so a community can defeat either
+one while satisfying the other. Salem is the case where the
+features were held doctrinally and the mechanism ran anyway, which is
+feature 3 defeated. The case where both are satisfied and the
+community still narrows what it enforces down to a fraction of what
+it recites is
+[substitution.md](substitution.md), and it is neither exposure nor
+renunciation that catches it.
+
 **What the five-feature formulation accomplishes that the bare
 "anchor above self" formulation did not:**
 

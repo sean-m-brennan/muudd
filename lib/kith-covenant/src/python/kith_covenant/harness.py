@@ -93,10 +93,11 @@ from kith_covenant.authoring import (
     register_commons, apply_sanction, vouch, record_admission, attest_interpretation,
     report_event, corroborate_event, attest_principal, record_principal_output,
     new_mediator, register_mediators, new_observer, register_observers,
-    attest_activity, now_seconds,
+    attest_activity, record_conduct, now_seconds,
 )
 from kith_covenant.reputation import (
     substrate_deference, ceremony_cost_decay, composition_graph,
+    enforcement_convergence,
     interpretive_plurality, structured_skepticism, adversarial_principal,
     erosion_alert,
 )
@@ -150,6 +151,16 @@ MAX_DAMAGE_QUIET = 1
 # scenario's control is a compact that says so.
 MIN_SEVERITY_ABANDONED = "Notice"
 MAX_DAMAGE_ABANDONED = 1
+# The substituted object (scenario 10): a compact that keeps every form, intensifies
+# it, and narrows what it actually enforces must be graded at least this severe once
+# the reading is testable at all. Weak for the same reason as scenarios 8 and 9 —
+# substitution can be entirely sincere, and a narrowing is a fact about the compact
+# before it is an accusation against anyone.
+MIN_SEVERITY_SUBSTITUTION = "Notice"
+# The acts the substitution reading needs before it will say anything. Passed
+# explicitly into `erosion_alert` rather than mirrored from the Rust default, so the
+# harness scores against the floor it names and the two cannot drift apart.
+SUBSTITUTION_VOLUME_FLOOR = 12
 
 _YEAR = 365 * 24 * 3600
 
@@ -222,6 +233,16 @@ class HarnessParams:
     abandoned_cadence_days: int = 30
     abandoned_steps: int = 4
 
+    # Scenario 10: how many of the eight concrete grounds the substituting compact
+    # still cites, how many communities it aims that enforcement at, how many acts
+    # it files per step, and how many steps to run. `grounds` must stay under half
+    # the taxonomy or the compact is not narrowing; `targets` must exceed two or the
+    # scenario is a recurring problem rather than a substitution.
+    substitution_grounds: int = 1
+    substitution_targets: int = 5
+    substitution_batch: int = 6
+    substitution_steps: int = 4
+
     @classmethod
     def canonical(cls) -> "HarnessParams":
         """The hand-authored case, byte-for-byte."""
@@ -252,6 +273,10 @@ class HarnessParams:
             quiet_steps=rng.choice(PARAM_RANGES["quiet_steps"]),
             abandoned_cadence_days=rng.choice(PARAM_RANGES["abandoned_cadence_days"]),
             abandoned_steps=rng.choice(PARAM_RANGES["abandoned_steps"]),
+            substitution_grounds=rng.choice(PARAM_RANGES["substitution_grounds"]),
+            substitution_targets=rng.choice(PARAM_RANGES["substitution_targets"]),
+            substitution_batch=rng.choice(PARAM_RANGES["substitution_batch"]),
+            substitution_steps=rng.choice(PARAM_RANGES["substitution_steps"]),
         )
 
     def normalized(self) -> "HarnessParams":
@@ -274,6 +299,19 @@ class HarnessParams:
             ceremony_declines=max(1, self.ceremony_declines),
             quiet_steps=max(2, self.quiet_steps),
             abandoned_steps=max(2, self.abandoned_steps),
+            # Under half the taxonomy, or the compact is not narrowing; more than
+            # two targets, or the reading is a recurring problem and must not fire.
+            substitution_grounds=min(max(1, self.substitution_grounds), 3),
+            substitution_targets=max(3, self.substitution_targets),
+            substitution_batch=max(1, self.substitution_batch),
+            # Enough steps to carry the volume past the floor and one more, or the
+            # scenario would score the detector for a reading it never let exist.
+            # A dependency, not a constant: a small batch needs more steps to reach
+            # the same floor.
+            substitution_steps=max(
+                self.substitution_steps,
+                -(-SUBSTITUTION_VOLUME_FLOOR // max(1, self.substitution_batch)) + 1,
+            ),
         )
 
     @property
@@ -312,6 +350,10 @@ PARAM_RANGES: dict[str, tuple[int, ...]] = {
     "quiet_steps": (3, 4, 5, 6),
     "abandoned_cadence_days": (7, 15, 30),
     "abandoned_steps": (3, 4, 5, 6),
+    "substitution_grounds": (1, 2, 3),
+    "substitution_targets": (3, 4, 5, 6),
+    "substitution_batch": (3, 4, 6, 8),
+    "substitution_steps": (3, 4, 5, 6),
 }
 
 
@@ -384,6 +426,25 @@ def max_damage_abandoned(p: HarnessParams) -> int:
     reading is owed, not how many are forgiven."""
     _ = p
     return MAX_DAMAGE_ABANDONED
+
+
+def max_damage_substitution(p: HarnessParams) -> int:
+    """The batches of narrowed enforcement that land before the reading can exist:
+    ``ceil(volume_floor / batch)``.
+
+    This one cannot be a constant, and the reason is arithmetic rather than taste.
+    Coverage over a fixed taxonomy is a coupon-collector reading, so below the volume
+    floor a compact enforcing the whole object and one enforcing a single ground are
+    not distinguishable by any amount of cleverness — twelve acts drawn evenly over
+    eight grounds are expected to touch about six of them, and eight acts only five
+    and a half. Charging the detector for the acts filed before it had a reading
+    would be charging it for the floor, and the floor is what keeps a young compact
+    from being reported as a narrowing one. What the criterion does say, and says
+    strictly, is that not one batch past the floor goes unflagged.
+
+    Reduces to two at the canonical parameters (a floor of twelve, six acts a
+    batch), which is asserted."""
+    return -(-SUBSTITUTION_VOLUME_FLOOR // max(1, p.substitution_batch))
 
 
 @dataclass(frozen=True)
@@ -1058,6 +1119,155 @@ def _scenario_abandoned_office(p: HarnessParams) -> ScenarioResult:
         ),
     )
 
+def _scenario_substituted_object(p: HarnessParams) -> ScenarioResult:
+    """Scenario 10 (not a capture move): the compact keeps the form and swaps the
+    object underneath it.
+
+    No adversary, and harder than either scenario before it. Scenario 8 is a polity
+    that stops; scenario 9 is a polity that keeps the forms and stops doing the work.
+    This one does the work — more of it every step. Rites are sealed ahead of cadence
+    with **rising** witness counts, nothing is amended, no fast is shortened, no
+    office falls vacant, and the volume of enforcement climbs. What narrows is only
+    what the enforcement is *about*: a taxonomy of eight grounds down to one, and
+    that one applied across the whole compact.
+
+    Every instrument that counts observances reads this polity as healthy, because by
+    every count it is doing better each step. Measured before the dimension existed:
+    a substituting compact, a compact enforcing the whole object, and a compact with
+    one recurring problem all scored ``None`` with no reasons on every signal the
+    audit had.
+
+    The control is what makes the scenario honest, and it is not the healthy compact
+    — that one differs on two axes at once. It is the **recurring problem**: the same
+    volume of enforcement on the same single ground, aimed at one community instead
+    of many. Coverage cannot separate those two, and if the flag fires on both then
+    the reading is punishing a compact for having a persistent offender rather than
+    for narrowing its object.
+
+    Falsification criterion, stated in advance: the alert must reach
+    ``MIN_SEVERITY_SUBSTITUTION`` within ``max_damage_substitution`` batches, and the
+    recurring-problem control must never flag.
+    """
+    grounds = (
+        ("AntiSpiral", "EnemyLoveOperational"),
+        ("AntiSpiral", "FallenActorAnthropology"),
+        ("AntiSpiral", "GraceOverMerit"),
+        ("AntiSpiral", "ScapegoatDisarming"),
+        ("AntiSpiral", "NonUltimacyOfCompact"),
+        ("Charity", None),
+        ("Rescue", None),
+        ("CommonsObligation", None),
+    )
+    reporters_n = 3
+    step_seconds = 30 * 86_400
+
+    def compact():
+        """A compact keeping every form: rites ahead of any cadence, witness counts
+        rising, nothing rolled back. Whatever fires below fires on enforcement."""
+        arch = Archive()
+        t0 = now_seconds()
+        size = reporters_n + p.substitution_targets
+        names = tuple(chr(ord("A") + i) for i in range(size))
+        members = _founding(arch, names, t0)
+        for com in members:
+            run_intra_rite(arch, com, witness_count=4, sealed_at=t0 + 1)
+            run_intra_rite(arch, com, witness_count=7, sealed_at=t0 + 2)
+        return arch, t0, members[:reporters_n], members[reporters_n:]
+
+    subject, t0, s_reporters, s_subjects = compact()
+    control, c_t0, c_reporters, c_subjects = compact()
+
+    def file_batch(arch, base, reporters, subjects, targets, n, step):
+        """One step's worth of enforcement, all of it on `p.substitution_grounds`
+        grounds and spread across `targets` of the subject communities."""
+        for j in range(p.substitution_batch):
+            bearing, feature = grounds[(n + j) % p.substitution_grounds]
+            record_conduct(
+                arch,
+                reporters[(n + j) % len(reporters)],
+                subjects[(n + j) % targets].did,
+                "Violation",
+                bearing,
+                feature=feature,
+                ladder_rung="MediatedArbitration",
+                recorded_at=base + step * step_seconds + j * 60 + 10,
+            )
+
+    ranks = {"None": 0, "Notice": 1, "Alert": 2}
+    detected = False
+    latency = None
+    damage = 0
+    severity = "None"
+    control_flagged = False
+    coverage_matched = False
+
+    def read(arch, base, step):
+        return erosion_alert(
+            arch,
+            as_of=base + step * step_seconds + step_seconds - 1,
+            enforcement_volume_floor=SUBSTITUTION_VOLUME_FLOOR,
+        )
+
+    filed = 0
+    for step in range(0, p.substitution_steps):
+        # The subject narrows across many targets; the control narrows onto one.
+        file_batch(subject, t0, s_reporters, s_subjects, p.substitution_targets,
+                   filed, step)
+        file_batch(control, c_t0, c_reporters, c_subjects, 1, filed, step)
+        filed += p.substitution_batch
+
+        al = read(subject, t0, step)
+        c_al = read(control, c_t0, step)
+        severity = al.severity
+
+        # Nothing was rolled back, nothing was done during a fast, every rite is
+        # current and drawing more witnesses than at founding, and no office is
+        # empty. If any of those fired, the scenario is not measuring what it says.
+        assert not al.list_contraction and not al.fast_contraction
+        assert not al.minimum_contraction and al.active_fast_deviations == 0
+        assert not al.overdue_reaffirmations and not al.hollowing_communities
+        assert not al.silent_functions and not al.unstaffed_functions
+        assert al.thinning_deliberation is None
+        # Nobody is in probation, so the *other* substitution dimension must stay
+        # quiet: what fires here is the narrowing, not where it landed.
+        assert al.enforcement_direction is None
+
+        # The two compacts must be indistinguishable on volume and on coverage, or
+        # the control is not controlling for the thing it claims to.
+        s_conv = enforcement_convergence(subject)
+        c_conv = enforcement_convergence(control)
+        coverage_matched = (
+            s_conv.volume == c_conv.volume and s_conv.coverage == c_conv.coverage
+        )
+
+        if ranks[c_al.severity] >= ranks[MIN_SEVERITY_SUBSTITUTION]:
+            control_flagged = True
+
+        if not detected and ranks[severity] >= ranks[MIN_SEVERITY_SUBSTITUTION]:
+            detected = True
+            latency = 0  # flagged on the step the reading first became testable
+            break
+        if not detected:
+            # A batch of narrowed enforcement the audit could not yet read.
+            damage += 1
+
+    bound = max_damage_substitution(p)
+    passed = detected and damage <= bound and not control_flagged and coverage_matched
+    return ScenarioResult(
+        move=10, key="substituted-object",
+        name="the substituted object (intensification, no adversary)",
+        supported=True, detected=detected, detection_latency=latency, damage=damage,
+        threshold_latency=MAX_DETECTION_LATENCY_STEPS, threshold_damage=bound,
+        passed=passed,
+        notes=(
+            f"erosion_alert reached {severity} on enforcement coverage over a fixed "
+            "taxonomy while every form stayed current and every count rose; the "
+            "recurring-problem control, identical in volume and coverage and "
+            "separated only by target dispersion, stayed quiet"
+        ),
+    )
+
+
 # --- Unsupported scenarios (detector deferred past this MVP) -----------------
 #
 # All seven capture-resistance scenarios now have a built detector; none remain
@@ -1089,6 +1299,7 @@ SCENARIOS: tuple[Callable[[HarnessParams], ScenarioResult], ...] = (
     _scenario_probationary_weight,
     _scenario_quiet_polity,
     _scenario_abandoned_office,
+    _scenario_substituted_object,
 )
 
 

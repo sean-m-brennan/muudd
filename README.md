@@ -92,7 +92,7 @@ draw on it.
 - **C**: [Ethne reference](lib/ethne/doc/crates.md). The crates, the design
   decisions D1 to D34, and the toolchain.
 - **D**: [Kith-Covenant reference](lib/kith-covenant/doc/background/justus_hostis.md).
-  Twenty-one background studies, seven architecture documents, and the
+  Twenty-two background studies, seven architecture documents, and the
   whitepaper.
 
 ## Repository layout

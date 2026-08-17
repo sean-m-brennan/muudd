@@ -306,6 +306,88 @@ cadence elapsing. Notice rather than Alert, because ceasing to act is not by its
 proof of corruption, only of something no longer being carried. It scores detected,
 latency 0, damage 0.
 
+### Finding K5: the erosion alert cannot see intensification (fixed)
+
+K1 found that every dimension of the alert was act-triggered, so a polity that simply
+stopped read as healthy. The remedy was six dimensions that fire on omission or on a
+pinned baseline. **All ten of the resulting dimensions are satisfied by a polity that
+keeps every form and performs each of them harder every year.**
+
+That polity is not hypothetical and not adversarial. It seals its rites ahead of cadence
+with witness counts that climb, amends nothing, shortens no fast, deliberates during none,
+leaves no office empty and no designation unexamined, and answers more arguments in its
+latest mediation than in its first. On every instrument the compact owns it reads current,
+staffed, and improving. What changes is only what its enforcement is about. A
+taxonomy of eight grounds narrows to one, and that one is applied with rising vigour across
+a widening set of members. Nothing in the record marks the change, because nothing was
+amended. The recitation is still read in full.
+
+Measured before anything was built. Three compacts of eight communities each, thirty
+enforcement acts apiece, identical in every ceremonial and constitutional respect and
+differing only in what they enforced: one on a single ground against five members, one
+across all eight grounds, one on a single ground against a single member. All three scored
+`ErosionSeverity::None` with no reasons, and scored identically on `substrate_deference`,
+`collusive_cohorts`, and `observer_pool_concentration`. Nothing the compact owned
+distinguished a polity that had swapped its object from one that had not.
+
+**Fixed.** Two dimensions, an eleventh and a twelfth, reading `enforcement_convergence` and
+`enforcement_direction` over the conduct records. The first is coverage of the ground
+taxonomy across a window, with the spread of subjects alongside it; the second is whether
+enforcement lands on members holding reduced standing. Both are counts of what the compact
+enforces rather than of how often, how promptly, or how ceremonially it does so. No record changed and no schema
+moved, because `ConductRecord` already carried the ground, the subject, the filers, and the
+ladder position. The argument for the dimension is
+[substitution.md](../background/substitution.md); this finding is the audit-side statement
+of it.
+
+Coverage is **absolute** in the sense E1 and K1 established, and by a different route from
+the cadences. Those measure against a clock. This measures against a fixed enumeration
+written into the protocol, so a compact cannot improve its coverage by enforcing less, and
+the open `Other` ground stays outside the denominator for the same reason. A denominator
+that grew whenever a filer invented a category would let the compact supply its own
+reference, and a compact narrowed to one invented ground would score perfect coverage of a
+taxonomy of one.
+
+Two calibrations are worth recording, and both were settled by arithmetic rather than
+taste.
+
+The **volume floor is a coupon-collector bound, not a data-sufficiency preference**.
+Coverage over eight grounds is expected to be partial at small counts however evenly a
+compact enforces. Twelve acts drawn evenly reach about 6.4 grounds, a coverage near 0.80
+and clear of the 0.5 floor; eight acts reach about 5.5, a coverage of 0.66, close enough
+that ordinary variance in a small young compact would trip the reading. Below the floor the
+reading reports **untestable**, which is a different answer from healthy.
+
+And **substantive re-engagement had to be excluded from what counts as enforcement**. It
+sits on `LadderRung` and `dispute_ladder_rank` returns `None` for it, since it is the
+ceremony-cost track rather than a dispute rung. Counting it would have read the most hopeful
+record the compact keeps as one of its harshest.
+
+### Finding K6: coverage alone punishes the compact with a difficult member (fixed)
+
+Stated as its own finding because it is the failure the first design of K5 would have
+shipped. A compact with one genuinely recurring offender files repeatedly on the same
+ground for the honest reason, so it shows **high volume and low coverage, exactly like a
+substituting compact**. A reading built on coverage alone fires on both.
+
+**Fixed** by the dispersion of subjects, which is the discriminator rather than an
+embellishment on the reading. Legitimate concentration lands on a *target*; substitution
+concentrates on a *ground* across many targets. The negative control is built to that
+shape: two compacts identical in volume and identical in coverage, separated only by
+whether the enforcement lands on one member or on five, with the flag required on the second
+and silence required on the first.
+
+**A second measurement corrected the design itself, and this is the part no plan
+anticipated.** The natural level to take the reading at is per community, and it is the
+wrong level. Six communities each filing on one ground apiece score as converged on *every*
+per-community reading, while the compact between them still enforces six of the eight
+grounds. That is division of labour in an observer corps and not a narrowing of what the
+compact holds, and a per-community trigger reports it as erosion. The dimension therefore
+reads `enforcement_convergence` compact-wide, and `enforcement_convergence_all` is the
+drill-down that names who, available only after the compact-wide reading has said there is
+anything to name. This is the same shape as the `thinning_deliberation` finding under K1:
+the level a signal is taken at is part of the signal.
+
 ## What is and is not claimable
 
 No mechanism here closes the hole. Every instrument above still terminates in
@@ -325,7 +407,7 @@ That is itself one of the ratchets.
 
 ## Remediation
 
-Six measures answer the findings above, and all six are carried.
+Eight measures answer the findings above, and all eight are carried.
 
 1. **`ceremony_cost_decay` wired into `erosion_alert` and the dashboard.**
    An absolute staleness cadence plus the pinned witness decline. KC's first
@@ -341,6 +423,11 @@ Six measures answer the findings above, and all six are carried.
    `silent_functions` reading them against an absolute cadence.
 6. **A reporting cadence for both standing functions**, mediation and observation
    alike, since the obligation and the failure are identical on the two sides.
+7. **Enforcement coverage over a fixed ground taxonomy**, with the spread of subjects
+   beside it, read compact-wide. The eleventh and twelfth alert dimensions, and the first
+   two that fire on intensification rather than on an act or an omission. (K5, K6)
+8. **§10 scenario 10, the substituted object.** Detected, latency 0, damage 1 against a
+   bound of 2, with the recurring-problem control silent. (K5, K6)
 
 Measure 2 used to carry the confirm-leaves-no-record limit as a stated limitation.
 **It is closed.** A re-examination that confirmed a designation left no trace, so a
@@ -420,6 +507,29 @@ runs a second compact that attests each window as it closes and requires the fla
 the silent compact **and** silence on the attesting one. A cadence signal that fired on
 both would be measuring the calendar rather than the compact.
 
+The substitution dimensions carry six of their own, and scenario 10 runs the paired-compact
+form for the first two.
+
+1. **The recurring problem.** A compact enforcing the same volume on the same single ground
+   against one member must not flag, and the compact spreading that enforcement across five
+   must. Same volume, same coverage, and the target dispersion is the only thing between
+   them. This is K6, and it is the control the whole dimension turns on.
+2. **Specialisation.** Six communities each filing on one ground apiece must not flag,
+   although every per-community reading is converged. This is the control that moved the
+   trigger from per-community to compact-wide.
+3. **Sparsity.** A compact below the volume floor reports untestable rather than firing, so
+   a young compact is not reported as a narrowing one.
+4. **Decay.** A compact whose enforcement has stopped falls out of the window and reads
+   zero volume, which is not zero coverage. It fires the omission dimensions and not this
+   one, which is what keeps the third mode distinct from the first.
+5. **Direction at full members.** Enforcement aimed at members holding full standing never
+   fires the direction dimension at any volume, since some downward skew is what probation
+   exists to license.
+6. **One novel ground.** A single `Other` filing among a covered taxonomy leaves coverage at
+   1.0 and is silent, while a sustained off-taxonomy share scores coverage 0.0 and fires on
+   the ordinary reading. The control holds by construction rather than by a rule, since
+   `Other` is outside the denominator.
+
 ## Provenance
 
 This audit follows from a reading of Girard's account of the scapegoat mechanism
@@ -429,6 +539,18 @@ mediation → escalation → designation ladder already implements. The gap Gira
 leaves is institutional. He has an individual escape and a collective catastrophe,
 and nothing between them. Uniform drift is the collective case arriving without an adversary, and the
 third column above is the only thing that sees it coming.
+
+The substitution findings come from the other half of the same reading, and the corpus
+carries both accounts already without having named them as a pair. Girard supplies
+revelation, and the third anti-spiral feature is the countermeasure built from it. Wink
+supplies renunciation, and the fifth anti-spiral feature is the countermeasure built from
+that. Substitution is the case where neither fires. Revelation has nothing to expose,
+since nothing anomalous is on display and every filing is correct on its face. Renunciation
+is satisfied, since the compact has claimed no ultimacy and kept every list and every fast
+it undertook to keep. What is left is a compact enforcing a smaller object than it recites,
+in perfect and sincere good order, with nothing hidden, forged, or coordinated anywhere in
+the record. That is why the reading which catches it had to be a count of what the
+enforcement is *about* rather than a search for anything wrong with how it was done.
 
 ---
 

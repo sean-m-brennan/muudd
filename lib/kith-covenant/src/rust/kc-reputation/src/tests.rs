@@ -4939,3 +4939,567 @@ mod attested_nulls {
         assert_eq!(later[0].seconds_since, 3 * YEAR);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Substitution: the compact keeps the form and narrows what it enforces.
+// ---------------------------------------------------------------------------
+
+mod substitution {
+    use super::*;
+    use crate::analytics::{
+        enforcement_convergence, enforcement_convergence_all, enforcement_direction,
+        enforcement_direction_all, erosion_alert_with, ErosionSeverity, ErosionThresholds,
+        CONCRETE_BEARINGS,
+    };
+
+    const YEAR: i64 = 365 * 86_400;
+    /// The default enforcement window (five years).
+    const WINDOW: i64 = 5 * YEAR;
+
+    /// The eight concrete grounds, in the order the taxonomy declares them.
+    fn grounds() -> Vec<ConductBearing> {
+        use AntiSpiralFeature::*;
+        vec![
+            ConductBearing::AntiSpiral(FallenActorAnthropology),
+            ConductBearing::AntiSpiral(GraceOverMerit),
+            ConductBearing::AntiSpiral(ScapegoatDisarming),
+            ConductBearing::AntiSpiral(EnemyLoveOperational),
+            ConductBearing::AntiSpiral(NonUltimacyOfCompact),
+            ConductBearing::CommonsObligation,
+            ConductBearing::Charity,
+            ConductBearing::Rescue,
+        ]
+    }
+
+    /// One enforcement act: an adjudicated `Violation` sitting on a dispute rung.
+    fn enforce(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        reporters: &[(&DidKey, &PrivKey)],
+        bearing: ConductBearing,
+        rung: LadderRung,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = ConductRecord {
+            subject_community: subject.clone(),
+            reporters: reporters.iter().map(|(d, _)| (*d).clone()).collect(),
+            reporter_perspective: None,
+            kind: ConductKind::Violation,
+            bearing,
+            severity: Severity::Serious,
+            ladder_rung: Some(rung),
+            decision_class: DecisionClass::FirstClass,
+            references: vec![],
+            narrative: "fixture enforcement".into(),
+            observed_at: at,
+            recorded_at: at,
+        };
+        let signers: Vec<(&str, &PrivKey)> =
+            reporters.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let signed = Signed::build(rec, &signers).expect("sign enforcement");
+        a.append(ArchiveEntry::ConductAttested(signed)).expect("append")
+    }
+
+    /// A compact of `n` communities, returned as (did, priv) pairs.
+    fn compact(n: usize) -> Vec<(DidKey, PrivKey)> {
+        (0..n)
+            .map(|_| {
+                let (p, _, d) = fresh_id();
+                (d, p)
+            })
+            .collect()
+    }
+
+    /// A run of enforcement acts. `bearing_spread` is how many distinct grounds the
+    /// enforcement cites and `subject_spread` how many communities it is aimed at;
+    /// substitution is the case where the first is small and the second is not.
+    fn enforce_run(
+        a: &mut InMemoryArchive,
+        members: &[(DidKey, PrivKey)],
+        reporters: usize,
+        bearing_spread: usize,
+        subject_spread: usize,
+        acts: usize,
+        start: Timestamp,
+    ) {
+        let g = grounds();
+        for i in 0..acts {
+            let (rd, rp) = &members[i % reporters];
+            let (sd, _) = &members[reporters + (i % subject_spread)];
+            enforce(
+                a,
+                sd,
+                &[(rd, rp)],
+                g[i % bearing_spread].clone(),
+                LadderRung::MediatedArbitration,
+                t(start.as_second() + i as i64 * 1000),
+            );
+        }
+    }
+
+    // --- the regression this module exists for -----------------------------
+
+    #[test]
+    fn a_substituted_object_is_invisible_to_every_other_dimension() {
+        // The polity keeps every form: nothing amended, no fast shortened, no rite
+        // overdue, no office empty, no designation left unexamined. What it enforces
+        // has narrowed to one ground, and that one ground is applied to five
+        // different communities. Before this dimension existed the alert read `None`
+        // with no reasons at all.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        enforce_run(&mut a, &m, 3, 1, 5, 30, t(1000));
+
+        let th = ErosionThresholds::default();
+        let al = erosion_alert_with(&a, Some(t(2 * YEAR)), &th);
+
+        // Every prior dimension is inert, which is exactly the finding.
+        assert!(!al.list_contraction);
+        assert!(!al.minimum_contraction);
+        assert!(!al.fast_contraction);
+        assert_eq!(al.active_fast_deviations, 0);
+        assert!(al.overdue_reaffirmations.is_empty());
+        assert!(al.hollowing_communities.is_empty());
+        assert!(al.thinning_deliberation.is_none());
+        assert!(al.overdue_reexaminations.is_empty());
+        assert!(al.silent_functions.is_empty());
+        assert!(al.unstaffed_functions.is_empty());
+
+        // And the new one sees it.
+        let c = al.enforcement_convergence.expect("convergence fires");
+        assert_eq!(c.volume, 30);
+        assert_eq!(c.per_bearing.len(), 1);
+        assert_eq!(c.coverage(), 1.0 / 8.0);
+        assert_eq!(c.per_subject.len(), 5);
+        // One ground carrying everything: the terminal case, so `Alert` not `Notice`.
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert_eq!(al.reasons.len(), 1);
+        assert!(al.reasons[0].contains("converging"));
+    }
+
+    #[test]
+    fn a_compact_enforcing_the_whole_object_is_silent() {
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        enforce_run(&mut a, &m, 3, 8, 5, 30, t(1000));
+
+        let th = ErosionThresholds::default();
+        let al = erosion_alert_with(&a, Some(t(2 * YEAR)), &th);
+        assert_eq!(al.severity, ErosionSeverity::None);
+        assert!(al.reasons.is_empty());
+        assert!(al.enforcement_convergence.is_none());
+
+        let c = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.coverage(), 1.0);
+        assert_eq!(c.per_bearing.len(), CONCRETE_BEARINGS.len());
+    }
+
+    #[test]
+    fn a_partial_narrowing_is_a_notice_before_it_is_an_alert() {
+        // Three grounds of eight: converged past the floor, but not the single-ground
+        // terminal case, so the dimension fires without compounding.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        enforce_run(&mut a, &m, 3, 3, 5, 30, t(1000));
+
+        let al = erosion_alert_with(&a, Some(t(2 * YEAR)), &ErosionThresholds::default());
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+        assert_eq!(al.reasons.len(), 1);
+        let c = al.enforcement_convergence.expect("fires");
+        assert_eq!(c.per_bearing.len(), 3);
+        assert_eq!(c.coverage(), 3.0 / 8.0);
+    }
+
+    // --- negative controls -------------------------------------------------
+
+    #[test]
+    fn a_recurring_problem_is_not_a_substituted_object() {
+        // The control that decides whether the measure is worth having. Both compacts
+        // enforce the same volume on the same single ground. The first aims it at one
+        // community, which is that community's problem; the second spreads it across
+        // five, which is the compact's. Only the second may fire.
+        let th = ErosionThresholds::default();
+
+        let mut recurring = InMemoryArchive::new();
+        let m1 = compact(8);
+        enforce_run(&mut recurring, &m1, 3, 1, 1, 30, t(1000));
+        let al1 = erosion_alert_with(&recurring, Some(t(2 * YEAR)), &th);
+        assert_eq!(al1.severity, ErosionSeverity::None, "one target is not substitution");
+        assert!(al1.enforcement_convergence.is_none());
+        let c1 = enforcement_convergence(&recurring, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c1.coverage(), 1.0 / 8.0, "coverage alone cannot separate them");
+        assert_eq!(c1.target_dispersion(), Some(1.0));
+
+        let mut substituted = InMemoryArchive::new();
+        let m2 = compact(8);
+        enforce_run(&mut substituted, &m2, 3, 1, 5, 30, t(1000));
+        let al2 = erosion_alert_with(&substituted, Some(t(2 * YEAR)), &th);
+        assert_eq!(al2.severity, ErosionSeverity::Alert);
+        let c2 = enforcement_convergence(&substituted, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c2.coverage(), c1.coverage(), "same coverage, same volume");
+        assert_eq!(c2.volume, c1.volume);
+        // Five subjects drawn evenly: an effective target count of five.
+        assert!(
+            (c2.target_dispersion().expect("dispersed") - 0.2).abs() < 1e-9,
+            "and only dispersion differs"
+        );
+    }
+
+    #[test]
+    fn sparse_enforcement_reports_untestable_rather_than_firing() {
+        // A young compact with two enforcement acts has no reading, and must not be
+        // graded as though it had one.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        enforce_run(&mut a, &m, 1, 1, 2, 2, t(1000));
+
+        let th = ErosionThresholds::default();
+        let c = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.volume, 2);
+        assert!(c.volume < th.enforcement_volume_floor);
+        assert!(!c.converging(&th));
+        assert!(erosion_alert_with(&a, Some(t(2 * YEAR)), &th)
+            .enforcement_convergence
+            .is_none());
+    }
+
+    #[test]
+    fn a_polity_that_stopped_does_not_read_as_converging() {
+        // Decay, not substitution. The same narrow enforcement, but all of it older
+        // than the window: the reading goes empty rather than firing, and the
+        // dimensions that catch a polity which stopped are the omission ones.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        enforce_run(&mut a, &m, 3, 1, 5, 30, t(1000));
+
+        let th = ErosionThresholds::default();
+        let late = t(1000 + 6 * YEAR);
+        let c = enforcement_convergence(&a, Some(late), th.enforcement_window_seconds);
+        assert_eq!(c.volume, 0, "everything fell out of the window");
+        assert_eq!(c.coverage(), 0.0);
+        assert!(!c.converging(&th), "zero volume is not zero coverage");
+        assert_eq!(c.target_dispersion(), None, "and nothing is not dispersion");
+        assert!(erosion_alert_with(&a, Some(late), &th)
+            .enforcement_convergence
+            .is_none());
+    }
+
+    #[test]
+    fn enforcement_at_full_members_never_runs_downward() {
+        // No probation anywhere in the compact, so no volume of enforcement can make
+        // the direction reading fire.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        enforce_run(&mut a, &m, 3, 8, 5, 60, t(1000));
+
+        let th = ErosionThresholds::default();
+        let d = enforcement_direction(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(d.total(), 60);
+        assert_eq!(d.downward, 0);
+        assert_eq!(d.level, 60);
+        assert_eq!(d.downward_share(), Some(0.0));
+        assert!(!d.runs_downward(&th));
+        assert!(erosion_alert_with(&a, Some(t(2 * YEAR)), &th)
+            .enforcement_direction
+            .is_none());
+    }
+
+    #[test]
+    fn one_novel_ground_is_not_a_drift_off_the_taxonomy() {
+        // A single `Other` among a fully covered taxonomy leaves coverage at 1.0.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        enforce_run(&mut a, &m, 3, 8, 5, 30, t(1000));
+        let (rd, rp) = &m[0];
+        let (sd, _) = &m[3];
+        enforce(
+            &mut a,
+            sd,
+            &[(rd, rp)],
+            ConductBearing::Other("novel-ground".into()),
+            LadderRung::MediatedArbitration,
+            t(1000 + 40_000),
+        );
+
+        let th = ErosionThresholds::default();
+        let c = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.coverage(), 1.0);
+        assert_eq!(c.other_acts(), 1);
+        assert!(!c.converging(&th));
+    }
+
+    #[test]
+    fn a_sustained_other_share_fires_on_coverage_with_no_rule_of_its_own() {
+        // Everything filed off the shared taxonomy. Coverage is 0.0 because `Other`
+        // is not in the denominator, so the existing dimension catches it and no
+        // separate off-taxonomy rule is needed.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        for i in 0..30 {
+            let (rd, rp) = &m[i % 3];
+            let (sd, _) = &m[3 + (i % 5)];
+            enforce(
+                &mut a,
+                sd,
+                &[(rd, rp)],
+                ConductBearing::Other(format!("house-rule-{}", i % 2)),
+                LadderRung::MediatedArbitration,
+                t(1000 + i as i64 * 1000),
+            );
+        }
+
+        let th = ErosionThresholds::default();
+        let c = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.coverage(), 0.0);
+        assert_eq!(c.other_share(), Some(1.0));
+        assert_eq!(c.per_other.len(), 2);
+        assert!(c.converging(&th));
+        let al = erosion_alert_with(&a, Some(t(2 * YEAR)), &th);
+        assert_eq!(al.severity, ErosionSeverity::Alert, "a majority off-taxonomy compounds");
+    }
+
+    #[test]
+    fn specialised_communities_are_not_a_narrowing_compact() {
+        // The false positive a per-community trigger would produce, and the reason
+        // the alert reads the compact-wide lens. Six communities each file on one
+        // ground apiece; every per-community reading is converged and the compact as
+        // a whole still enforces most of the object.
+        let mut a = InMemoryArchive::new();
+        let m = compact(12);
+        let g = grounds();
+        for (k, ground) in g.iter().enumerate().take(6) {
+            let (rd, rp) = &m[k];
+            for i in 0..14 {
+                let (sd, _) = &m[6 + (i % 6)];
+                enforce(
+                    &mut a,
+                    sd,
+                    &[(rd, rp)],
+                    ground.clone(),
+                    LadderRung::MediatedArbitration,
+                    t(1000 + (k * 100 + i) as i64 * 1000),
+                );
+            }
+        }
+
+        let th = ErosionThresholds::default();
+        let per = enforcement_convergence_all(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(per.len(), 6);
+        for (did, c) in &per {
+            assert_eq!(c.per_bearing.len(), 1, "{did} files on one ground");
+            assert!(c.converging(&th), "{did} reads as converged on its own");
+        }
+        // The compact does not.
+        let whole = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(whole.per_bearing.len(), 6);
+        assert!(!whole.converging(&th));
+        assert!(erosion_alert_with(&a, Some(t(2 * YEAR)), &th)
+            .enforcement_convergence
+            .is_none());
+    }
+
+    // --- what counts, and when ---------------------------------------------
+
+    #[test]
+    fn substantive_re_engagement_is_not_an_act_of_enforcement() {
+        // The one ladder variant that is not a dispute rung. Counting it would read
+        // the compact's most hopeful record as one of its harshest.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        let (rd, rp) = &m[0];
+        for i in 0..20 {
+            let (sd, _) = &m[3 + (i % 5)];
+            enforce(
+                &mut a,
+                sd,
+                &[(rd, rp)],
+                ConductBearing::Charity,
+                LadderRung::SubstantiveReEngagement,
+                t(1000 + i as i64 * 1000),
+            );
+        }
+        let c = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.volume, 0);
+        assert!(!c.converging(&ErosionThresholds::default()));
+    }
+
+    #[test]
+    fn a_concern_carries_no_rung_and_so_is_not_enforcement() {
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        let (rd, rp) = &m[0];
+        for i in 0..20 {
+            let (sd, _) = &m[3 + (i % 5)];
+            publish_conduct(
+                &mut a,
+                sd,
+                rd,
+                rp,
+                None,
+                ConductKind::Concern,
+                ConductBearing::Charity,
+                t(1000 + i as i64 * 1000),
+            );
+        }
+        assert_eq!(enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW).volume, 0);
+    }
+
+    #[test]
+    fn the_window_is_a_trailing_one_and_the_horizon_still_holds() {
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        // Old enforcement across the whole taxonomy, recent enforcement on one ground.
+        enforce_run(&mut a, &m, 3, 8, 5, 30, t(1000));
+        enforce_run(&mut a, &m, 3, 1, 5, 30, t(6 * YEAR));
+
+        let th = ErosionThresholds::default();
+        // Read at year 8: the founding decade's breadth has fallen out of the window.
+        let c = enforcement_convergence(&a, Some(t(8 * YEAR)), th.enforcement_window_seconds);
+        assert_eq!(c.volume, 30);
+        assert_eq!(c.per_bearing.len(), 1);
+        assert!(c.converging(&th));
+        // Read at year 4, before the narrowing happened, nothing has narrowed yet.
+        let early = enforcement_convergence(&a, Some(t(4 * YEAR)), th.enforcement_window_seconds);
+        assert_eq!(early.volume, 30);
+        assert_eq!(early.per_bearing.len(), 8);
+        assert!(!early.converging(&th));
+    }
+
+    // --- direction ---------------------------------------------------------
+
+    #[test]
+    fn direction_reads_standing_at_the_time_of_the_act() {
+        // Five subjects, all sponsored into a probation window that closes at year 3.
+        // Enforcement inside the window runs downward; the same enforcement after it
+        // runs level, because the subjects are full members by then.
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        let (spd, spp) = &m[0];
+        for (sd, _) in m.iter().skip(3).take(5) {
+            publish_sponsorship(&mut a, spd, spp, sd, t(3 * YEAR), t(10));
+        }
+        enforce_run(&mut a, &m, 3, 8, 5, 20, t(1000));
+        enforce_run(&mut a, &m, 3, 8, 5, 20, t(4 * YEAR));
+
+        let th = ErosionThresholds::default();
+        // Inside the probation window only.
+        let inside = enforcement_direction(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(inside.downward, 20);
+        assert_eq!(inside.level, 0);
+        assert_eq!(inside.upward, 0);
+        assert!(inside.runs_downward(&th));
+        assert_eq!(inside.evidence.len(), 20, "the downward acts are the evidence");
+
+        // Across both runs: half of it lands on full members, so the share falls
+        // below the floor and the reading goes quiet.
+        let both = enforcement_direction(&a, Some(t(5 * YEAR)), WINDOW);
+        assert_eq!(both.downward, 20);
+        assert_eq!(both.level, 20);
+        assert_eq!(both.downward_share(), Some(0.5));
+        assert!(!both.runs_downward(&th));
+    }
+
+    #[test]
+    fn enforcement_by_a_probationary_reporter_reads_upward() {
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        let (spd, spp) = &m[0];
+        // The reporters are the ones under probation, not the subjects.
+        for (rd, _) in m.iter().take(3) {
+            publish_sponsorship(&mut a, spd, spp, rd, t(3 * YEAR), t(10));
+        }
+        enforce_run(&mut a, &m, 3, 8, 5, 20, t(1000));
+
+        let d = enforcement_direction(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(d.upward, 20);
+        assert_eq!(d.downward, 0);
+        assert!(d.evidence.is_empty());
+        assert!(!d.runs_downward(&ErosionThresholds::default()));
+    }
+
+    #[test]
+    fn direction_compounds_only_when_nothing_reaches_a_full_member() {
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        let (spd, spp) = &m[0];
+        for (sd, _) in m.iter().skip(3).take(5) {
+            publish_sponsorship(&mut a, spd, spp, sd, t(3 * YEAR), t(10));
+        }
+        // Coverage stays whole, so the convergence dimension is inert and the
+        // severity below is the direction dimension on its own.
+        enforce_run(&mut a, &m, 3, 8, 5, 20, t(1000));
+        let al = erosion_alert_with(&a, Some(t(2 * YEAR)), &ErosionThresholds::default());
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert_eq!(al.reasons.len(), 1);
+        assert!(al.reasons[0].contains("downward"));
+        let d = al.enforcement_direction.expect("fires");
+        assert_eq!(d.upward, 0);
+        assert_eq!(d.level, 0);
+    }
+
+    #[test]
+    fn both_dimensions_can_fire_at_once() {
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        let (spd, spp) = &m[0];
+        for (sd, _) in m.iter().skip(3).take(5) {
+            publish_sponsorship(&mut a, spd, spp, sd, t(3 * YEAR), t(10));
+        }
+        enforce_run(&mut a, &m, 3, 1, 5, 30, t(1000));
+
+        let al = erosion_alert_with(&a, Some(t(2 * YEAR)), &ErosionThresholds::default());
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert_eq!(al.reasons.len(), 2);
+        assert!(al.enforcement_convergence.is_some());
+        assert!(al.enforcement_direction.is_some());
+    }
+
+    #[test]
+    fn a_multi_reporter_act_counts_once_for_each_filer() {
+        let mut a = InMemoryArchive::new();
+        let m = compact(8);
+        let (r0, p0) = (&m[0].0, &m[0].1);
+        let (r1, p1) = (&m[1].0, &m[1].1);
+        for i in 0..14 {
+            let (sd, _) = &m[3 + (i % 5)];
+            enforce(
+                &mut a,
+                sd,
+                &[(r0, p0), (r1, p1)],
+                ConductBearing::Charity,
+                LadderRung::CollectiveSanctions,
+                t(1000 + i as i64 * 1000),
+            );
+        }
+        let whole = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(whole.volume, 14, "the compact filed fourteen acts");
+        let per = enforcement_convergence_all(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(per.len(), 2);
+        for c in per.values() {
+            assert_eq!(c.volume, 14, "and both filers filed all fourteen");
+        }
+        let dper = enforcement_direction_all(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(dper.len(), 2);
+        for d in dper.values() {
+            assert_eq!(d.level, 14);
+        }
+    }
+
+    #[test]
+    fn an_empty_archive_reads_as_nothing_rather_than_as_converged() {
+        let a = InMemoryArchive::new();
+        let th = ErosionThresholds::default();
+        let c = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.volume, 0);
+        assert_eq!(c.concentration(), None);
+        assert_eq!(c.target_dispersion(), None);
+        assert_eq!(c.other_share(), None);
+        assert!(!c.converging(&th));
+        let d = enforcement_direction(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(d.total(), 0);
+        assert_eq!(d.downward_share(), None);
+        assert!(!d.runs_downward(&th));
+        assert!(enforcement_convergence_all(&a, Some(t(2 * YEAR)), WINDOW).is_empty());
+        assert!(enforcement_direction_all(&a, Some(t(2 * YEAR)), WINDOW).is_empty());
+    }
+}

@@ -66,6 +66,9 @@ try:
         ErosionAlert, erosion_alert, OverdueReaffirmation,
         OverdueReexamination, overdue_reexaminations,
         SilentFunction, silent_functions, UnstaffedFunction, unstaffed_functions,
+        ThinningDeliberation,
+        EnforcementConvergence, enforcement_convergence, enforcement_convergence_all,
+        EnforcementDirection, enforcement_direction, enforcement_direction_all,
     )
     from kith_covenant.harness import (
         ScenarioResult, HarnessReport, run_harness,
@@ -139,7 +142,11 @@ try:
         'ErosionAlert', 'erosion_alert', 'OverdueReaffirmation',
         'OverdueReexamination', 'overdue_reexaminations',
         'SilentFunction', 'silent_functions', 'UnstaffedFunction',
-        'unstaffed_functions',
+        'unstaffed_functions', 'ThinningDeliberation',
+        'EnforcementConvergence', 'enforcement_convergence',
+        'enforcement_convergence_all',
+        'EnforcementDirection', 'enforcement_direction',
+        'enforcement_direction_all',
         'ScenarioResult', 'HarnessReport', 'run_harness',
     'HarnessParams', 'PARAM_RANGES', 'run_continuous', 'ContinuousReport',
     'ScenarioStats', 'ScenarioFailure', 'replay', 'params_for_seed',

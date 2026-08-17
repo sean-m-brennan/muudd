@@ -27,6 +27,7 @@
 //! they can range over the whole compact (all communities, all sponsors) in a
 //! single pass.
 
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use kc_archive::{probationary_at, ArchiveEntry, InMemoryArchive};
@@ -2430,6 +2431,25 @@ pub struct ErosionAlert {
     /// measuring found a compact with zero active mediators and zero active observers for
     /// forty-three years reading clean on every instrument.
     pub unstaffed_functions: Vec<UnstaffedFunction>,
+    /// The compact's enforcement has narrowed onto part of the taxonomy while
+    /// spreading across subjects ([`enforcement_convergence`]).
+    ///
+    /// The first signal here that fires on **intensification**. Every dimension above
+    /// reads a form: a list, a cadence, a rite, a seat, a decision. All of them are
+    /// satisfied by a polity that keeps every form and performs it harder, which is
+    /// the whole of substitution — the recited object untouched in the record and the
+    /// enforced object quietly narrowed. Measured before this field existed: three
+    /// compacts differing only in what they enforced, one of them citing a single
+    /// ground against five different communities, all three scoring `None` with no
+    /// reasons on every instrument the compact had.
+    pub enforcement_convergence: Option<EnforcementConvergence>,
+    /// The compact's enforcement runs at communities holding reduced standing
+    /// ([`enforcement_direction`]).
+    ///
+    /// The narrowed ground does not land evenly. This is the reading that says where
+    /// it landed, and it is reported separately rather than folded into the
+    /// convergence dimension because either can occur without the other.
+    pub enforcement_direction: Option<EnforcementDirection>,
 }
 
 /// Why the compact's deliberation reads as thinning, with both readings reported so a
@@ -2640,6 +2660,45 @@ pub struct ErosionThresholds {
     /// compact-wide default until that parameter exists; the *upper* end of the
     /// band is used so an unsettled calibration cannot manufacture false Notices.
     pub rite_cadence_seconds: i64,
+    /// How far back the substitution reading looks when asking what the compact
+    /// currently enforces ([`enforcement_convergence`]).
+    ///
+    /// Between the other two cadences, and for a stated reason. Shorter than the
+    /// generational rite cadence, or a compact's founding decade averages away a
+    /// narrowing that happened last year; longer than the quarterly attestation
+    /// cadence, or a polity that enforces rarely never accumulates enough acts to
+    /// read at all. Five years. Like both of its neighbours this is a calibration
+    /// without empirical support behind it, and eventually a compact-formation
+    /// parameter rather than a constant.
+    pub enforcement_window_seconds: i64,
+    /// Fewest enforcement acts in the window before the substitution readings say
+    /// anything. Below it they report **untestable**, not healthy.
+    ///
+    /// Twelve, chosen against the arithmetic rather than picked. Coverage over
+    /// eight concrete grounds is a coupon-collector reading: twelve acts drawn
+    /// evenly across the taxonomy are expected to touch `8·(1−(7/8)¹²) ≈ 6.4` of
+    /// them, a coverage of about 0.80, which sits well clear of the 0.5 floor. At
+    /// eight acts the same expectation is 0.66, close enough to the floor that
+    /// ordinary variance in a small young compact would trip it. The floor is not
+    /// "enough data" in the abstract; it is enough that a polity enforcing the
+    /// whole object cannot look like one that has stopped.
+    pub enforcement_volume_floor: usize,
+    /// Coverage at or above this is not convergence. Permille, so the struct keeps
+    /// `Eq` and the cut-point stays an exact integer rather than a float nobody can
+    /// compare. 500‰ — half the taxonomy.
+    pub enforcement_coverage_floor_permille: u32,
+    /// Target Herfindahl **below** this counts as dispersed across subjects.
+    ///
+    /// The discriminator between substitution and a genuinely recurring problem, so
+    /// it decides more than any other cut-point here. 500‰ is an effective target
+    /// count of two: enforcement landing on one or two communities is their
+    /// problem, and enforcement on the same ground landing on three or more is the
+    /// compact's.
+    pub enforcement_dispersion_ceiling_permille: u32,
+    /// Downward share at or above this counts as enforcement running downward.
+    /// 800‰, leaving room for the scrutiny of entrants that §2 probation exists to
+    /// license.
+    pub enforcement_downward_floor_permille: u32,
 }
 
 impl Default for ErosionThresholds {
@@ -2647,6 +2706,11 @@ impl Default for ErosionThresholds {
         ErosionThresholds {
             attestation_cadence_seconds: 90 * 86_400,
             rite_cadence_seconds: 30 * 365 * 86_400,
+            enforcement_window_seconds: 5 * 365 * 86_400,
+            enforcement_volume_floor: 12,
+            enforcement_coverage_floor_permille: 500,
+            enforcement_dispersion_ceiling_permille: 500,
+            enforcement_downward_floor_permille: 800,
         }
     }
 }
@@ -2984,6 +3048,389 @@ pub fn unstaffed_functions(
     out
 }
 
+// ---------------------------------------------------------------------------
+// Substitution: what the compact actually enforces
+// (`doc/background/substitution.md`; erosion-legibility.md findings K5 and K6).
+// ---------------------------------------------------------------------------
+
+/// The concrete grounds a conduct record can bear on: the five anti-spiral
+/// features plus the three named obligations. Fixed order, fixed size, and it is
+/// the denominator every coverage reading below divides by.
+///
+/// `ConductBearing::Other(_)` is deliberately absent. It is open-ended, so
+/// admitting it to the denominator would let the thing being measured supply its
+/// own reference — the one property this reading cannot have, for the reason
+/// `erosion-legibility.md` gives: a measure that moves with its subject cannot see
+/// a drift that moves the subject uniformly.
+pub const CONCRETE_BEARINGS: [&str; 8] = [
+    "FallenActorAnthropology",
+    "GraceOverMerit",
+    "ScapegoatDisarming",
+    "EnemyLoveOperational",
+    "NonUltimacyOfCompact",
+    "CommonsObligation",
+    "Charity",
+    "Rescue",
+];
+
+/// The key a bearing counts under. Concrete grounds get their own name; each
+/// distinct `Other` string is its own ground, prefixed so it can never collide
+/// with a concrete one.
+fn bearing_key(b: &ConductBearing) -> String {
+    match b {
+        ConductBearing::AntiSpiral(f) => feature_key(f).to_string(),
+        ConductBearing::CommonsObligation => "CommonsObligation".to_string(),
+        ConductBearing::Charity => "Charity".to_string(),
+        ConductBearing::Rescue => "Rescue".to_string(),
+        ConductBearing::Other(s) => format!("Other:{s}"),
+    }
+}
+
+/// Sum of squared shares — the Herfindahl index. `1.0` is everything on one
+/// bucket; `1/k` is `k` buckets drawn evenly. `None` when there is nothing to
+/// index, which is a different reading from "perfectly dispersed" and must not be
+/// collapsed into one.
+fn herfindahl(counts: &BTreeMap<String, usize>, total: usize) -> Option<f64> {
+    if total == 0 {
+        return None;
+    }
+    let t = total as f64;
+    Some(counts.values().map(|c| (*c as f64 / t).powi(2)).sum())
+}
+
+/// One enforcement act, lifted out of the archive so both substitution lenses
+/// walk it once and agree on what counts.
+struct EnforcementAct<'a> {
+    cid: Cid,
+    bearing: &'a ConductBearing,
+    subject: &'a DidKey,
+    reporters: &'a [DidKey],
+    recorded_at: Timestamp,
+}
+
+/// Every enforcement act recorded inside the window ending at `as_of`.
+///
+/// "Enforcement" is `dispute_ladder_rank(rung).is_some()`, which is narrower than
+/// `ladder_rung.is_some()` by exactly one variant: `SubstantiveReEngagement` sits
+/// on the ladder enum but is the ceremony-cost track rather than a dispute rung,
+/// and counting a community's re-engagement as an act of enforcement against it
+/// would read the compact's most hopeful record as one of its harshest.
+fn enforcement_acts(
+    archive: &InMemoryArchive,
+    as_of: Timestamp,
+    window_seconds: i64,
+) -> Vec<EnforcementAct<'_>> {
+    let floor = as_of.as_second() - window_seconds;
+    let mut acts = Vec::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::ConductAttested(signed) = entry {
+            let c = &signed.payload;
+            if c.recorded_at > as_of || c.recorded_at.as_second() <= floor {
+                continue;
+            }
+            let Some(rung) = c.ladder_rung else { continue };
+            if dispute_ladder_rank(rung).is_none() {
+                continue;
+            }
+            acts.push(EnforcementAct {
+                cid: *cid,
+                bearing: &c.bearing,
+                subject: &c.subject_community,
+                reporters: &c.reporters,
+                recorded_at: c.recorded_at,
+            });
+        }
+    }
+    acts.sort_by_key(|a| a.recorded_at);
+    acts
+}
+
+/// What a compact's enforcement is aimed at: how much of it there is, how much of
+/// the shared taxonomy it still cites, and how widely it is spread over subjects.
+///
+/// The substitution reading (`doc/background/substitution.md`). A compact keeping
+/// every form and intensifying it — rites ahead of cadence, witness counts rising,
+/// nothing amended, no office vacant — can still narrow what it actually enforces
+/// down to a single ground, and every instrument that counts observances reads that
+/// polity as healthy. This one counts what the observances are *about*.
+///
+/// Renders no verdict, like every lens in this module: the numbers are reported
+/// with the CIDs behind them and the corps decides what they mean.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EnforcementConvergence {
+    /// The enforcing community, or `None` for the compact-wide reading.
+    pub community: Option<String>,
+    /// Enforcement acts inside the window.
+    pub volume: usize,
+    /// Per concrete ground, how many acts cited it. Grounds never cited are
+    /// absent, so `per_bearing.len()` is the coverage numerator.
+    pub per_bearing: BTreeMap<String, usize>,
+    /// Acts whose ground was `Other(_)`, keyed by the string the filer chose.
+    pub per_other: BTreeMap<String, usize>,
+    /// Per subject community, how many acts were aimed at it.
+    pub per_subject: BTreeMap<String, usize>,
+    pub window_seconds: i64,
+    pub evidence: Vec<Cid>,
+}
+
+impl EnforcementConvergence {
+    /// Acts landing off the shared taxonomy.
+    pub fn other_acts(&self) -> usize {
+        self.per_other.values().sum()
+    }
+
+    /// Distinct concrete grounds cited, over the whole concrete taxonomy.
+    ///
+    /// Absolute by construction: the denominator is a fixed enum, not the
+    /// compact's own recent behaviour. A polity that cites `Other` for everything
+    /// scores `0.0` here rather than `1.0`, which is the correct reading and the
+    /// reason no separate off-taxonomy rule is needed.
+    pub fn coverage(&self) -> f64 {
+        self.per_bearing.len() as f64 / CONCRETE_BEARINGS.len() as f64
+    }
+
+    /// Herfindahl over grounds, counting each distinct `Other` string as its own.
+    pub fn concentration(&self) -> Option<f64> {
+        let mut all = self.per_bearing.clone();
+        for (k, v) in &self.per_other {
+            all.insert(k.clone(), *v);
+        }
+        herfindahl(&all, self.volume)
+    }
+
+    /// Herfindahl over subject communities. **The discriminator**: a polity with
+    /// one genuinely recurring problem also shows high volume and low coverage,
+    /// and what separates it from substitution is that legitimate concentration
+    /// lands on a *target* while substitution concentrates on a *ground* across
+    /// many targets.
+    pub fn target_dispersion(&self) -> Option<f64> {
+        herfindahl(&self.per_subject, self.volume)
+    }
+
+    /// Share of acts citing a ground outside the shared taxonomy.
+    pub fn other_share(&self) -> Option<f64> {
+        if self.volume == 0 {
+            None
+        } else {
+            Some(self.other_acts() as f64 / self.volume as f64)
+        }
+    }
+
+    /// Whether this reading is substitution-shaped: enough acts to read at all,
+    /// citing too little of the taxonomy, spread too widely over subjects to be
+    /// one community's recurring problem.
+    pub fn converging(&self, thresholds: &ErosionThresholds) -> bool {
+        self.volume >= thresholds.enforcement_volume_floor
+            && self.coverage() < thresholds.enforcement_coverage_floor_permille as f64 / 1000.0
+            && self.target_dispersion().is_some_and(|h| {
+                h < thresholds.enforcement_dispersion_ceiling_permille as f64 / 1000.0
+            })
+    }
+}
+
+/// The compact-wide enforcement reading over the window ending at `as_of`.
+///
+/// **This is the level the erosion alert reads, and the per-community map is not.**
+/// Measured: a compact whose communities each specialise — one filing only on
+/// `Charity`, another only on `Rescue` — scores as converged on every single
+/// per-community reading while the compact as a whole still enforces the entire
+/// object. That is division of labour in an observer corps, not a narrowing of what
+/// the compact holds, and a per-community trigger would report it as erosion.
+/// [`enforcement_convergence_all`] is the drill-down that names who, after the
+/// compact-wide reading has said whether there is anything to name.
+pub fn enforcement_convergence(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    window_seconds: i64,
+) -> EnforcementConvergence {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut out = EnforcementConvergence {
+        window_seconds,
+        ..Default::default()
+    };
+    for act in enforcement_acts(archive, as_of, window_seconds) {
+        tally_act(&mut out, &act);
+    }
+    out
+}
+
+/// Add one act to a convergence reading. Shared so the compact-wide and
+/// per-community forms cannot count the same act differently.
+fn tally_act(out: &mut EnforcementConvergence, act: &EnforcementAct<'_>) {
+    out.volume += 1;
+    let key = bearing_key(act.bearing);
+    if matches!(act.bearing, ConductBearing::Other(_)) {
+        *out.per_other.entry(key).or_insert(0) += 1;
+    } else {
+        *out.per_bearing.entry(key).or_insert(0) += 1;
+    }
+    *out
+        .per_subject
+        .entry(act.subject.as_str().to_string())
+        .or_insert(0) += 1;
+    out.evidence.push(act.cid);
+}
+
+/// The same reading per **enforcing** community, keyed by reporter DID.
+///
+/// An act filed by three reporters counts once for each of them: the question this
+/// answers is what a given community's enforcement is aimed at, and all three of
+/// them filed it. Only communities that have filed at least one enforcement act in
+/// the window appear.
+pub fn enforcement_convergence_all(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    window_seconds: i64,
+) -> BTreeMap<String, EnforcementConvergence> {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut by_community: BTreeMap<String, EnforcementConvergence> = BTreeMap::new();
+    for act in enforcement_acts(archive, as_of, window_seconds) {
+        for reporter in act.reporters {
+            let did = reporter.as_str().to_string();
+            let entry = by_community.entry(did.clone()).or_insert_with(|| {
+                EnforcementConvergence {
+                    community: Some(did),
+                    window_seconds,
+                    ..Default::default()
+                }
+            });
+            tally_act(entry, &act);
+        }
+    }
+    by_community
+}
+
+/// Which way a compact's enforcement runs: at communities holding reduced
+/// standing, at communities holding full standing, or between equals.
+///
+/// The Girardian half of the substitution reading. A narrowed ground does not land
+/// evenly; it lands on whoever is least able to refuse it, and §2 probation is the
+/// compact's own name for reduced standing, so the axis is already on the record.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EnforcementDirection {
+    /// The enforcing community, or `None` for the compact-wide reading.
+    pub community: Option<String>,
+    /// Subject in probation, no reporter in probation.
+    pub downward: usize,
+    /// A reporter in probation, subject not.
+    pub upward: usize,
+    /// Neither in probation, or both. Enforcement between equals.
+    pub level: usize,
+    pub window_seconds: i64,
+    /// The downward acts only — the ones a reader would want to open first.
+    pub evidence: Vec<Cid>,
+}
+
+impl EnforcementDirection {
+    pub fn total(&self) -> usize {
+        self.downward + self.upward + self.level
+    }
+
+    pub fn downward_share(&self) -> Option<f64> {
+        let t = self.total();
+        if t == 0 {
+            None
+        } else {
+            Some(self.downward as f64 / t as f64)
+        }
+    }
+
+    /// Whether enforcement runs downward: enough acts to read, and a dominant
+    /// share of them aimed at communities holding reduced standing.
+    ///
+    /// Thresholded rather than absolute, because *some* downward skew is what
+    /// probation is for. A compact that scrutinises its entrants more closely than
+    /// its founders is doing what §2 asks of it; one whose enforcement has stopped
+    /// reaching full members at all is doing something else.
+    pub fn runs_downward(&self, thresholds: &ErosionThresholds) -> bool {
+        self.total() >= thresholds.enforcement_volume_floor
+            && self.downward_share().is_some_and(|s| {
+                s >= thresholds.enforcement_downward_floor_permille as f64 / 1000.0
+            })
+    }
+}
+
+/// Classify one act, resolving each party's standing at the instant the act was
+/// recorded rather than at `as_of`: the question is who held what standing when
+/// the compact moved against them.
+fn classify_direction(
+    archive: &InMemoryArchive,
+    act: &EnforcementAct<'_>,
+    memo: &mut HashMap<(String, i64), bool>,
+) -> Ordering {
+    let mut probationary = |did: &DidKey| -> bool {
+        let key = (did.as_str().to_string(), act.recorded_at.as_second());
+        if let Some(hit) = memo.get(&key) {
+            return *hit;
+        }
+        let v = probationary_at(archive, did, act.recorded_at);
+        memo.insert(key, v);
+        v
+    };
+    let subject_down = probationary(act.subject);
+    let reporter_down = act.reporters.iter().any(|r| probationary(r));
+    match (subject_down, reporter_down) {
+        (true, false) => Ordering::Less,
+        (false, true) => Ordering::Greater,
+        _ => Ordering::Equal,
+    }
+}
+
+/// The compact-wide direction reading over the window ending at `as_of`.
+pub fn enforcement_direction(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    window_seconds: i64,
+) -> EnforcementDirection {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut out = EnforcementDirection {
+        window_seconds,
+        ..Default::default()
+    };
+    let mut memo = HashMap::new();
+    for act in enforcement_acts(archive, as_of, window_seconds) {
+        tally_direction(&mut out, &act, classify_direction(archive, &act, &mut memo));
+    }
+    out
+}
+
+fn tally_direction(out: &mut EnforcementDirection, act: &EnforcementAct<'_>, dir: Ordering) {
+    match dir {
+        Ordering::Less => {
+            out.downward += 1;
+            out.evidence.push(act.cid);
+        }
+        Ordering::Greater => out.upward += 1,
+        Ordering::Equal => out.level += 1,
+    }
+}
+
+/// The same reading per **enforcing** community, keyed by reporter DID.
+pub fn enforcement_direction_all(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    window_seconds: i64,
+) -> BTreeMap<String, EnforcementDirection> {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let mut by_community: BTreeMap<String, EnforcementDirection> = BTreeMap::new();
+    let mut memo = HashMap::new();
+    for act in enforcement_acts(archive, as_of, window_seconds) {
+        let dir = classify_direction(archive, &act, &mut memo);
+        for reporter in act.reporters {
+            let did = reporter.as_str().to_string();
+            let entry = by_community.entry(did.clone()).or_insert_with(|| {
+                EnforcementDirection {
+                    community: Some(did),
+                    window_seconds,
+                    ..Default::default()
+                }
+            });
+            tally_direction(entry, &act, dir);
+        }
+    }
+    by_community
+}
+
 /// Compute the erosion alert as of `as_of` (defaults to now), with the default
 /// [`ErosionThresholds`]. See [`erosion_alert_with`] for the parameterized form.
 pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> ErosionAlert {
@@ -2991,15 +3438,22 @@ pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> Ero
 }
 
 /// Compute the erosion alert as of `as_of` (defaults to now). Escalation rule:
-/// count the distinct eroded dimensions (list contraction, fast contraction,
-/// deliberative acts during a fast, overdue re-affirmation, hollowing ceremony);
-/// zero → `None`, exactly one isolated instance → `Notice`, and two-or-more
-/// dimensions **or** any dimension eroded more than once → `Alert`.
+/// count the distinct eroded dimensions; zero → `None`, exactly one isolated
+/// instance → `Notice`, and two-or-more dimensions **or** any dimension eroded more
+/// than once → `Alert`.
 ///
-/// The first three dimensions fire on an act; the last two fire on omission and a
-/// pinned baseline respectively. That asymmetry is the point — an alert built only
-/// from act-triggered signals reads a polity that has stopped functioning as a
-/// polity in perfect health.
+/// The twelve dimensions divide three ways, and the division is the whole design.
+/// Four fire on an **act**: somebody amends the incapable list, narrows the adopted
+/// ground, shortens a fast, or deliberates during one. Six fire on **omission** or
+/// against a pinned baseline: a re-affirmation that never came, a ceremony drawing
+/// fewer witnesses than at its founding, a thinning deliberation, a designation left
+/// unexamined, a function gone quiet, an office left empty. The last two fire on
+/// **intensification**: a compact enforcing harder and narrower than it recites.
+///
+/// An alert built only from act-triggered signals reads a polity that has stopped
+/// functioning as a polity in perfect health. An alert built only from those two
+/// families reads a polity that has kept every form and substituted a smaller object
+/// underneath them as its most vigorous member.
 ///
 /// Diagnostic only, unchanged: nothing is signed, no record is emitted, and an
 /// overdue re-affirmation is *reported*, never *enforced*. Whether the cadence
@@ -3221,6 +3675,63 @@ pub fn erosion_alert_with(
         }
     }
 
+    // The two substitution signals. Both are read compact-wide rather than per
+    // community, because a compact whose members each specialise reads as converged
+    // on every per-community measure while still enforcing the whole object between
+    // them (see [`enforcement_convergence`]).
+    let convergence = enforcement_convergence(
+        archive,
+        Some(as_of_ts),
+        thresholds.enforcement_window_seconds,
+    );
+    let enforcement_convergence = if convergence.converging(thresholds) {
+        Some(convergence)
+    } else {
+        None
+    };
+    if let Some(c) = &enforcement_convergence {
+        dimensions += 1;
+        reasons.push(format!(
+            "enforcement converging on a narrowing ground: {} act(s) citing {} of {} grounds, \
+             spread across {} subject(s)",
+            c.volume,
+            c.per_bearing.len(),
+            CONCRETE_BEARINGS.len(),
+            c.per_subject.len()
+        ));
+        // One ground carrying the whole of a compact's enforcement is the terminal
+        // case, not a step toward it; a majority of acts filed off the shared
+        // taxonomy is the same finding by the other route.
+        if c.per_bearing.len() <= 1 || c.other_share().is_some_and(|s| s > 0.5) {
+            compounding = true;
+        }
+    }
+    let direction = enforcement_direction(
+        archive,
+        Some(as_of_ts),
+        thresholds.enforcement_window_seconds,
+    );
+    let enforcement_direction = if direction.runs_downward(thresholds) {
+        Some(direction)
+    } else {
+        None
+    };
+    if let Some(d) = &enforcement_direction {
+        dimensions += 1;
+        reasons.push(format!(
+            "enforcement running downward: {} of {} act(s) aimed at communities holding \
+             reduced standing",
+            d.downward,
+            d.total()
+        ));
+        // Nothing aimed at a full member in the whole window. The share threshold
+        // allows for probation doing its work; this is the case where it is not
+        // doing its work but standing in for the object.
+        if d.upward == 0 && d.level == 0 {
+            compounding = true;
+        }
+    }
+
     let severity = match dimensions {
         0 => ErosionSeverity::None,
         1 if !compounding => ErosionSeverity::Notice,
@@ -3240,6 +3751,8 @@ pub fn erosion_alert_with(
         overdue_reexaminations,
         silent_functions: silent,
         unstaffed_functions: unstaffed,
+        enforcement_convergence,
+        enforcement_direction,
     }
 }
 

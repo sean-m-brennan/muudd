@@ -1,4 +1,4 @@
-*Previous: [Sacrificial equilibrium](sacrificial_equilibrium.md)*
+*Previous: [Substitution](substitution.md)*
 
 # Righteous war: escalation, conduct, and return when cooperation fails
 

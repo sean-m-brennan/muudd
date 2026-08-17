@@ -27,21 +27,22 @@ from kith_covenant.harness import (
     max_damage_interpretation, MAX_DAMAGE_CEREMONY, MAX_DAMAGE_ADMISSIONS,
     MAX_DAMAGE_INTERPRETATION, CORROBORATION_MIN, DEFAULT_QUORUM,
     MAX_DAMAGE_PROBATIONARY_WEIGHT,
+    MIN_SEVERITY_SUBSTITUTION, SUBSTITUTION_VOLUME_FLOOR, max_damage_substitution,
 )
 
 
 def test_all_scenarios_present_all_supported():
-    """Seven capture moves plus scenarios 8 and 9, the quiet polity and the abandoned
-    office, which are not capture moves (they have no adversary) but are scored the same
-    way. Move 7 carries two scenarios: who a faction can seat, and what a seated entrant
-    can carry."""
+    """Seven capture moves plus scenarios 8, 9 and 10 — the quiet polity, the abandoned
+    office and the substituted object — which are not capture moves (they have no
+    adversary) but are scored the same way. Move 7 carries two scenarios: who a faction
+    can seat, and what a seated entrant can carry."""
     report = run_harness()
-    assert report.total == 10
-    assert report.supported == 10
+    assert report.total == 11
+    assert report.supported == 11
     moves = sorted(r.move for r in report.results)
-    assert moves == [1, 2, 3, 4, 5, 6, 7, 7, 8, 9]
+    assert moves == [1, 2, 3, 4, 5, 6, 7, 7, 8, 9, 10]
     # Every move has a scenario, and no scenario key is duplicated.
-    assert set(moves) == {1, 2, 3, 4, 5, 6, 7, 8, 9}
+    assert set(moves) == {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
     keys = [r.key for r in report.results]
     assert len(set(keys)) == len(keys)
 
@@ -93,12 +94,12 @@ def test_admissions_capture_flagged_at_threshold():
 
 
 def test_no_scenarios_remain_unsupported():
-    # All seven capture-resistance moves, plus the quiet polity, now have a built
-    # and scored detector.
+    # All seven capture-resistance moves, plus the three adversary-free scenarios,
+    # now have a built and scored detector.
     report = run_harness()
     unsupported = [r for r in report.results if not r.supported]
     assert unsupported == []
-    assert report.supported == report.total == 10
+    assert report.supported == report.total == 11
 
 
 def test_probationary_weight_never_carries_a_second_class_act():
@@ -166,6 +167,11 @@ _CANONICAL_DAMAGE = {
     "probationary-weight": 0,
     "quiet-polity": 0,
     "abandoned-office": 0,
+    # The one nonzero entry that is not a detector's fault: one batch of six acts
+    # lands below the volume floor of twelve, where coverage over a fixed taxonomy
+    # cannot separate a narrowing compact from a young one (see
+    # `max_damage_substitution`).
+    "substituted-object": 1,
 }
 
 
@@ -199,6 +205,33 @@ def test_criteria_formulas_reduce_to_their_constants_at_canonical():
     assert max_damage_ceremony(p) == MAX_DAMAGE_CEREMONY
     assert max_damage_admissions(p) == MAX_DAMAGE_ADMISSIONS
     assert max_damage_interpretation(p) == MAX_DAMAGE_INTERPRETATION
+    # Two batches of six to clear a floor of twelve.
+    assert max_damage_substitution(p) == 2
+    assert SUBSTITUTION_VOLUME_FLOOR == 12
+
+
+def test_substituted_object_flagged_and_the_recurring_control_is_not():
+    """Scenario 10. The criterion the whole dimension turns on is the control, not
+    the subject: the flag must fire on the compact narrowing its object across many
+    targets and stay silent on the compact with one recurring offender, which is
+    identical in volume and in coverage. If both fire, the reading is punishing a
+    compact for having a persistent problem."""
+    r = next(r for r in run_harness().results if r.key == "substituted-object")
+    assert r.supported and r.detected and r.passed
+    assert r.damage <= max_damage_substitution(HarnessParams.canonical())
+    assert "stayed quiet" in r.notes
+
+
+def test_substitution_step_count_always_reaches_the_volume_floor():
+    """A scenario that cannot reach the reading it tests would score the detector
+    for the floor rather than for the detector. `normalized` derives the step count
+    from the batch size for exactly this reason."""
+    for seed in range(60):
+        p = params_for_seed(seed)
+        assert p.substitution_steps * p.substitution_batch > SUBSTITUTION_VOLUME_FLOOR
+        # And the narrowing must be a narrowing, spread over more than two targets.
+        assert 1 <= p.substitution_grounds <= 3
+        assert p.substitution_targets >= 3
 
 
 def test_drawn_parameters_are_internally_consistent():

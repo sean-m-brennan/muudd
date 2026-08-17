@@ -1505,10 +1505,11 @@ layers and must not conflate them.
   default: **25 to 30 years**, to be calibrated per community rhythm); surfaces
   overdue or imminent intra-community re-affirmations. Signals cross-boundary
   witnesses when a member community re-affirmation event is scheduled.
-- **Versioning.** Movement 4 content belongs to each community and is
-  versioned per community. The inter-community layer tracks which
-  version of each community rite was witnessed at each admission and
-  re-affirmation.
+- **Versioning.** Movement 4 content belongs to each community. What is
+  versioned is the recitation *schema*, a protocol-wide constant carried on
+  the record of each rite; per-community content versioning does not exist.
+  The rite a witness saw is identified by the content address of the sealed
+  intra-community record, which the inter-community witness record carries.
 
 ### 9.5 Archive / commons of memory
 

@@ -31,6 +31,16 @@ as justice rather than as arbitrary selection, and the peace that follows is rea
 what recommends the mechanism to the next generation. The mechanism is borrowed, mimetic,
 and misrecognised.
 
+The mechanism also runs at idle. Between the acute spiral and the scheduled rite there is a
+continuous low-grade form of the same thing, a steady pressure toward one kind of party
+that never reaches a terminating event, and it is invisible to every instrument calibrated
+on termination. An instrument that waits for the expulsion is waiting for an act, and this
+form produces none. The compact-level version of that failure, where what narrows is the
+ground the compact enforces rather than the party it selects, is
+[substitution.md](substitution.md), and the reason it needed an instrument of its own is
+that the rite arriving on schedule was the only shape the earlier measures were built to
+find.
+
 A community in equilibrium with that mechanism is not a community in crisis. This is the
 distinction that matters for the compact, and it is the distinction the existing instruments of
 the corpus were not built to draw. Salem is an acute spiral, sixteen months long, out of
@@ -242,6 +252,9 @@ it should not be softened here because the case is vivid.
   claims recorded at recognition.
 - [jester_and_dissent.md](jester_and_dissent.md): protected dissent, which the advocate
   drawn by lot resembles in function and does not inherit in protection.
+- [substitution.md](substitution.md): the same mechanism at the level of the compact rather
+  than of a member, where the object being enforced narrows while every form is kept and
+  intensified. That document extends this argument and takes its measure.
 - [capture_resistance.md](capture_resistance.md): capture as continuous structural
   pressure. Apparatus capture as described here is that analysis applied to a member whose
   interest in the machinery is not factional advantage but a victim.
@@ -264,4 +277,4 @@ The Salem sources are in [justus_hostis.md](justus_hostis.md).
 
 ---
 
-*Next: [Righteous war](righteous_war.md)*
+*Next: [Substitution](substitution.md)*

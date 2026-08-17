@@ -27,6 +27,8 @@
 //! are intentionally omitted — `PyArchive.dump_json` gives Python full
 //! inspection via JSON without requiring one `#[pyclass]` per Rust struct.
 
+use std::collections::BTreeMap;
+
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyType};
@@ -2268,12 +2270,27 @@ impl PyArchive {
     /// `rite_cadence_seconds` overrides the generational re-affirmation cadence an
     /// overdue rite is judged against (default 30 years); the calibration is an
     /// open question, so it is a parameter rather than a constant.
-    #[pyo3(signature = (as_of=None, rite_cadence_seconds=None, attestation_cadence_seconds=None))]
+    #[pyo3(signature = (
+        as_of=None,
+        rite_cadence_seconds=None,
+        attestation_cadence_seconds=None,
+        enforcement_window_seconds=None,
+        enforcement_volume_floor=None,
+        enforcement_coverage_floor_permille=None,
+        enforcement_dispersion_ceiling_permille=None,
+        enforcement_downward_floor_permille=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
     fn erosion_alert(
         &self,
         as_of: Option<i64>,
         rite_cadence_seconds: Option<i64>,
         attestation_cadence_seconds: Option<i64>,
+        enforcement_window_seconds: Option<i64>,
+        enforcement_volume_floor: Option<usize>,
+        enforcement_coverage_floor_permille: Option<u32>,
+        enforcement_dispersion_ceiling_permille: Option<u32>,
+        enforcement_downward_floor_permille: Option<u32>,
     ) -> PyResult<PyErosionAlert> {
         let as_of_ts = parse_as_of(as_of)?;
         let mut thresholds = kc_reputation::ErosionThresholds::default();
@@ -2283,11 +2300,102 @@ impl PyArchive {
         if let Some(c) = attestation_cadence_seconds {
             thresholds.attestation_cadence_seconds = c;
         }
+        if let Some(w) = enforcement_window_seconds {
+            thresholds.enforcement_window_seconds = w;
+        }
+        if let Some(v) = enforcement_volume_floor {
+            thresholds.enforcement_volume_floor = v;
+        }
+        if let Some(p) = enforcement_coverage_floor_permille {
+            thresholds.enforcement_coverage_floor_permille = p;
+        }
+        if let Some(p) = enforcement_dispersion_ceiling_permille {
+            thresholds.enforcement_dispersion_ceiling_permille = p;
+        }
+        if let Some(p) = enforcement_downward_floor_permille {
+            thresholds.enforcement_downward_floor_permille = p;
+        }
         Ok(PyErosionAlert::from(&kc_reputation::erosion_alert_with(
             &self.inner,
             as_of_ts,
             &thresholds,
         )))
+    }
+
+    /// Substitution lens — what the compact's enforcement is aimed at over the
+    /// window ending at `as_of`: how many acts, how much of the shared taxonomy
+    /// they still cite, and how widely they are spread over subject communities.
+    ///
+    /// Compact-wide. A polity keeping every form and intensifying it can still
+    /// narrow what it enforces to a single ground, and every instrument that counts
+    /// observances reads that polity as healthy; this counts what the observances
+    /// are *about*. No verdict — the cut-points are applied by `erosion_alert`.
+    #[pyo3(signature = (as_of=None, window_seconds=None))]
+    fn enforcement_convergence(
+        &self,
+        as_of: Option<i64>,
+        window_seconds: Option<i64>,
+    ) -> PyResult<PyEnforcementConvergence> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let w = window_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().enforcement_window_seconds);
+        Ok(PyEnforcementConvergence::from(
+            &kc_reputation::enforcement_convergence(&self.inner, as_of_ts, w),
+        ))
+    }
+
+    /// The same reading per **enforcing** community, keyed by reporter DID.
+    ///
+    /// The drill-down that names who, and deliberately not what the alert reads: a
+    /// compact whose communities each specialise scores as converged on every
+    /// per-community reading while still enforcing the whole object between them.
+    #[pyo3(signature = (as_of=None, window_seconds=None))]
+    fn enforcement_convergence_all(
+        &self,
+        as_of: Option<i64>,
+        window_seconds: Option<i64>,
+    ) -> PyResult<BTreeMap<String, PyEnforcementConvergence>> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let w = window_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().enforcement_window_seconds);
+        Ok(kc_reputation::enforcement_convergence_all(&self.inner, as_of_ts, w)
+            .iter()
+            .map(|(k, v)| (k.clone(), PyEnforcementConvergence::from(v)))
+            .collect())
+    }
+
+    /// Substitution lens — which way the compact's enforcement runs: at
+    /// communities holding reduced standing (§2 probation), at communities holding
+    /// full standing, or between equals. Standing is resolved at the instant each
+    /// act was recorded, not at `as_of`.
+    #[pyo3(signature = (as_of=None, window_seconds=None))]
+    fn enforcement_direction(
+        &self,
+        as_of: Option<i64>,
+        window_seconds: Option<i64>,
+    ) -> PyResult<PyEnforcementDirection> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let w = window_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().enforcement_window_seconds);
+        Ok(PyEnforcementDirection::from(
+            &kc_reputation::enforcement_direction(&self.inner, as_of_ts, w),
+        ))
+    }
+
+    /// The same reading per **enforcing** community, keyed by reporter DID.
+    #[pyo3(signature = (as_of=None, window_seconds=None))]
+    fn enforcement_direction_all(
+        &self,
+        as_of: Option<i64>,
+        window_seconds: Option<i64>,
+    ) -> PyResult<BTreeMap<String, PyEnforcementDirection>> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let w = window_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().enforcement_window_seconds);
+        Ok(kc_reputation::enforcement_direction_all(&self.inner, as_of_ts, w)
+            .iter()
+            .map(|(k, v)| (k.clone(), PyEnforcementDirection::from(v)))
+            .collect())
     }
 
     /// §5 designation follow-through: designations whose mandated
@@ -5105,6 +5213,102 @@ struct PyErosionAlert {
     /// function never staffed is absent: declining to open an office is not abandoning
     /// one.
     unstaffed_functions: Vec<(String, String, i64, i64)>,
+    /// The compact's enforcement has narrowed onto part of the shared taxonomy
+    /// while spreading across subjects, else `None`.
+    ///
+    /// The first signal here that fires on **intensification** rather than on an
+    /// act or an omission. Every other field on this alert is satisfied by a polity
+    /// that keeps each form and performs it harder, which is the whole of
+    /// substitution: the recited object untouched in the record and the enforced
+    /// object quietly narrowed.
+    enforcement_convergence: Option<PyEnforcementConvergence>,
+    /// The compact's enforcement runs at communities holding reduced standing,
+    /// else `None`. Where the narrowed ground landed.
+    enforcement_direction: Option<PyEnforcementDirection>,
+}
+
+#[pyclass(skip_from_py_object, name = "EnforcementConvergence", get_all)]
+#[derive(Clone)]
+struct PyEnforcementConvergence {
+    /// The enforcing community, or `None` for the compact-wide reading.
+    community: Option<String>,
+    /// Enforcement acts inside the window.
+    volume: usize,
+    /// Concrete ground → acts citing it. Grounds never cited are absent.
+    per_bearing: BTreeMap<String, usize>,
+    /// `Other(_)` ground string → acts citing it.
+    per_other: BTreeMap<String, usize>,
+    /// Subject community → acts aimed at it.
+    per_subject: BTreeMap<String, usize>,
+    window_seconds: i64,
+    evidence: Vec<String>,
+    /// Distinct concrete grounds cited over the whole concrete taxonomy.
+    ///
+    /// Absolute by construction: the denominator is a fixed enum, never the
+    /// compact's own recent behaviour. `Other(_)` is outside it, so a polity filing
+    /// everything off-taxonomy scores `0.0` here, which is the correct reading and
+    /// the reason no separate off-taxonomy rule exists.
+    coverage: f64,
+    /// Herfindahl over grounds; `None` when there is nothing to index.
+    concentration: Option<f64>,
+    /// Herfindahl over subject communities. **The discriminator**: a polity with
+    /// one genuinely recurring problem also shows high volume and low coverage, and
+    /// what separates it is that legitimate concentration lands on a *target* while
+    /// substitution concentrates on a *ground* across many targets.
+    target_dispersion: Option<f64>,
+    /// Share of acts citing a ground outside the shared taxonomy.
+    other_share: Option<f64>,
+}
+
+impl From<&rep::EnforcementConvergence> for PyEnforcementConvergence {
+    fn from(c: &rep::EnforcementConvergence) -> Self {
+        Self {
+            community: c.community.clone(),
+            volume: c.volume,
+            per_bearing: c.per_bearing.clone(),
+            per_other: c.per_other.clone(),
+            per_subject: c.per_subject.clone(),
+            window_seconds: c.window_seconds,
+            evidence: c.evidence.iter().map(|c| c.to_string()).collect(),
+            coverage: c.coverage(),
+            concentration: c.concentration(),
+            target_dispersion: c.target_dispersion(),
+            other_share: c.other_share(),
+        }
+    }
+}
+
+#[pyclass(skip_from_py_object, name = "EnforcementDirection", get_all)]
+#[derive(Clone)]
+struct PyEnforcementDirection {
+    /// The enforcing community, or `None` for the compact-wide reading.
+    community: Option<String>,
+    /// Subject in probation, no reporter in probation.
+    downward: usize,
+    /// A reporter in probation, subject not.
+    upward: usize,
+    /// Neither in probation, or both. Enforcement between equals.
+    level: usize,
+    window_seconds: i64,
+    /// The downward acts only.
+    evidence: Vec<String>,
+    total: usize,
+    downward_share: Option<f64>,
+}
+
+impl From<&rep::EnforcementDirection> for PyEnforcementDirection {
+    fn from(d: &rep::EnforcementDirection) -> Self {
+        Self {
+            community: d.community.clone(),
+            downward: d.downward,
+            upward: d.upward,
+            level: d.level,
+            window_seconds: d.window_seconds,
+            evidence: d.evidence.iter().map(|c| c.to_string()).collect(),
+            total: d.total(),
+            downward_share: d.downward_share(),
+        }
+    }
 }
 
 impl From<&rep::ErosionAlert> for PyErosionAlert {
@@ -5179,6 +5383,14 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
                     )
                 })
                 .collect(),
+            enforcement_convergence: a
+                .enforcement_convergence
+                .as_ref()
+                .map(PyEnforcementConvergence::from),
+            enforcement_direction: a
+                .enforcement_direction
+                .as_ref()
+                .map(PyEnforcementDirection::from),
         }
     }
 }
@@ -5555,6 +5767,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyConstitutionState>()?;
     m.add_class::<PySubstrateDeferenceReport>()?;
     m.add_class::<PyErosionAlert>()?;
+    m.add_class::<PyEnforcementConvergence>()?;
+    m.add_class::<PyEnforcementDirection>()?;
     m.add_class::<PySponseeOutcome>()?;
     m.add_class::<PySponsorStakeReport>()?;
     m.add_class::<PyCompositionGraph>()?;

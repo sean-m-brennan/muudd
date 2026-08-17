@@ -162,10 +162,18 @@ support both layers and must not conflate them.
   community. Surfaces overdue or imminent intra-community
   re-affirmations. Signals cross-boundary witnesses when the
   re-affirmation event of a member community is scheduled.
-- **Versioning.** Movement 4 content belongs to each community
-  and is versioned per community. The inter-community layer
-  tracks which version of the rite of each community was
-  witnessed at each admission and re-affirmation.
+- **Versioning.** Movement 4 content belongs to each community.
+  What is versioned is the recitation *schema*, one protocol-wide
+  constant bumped when movement semantics change, and the record
+  of a rite carries it. Per-community content versioning does not
+  exist. What identifies the rite a witness saw is the content
+  address of the sealed intra-community record, which the
+  inter-community witness record carries, so the layer tracks
+  which rite was witnessed rather than which version of it.
+  The movement itself is opaque, unindexed, and unaddressable,
+  which is why no measure can cite a numbered commitment from a
+  recited list
+  ([substitution.md](../background/substitution.md)).
 - **Ceremony-cost proxy tracking.** Recorded proxies for asymmetric psychological cost across
   re-affirmation cycles. Preparation time and attention,
   recitant articulation of what is being committed and forgone,

@@ -26,6 +26,9 @@ from kith_covenant import (
     find_undisclosed_interest,
     adversarial_principal, attest_principal, record_principal_output,
     collusive_cohorts, principal_witness_chain,
+    record_conduct, vouch, erosion_alert,
+    enforcement_convergence, enforcement_convergence_all,
+    enforcement_direction, enforcement_direction_all,
 )
 
 
@@ -606,3 +609,173 @@ def test_witness_chain_stranger_is_empty_and_intact():
     assert r.separable_links == 0
     assert r.broken_links == 0
     assert r.is_intact is True
+
+
+# --- Substitution: what the compact actually enforces -----------------------
+
+_YEAR = 365 * 24 * 3600
+
+_GROUNDS = (
+    ("AntiSpiral", "EnemyLoveOperational"),
+    ("AntiSpiral", "FallenActorAnthropology"),
+    ("AntiSpiral", "GraceOverMerit"),
+    ("AntiSpiral", "ScapegoatDisarming"),
+    ("AntiSpiral", "NonUltimacyOfCompact"),
+    ("Charity", None),
+    ("Rescue", None),
+    ("CommonsObligation", None),
+)
+
+
+def _enforcing_compact(grounds, targets, acts=30, size=8, reporters=3, rung="MediatedArbitration"):
+    """A compact of `size` communities filing `acts` enforcement acts over `grounds`
+    distinct grounds, aimed at `targets` distinct subjects."""
+    arch = Archive()
+    t0 = now_seconds()
+    names = tuple(chr(ord("A") + i) for i in range(size))
+    members = [new_identity(arch, n, t0) for n in names]
+    filers, subjects = members[:reporters], members[reporters:]
+    for i in range(acts):
+        bearing, feature = _GROUNDS[i % grounds]
+        record_conduct(
+            arch, filers[i % reporters], subjects[i % targets].did,
+            "Violation", bearing, feature=feature, ladder_rung=rung,
+            recorded_at=t0 + i * 1000 + 10,
+        )
+    return arch, t0, members
+
+
+def test_enforcement_convergence_counts_grounds_against_a_fixed_denominator():
+    arch, t0, _ = _enforcing_compact(grounds=8, targets=5)
+    c = enforcement_convergence(arch, as_of=t0 + _YEAR)
+    assert c.community is None, "the compact-wide reading names no community"
+    assert c.volume == 30
+    assert c.coverage == 1.0
+    assert len(c.per_bearing) == 8
+    assert c.per_other == {}
+    assert c.other_share == 0.0
+    assert len(c.per_subject) == 5
+    assert c.target_dispersion == pytest.approx(0.2)
+    assert len(c.evidence) == 30
+
+
+def test_a_narrowed_object_is_seen_where_every_other_signal_is_clean():
+    """The regression the dimension exists for. Nothing is amended, no fast is
+    shortened, no office is empty, and the volume of enforcement is high — and what
+    the compact enforces has narrowed to a single ground applied across five
+    communities."""
+    arch, t0, _ = _enforcing_compact(grounds=1, targets=5)
+    al = erosion_alert(arch, as_of=t0 + _YEAR)
+    assert not al.list_contraction and not al.minimum_contraction
+    assert not al.fast_contraction and al.active_fast_deviations == 0
+    assert not al.overdue_reaffirmations and not al.hollowing_communities
+    assert al.thinning_deliberation is None
+    assert not al.overdue_reexaminations
+    assert not al.silent_functions and not al.unstaffed_functions
+
+    c = al.enforcement_convergence
+    assert c is not None
+    assert c.coverage == pytest.approx(1 / 8)
+    assert al.severity == "Alert"
+    assert len(al.reasons) == 1 and "converging" in al.reasons[0]
+
+
+def test_a_recurring_problem_is_not_a_substituted_object():
+    """The control that decides whether the measure is worth having: same volume,
+    same coverage, and only the target dispersion separates them."""
+    narrowed, t_n, _ = _enforcing_compact(grounds=1, targets=5)
+    recurring, t_r, _ = _enforcing_compact(grounds=1, targets=1)
+
+    c_n = enforcement_convergence(narrowed, as_of=t_n + _YEAR)
+    c_r = enforcement_convergence(recurring, as_of=t_r + _YEAR)
+    assert c_n.volume == c_r.volume
+    assert c_n.coverage == c_r.coverage
+    assert c_n.target_dispersion == pytest.approx(0.2)
+    assert c_r.target_dispersion == pytest.approx(1.0)
+
+    assert erosion_alert(narrowed, as_of=t_n + _YEAR).enforcement_convergence is not None
+    assert erosion_alert(recurring, as_of=t_r + _YEAR).enforcement_convergence is None
+
+
+def test_specialised_communities_are_not_a_narrowing_compact():
+    """Why the alert reads the lens compact-wide. Six filers on one ground apiece:
+    every per-community reading is converged and the compact is not."""
+    arch = Archive()
+    t0 = now_seconds()
+    members = [new_identity(arch, chr(ord("A") + i), t0) for i in range(12)]
+    n = 0
+    for k in range(6):
+        bearing, feature = _GROUNDS[k]
+        for i in range(14):
+            record_conduct(
+                arch, members[k], members[6 + (i % 6)].did,
+                "Violation", bearing, feature=feature,
+                ladder_rung="MediatedArbitration", recorded_at=t0 + n * 100 + 10,
+            )
+            n += 1
+
+    per = enforcement_convergence_all(arch, as_of=t0 + _YEAR)
+    assert len(per) == 6
+    for did, c in per.items():
+        assert c.community == did
+        assert c.coverage == pytest.approx(1 / 8), "each filer is converged on its own"
+
+    whole = enforcement_convergence(arch, as_of=t0 + _YEAR)
+    assert whole.coverage == pytest.approx(6 / 8)
+    assert erosion_alert(arch, as_of=t0 + _YEAR).enforcement_convergence is None
+
+
+def test_sparse_enforcement_is_untestable_rather_than_healthy():
+    arch, t0, _ = _enforcing_compact(grounds=1, targets=3, acts=4)
+    c = enforcement_convergence(arch, as_of=t0 + _YEAR)
+    assert c.volume == 4
+    assert erosion_alert(arch, as_of=t0 + _YEAR).enforcement_convergence is None
+    # And the floor is a parameter, so a caller who wants the reading can have it.
+    lowered = erosion_alert(arch, as_of=t0 + _YEAR, enforcement_volume_floor=4)
+    assert lowered.enforcement_convergence is not None
+
+
+def test_substantive_re_engagement_is_not_an_act_of_enforcement():
+    arch, t0, _ = _enforcing_compact(grounds=1, targets=5, rung="SubstantiveReEngagement")
+    assert enforcement_convergence(arch, as_of=t0 + _YEAR).volume == 0
+
+
+def test_enforcement_direction_is_level_without_probation():
+    arch, t0, _ = _enforcing_compact(grounds=8, targets=5)
+    d = enforcement_direction(arch, as_of=t0 + _YEAR)
+    assert d.community is None
+    assert d.total == 30
+    assert d.level == 30
+    assert d.downward == 0 and d.upward == 0
+    assert d.downward_share == 0.0
+    assert d.evidence == ()
+    assert erosion_alert(arch, as_of=t0 + _YEAR).enforcement_direction is None
+
+
+def test_enforcement_direction_reads_probationary_subjects_as_downward():
+    arch, t0, members = _enforcing_compact(grounds=8, targets=5)
+    for subject in members[3:]:
+        vouch(arch, members[0], subject.did, probation_until=t0 + 2 * _YEAR,
+              sponsored_at=t0)
+    d = enforcement_direction(arch, as_of=t0 + _YEAR)
+    assert d.downward == 30 and d.level == 0 and d.upward == 0
+    assert d.downward_share == 1.0
+    assert len(d.evidence) == 30
+    al = erosion_alert(arch, as_of=t0 + _YEAR)
+    assert al.enforcement_direction is not None
+    assert al.severity == "Alert"
+    assert "downward" in al.reasons[0]
+    # Past the probation window the same acts read level: standing is resolved at
+    # the instant of the act, and these acts were filed inside the window.
+    per = enforcement_direction_all(arch, as_of=t0 + _YEAR)
+    assert len(per) == 3
+    assert sum(x.downward for x in per.values()) == 30
+
+
+def test_erosion_alert_now_maps_thinning_deliberation():
+    """A pre-existing omission fixed alongside the two new fields: the Rust alert has
+    carried this dimension since it was built and the Python mirror dropped it."""
+    arch, t0, _ = _enforcing_compact(grounds=8, targets=5)
+    al = erosion_alert(arch, as_of=t0 + _YEAR)
+    assert hasattr(al, "thinning_deliberation")
+    assert al.thinning_deliberation is None

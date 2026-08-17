@@ -1232,6 +1232,172 @@ def overdue_reexaminations(
 
 
 @dataclass(frozen=True)
+class ThinningDeliberation:
+    """Why the compact's deliberation reads as thinning, with both readings carried
+    so a corps member can see which one fired.
+
+    Read against the compact's own **first** decision, never its recent average: a
+    deliberation that thins a little each time drags a rolling baseline behind it,
+    and only an absolute measure sees a drift with nobody driving it."""
+
+    decisions: int
+    first_argument_count: int
+    latest_argument_count: int
+    first_span_seconds: Optional[int]
+    latest_span_seconds: Optional[int]
+    # the latest decision answered fewer arguments than the first
+    argument_count_declined: bool
+    # the latest decision was reached in less time than the first
+    span_shortened: bool
+
+
+@dataclass(frozen=True)
+class EnforcementConvergence:
+    """What a compact's enforcement is aimed at over a window: how many acts, how
+    much of the shared taxonomy they still cite, and how widely they are spread
+    over subject communities.
+
+    The substitution reading (``doc/background/substitution.md``). A compact keeping
+    every form and intensifying it — rites ahead of cadence, witness counts rising,
+    nothing amended, no office vacant — can still narrow what it actually enforces
+    down to a single ground, and every instrument that counts observances reads that
+    polity as healthy. This counts what the observances are *about*."""
+
+    # the enforcing community, or None for the compact-wide reading
+    community: Optional[str]
+    volume: int
+    # concrete ground -> acts citing it; grounds never cited are absent
+    per_bearing: dict[str, int]
+    # Other(_) ground string -> acts citing it
+    per_other: dict[str, int]
+    # subject community -> acts aimed at it
+    per_subject: dict[str, int]
+    window_seconds: int
+    evidence: tuple[str, ...]
+    # distinct concrete grounds cited over the whole concrete taxonomy. Absolute by
+    # construction: the denominator is a fixed enum, never the compact's own recent
+    # behaviour. Other(_) is outside it, so a polity filing everything off-taxonomy
+    # scores 0.0 here — which is why no separate off-taxonomy rule is needed
+    coverage: float
+    # Herfindahl over grounds; None when there is nothing to index
+    concentration: Optional[float]
+    # Herfindahl over subject communities. THE DISCRIMINATOR: a polity with one
+    # genuinely recurring problem also shows high volume and low coverage, and what
+    # separates it is that legitimate concentration lands on a TARGET while
+    # substitution concentrates on a GROUND across many targets
+    target_dispersion: Optional[float]
+    other_share: Optional[float]
+
+
+@dataclass(frozen=True)
+class EnforcementDirection:
+    """Which way a compact's enforcement runs: at communities holding reduced
+    standing, at communities holding full standing, or between equals.
+
+    The Girardian half of the substitution reading. A narrowed ground does not land
+    evenly; it lands on whoever is least able to refuse it, and §2 probation is the
+    compact's own name for reduced standing, so the axis is already on the record."""
+
+    community: Optional[str]
+    # subject in probation, no reporter in probation
+    downward: int
+    # a reporter in probation, subject not
+    upward: int
+    # neither in probation, or both. Enforcement between equals
+    level: int
+    window_seconds: int
+    # the downward acts only
+    evidence: tuple[str, ...]
+    total: int
+    downward_share: Optional[float]
+
+
+def _convergence_from(c) -> Optional[EnforcementConvergence]:
+    if c is None:
+        return None
+    return EnforcementConvergence(
+        community=c.community,
+        volume=c.volume,
+        per_bearing=dict(c.per_bearing),
+        per_other=dict(c.per_other),
+        per_subject=dict(c.per_subject),
+        window_seconds=c.window_seconds,
+        evidence=tuple(c.evidence),
+        coverage=c.coverage,
+        concentration=c.concentration,
+        target_dispersion=c.target_dispersion,
+        other_share=c.other_share,
+    )
+
+
+def _direction_from(d) -> Optional[EnforcementDirection]:
+    if d is None:
+        return None
+    return EnforcementDirection(
+        community=d.community,
+        downward=d.downward,
+        upward=d.upward,
+        level=d.level,
+        window_seconds=d.window_seconds,
+        evidence=tuple(d.evidence),
+        total=d.total,
+        downward_share=d.downward_share,
+    )
+
+
+def enforcement_convergence(
+    archive, as_of: Optional[int] = None, window_seconds: Optional[int] = None
+) -> EnforcementConvergence:
+    """The compact-wide enforcement reading over the window ending at ``as_of``.
+
+    **This is the level the erosion alert reads, and the per-community map is not.**
+    Measured: a compact whose communities each specialise — one filing only on
+    ``Charity``, another only on ``Rescue`` — scores as converged on every single
+    per-community reading while the compact as a whole still enforces the entire
+    object. That is division of labour in an observer corps, not a narrowing of what
+    the compact holds, and a per-community trigger would report it as erosion.
+
+    No verdict, like every lens here: the numbers come with the CIDs behind them and
+    the cut-points are applied by ``erosion_alert``."""
+    return _convergence_from(archive.enforcement_convergence(as_of, window_seconds))
+
+
+def enforcement_convergence_all(
+    archive, as_of: Optional[int] = None, window_seconds: Optional[int] = None
+) -> dict[str, EnforcementConvergence]:
+    """The same reading per **enforcing** community, keyed by reporter DID.
+
+    The drill-down that names who, after the compact-wide reading has said whether
+    there is anything to name. An act filed by three reporters counts once for each
+    of them: all three filed it."""
+    return {
+        did: _convergence_from(c)
+        for did, c in archive.enforcement_convergence_all(as_of, window_seconds).items()
+    }
+
+
+def enforcement_direction(
+    archive, as_of: Optional[int] = None, window_seconds: Optional[int] = None
+) -> EnforcementDirection:
+    """Which way the compact's enforcement runs over the window ending at ``as_of``.
+
+    Standing is resolved at the instant each act was recorded rather than at
+    ``as_of``: the question is who held what standing when the compact moved against
+    them."""
+    return _direction_from(archive.enforcement_direction(as_of, window_seconds))
+
+
+def enforcement_direction_all(
+    archive, as_of: Optional[int] = None, window_seconds: Optional[int] = None
+) -> dict[str, EnforcementDirection]:
+    """The same reading per **enforcing** community, keyed by reporter DID."""
+    return {
+        did: _direction_from(d)
+        for did, d in archive.enforcement_direction_all(as_of, window_seconds).items()
+    }
+
+
+@dataclass(frozen=True)
 class ErosionAlert:
     # "None" | "Notice" | "Alert" — escalates as erosion signals compound.
     severity: str
@@ -1246,12 +1412,18 @@ class ErosionAlert:
     overdue_reaffirmations: tuple[OverdueReaffirmation, ...]
     # communities drawing fewer witnesses than at founding
     hollowing_communities: tuple[str, ...]
+    # the compact's deliberation is thinner than its own first decision
+    thinning_deliberation: Optional[ThinningDeliberation]
     # designations past a mandated re-examination and still standing
     overdue_reexaminations: tuple[OverdueReexamination, ...]
     # standing functions with no act and no attested null inside the cadence
     silent_functions: tuple[SilentFunction, ...]
     # standing functions with nobody seated at all
     unstaffed_functions: tuple[UnstaffedFunction, ...]
+    # enforcement narrowed onto part of the taxonomy while spread across subjects
+    enforcement_convergence: Optional[EnforcementConvergence]
+    # enforcement running at communities holding reduced standing
+    enforcement_direction: Optional[EnforcementDirection]
 
 
 def erosion_alert(
@@ -1259,26 +1431,40 @@ def erosion_alert(
     as_of: Optional[int] = None,
     rite_cadence_seconds: Optional[int] = None,
     attestation_cadence_seconds: Optional[int] = None,
+    enforcement_window_seconds: Optional[int] = None,
+    enforcement_volume_floor: Optional[int] = None,
+    enforcement_coverage_floor_permille: Optional[int] = None,
+    enforcement_dispersion_ceiling_permille: Optional[int] = None,
+    enforcement_downward_floor_permille: Optional[int] = None,
 ) -> ErosionAlert:
     """§9 erosion-detection alerting: a graded, derived reading that escalates
     (None→Notice→Alert) as the erosion signals compound.
 
-    Ten signals. Four fire on an *act*: a contraction of the compact-incapable list, a
-    narrowing of the compact's own adopted ground, a fast contraction, deliberative acts
-    during a fast. Six fire on *omission against a reference that is
-    not the current population*, which is the only kind that sees a drift with nobody
-    driving it: a re-affirmation overdue against an absolute generational cadence, a
-    ceremony drawing fewer witnesses than it did at founding, a deliberation thinner than
-    the compact's first, a designation past a mandated re-examination, a standing function
-    that has neither acted nor attested a null inside its cadence, and a standing function
-    with nobody seated in it at all. The asymmetry is deliberate; an alert built only from
-    act-triggered signals reads a polity that has stopped functioning as a polity in
-    perfect health (see ``doc/architecture/erosion-legibility.md``).
+    Twelve signals, divided three ways, and the division is the whole design. Four fire
+    on an *act*: a contraction of the compact-incapable list, a narrowing of the compact's
+    own adopted ground, a fast contraction, deliberative acts during a fast. Six fire on
+    *omission against a reference that is not the current population*, which is the only
+    kind that sees a drift with nobody driving it: a re-affirmation overdue against an
+    absolute generational cadence, a ceremony drawing fewer witnesses than it did at
+    founding, a deliberation thinner than the compact's first, a designation past a
+    mandated re-examination, a standing function that has neither acted nor attested a
+    null inside its cadence, and a standing function with nobody seated in it at all. Two
+    fire on *intensification*: a compact enforcing harder and narrower than it recites,
+    and enforcement running at communities holding reduced standing.
+
+    The asymmetry is deliberate. An alert built only from act-triggered signals reads a
+    polity that has stopped functioning as a polity in perfect health; one built only from
+    those two families reads a polity that has kept every form and substituted a smaller
+    object underneath them as its most vigorous member (see
+    ``doc/architecture/erosion-legibility.md`` and ``doc/background/substitution.md``).
 
     ``rite_cadence_seconds`` overrides the generational cadence (default 30 years) and
-    ``attestation_cadence_seconds`` the function cadence (default 1 year). Both
-    calibrations are open questions in ``protocol-components.md``, so they are parameters
-    rather than constants.
+    ``attestation_cadence_seconds`` the function cadence (default 1 year). The five
+    ``enforcement_*`` parameters override the substitution cut-points: the window the
+    reading looks back over (default 5 years), the fewest acts it will read at all
+    (default 12), and the coverage floor, target-dispersion ceiling and downward-share
+    floor in permille (default 500, 500, 800). Every one of these calibrations is an open
+    question in ``protocol-components.md``, so they are parameters rather than constants.
 
     An unstaffed function is *not* also counted as silent. It cannot attest, so a lapsed
     roster would otherwise fire two dimensions for one lapse and reach ``Alert`` on
@@ -1290,7 +1476,16 @@ def erosion_alert(
     sees an ``Alert`` may then choose to publish an attributed ``ObserverReport``;
     that step is intentionally not automated."""
     return _erosion_from(
-        archive.erosion_alert(as_of, rite_cadence_seconds, attestation_cadence_seconds)
+        archive.erosion_alert(
+            as_of,
+            rite_cadence_seconds,
+            attestation_cadence_seconds,
+            enforcement_window_seconds,
+            enforcement_volume_floor,
+            enforcement_coverage_floor_permille,
+            enforcement_dispersion_ceiling_permille,
+            enforcement_downward_floor_permille,
+        )
     )
 
 
@@ -1312,6 +1507,11 @@ def _erosion_from(a) -> ErosionAlert:
             for did, cid, since, cadence in a.overdue_reaffirmations
         ),
         hollowing_communities=tuple(a.hollowing_communities),
+        thinning_deliberation=(
+            None
+            if a.thinning_deliberation is None
+            else ThinningDeliberation(*a.thinning_deliberation)
+        ),
         overdue_reexaminations=tuple(
             OverdueReexamination(cid, subject, tier, due, overdue, confirmations)
             for cid, subject, tier, due, overdue, confirmations
@@ -1325,6 +1525,8 @@ def _erosion_from(a) -> ErosionAlert:
             UnstaffedFunction(did, fn, vacant_since, seconds)
             for did, fn, vacant_since, seconds in a.unstaffed_functions
         ),
+        enforcement_convergence=_convergence_from(a.enforcement_convergence),
+        enforcement_direction=_direction_from(a.enforcement_direction),
     )
 
 

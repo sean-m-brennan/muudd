@@ -503,66 +503,71 @@
         },
         {
           "n": "D18",
+          "path": "lib/kith-covenant/doc/background/substitution.md",
+          "title": "Substitution"
+        },
+        {
+          "n": "D19",
           "path": "lib/kith-covenant/doc/background/righteous_war.md",
           "title": "Righteous war"
         },
         {
-          "n": "D19",
+          "n": "D20",
           "path": "lib/kith-covenant/doc/background/m2m_interaction.md",
           "title": "Machine-to-machine interaction"
         },
         {
-          "n": "D20",
+          "n": "D21",
           "path": "lib/kith-covenant/doc/background/reputation_bridges.md",
           "title": "Reputation bridges"
         },
         {
-          "n": "D21",
+          "n": "D22",
           "path": "lib/kith-covenant/doc/background/objections.md",
           "title": "Objections"
         },
         {
-          "n": "D22",
+          "n": "D23",
           "path": "lib/kith-covenant/doc/crates.md",
           "title": "The crates, and what each one holds"
         },
         {
-          "n": "D23",
+          "n": "D24",
           "path": "lib/kith-covenant/doc/architecture/protocol-components.md",
           "title": "Protocol components"
         },
         {
-          "n": "D24",
+          "n": "D25",
           "path": "lib/kith-covenant/doc/architecture/machine-participation.md",
           "title": "Machine participation"
         },
         {
-          "n": "D25",
+          "n": "D26",
           "path": "lib/kith-covenant/doc/architecture/policy-evaluation.md",
           "title": "Policy evaluation"
         },
         {
-          "n": "D26",
+          "n": "D27",
           "path": "lib/kith-covenant/doc/architecture/whistleblower-crypto.md",
           "title": "Whistleblower cryptography"
         },
         {
-          "n": "D27",
+          "n": "D28",
           "path": "lib/kith-covenant/doc/architecture/erosion-legibility.md",
           "title": "Erosion legibility"
         },
         {
-          "n": "D28",
+          "n": "D29",
           "path": "lib/kith-covenant/doc/architecture/autonomous-trust-integration.md",
           "title": "The AutonomousTrust integration"
         },
         {
-          "n": "D29",
+          "n": "D30",
           "path": "lib/kith-covenant/doc/architecture/build-and-toolchain.md",
           "title": "Build and toolchain"
         },
         {
-          "n": "D30",
+          "n": "D31",
           "path": "lib/kith-covenant/doc/whitepaper/whitepaper.md",
           "title": "Kith-Covenant whitepaper"
         }
