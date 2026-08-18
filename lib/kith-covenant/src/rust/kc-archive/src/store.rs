@@ -297,6 +297,14 @@ impl Archive for InMemoryArchive {
                 let at = s.payload.concluded_at;
                 s.verify(|did: &str| self.resolve_did(did, at))
             }
+            ArchiveEntry::DesignationDissented(s) => {
+                let at = s.payload.filed_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
+            ArchiveEntry::NonPursuitAttested(s) => {
+                let at = s.payload.filed_at;
+                s.verify(|did: &str| self.resolve_did(did, at))
+            }
             ArchiveEntry::MediatorRegistryUpdated(s) => {
                 let at = s.payload.issued_at;
                 s.verify(|did: &str| self.resolve_did(did, at))

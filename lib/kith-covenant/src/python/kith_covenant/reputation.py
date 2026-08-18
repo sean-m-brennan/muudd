@@ -1120,6 +1120,70 @@ class OverdueReaffirmation:
 
 
 @dataclass(frozen=True)
+class UnansweredGrievance:
+    """One adverse record on the compact's own file that no proceeding answers."""
+
+    record_cid: str
+    subject_did: str
+    # Minor | Serious | Grave
+    severity: str
+    # NeverPursued (no dispute ever cited it) or ClosedUnresolved (every dispute that
+    # did was dismissed). The two shapes of the same omission: one never took the
+    # matter up, and one took it up and put it down.
+    ground: str
+    recorded_at: int
+    seconds_since: int
+    cadence_seconds: int
+    # disputes citing this record
+    pursuits: int
+    # dismissals over those disputes
+    dismissals: int
+    # mediators who sat on more than one of those dismissals: the burial signature,
+    # and the one reading here a panel cannot produce by accident
+    repeat_panelists: int
+    # whether a member has attested the non-pursuit
+    attested: bool
+
+
+def _grievance(row) -> UnansweredGrievance:
+    return UnansweredGrievance(*row)
+
+
+def unanswered_grievances(
+    archive, as_of: Optional[int] = None, cadence_seconds: Optional[int] = None
+) -> tuple[UnansweredGrievance, ...]:
+    """Adverse records the compact put on its own file and then did not pursue,
+    longest unanswered first (§5).
+
+    **The failure with no adversary and no drift.** Every other erosion reading is a
+    compact doing less of something it used to do. This one is a compact that keeps
+    every form — panels sit, decisions are filed, arguments are answered — and declines
+    to move against one member. Measured: a compact that dismissed the same evidence
+    four times read identically, on the erosion alert and on every convergence,
+    direction, concentration, silence and vacancy reading, to one that prosecuted the
+    same evidence to collective sanctions, and to one with nothing to prosecute at all.
+    Burial produces observances, so every instrument that counts observances reads it as
+    diligence.
+
+    **Absolute**, like the silence readings: the reference is a clock against a filed
+    record, never the compact's own recent behaviour. A population that all agrees to
+    look away is unchanged by the looking away.
+
+    A record carrying a rung above registered protest is the compact's own enforcement
+    act and is absent from the reading; registration and protest are a wronged party's
+    own acts, and above them is where the compact's machinery engages. Also absent: a
+    record answered by an `Upheld` or `Settled` decision, a restitution obligation, a
+    designation, or a dispute still running. Only a dismissal leaves a grievance
+    standing.
+
+    Renders no verdict. No protocol can tell a wrong dismissal from a right one, and
+    this reports the structure rather than the merits."""
+    return tuple(
+        _grievance(r) for r in archive.unanswered_grievances(as_of, cadence_seconds)
+    )
+
+
+@dataclass(frozen=True)
 class SilentFunction:
     community_did: str
     # "Mediation" or "Observation"
@@ -1189,6 +1253,57 @@ def unstaffed_functions(
     return tuple(
         UnstaffedFunction(did, fn, vacant_since, seconds)
         for did, fn, vacant_since, seconds in archive.unstaffed_functions(as_of)
+    )
+
+
+@dataclass(frozen=True)
+class DesignationConsensus:
+    """Who joined a designation, who refused it on the record, and who said nothing.
+
+    The denominator is the roll of every compact seating at least one deliberator, as
+    of the designation, minus the subject. A community that said nothing is reported as
+    ``silent`` rather than as consenting, because those are different things and not
+    conflating them is the whole point of the reading."""
+
+    designation_cid: str
+    subject: str
+    # "Anathema" or "HostisHumaniGeneris"
+    tier: str
+    deliberating: tuple[str, ...]
+    # communities that filed a dissent, in filing order, each counted once
+    dissenting: tuple[str, ...]
+    # roll members that neither joined nor refused. NOT consent
+    silent: tuple[str, ...]
+    roll_size: int
+    # deliberators as a share of the roll; None when no roll resolves
+    consensus_share: Optional[float]
+    contested: bool
+    evidence: tuple[str, ...]
+
+
+def designation_consensus(
+    archive, designation_cid: str, as_of: Optional[int] = None
+) -> DesignationConsensus:
+    """§5 designation consensus: the split behind one designation.
+
+    Renders no verdict, like every lens here. A contested designation is not an
+    illegitimate one, since a dissent vetoes nothing and a compact may be right over
+    its members' objections. What the numbers are for is that the split is visible at
+    all, to a later reader and to the observer corps."""
+    row = archive.designation_consensus(designation_cid, as_of)
+    (cid, subject, tier, deliberating, dissenting, silent, roll_size,
+     share, contested, evidence) = row
+    return DesignationConsensus(
+        designation_cid=cid,
+        subject=subject,
+        tier=tier,
+        deliberating=tuple(deliberating),
+        dissenting=tuple(dissenting),
+        silent=tuple(silent),
+        roll_size=roll_size,
+        consensus_share=share,
+        contested=contested,
+        evidence=tuple(evidence),
     )
 
 
@@ -1420,6 +1535,10 @@ class ErosionAlert:
     silent_functions: tuple[SilentFunction, ...]
     # standing functions with nobody seated at all
     unstaffed_functions: tuple[UnstaffedFunction, ...]
+    # adverse records the compact filed and did not pursue, longest unanswered first.
+    # The omission with a named beneficiary: every other field here is something the
+    # compact stopped doing, and this is something it declines to do to one member.
+    unanswered_grievances: tuple[UnansweredGrievance, ...]
     # enforcement narrowed onto part of the taxonomy while spread across subjects
     enforcement_convergence: Optional[EnforcementConvergence]
     # enforcement running at communities holding reduced standing
@@ -1436,20 +1555,21 @@ def erosion_alert(
     enforcement_coverage_floor_permille: Optional[int] = None,
     enforcement_dispersion_ceiling_permille: Optional[int] = None,
     enforcement_downward_floor_permille: Optional[int] = None,
+    grievance_cadence_seconds: Optional[int] = None,
 ) -> ErosionAlert:
     """§9 erosion-detection alerting: a graded, derived reading that escalates
     (None→Notice→Alert) as the erosion signals compound.
 
-    Twelve signals, divided three ways, and the division is the whole design. Four fire
+    Thirteen signals, divided three ways, and the division is the whole design. Four fire
     on an *act*: a contraction of the compact-incapable list, a narrowing of the compact's
-    own adopted ground, a fast contraction, deliberative acts during a fast. Six fire on
+    own adopted ground, a fast contraction, deliberative acts during a fast. Seven fire on
     *omission against a reference that is not the current population*, which is the only
     kind that sees a drift with nobody driving it: a re-affirmation overdue against an
     absolute generational cadence, a ceremony drawing fewer witnesses than it did at
     founding, a deliberation thinner than the compact's first, a designation past a
     mandated re-examination, a standing function that has neither acted nor attested a
-    null inside its cadence, and a standing function with nobody seated in it at all. Two
-    fire on *intensification*: a compact enforcing harder and narrower than it recites,
+    null inside its cadence, a standing function with nobody seated in it at all, and an
+    adverse record the compact filed and did not pursue. Two fire on *intensification*: a compact enforcing harder and narrower than it recites,
     and enforcement running at communities holding reduced standing.
 
     The asymmetry is deliberate. An alert built only from act-triggered signals reads a
@@ -1485,6 +1605,7 @@ def erosion_alert(
             enforcement_coverage_floor_permille,
             enforcement_dispersion_ceiling_permille,
             enforcement_downward_floor_permille,
+            grievance_cadence_seconds,
         )
     )
 
@@ -1524,6 +1645,9 @@ def _erosion_from(a) -> ErosionAlert:
         unstaffed_functions=tuple(
             UnstaffedFunction(did, fn, vacant_since, seconds)
             for did, fn, vacant_since, seconds in a.unstaffed_functions
+        ),
+        unanswered_grievances=tuple(
+            _grievance(row) for row in a.unanswered_grievances
         ),
         enforcement_convergence=_convergence_from(a.enforcement_convergence),
         enforcement_direction=_direction_from(a.enforcement_direction),

@@ -117,4 +117,14 @@ python src/python/examples/capture_harness_demo.py >/dev/null
 echo "  ✓ exit 0"
 
 echo
+echo "=== python src/python/examples/adversary_campaign_demo.py ==="
+python src/python/examples/adversary_campaign_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
+echo "=== python src/python/examples/non_pursuit_demo.py ==="
+python src/python/examples/non_pursuit_demo.py >/dev/null
+echo "  ✓ exit 0"
+
+echo
 echo "=== all checks passed ==="

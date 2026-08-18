@@ -64,7 +64,7 @@ DECISION_OUTCOMES = ("Upheld", "Dismissed", "Settled", "Referred")
 DESIGNATION_TIERS = ("Anathema", "HostisHumaniGeneris")
 DESIGNATION_URGENCIES = ("Normal", "Expedited")
 # §5 what a designation's mandated re-examination concluded.
-REEXAMINATION_OUTCOMES = ("Confirmed", "Reversed")
+REEXAMINATION_OUTCOMES = ("Confirmed", "Reversed", "Vacated")
 # The standing functions whose exercise is attested on a cadence (§4 and §8).
 ATTESTED_FUNCTIONS = ("Mediation", "Observation")
 # §9 capabilities an interim injunction can suspend, in two kinds. A SERVICE is a
@@ -1357,6 +1357,91 @@ def conclude_reexamination(
     )
 
 
+GRIEVANCE_GROUNDS = ("NeverPursued", "ClosedUnresolved")
+
+
+def attest_non_pursuit(
+    archive,
+    attestor: Signer,
+    subject_did: str,
+    evidence: Sequence[str],
+    reasoning: str,
+    *,
+    ground: str = "NeverPursued",
+    closing_decision: Optional[str] = None,
+    filed_at: Optional[int] = None,
+) -> str:
+    """Record `attestor`'s attestation that adverse evidence about `subject_did` has
+    gone unanswered (§5).
+
+    The counterpart of `file_designation_dissent`, on the other side of the same act. A
+    dissent records a refusal to *join* a designation; this records the compact's
+    refusal to *open* one. Measured before it existed: against a complicit majority the
+    honest complainant reached limited sanctions alone and stopped, and a compact that
+    dismissed the same evidence four times read identically, on every instrument, to one
+    that prosecuted it to collective sanctions.
+
+    `ground` is `NeverPursued` (nothing ever cited the evidence) or `ClosedUnresolved`
+    (a named decision closed a dispute citing it without resolving the matter, which
+    `closing_decision` must name).
+
+    It alleges no verdict: no protocol can tell a wrong dismissal from a right one. What
+    it claims is structural and therefore checkable, and the authority pass checks it
+    rather than taking it — refusing an attestation whose evidence is not adverse or not
+    about the subject, whose attestor is the subject or shares no compact with it, whose
+    `NeverPursued` ground is contradicted by a dispute already citing the evidence, whose
+    named decision closes no dispute citing it, or whose evidence is still inside the
+    90-day cadence. One signer, first-class: requiring a quorum to record that the
+    quorum will not act would hand the shielding majority a veto over being noticed.
+    Returns the CID."""
+    if not evidence:
+        raise ValueError("a non-pursuit attestation must cite the evidence it is about")
+    if ground not in GRIEVANCE_GROUNDS:
+        raise ValueError(f"ground must be one of {GRIEVANCE_GROUNDS}, got {ground!r}")
+    if ground == "ClosedUnresolved" and not closing_decision:
+        raise ValueError("the ClosedUnresolved ground must name its closing decision")
+    if ground == "NeverPursued" and closing_decision:
+        raise ValueError("the NeverPursued ground names no closing decision")
+    return archive.append_non_pursuit(
+        attestor.priv, attestor.did, attestor.did, subject_did,
+        list(evidence), ground, reasoning, closing_decision, filed_at,
+    )
+
+
+def file_designation_dissent(
+    archive,
+    dissenter: Signer,
+    designation_cid: str,
+    reasoning: str,
+    *,
+    filed_at: Optional[int] = None,
+) -> str:
+    """Record `dissenter`'s refusal to join the designation at `designation_cid` (§5).
+
+    A designation carries its deliberators and their reasoning and nothing else, so
+    before this record a compact in which two communities designated and four would
+    not read exactly like one that was unanimous. The one question a later reader most
+    needs answered about the gravest act in the life of a compact, whether the compact
+    agreed, could not be answered from the record.
+
+    A dissent **vetoes nothing**: the quorum is the quorum, and a member's veto over
+    being outvoted would be the capturing faction's veto over being named. What it
+    does is put the split where `designation_consensus` can read it.
+
+    The authority pass requires the designation to resolve, the dissent not to predate
+    it, the author not to be among its deliberators (co-signing and refusing are not
+    both available), the author not to be its subject (a subject's objection is its own
+    defence, and it has the report response, the injunction challenge and the re-entry
+    accounting), and the author to sit in a compact with at least one deliberator.
+    One signer, first-class: this is a member speaking for itself. Returns the CID."""
+    if filed_at is None:
+        filed_at = now_seconds()
+    return archive.append_designation_dissent(
+        dissenter.priv, dissenter.did, dissenter.principal,
+        designation_cid, reasoning, filed_at,
+    )
+
+
 def attest_activity(
     archive,
     community: Signer,
@@ -2102,6 +2187,7 @@ __all__ = [
     "attest_principal", "record_principal_output",
     "record_conduct", "record_concern", "designate_anathema", "lift_designation",
     "record_non_admission", "record_admission", "run_intra_rite",
+    "file_designation_dissent",
     "new_mediator", "new_examiner",
     "register_examiners", "probationary_at",
     "new_member", "publish_member_roll", "insider_set_size",

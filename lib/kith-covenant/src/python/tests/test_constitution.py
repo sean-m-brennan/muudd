@@ -433,7 +433,10 @@ YEAR = 365 * 86_400
 
 
 def test_constant_tuples_for_the_new_records():
-    assert REEXAMINATION_OUTCOMES == ("Confirmed", "Reversed")
+    # `Vacated` arrived with the hostis-humani-generis bar: that tier has no reversal
+    # path, so a panel re-examining it had no conclusion available except to confirm,
+    # and "willingness to be wrong about past designations" needed somewhere to go.
+    assert REEXAMINATION_OUTCOMES == ("Confirmed", "Reversed", "Vacated")
     assert ATTESTED_FUNCTIONS == ("Mediation", "Observation")
 
 

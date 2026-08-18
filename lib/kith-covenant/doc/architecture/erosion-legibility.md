@@ -388,6 +388,60 @@ drill-down that names who, available only after the compact-wide reading has sai
 anything to name. This is the same shape as the `thinning_deliberation` finding under K1:
 the level a signal is taken at is part of the signal.
 
+### Finding K7: every dimension so far is a thing the compact stopped doing (fixed)
+
+K1 divided the instruments into act-triggered and omission-triggered and found that a
+polity which merely stopped read as healthy. K5 added intensification and found that a
+polity which kept every form and narrowed the object read as healthy too. Both remedies
+share an assumption that a third measurement broke: that erosion is something happening to
+the compact as a whole.
+
+A compact whose majority is complicit with one member erodes in neither of those ways. It
+holds every rite, staffs every office, amends nothing, enforces the whole taxonomy against
+everybody else, and declines to move against one. And **declining produces observances**. A
+panel sits, arguments are filed and answered, a decision is recorded. So every instrument
+that counts observances reads the captured compact as diligent, and the compact that buried
+the same evidence four times looked busier than the compact with nothing to bury.
+
+Measured: three archives with the same evidence, differing only in the compact. One
+prosecuted it to collective sanctions, one dismissed it four times through panels drawn
+from the same three seats, one had nothing to prosecute. All three graded `None` with no
+reasons, on the alert and on every convergence, direction, concentration, silence, vacancy
+and re-examination reading. Burial and prosecution differed on zero substantive
+instruments.
+
+**Fixed** by a thirteenth dimension, `unanswered_grievances`, absolute against a clock like
+the K3 instruments and for the same reason: a compact that pursues nothing has no shares to
+skew and no cadence to fall behind, so a relative measure over a population that all agrees
+to look away is unchanged by the looking away. It is the first dimension with a **named
+beneficiary**, which is what separates it from the other six omissions. Those are things the
+compact stopped doing; this is a thing it declines to do to one member, and declining is
+compatible with a full calendar.
+
+The dimension's own design was corrected by an existing control rather than by a plan. The
+first version asked whether each adverse *record* had been cited by a dispute, and the
+determined-adversary campaign, whose subject was restituted three times and designated
+twice, scored six unanswered records against it: a prosecuting compact accumulates a
+course of conduct and escalates once rather than filing a dispute per record. The reading
+therefore asks first whether the compact is moving against the member at all, by way of a
+live dispute naming it, a restitution imposed on it, or a designation of it. A dispute
+answers only while it is running, since a filing left dormant past the cadence would
+otherwise hold every reading off a member for good.
+
+Beside the count sits the reading a panel cannot produce by accident: how many mediator
+seats sat on more than one of the dismissals that closed the same evidence. Independent
+panels each reaching the same conclusion and one panel reaching it repeatedly are different
+objects, and only the second is a signature. It stays a count rather than a threshold,
+because a small compact has few mediators and some repetition follows from arithmetic.
+
+The claim stays inside what K1 to K6 already conceded. No verdict is offered on any
+dismissal, since no protocol can tell a wrong one from a right one. What the dimension
+guarantees is that a compact declining to prosecute filed evidence can no longer do so
+without a reading that says so, which is forensic legibility for the remnant and not
+prevention. The full measurement, the two authority defects it turned up, and the member-side
+attestation that carries the same fact are in
+[captured-prosecution.md](captured-prosecution.md).
+
 ## What is and is not claimable
 
 No mechanism here closes the hole. Every instrument above still terminates in
@@ -554,4 +608,4 @@ enforcement is *about* rather than a search for anything wrong with how it was d
 
 ---
 
-*Next: [The AutonomousTrust integration](autonomous-trust-integration.md)*
+*Next: [The determined adversary](adversary-campaign.md)*

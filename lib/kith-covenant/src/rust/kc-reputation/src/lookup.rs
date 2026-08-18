@@ -22,6 +22,7 @@ use std::collections::{HashMap, HashSet};
 use kc_archive::{probationary_at, ArchiveEntry, InMemoryArchive};
 use kc_commons::{CommonsSanction, SanctionLevel};
 use kc_conduct::{ConductKind, LadderRung};
+use kc_escalation::{Capability, ReexaminationOutcome};
 use kc_core::{time, Cid, DidKey, Timestamp};
 use kc_identity::SpeakerDelegation;
 
@@ -393,8 +394,13 @@ pub fn lookup(
     }
 
     // §5 designation reversal set: any designation whose CID is referenced by a
-    // DesignationLifted conduct record, or answered by one of this community's
-    // re-entries, is reversed.
+    // DesignationLifted conduct record, answered by one of this community's re-entries,
+    // or vacated by a re-examination as an error of the compact, is reversed.
+    //
+    // The third path is the only one the irrecoverable tier has, which is why it is here
+    // as well as in `kc_archive::authority::designation_reversed`: the two must agree
+    // about what "reversed" means or a vacated designation would keep withholding the
+    // offices the gate had already stopped withholding.
     let mut reversed: HashSet<String> = view
         .conduct
         .iter()
@@ -403,6 +409,15 @@ pub fn lookup(
         .collect();
     for re in &view.reentries {
         reversed.insert(re.designation_cid.to_string());
+    }
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::ReexaminationConcluded(s) = entry {
+            if s.payload.outcome == ReexaminationOutcome::Vacated
+                && s.payload.concluded_at <= as_of
+            {
+                reversed.insert(s.payload.designation_cid.to_string());
+            }
+        }
     }
     for d in &mut view.designations {
         d.reversed = reversed.contains(&d.record_cid.to_string());
@@ -451,6 +466,31 @@ pub fn lookup(
             for cap in &inj.revoked_capabilities {
                 revoked.insert(cap.clone());
             }
+        }
+    }
+    // The five **offices** are also withheld by a standing §5 designation and by a
+    // dispute standing at the expulsion rung, injunction or no injunction. This mirrors
+    // `kc_archive::authority::withheld_by`, and it has to: what a dashboard reports and
+    // what the gate refuses cannot be allowed to drift, which is the rule this crate's
+    // `probationary_at` re-export exists to keep for §2.
+    //
+    // Note what is deliberately *not* read here. `derive_standing` reports `Anathema`
+    // for two different things: a structured §5 `Designation` that passed the
+    // four-condition test, and the coarse `ConductKind::DesignationAnathema` conduct
+    // record that predates it. Only the first withholds anything. The coarse record
+    // carries none of the four conditions and rides on an ordinary second-class quorum,
+    // so letting it strip a community of every office would hand two communities a route
+    // to disarm a third with no restoration cycles, no deliberation cadence and no
+    // stated criteria. Standing is a label; the withholding follows the act that earned
+    // it.
+    let designated = view.designations.iter().any(|d| !d.reversed);
+    let expelled = view
+        .disputes_against
+        .iter()
+        .any(|d| d.current_rung == LadderRung::Expulsion);
+    if designated || expelled {
+        for cap in Capability::offices() {
+            revoked.insert(cap.as_str().to_string());
         }
     }
     view.revoked_capabilities = revoked.into_iter().collect();

@@ -53,8 +53,9 @@ mod tests;
 
 pub use record::{
     dispute_ladder_rank, is_second_class_rung, Capability, DeliberationCycle, Designation,
-    DesignationTier, DesignationUrgency, InjunctionChallenge, InjunctionConfirmation,
-    InterimInjunction, LadderTransition, ReEntry, ReEntryWitnessAttestation,
-    ReexaminationConclusion, ReexaminationOutcome, RestitutionCompletion, RestitutionObligation,
-    SubstantiveReEngagement,
+    DesignationDissent, DesignationTier, DesignationUrgency, GrievanceGround,
+    InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition,
+    ReEntry, ReEntryWitnessAttestation, ReexaminationConclusion, ReexaminationOutcome,
+    RestitutionCompletion, RestitutionObligation, SubstantiveReEngagement,
+    NonPursuitAttestation,
 };

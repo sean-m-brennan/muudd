@@ -45,16 +45,18 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use kc_ceremony::inter::{ExaminerRegistry, InterCommunityWitnessRecord, SponsorshipRecord};
 use kc_commons::{is_second_class_level, sanction_rank, CommonsSanction, SanctionLevel, UsageRecord};
-use kc_conduct::{ActivityAttestation, AttestedFunction, DecisionClass};
+use kc_conduct::{ActivityAttestation, AttestedFunction, ConductKind, DecisionClass};
 use kc_constitution::{
     AmendmentKind, CompactIncapableAmendment, FastCadenceAmendment, ForbearanceChange,
     MinimumContentAmendment,
 };
 use kc_core::{Cid, DidKey, KcError, KcResult, Timestamp};
 use kc_escalation::{
-    dispute_ladder_rank, is_second_class_rung, Capability, Designation, DesignationTier,
-    DesignationUrgency, InjunctionChallenge, InterimInjunction, LadderTransition, ReEntry,
-    ReexaminationConclusion, ReexaminationOutcome, RestitutionCompletion,
+    dispute_ladder_rank, is_second_class_rung, Capability, Designation, DesignationDissent,
+    DesignationTier, DesignationUrgency, InjunctionChallenge, InterimInjunction,
+    GrievanceGround, LadderTransition, ReEntry, ReexaminationConclusion, ReexaminationOutcome,
+    NonPursuitAttestation,
+    RestitutionCompletion,
 };
 use kc_identity::DelegationScope;
 use kc_mediation::{ArgumentRecord, ArgumentRole, MediationDecision};
@@ -340,6 +342,13 @@ impl ExaminerCaps {
 /// anathema designation must cite (bounded_conflict.md condition 1).
 const DESIGNATION_CYCLE_FLOOR: usize = 3;
 
+/// Deliberation cycles the *hostis humani generis* tier must run, against the two the
+/// anathema tier runs (justus_hostis.md: the tier "requires an even higher evidentiary
+/// threshold", and "slow procedure" is one of the named guards). Each pair is still
+/// separated by the waiting period, so this lengthens the procedure rather than merely
+/// adding a record.
+const HOSTIS_DELIBERATION_CYCLE_FLOOR: usize = 3;
+
 /// Is `community` inside a probation window at instant `at`?
 ///
 /// The §2 probation predicate, and the *single* representation of the window
@@ -409,8 +418,11 @@ fn probationary_at_excluding(
 /// The *one* representation of "counting weight rather than signatures", so a
 /// component-level bar and the generic quorum cannot disagree about who counts.
 /// `exclude` skips one record in the window scan (see
-/// [`probationary_at_excluding`]); `barred` drops a community for a reason that is
-/// not probation — the subject of its own readmission.
+/// [`probationary_at_excluding`]); `barred` drops a community for a reason that is not
+/// probation, together with the words for what it was barred from, since a refusal has
+/// to name the act: a community not counting toward its own readmission, its own
+/// designation and the re-examination of its own designation are three different
+/// refusals with three different remedies.
 ///
 /// It exists because the count and the *floor* are two different things and only
 /// this one is about weight: a floor that counted signatures while the grade
@@ -421,7 +433,7 @@ fn deliberative_weight<'a>(
     dids: impl IntoIterator<Item = &'a DidKey>,
     at: Timestamp,
     exclude: Option<&Cid>,
-    barred: Option<&DidKey>,
+    barred: Option<(&DidKey, &'static str)>,
 ) -> ProbationTally {
     let mut tally = ProbationTally::default();
     let mut seen: BTreeSet<&str> = BTreeSet::new();
@@ -430,21 +442,32 @@ fn deliberative_weight<'a>(
             continue;
         }
         tally.distinct += 1;
-        if Some(did) == barred {
-            tally.barred = true;
+        if barred.is_some_and(|(b, _)| b == did) {
+            tally.barred = barred.map(|(_, what)| what);
             continue;
         }
         if probationary_at_excluding(archive, did, at, exclude) {
             tally.probationary += 1;
             continue;
         }
-        // The office of deliberation, withheld by an in-force injunction. It belongs
-        // here rather than at each bar for the reason the probation filter does: the
-        // count and the floor must read the same rule, or the bar that counts
-        // signatures becomes the cheaper of the two.
-        if capability_revoked(archive, did, Capability::Deliberation, at) {
-            tally.without_office += 1;
-            continue;
+        // The office of deliberation, withheld by an in-force injunction, by a standing
+        // designation, or by an expulsion. It belongs here rather than at each bar for
+        // the reason the probation filter does: the count and the floor must read the
+        // same rule, or the bar that counts signatures becomes the cheaper of the two.
+        match withheld_by(archive, did, Capability::Deliberation, at) {
+            Some(Withholding::Injunction) => {
+                tally.without_office += 1;
+                continue;
+            }
+            Some(Withholding::Designation) => {
+                tally.designated += 1;
+                continue;
+            }
+            Some(Withholding::Expulsion) => {
+                tally.expelled += 1;
+                continue;
+            }
+            None => {}
         }
         tally.counted += 1;
     }
@@ -465,8 +488,12 @@ struct ProbationTally {
     /// How many were dropped for being held out of the deliberation office by an
     /// in-force injunction (§9).
     without_office: usize,
-    /// Whether the `barred` community was among them.
-    barred: bool,
+    /// How many were dropped for standing under a designation of either tier (§5).
+    designated: usize,
+    /// How many were dropped for standing at the expulsion rung of a dispute (§5).
+    expelled: usize,
+    /// What the `barred` community was barred from, when it was among them.
+    barred: Option<&'static str>,
 }
 
 impl ProbationTally {
@@ -487,8 +514,22 @@ impl ProbationTally {
                 self.without_office, self.distinct
             ));
         }
-        if self.barred {
-            why.push("the subject does not count toward its own readmission".into());
+        if self.designated > 0 {
+            why.push(format!(
+                "{} of {} bound communities stand under a designation and carry no \
+                 deliberative weight",
+                self.designated, self.distinct
+            ));
+        }
+        if self.expelled > 0 {
+            why.push(format!(
+                "{} of {} bound communities stand at the expulsion rung of a dispute \
+                 and carry no deliberative weight",
+                self.expelled, self.distinct
+            ));
+        }
+        if let Some(what) = self.barred {
+            why.push(format!("the subject does not count toward {what}"));
         }
         (!why.is_empty()).then(|| format!(" ({}; §2)", why.join(", ")))
     }
@@ -505,6 +546,11 @@ fn allowed_scopes(entry: &ArchiveEntry) -> &'static [DelegationScope] {
         }
         ArchiveEntry::SponsorshipVouched(_) => &[Envoy],
         ArchiveEntry::ConductAttested(_) => &[Envoy],
+        // A refusal to join a designation is the community's own position stated at the
+        // boundary, so its envoy may state it, exactly as for a conduct record.
+        ArchiveEntry::DesignationDissented(_) => &[Envoy],
+        // The same, on the other side of the same act.
+        ArchiveEntry::NonPursuitAttested(_) => &[Envoy],
         // A community's account of a window in a function it holds is an ordinary
         // act of that community, delegable exactly as a conduct record is.
         ArchiveEntry::ActivityAttested(_) => &[Envoy],
@@ -676,6 +722,17 @@ fn record_authority(entry: &ArchiveEntry) -> Option<RecordAuthority> {
         ArchiveEntry::ReexaminationConcluded(s) => {
             Some(ra(s.payload.examiners.clone(), s.payload.concluded_at, true))
         }
+        // A dissent is one community's own position, so it is first-class however grave
+        // the designation it answers: making it second-class would require a quorum to
+        // record a disagreement, which is the opposite of what it is for.
+        ArchiveEntry::DesignationDissented(s) => {
+            Some(ra(vec![s.payload.dissenter.clone()], s.payload.filed_at, false))
+        }
+        // First-class for the same reason a dissent is, one component over: a quorum
+        // requirement here would be the shielding majority's veto over being noticed.
+        ArchiveEntry::NonPursuitAttested(s) => {
+            Some(ra(vec![s.payload.attestor.clone()], s.payload.filed_at, false))
+        }
         ArchiveEntry::RestitutionObligated(s) => Some(ra(
             s.payload.imposed_by.clone(),
             s.payload.imposed_at,
@@ -838,6 +895,7 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::SponsorshipVouched(s) => dids(s),
         ArchiveEntry::ConductAttested(s) => dids(s),
         ArchiveEntry::ActivityAttested(s) => dids(s),
+        ArchiveEntry::NonPursuitAttested(s) => dids(s),
         ArchiveEntry::MediatorRegistryUpdated(s) => dids(s),
         ArchiveEntry::DisputeFiled(s) => dids(s),
         ArchiveEntry::ArgumentFiled(s) => dids(s),
@@ -849,6 +907,7 @@ fn signer_dids(entry: &ArchiveEntry) -> Vec<&str> {
         ArchiveEntry::DecisionUnsealed(s) => dids(s),
         ArchiveEntry::LadderAdvanced(s) => dids(s),
         ArchiveEntry::DesignationDecided(s) => dids(s),
+        ArchiveEntry::DesignationDissented(s) => dids(s),
         ArchiveEntry::ReexaminationConcluded(s) => dids(s),
         ArchiveEntry::RestitutionObligated(s) => dids(s),
         ArchiveEntry::RestitutionVerified(s) => dids(s),
@@ -1777,7 +1836,8 @@ fn authorize_panel_consent(
     });
     if !ok {
         return Err(KcError::Authority(format!(
-            "panel consent for {} has no authorized signer: nobody consents on another's behalf",
+            "panel consent for {} has no authorized signer: nobody consents on another's \
+             behalf",
             consent.party.as_str()
         )));
     }
@@ -2086,6 +2146,301 @@ fn holds_function(
     }
 }
 
+/// Do `a` and `b` sit in the same compact as of `at`, by the §2 admission records?
+///
+/// Membership has no single artifact in this archive: a §7 `CompactCharter` is optional
+/// and names members explicitly, while the ordinary route in is an
+/// `InterCommunityWitness` naming its participants under a compact label. This reads the
+/// latter, which is the one every admitted community has, and asks only whether some
+/// label seats both.
+fn shares_a_compact(
+    archive: &InMemoryArchive,
+    a: &DidKey,
+    b: &DidKey,
+    at: Timestamp,
+) -> bool {
+    let mut rolls: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::InterCommunityWitness(s) = e {
+            if s.payload.witnessed_at > at {
+                continue;
+            }
+            let roll = rolls.entry(s.payload.compact_label.as_str()).or_default();
+            for p in &s.payload.participants {
+                roll.insert(p.as_str());
+            }
+        }
+    }
+    rolls
+        .values()
+        .any(|roll| roll.contains(a.as_str()) && roll.contains(b.as_str()))
+}
+
+/// The §5 rule for a recorded refusal to join a designation.
+///
+/// Four requirements, and each of them is about keeping the record honest rather than
+/// about weighing the refusal, which nothing here does:
+///
+/// - it answers a designation that exists;
+/// - it is not dated before the act it refuses, because a position taken in advance of a
+///   designation is a contribution to the deliberation and belongs in a cycle's reasoning;
+/// - its author is not among the deliberators, since co-signing an act and refusing it are
+///   not both available;
+/// - its author is not the subject. A designated community's objection is its own defence,
+///   and it already has three channels for it: a response to an observer report, a
+///   challenge to an injunction, and the re-entry accounting. Letting it also file as the
+///   compact's internal disagreement would let the accused manufacture the appearance of a
+///   split in the body judging it.
+///
+/// The author must also sit in a compact with at least one deliberator. A designation is
+/// an act of a compact, so the members whose agreement is in question are that compact's;
+/// an outsider's view of it is an observer report, which §8 already carries.
+fn authorize_dissent(archive: &InMemoryArchive, d: &DesignationDissent) -> KcResult<()> {
+    let designation = match archive.get(&d.designation_cid) {
+        Some(ArchiveEntry::DesignationDecided(s)) => &s.payload,
+        _ => {
+            return Err(KcError::Authority(format!(
+                "dissent references {} which is not a designation",
+                d.designation_cid
+            )))
+        }
+    };
+    if d.reasoning.trim().is_empty() {
+        return Err(KcError::Authority(
+            "a dissent must state its reasoning: a refusal that says nothing leaves the \
+             next reader exactly where an unrecorded one would"
+                .into(),
+        ));
+    }
+    if d.filed_at < designation.designated_at {
+        return Err(KcError::Authority(format!(
+            "dissent is dated {}s, before the designation it refuses ({}s): a position \
+             taken beforehand belongs in a deliberation cycle's reasoning",
+            d.filed_at.as_second(),
+            designation.designated_at.as_second()
+        )));
+    }
+    if designation.deliberators.iter().any(|x| x == &d.dissenter) {
+        return Err(KcError::Authority(format!(
+            "{} co-signed this designation and cannot also dissent from it",
+            d.dissenter.as_str()
+        )));
+    }
+    if designation.subject_community == d.dissenter {
+        return Err(KcError::Authority(format!(
+            "{} is the subject of this designation, and a subject's objection is its own \
+             defence rather than the compact's disagreement (it has the report response, \
+             the injunction challenge and the re-entry accounting)",
+            d.dissenter.as_str()
+        )));
+    }
+    if !designation
+        .deliberators
+        .iter()
+        .any(|dl| shares_a_compact(archive, &d.dissenter, dl, d.filed_at))
+    {
+        return Err(KcError::Authority(format!(
+            "{} sits in no compact with any deliberator of this designation, so it has no \
+             place in the compact's own agreement about it (§8 observer reports are how a \
+             community outside a compact speaks about it)",
+            d.dissenter.as_str()
+        )));
+    }
+    Ok(())
+}
+
+/// How long evidence must have stood unanswered before a member may attest that it has.
+///
+/// The same ninety days the attested-null cadence uses, and for the same reason: it is
+/// long enough that an ordinary compact working through its ladder is not accused of
+/// burying anything, and short enough that a matter dropped on purpose is legible while
+/// the parties are still alive to it.
+pub const DEFAULT_GRIEVANCE_CADENCE_SECONDS: i64 = 90 * 86_400;
+
+/// The §5 rule for a non-pursuit attestation.
+///
+/// The record makes a claim about the archive, so the rule is that the archive must bear
+/// the claim out. Without that this would be a free-form accusation any community could
+/// mint against any other, which is precisely the instrument a capturing faction wants
+/// and the opposite of what the measurement asked for.
+///
+/// Six conditions. The evidence must resolve, be adverse, and be about the named
+/// subject. The attestor must not be that subject: an accused community's account of its
+/// own unprosecuted conduct is not a grievance, and it has the report response, the
+/// injunction challenge and the re-entry accounting for its own case. It must share a
+/// compact with the subject, because an outsider speaks through §8 observer reports
+/// rather than through the compact's own record. It must state reasoning. It may not
+/// pre-date the evidence. And the ground must hold as of the filing: `NeverPursued`
+/// requires that no dispute cites any of the evidence and that the cadence has passed,
+/// `ClosedUnresolved` requires a named decision that actually closes a dispute citing
+/// it.
+fn authorize_non_pursuit(
+    archive: &InMemoryArchive,
+    g: &NonPursuitAttestation,
+) -> KcResult<()> {
+    if g.evidence.is_empty() {
+        return Err(KcError::Authority(
+            "a non-pursuit attestation must cite the evidence it says went unanswered: the \
+             claim is about particular records, and a claim about nothing in particular cannot \
+             be checked"
+                .into(),
+        ));
+    }
+    if g.reasoning.trim().is_empty() {
+        return Err(KcError::Authority(
+            "a non-pursuit attestation must state why the matter is unresolved: an attestation \
+             that says nothing leaves the next reader exactly where an unrecorded one would"
+                .into(),
+        ));
+    }
+    if g.attestor == g.subject {
+        return Err(KcError::Authority(format!(
+            "{} is the subject of this evidence, and a subject's account of its own \
+             unprosecuted conduct is not a grievance (it has the report response, the \
+             injunction challenge and the re-entry accounting)",
+            g.attestor.as_str()
+        )));
+    }
+    if !shares_a_compact(archive, &g.attestor, &g.subject, g.filed_at) {
+        return Err(KcError::Authority(format!(
+            "{} sits in no compact with {}, so the compact's failure to pursue is not its to \
+             record (§8 observer reports are how a community outside a compact speaks about \
+             one)",
+            g.attestor.as_str(),
+            g.subject.as_str()
+        )));
+    }
+
+    // The evidence: adverse, about the subject, and earlier than the attestation.
+    let mut latest = None::<Timestamp>;
+    for cid in &g.evidence {
+        let conduct = match archive.get(cid) {
+            Some(ArchiveEntry::ConductAttested(s)) => &s.payload,
+            _ => {
+                return Err(KcError::Authority(format!(
+                    "non-pursuit evidence {cid} is not a conduct record"
+                )))
+            }
+        };
+        if !matches!(conduct.kind, ConductKind::Concern | ConductKind::Violation) {
+            return Err(KcError::Authority(format!(
+                "non-pursuit evidence {} is a {} rather than an adverse record: there \
+                 is nothing there for the compact to have pursued",
+                cid,
+                conduct.kind.as_str()
+            )));
+        }
+        if conduct.subject_community != g.subject {
+            return Err(KcError::Authority(format!(
+                "non-pursuit evidence {} is about {} rather than the named subject {}",
+                cid,
+                conduct.subject_community.as_str(),
+                g.subject.as_str()
+            )));
+        }
+        if conduct.recorded_at > g.filed_at {
+            return Err(KcError::Authority(format!(
+                "non-pursuit attestation is dated {}s, before the evidence it cites \
+                 ({}s)",
+                g.filed_at.as_second(),
+                conduct.recorded_at.as_second()
+            )));
+        }
+        if latest.is_none_or(|l| conduct.recorded_at > l) {
+            latest = Some(conduct.recorded_at);
+        }
+    }
+    let latest = latest.expect("the evidence list is non-empty and every entry was read");
+
+    // Disputes standing against any of the cited evidence as of the filing.
+    let pursuing: Vec<(Cid, Timestamp)> = archive
+        .iter()
+        .filter_map(|(cid, e)| match e {
+            ArchiveEntry::DisputeFiled(s)
+                if s.payload.filed_at <= g.filed_at
+                    && s.payload.references.iter().any(|r| g.evidence.contains(r)) =>
+            {
+                Some((*cid, s.payload.filed_at))
+            }
+            _ => None,
+        })
+        .collect();
+
+    match g.ground {
+        GrievanceGround::NeverPursued => {
+            if g.closing_decision.is_some() {
+                return Err(KcError::Authority(
+                    "a NeverPursued attestation names a closing decision, which is the \
+                     ClosedUnresolved ground: the two grounds are different claims and the \
+                     record must make one of them"
+                        .into(),
+                ));
+            }
+            if let Some((cid, at)) = pursuing.first() {
+                return Err(KcError::Authority(format!(
+                    "dispute {} filed at {}s cites this evidence, so it was pursued: the \
+                     ground for an attestation about a proceeding that happened is \
+                     ClosedUnresolved, and only if one closed it",
+                    cid,
+                    at.as_second()
+                )));
+            }
+            let waited = g.filed_at.as_second() - latest.as_second();
+            if waited < DEFAULT_GRIEVANCE_CADENCE_SECONDS {
+                return Err(KcError::Authority(format!(
+                    "the evidence has stood {waited}s, inside the \
+                     {DEFAULT_GRIEVANCE_CADENCE_SECONDS}s cadence: a compact working through \
+                     its ladder has not yet failed to, and an attestation filed the same week \
+                     records impatience rather than a withheld proceeding"
+                )));
+            }
+        }
+        GrievanceGround::ClosedUnresolved => {
+            let Some(decision_cid) = g.closing_decision else {
+                return Err(KcError::Authority(
+                    "a ClosedUnresolved attestation must name the decision that closed the \
+                     matter: the claim is that a particular proceeding ended without resolving \
+                     it"
+                        .into(),
+                ));
+            };
+            let decision = match archive.get(&decision_cid) {
+                Some(ArchiveEntry::MediationDecided(s)) => &s.payload,
+                _ => {
+                    return Err(KcError::Authority(format!(
+                        "non-pursuit closing decision {decision_cid} is not a \
+                         mediation decision"
+                    )))
+                }
+            };
+            if decision.decided_at > g.filed_at {
+                return Err(KcError::Authority(format!(
+                    "non-pursuit attestation is dated {}s, before the decision it \
+                     answers ({}s)",
+                    g.filed_at.as_second(),
+                    decision.decided_at.as_second()
+                )));
+            }
+            use kc_mediation::DecisionOutcome::*;
+            if !matches!(decision.outcome, Upheld | Dismissed | Settled) {
+                return Err(KcError::Authority(format!(
+                    "decision {} is {:?} and closes nothing, so the matter is still before the \
+                     compact rather than unanswered by it",
+                    decision_cid, decision.outcome
+                )));
+            }
+            if !pursuing.iter().any(|(cid, _)| cid == &decision.dispute_cid) {
+                return Err(KcError::Authority(format!(
+                    "decision {} closes dispute {}, which cites none of the evidence this \
+                     attestation is about",
+                    decision_cid, decision.dispute_cid
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The §5 rule for a re-examination conclusion (erosion remediation item 5, finding K3):
 /// the attested null of the severest act the compact can take.
 ///
@@ -2099,6 +2454,7 @@ fn holds_function(
 fn authorize_reexamination(
     archive: &InMemoryArchive,
     rc: &ReexaminationConclusion,
+    self_cid: &Cid,
 ) -> KcResult<()> {
     let designation = match archive.get(&rc.designation_cid) {
         Some(ArchiveEntry::DesignationDecided(s)) => &s.payload,
@@ -2147,10 +2503,46 @@ fn authorize_reexamination(
             Some(_) => {}
         },
         ReexaminationOutcome::Reversed => {
-            if !designation_reversed(archive, &rc.designation_cid, rc.concluded_at) {
+            if !designation_reversed_excluding(
+                archive,
+                &rc.designation_cid,
+                rc.concluded_at,
+                Some(self_cid),
+            ) {
                 return Err(KcError::Authority(format!(
                     "re-examination reports {} reversed, but no lifting record or \
                      re-entry answers it",
+                    rc.designation_cid
+                )));
+            }
+        }
+        // A vacatur is the compact saying it was wrong, and it is the only conclusion
+        // that ends a designation by itself. Two rules keep it honest. It carries no
+        // next date, because there is no longer an obligation to renew. And it may not
+        // be entered against a designation that some other path has already reversed:
+        // a compact that re-entered a community and then "vacated" the designation it
+        // answered would be recording an admission of error it never made.
+        ReexaminationOutcome::Vacated => {
+            if rc.next_reexamine_after.is_some() {
+                return Err(KcError::Authority(
+                    "a vacated designation sets no next re-examination date: the \
+                     designation is gone, and there is nothing left to renew"
+                        .into(),
+                ));
+            }
+            // Excluding this record, which is itself a reversal: a vacatur that read the
+            // whole archive would see itself standing there and refuse itself, which is
+            // the defect §2's probation self-exclusion exists to prevent, one component
+            // over.
+            if designation_reversed_excluding(
+                archive,
+                &rc.designation_cid,
+                rc.concluded_at,
+                Some(self_cid),
+            ) {
+                return Err(KcError::Authority(format!(
+                    "designation {} was already reversed by another path, so it cannot \
+                     also be vacated as an error of the compact",
                     rc.designation_cid
                 )));
             }
@@ -2159,12 +2551,22 @@ fn authorize_reexamination(
     Ok(())
 }
 
-/// Whether a designation has been reversed as of `at`, by the two paths the reputation
-/// lookup already defines: a `DesignationLifted` conduct record naming it, or a completed
-/// re-entry answering it. One definition, read by the authority pass and the erosion lens
-/// alike.
+/// Whether a designation has been reversed as of `at`, by the three paths that exist: a
+/// `DesignationLifted` conduct record naming it, a completed re-entry answering it, or a
+/// re-examination that vacated it as an error of the compact. One definition, read by the
+/// authority pass and the erosion lens alike.
 fn designation_reversed(archive: &InMemoryArchive, designation_cid: &Cid, at: Timestamp) -> bool {
-    archive.iter().any(|(_, e)| match e {
+    designation_reversed_excluding(archive, designation_cid, at, None)
+}
+
+/// As [`designation_reversed`], ignoring one record: the one being authorized.
+fn designation_reversed_excluding(
+    archive: &InMemoryArchive,
+    designation_cid: &Cid,
+    at: Timestamp,
+    exclude: Option<&Cid>,
+) -> bool {
+    archive.iter().any(|(cid, e)| exclude != Some(cid) && match e {
         ArchiveEntry::ConductAttested(s) => {
             s.payload.kind == kc_conduct::ConductKind::DesignationLifted
                 && s.payload.recorded_at <= at
@@ -2172,6 +2574,13 @@ fn designation_reversed(archive: &InMemoryArchive, designation_cid: &Cid, at: Ti
         }
         ArchiveEntry::ReEntryCompleted(s) => {
             s.payload.completed_at <= at && &s.payload.designation_cid == designation_cid
+        }
+        // The third path, and the only one available to the irrecoverable tier: a
+        // re-examination that vacated the designation as the compact's own error.
+        ArchiveEntry::ReexaminationConcluded(s) => {
+            s.payload.outcome == ReexaminationOutcome::Vacated
+                && s.payload.concluded_at <= at
+                && &s.payload.designation_cid == designation_cid
         }
         _ => false,
     })
@@ -2410,11 +2819,22 @@ fn current_rung(
 
 /// True if a mediation decision has closed the dispute (upheld / dismissed /
 /// settled). A `Referred` outcome moves it onward and does not close it.
-fn dispute_is_closed(archive: &InMemoryArchive, dispute_cid: &Cid) -> bool {
+/// Whether a closing decision on `dispute_cid` had been taken **by `at`**.
+///
+/// The instant matters, and it was measured that it did. Without it the rule read the
+/// whole archive at once, so a decision closed the dispute for every transition on it
+/// including the ones already dated and already authorized: a panel dismissing on day
+/// 60 retroactively unauthorized a climb dated days 22 to 30, and nothing about those
+/// records had changed. A captured panel could therefore do more than end a
+/// proceeding, which is its office, and unmake the complainant's account of having
+/// brought one, which is not. Authority is evaluated per record and must be a function
+/// of what stood when the record was made.
+fn dispute_is_closed(archive: &InMemoryArchive, dispute_cid: &Cid, at: Timestamp) -> bool {
     use kc_mediation::DecisionOutcome::*;
     archive.iter().any(|(_, e)| match e {
         ArchiveEntry::MediationDecided(s) => {
             &s.payload.dispute_cid == dispute_cid
+                && s.payload.decided_at <= at
                 && matches!(s.payload.outcome, Upheld | Dismissed | Settled)
         }
         _ => false,
@@ -2467,7 +2887,7 @@ fn authorize_transition(
         )));
     }
 
-    if dispute_is_closed(archive, &transition.dispute_cid) {
+    if dispute_is_closed(archive, &transition.dispute_cid, transition.transitioned_at) {
         return Err(KcError::Authority(format!(
             "dispute {} is closed by a mediation decision",
             transition.dispute_cid
@@ -2475,11 +2895,45 @@ fn authorize_transition(
     }
 
 
-    if is_second_class_rung(transition.to_rung) {
+    // §5 de-escalation is a party's concession, not a bystander's veto.
+    //
+    // Measured: a complicit community that was neither complainant nor respondent moved
+    // another community's dispute from limited sanctions back down to registration,
+    // unilaterally and first-class, and could hold it there for as long as it liked.
+    // Nothing licenses that. The ladder up to the compact's own rungs is the wronged
+    // party's instrument, so winding it down is either that party conceding or the
+    // compact lifting what the compact imposed. The respondent is not a mover either:
+    // an accused de-escalating its own dispute is the sanctioned party reducing its own
+    // sanction.
+    if to_rank < from_rank
+        && !is_second_class_rung(transition.from_rung)
+        && !transition.initiators.iter().any(|i| i == &dispute.complainant)
+    {
+        return Err(KcError::Authority(format!(
+            "{:?} -> {:?} de-escalates a dispute without its complainant among the {} \
+             initiator(s): winding a dispute down is the complainant's concession, and a \
+             community that is party to neither side has no rung of another's to move",
+            transition.from_rung,
+            transition.to_rung,
+            transition.initiators.len()
+        )));
+    }
+
+    // The rung whose class governs the move: the one being entered on the way up, and
+    // the one being **left** on the way down. What the compact's quorum imposed, only
+    // that quorum lifts — otherwise the second-class floor guards the imposing of
+    // collective sanctions and nothing at all guards their removal, and the cheaper of
+    // the two acts is the one a captured majority wants.
+    let governing_rung = if to_rank < from_rank {
+        transition.from_rung
+    } else {
+        transition.to_rung
+    };
+    if is_second_class_rung(governing_rung) {
         if !matches!(transition.decision_class, DecisionClass::SecondClass) {
             return Err(KcError::Authority(format!(
                 "{:?} is a second-class rung but the transition is labeled first-class",
-                transition.to_rung
+                governing_rung
             )));
         }
         // Weight, not signatures (§2) — the commons second-class floor's reasoning,
@@ -2495,7 +2949,7 @@ fn authorize_transition(
         if tally.counted < floor {
             return Err(KcError::Authority(format!(
                 "{:?} needs >= {} distinct initiating communities, got {}{}",
-                transition.to_rung,
+                governing_rung,
                 floor,
                 tally.counted,
                 tally.because().unwrap_or_default()
@@ -2577,7 +3031,8 @@ fn authorize_designation(
                 let gap = pair[1].opened_at.as_second() - pair[0].concluded_at.as_second();
                 if gap < DEFAULT_WAITING_PERIOD_SECONDS {
                     return Err(KcError::Authority(
-                        "deliberation cycles must be separated by the waiting period (condition 2)"
+                        "deliberation cycles must be separated by the waiting period \
+                         (condition 2)"
                             .into(),
                     ));
                 }
@@ -2601,21 +3056,26 @@ fn authorize_designation(
                     "expedited designation must set a re-examination deadline".into(),
                 ));
             }
-            // A higher immediate quorum stands in for the collapsed cadence.
-            // §2: probationary deliberators carry no weight in designation
-            // procedures, so they do not count toward it.
-            let distinct: BTreeSet<&str> = d
-                .deliberators
-                .iter()
-                .filter(|x| !probationary_at(archive, x, d.designated_at))
-                .map(|x| x.as_str())
-                .collect();
-            if distinct.len() < quorum_threshold + 1 {
+            // A higher immediate quorum stands in for the collapsed cadence, counting
+            // **weight** through the one helper that represents it. This filtered on
+            // probation alone, which was a second copy of the rule and the cheaper of
+            // the two: a community held out of the Deliberation office, or standing
+            // under a designation of its own, counted toward the emergency bar while
+            // being refused every ordinary one.
+            let tally = deliberative_weight(
+                archive,
+                d.deliberators.iter(),
+                d.designated_at,
+                None,
+                Some((&d.subject_community, "its own designation")),
+            );
+            if tally.counted < quorum_threshold + 1 {
                 return Err(KcError::Authority(format!(
                     "expedited designation needs >= {} distinct communities carrying \
-                     deliberative weight, got {} (§2 excludes probationary deliberators)",
+                     deliberative weight, got {}{}",
                     quorum_threshold + 1,
-                    distinct.len()
+                    tally.counted,
+                    tally.because().unwrap_or_default()
                 )));
             }
         }
@@ -2628,7 +3088,8 @@ fn authorize_designation(
         && !sustained_bad_faith(archive, &d.subject_community, &d.failed_restoration_cycles)
     {
         return Err(KcError::Authority(format!(
-            "designation lacks >= {} completed-then-re-violated restoration cycles (condition 1)",
+            "designation lacks >= {} completed-then-re-violated restoration cycles (condition \
+             1)",
             DESIGNATION_CYCLE_FLOOR
         )));
     }
@@ -2655,6 +3116,102 @@ fn authorize_designation(
              subject: the covenant-facing floor that the relaxed condition 1 leaves"
                 .into(),
         ));
+    }
+
+    // The *hostis humani generis* bar. The tier differed from `Anathema` in exactly two
+    // ways before this: no reversal conditions, and no expedited path. Everything the
+    // evidentiary threshold is made of was identical, so the irreversible designation
+    // stood on three restoration cycles, two cycles of consideration and the ordinary
+    // quorum, with no prior designation, no return ever offered, its predecessor's
+    // citations recycled whole, and no obligation to look at it again. The doctrine is
+    // direct that this tier "requires an even higher evidentiary threshold", that the
+    // compact must show the orientation "not merely currently destructive but
+    // *constitutively* so", and that "the presumption is always anathema"
+    // (justus_hostis.md "Design implications"). Four requirements follow, each answering
+    // one of those clauses.
+    if matches!(d.tier, DesignationTier::HostisHumaniGeneris) {
+        // 1. The presumption. A prior anathema whose return path was available and did
+        //    not take, so the graver tier is reached *through* the lesser one.
+        let Some((prior_cid, prior_at)) =
+            failed_return_designation(archive, &d.subject_community, d.designated_at)
+        else {
+            return Err(KcError::Authority(format!(
+                "no prior anathema against {} has had its return path fail, so the \
+                 hostis humani generis tier is not available: the presumption is always \
+                 anathema, and the compact must have offered the way back before it may \
+                 say the offer has no purchase",
+                d.subject_community.as_str()
+            )));
+        };
+        // 2. Constitutively so. At least one cited act postdating that designation.
+        if !cites_adverse_conduct_after(
+            archive,
+            &d.subject_community,
+            &d.cited_acts,
+            Some(prior_at),
+            d.designated_at,
+        ) {
+            return Err(KcError::Authority(format!(
+                "the hostis humani generis designation of {} cites no attested adverse \
+                 act later than the prior anathema {}: an orientation shown to be \
+                 constitutive is one the subject held after being told",
+                d.subject_community.as_str(),
+                prior_cid
+            )));
+        }
+        // 3. Slow procedure, one cycle of consideration longer than an anathema, each
+        //    pair still separated by the waiting period checked above.
+        if d.deliberation_cycles.len() < HOSTIS_DELIBERATION_CYCLE_FLOOR {
+            return Err(KcError::Authority(format!(
+                "the hostis humani generis tier needs >= {} deliberation cycles, got {}",
+                HOSTIS_DELIBERATION_CYCLE_FLOOR,
+                d.deliberation_cycles.len()
+            )));
+        }
+        // 4. The higher bar, counting **weight** rather than signatures, so it cannot be
+        //    met with weight the doctrine withholds. The same arithmetic as the
+        //    contraction bars in §9, and the same reason.
+        let tally = deliberative_weight(
+            archive,
+            d.deliberators.iter(),
+            d.designated_at,
+            None,
+            Some((&d.subject_community, "its own designation")),
+        );
+        if tally.counted < quorum_threshold + 1 {
+            return Err(KcError::Authority(format!(
+                "the hostis humani generis tier needs >= {} distinct communities carrying \
+                 deliberative weight, got {}{}",
+                quorum_threshold + 1,
+                tally.counted,
+                tally.because().unwrap_or_default()
+            )));
+        }
+        // And the guard the tier had least of: periodic re-examination. An irreversible
+        // designation with no date is the one act in §5 that nothing obliges the compact
+        // to revisit, and `overdue_reexaminations` cannot see it at all, so it reads
+        // exactly like a designation being diligently maintained forever.
+        // `ReexaminationOutcome::Vacated` is what a panel concludes with here: there is
+        // no way back for the designated, and there is a way for the compact to say it
+        // was wrong.
+        match d.reexamine_after {
+            None => {
+                return Err(KcError::Authority(
+                    "a hostis humani generis designation must set a re-examination date: \
+                     the tier has no reversal path, which is why willingness to be wrong \
+                     about it has to be an obligation with a date on it"
+                        .into(),
+                ))
+            }
+            Some(due) if due <= d.designated_at => {
+                return Err(KcError::Authority(format!(
+                    "the re-examination date {}s is not after the designation {}s",
+                    due.as_second(),
+                    d.designated_at.as_second()
+                )))
+            }
+            Some(_) => {}
+        }
     }
 
     // Anti-weaponization safeguard #1 (liminal_institutions.md): a community that
@@ -2688,14 +3245,112 @@ fn cites_adverse_conduct(
     cited: &[Cid],
     at: Timestamp,
 ) -> bool {
+    cites_adverse_conduct_after(archive, subject, cited, None, at)
+}
+
+/// As [`cites_adverse_conduct`], and additionally recorded strictly **after** `after`.
+///
+/// The *hostis humani generis* tier's fresh-evidence rule. Measured before it existed: a
+/// compact could issue the irreversible designation citing exactly the acts its own
+/// anathema had cited and nothing else, so the graver tier rested entirely on the record
+/// the lesser one had already answered. "Constitutively so" is a claim about what the
+/// subject did *after* being told, which means at least one cited act has to postdate the
+/// telling.
+fn cites_adverse_conduct_after(
+    archive: &InMemoryArchive,
+    subject: &DidKey,
+    cited: &[Cid],
+    after: Option<Timestamp>,
+    at: Timestamp,
+) -> bool {
     cited.iter().any(|cid| match archive.get(cid) {
         Some(ArchiveEntry::ConductAttested(s)) => {
             &s.payload.subject_community == subject
                 && s.payload.kind.is_adverse()
                 && s.payload.recorded_at <= at
+                && after.is_none_or(|floor| s.payload.recorded_at > floor)
         }
         _ => false,
     })
+}
+
+/// The prior `Anathema` against `subject` whose **return failed**, as of `at`, with the
+/// instant it was designated.
+///
+/// The *hostis humani generis* tier is for the actor "so resistant to every restoration
+/// attempt that the question of re-entry does not meaningfully arise" and for whom
+/// "anathema is insufficient because the implicit offer of eventual return has no
+/// purchase" (justus_hostis.md "Two tiers"). That is a claim about a history, and this is
+/// the history: an earlier anathema against the same community whose way back was either
+/// taken and broken, or left open across a re-examination that let the designation stand.
+///
+/// Two shapes count, and both are the return path having been genuinely available:
+///
+/// - a `ReEntryCompleted` answering the prior designation, followed by an attested
+///   adverse act by the subject. The offer was accepted and the conduct resumed.
+/// - the prior designation still standing through at least one `Confirmed`
+///   re-examination. The offer stayed open, the compact looked again at the mandated
+///   date, and nothing had changed.
+///
+/// A prior designation that a compact vacated as its own error does **not** count, for
+/// the obvious reason.
+fn failed_return_designation<'a>(
+    archive: &'a InMemoryArchive,
+    subject: &DidKey,
+    at: Timestamp,
+) -> Option<(&'a Cid, Timestamp)> {
+    for (cid, e) in archive.iter() {
+        let d = match e {
+            ArchiveEntry::DesignationDecided(s)
+                if &s.payload.subject_community == subject
+                    && s.payload.designated_at < at
+                    && matches!(s.payload.tier, DesignationTier::Anathema) =>
+            {
+                &s.payload
+            }
+            _ => continue,
+        };
+        // The offer taken and broken.
+        let reentered_at = archive.iter().find_map(|(_, e)| match e {
+            ArchiveEntry::ReEntryCompleted(s)
+                if &s.payload.designation_cid == cid && s.payload.completed_at <= at =>
+            {
+                Some(s.payload.completed_at)
+            }
+            _ => None,
+        });
+        if let Some(returned) = reentered_at {
+            let resumed = archive.iter().any(|(_, e)| match e {
+                ArchiveEntry::ConductAttested(s) => {
+                    &s.payload.subject_community == subject
+                        && s.payload.kind.is_adverse()
+                        && s.payload.recorded_at > returned
+                        && s.payload.recorded_at <= at
+                }
+                _ => false,
+            });
+            if resumed {
+                return Some((cid, d.designated_at));
+            }
+            continue;
+        }
+        // Or the offer left open, and the designation confirmed on re-examination.
+        if designation_reversed(archive, cid, at) {
+            continue;
+        }
+        let confirmed = archive.iter().any(|(_, e)| match e {
+            ArchiveEntry::ReexaminationConcluded(s) => {
+                &s.payload.designation_cid == cid
+                    && s.payload.concluded_at <= at
+                    && s.payload.outcome == ReexaminationOutcome::Confirmed
+            }
+            _ => false,
+        });
+        if confirmed {
+            return Some((cid, d.designated_at));
+        }
+    }
+    None
 }
 
 /// Number of cited restitution cycles that were satisfied and then re-violated
@@ -2739,6 +3394,34 @@ fn sustained_bad_faith(archive: &InMemoryArchive, subject: &DidKey, cited: &[Cid
 /// active registered mediator, none from the obligation's subject or beneficiary
 /// community (non-overlap), and the panel spans at least `panel_min` — counting
 /// weight, so a probationary home does not verify a restitution (§2).
+/// The differential protocol's first clause: for a designated actor, "restoration paths
+/// do not apply in their ordinary form. Standard restitution-and-return is suspended
+/// because the pattern of conduct has demonstrated that the actor uses these paths
+/// tactically rather than in good faith. A separate, much more demanding *re-entry
+/// procedure* is the only path back" (`bounded_conflict.md` "The differential protocol").
+///
+/// Measured before the rule: a community designated anathema for accepting and breaking
+/// three restitution cycles could open a fourth the next day, have a panel verify it
+/// satisfied, and carry on. The tactic that earned the designation survived it.
+fn ordinary_restoration_available(
+    archive: &InMemoryArchive,
+    subject: &DidKey,
+    at: Timestamp,
+    act: &str,
+) -> KcResult<()> {
+    if designation_in_force(archive, subject, at) {
+        return Err(KcError::Authority(format!(
+            "a designation stands against {} at {}, so the ordinary restoration path is \
+             suspended and {} is refused: re-entry is the way back (§5 differential \
+             protocol)",
+            subject.as_str(),
+            at,
+            act
+        )));
+    }
+    Ok(())
+}
+
 fn authorize_restitution_completion(
     archive: &InMemoryArchive,
     completion: &RestitutionCompletion,
@@ -2754,6 +3437,12 @@ fn authorize_restitution_completion(
             )))
         }
     };
+    ordinary_restoration_available(
+        archive,
+        &obligation.subject_community,
+        completion.verified_at,
+        "verifying a restitution",
+    )?;
     let barred: BTreeSet<String> = [&obligation.subject_community, &obligation.beneficiary]
         .iter()
         .map(|d| d.as_str().to_string())
@@ -2790,6 +3479,26 @@ fn authorize_reentry(archive: &InMemoryArchive, r: &ReEntry) -> KcResult<()> {
         return Err(KcError::Authority(
             "the hostis humani generis tier has no re-entry path".into(),
         ));
+    }
+    // A return cannot predate the designation it answers.
+    //
+    // Timestamps on these records are self-asserted, and a re-entry is one of the three
+    // things that reverse a designation. So without this rule a petitioner and two
+    // admitting communities could author a perfectly formed re-entry *dated before* the
+    // designation, and every as-of reading would then find the designation already
+    // reversed at every instant it supposedly stood: the offices it withholds come back,
+    // the ordinary restitution path reopens, and the standing reads as though nothing had
+    // been designated. Measured before the rule, and authorized.
+    //
+    // The same shape as `DesignationDissent`'s date rule, and for the same reason: a
+    // record that answers an act may not be dated before it.
+    if r.completed_at < designation.designated_at {
+        return Err(KcError::Authority(format!(
+            "re-entry is dated {}s, before the designation it answers ({}s): a return \
+             cannot predate the thing it returns from",
+            r.completed_at.as_second(),
+            designation.designated_at.as_second()
+        )));
     }
     if r.recitation.payload.community_did != r.petitioner {
         return Err(KcError::Authority("re-entry recitation is not the petitioner's".into()));
@@ -3923,7 +4632,8 @@ fn authorize_event_action(archive: &InMemoryArchive, action: &EventActionInvoked
     let within_hold = action.invoked_at.as_second() < hold_until;
     if within_hold && corroborators.len() < DEFAULT_STRUCTURED_SKEPTICISM_MIN_CORROBORATORS {
         return Err(KcError::Authority(format!(
-            "action on qualifying event {} invoked within the structured-skepticism hold (until {}s) with {} of {} required corroborations (move 4)",
+            "action on qualifying event {} invoked within the structured-skepticism hold \
+             (until {}s) with {} of {} required corroborations (move 4)",
             action.event_cid,
             hold_until,
             corroborators.len(),
@@ -4334,7 +5044,8 @@ fn authorize_whistleblower(
     let insiders = insider_keys_upto(archive, &wb.accused_community, wb.filed_at, Some(self_cid));
     if insiders.len() < 2 {
         return Err(KcError::Authority(format!(
-            "community {} has {} resolvable keys, too few for an anonymous filing (a ring of one names its signer)",
+            "community {} has {} resolvable keys, too few for an anonymous filing (a ring of \
+             one names its signer)",
             wb.accused_community,
             insiders.len()
         )));
@@ -4400,7 +5111,8 @@ fn authorize_whistleblower(
     let k = usize::from(wb.custody.threshold_k);
     if 2 * k <= panel.len() {
         return Err(KcError::Authority(format!(
-            "source custody threshold {k} is not a majority of the {} custodians, so a minority could name the source",
+            "source custody threshold {k} is not a majority of the {} custodians, so a \
+             minority could name the source",
             panel.len()
         )));
     }
@@ -4548,7 +5260,8 @@ fn authorize_source_exculpation(
         .map(|(_, pk)| pk.clone())
         .ok_or_else(|| {
             KcError::Authority(format!(
-                "source exculpation claimant {} is not in the filing's ring, so the filing never implicated them",
+                "source exculpation claimant {} is not in the filing's ring, so the filing \
+                 never implicated them",
                 exc.claimant_did
             ))
         })?;
@@ -4556,7 +5269,8 @@ fn authorize_source_exculpation(
         .map_err(|e| KcError::Authority(format!("source exculpation proof: {e}")))?;
     if &exc.claimed_key_image == wb.source_tag() {
         return Err(KcError::Authority(format!(
-            "source exculpation by {} reproduces the filing's own key image: it is a confession, not a denial",
+            "source exculpation by {} reproduces the filing's own key image: it is a \
+             confession, not a denial",
             exc.claimant_did
         )));
     }
@@ -4680,7 +5394,8 @@ fn authorize_incapable_amendment(
                 deliberative_weight(archive, a.deciders.iter(), a.decided_at, None, None);
             if tally.counted < quorum_threshold + 1 {
                 return Err(KcError::Authority(format!(
-                    "contracting the compact-incapable list needs >= {} distinct communities, got {}{}",
+                    "contracting the compact-incapable list needs >= {} distinct communities, \
+                     got {}{}",
                     quorum_threshold + 1,
                     tally.counted,
                     tally.because().unwrap_or_default()
@@ -4710,7 +5425,8 @@ fn authorize_fast_amendment(
         let tally = deliberative_weight(archive, a.deciders.iter(), a.decided_at, None, None);
         if tally.counted < quorum_threshold + 1 {
             return Err(KcError::Authority(format!(
-                "contracting the structured-fast cadence needs >= {} distinct communities, got {}{}",
+                "contracting the structured-fast cadence needs >= {} distinct communities, got \
+                 {}{}",
                 quorum_threshold + 1,
                 tally.counted,
                 tally.because().unwrap_or_default()
@@ -4953,7 +5669,8 @@ fn authorize_injunction_challenge(
     for signer in signers {
         if issuing.contains(signer) {
             return Err(KcError::Authority(format!(
-                "challenge panelist {signer} also sat on the issuing panel (different-panel safeguard violated)"
+                "challenge panelist {signer} also sat on the issuing panel (different-panel \
+                 safeguard violated)"
             )));
         }
     }
@@ -5040,18 +5757,61 @@ fn injunction_in_force(
     at.as_second() <= inj.expires_at.as_second() || confirmed
 }
 
-/// Is `capability` withheld from `community` by an injunction in force as of `at`?
+/// Why a capability is withheld from a community, when it is.
+///
+/// Three things withhold, and a refusal has to name which: an operator fixes a lapsed
+/// injunction differently from a standing designation, and a community told only that
+/// it "holds no office" cannot tell whether the compact has cut it off or a panel has
+/// issued a ninety-day stop order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Withholding {
+    /// An in-force interim injunction naming the capability (§9). The only one that
+    /// reaches the *services*.
+    Injunction,
+    /// A designation standing against the community (§5). The offices only.
+    Designation,
+    /// A dispute against the community standing at the expulsion rung (§5). The
+    /// offices only.
+    Expulsion,
+}
+
+impl Withholding {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Injunction => "an in-force injunction",
+            Self::Designation => "a standing designation",
+            Self::Expulsion => "an expulsion",
+        }
+    }
+}
+
+/// Why `capability` is withheld from `community` as of `at`, or `None` if it is held.
 ///
 /// The archive-side twin of `kc_reputation::has_capability`, which this crate cannot
-/// call (the dependency runs the other way). An in-force injunction is the only thing
-/// that withholds a capability, so this is the whole trigger: covenant-facing by
-/// construction, and never a reading of a member's interior.
-fn capability_revoked(
+/// call (the dependency runs the other way).
+///
+/// An injunction was once the whole trigger, and for the five **services** it still is:
+/// the doctrine permits a compact to deny a designated actor "services that would
+/// otherwise be reciprocally extended" (`bounded_conflict.md` "The differential
+/// protocol"), and *permits* is not *imposes* — denying them stays an act with a signer,
+/// and the rescue duty is never gated at all.
+///
+/// The five **offices** are different, and measurement is what showed it. A community
+/// designated anathema kept every one of them: it seated the mediators who decide
+/// disputes, nominated the observers who report on conduct, seated the examiners who
+/// decide who is admitted at all, and supplied an emergency panel against a third
+/// party, for as long as it liked, because nothing but an injunction had ever withheld
+/// anything and an interim injunction lapses at ninety days unless the compact confirms
+/// it. A designation is a formal cutting-off from fellowship; an office is a role that
+/// selects who is sanctioned. Holding the second while under the first is incoherent,
+/// and it is the shape a captured compact would have. Every trigger here remains
+/// covenant-facing and none of them reads a member's interior.
+fn withheld_by(
     archive: &InMemoryArchive,
     community: &DidKey,
     capability: Capability,
     at: Timestamp,
-) -> bool {
+) -> Option<Withholding> {
     for (cid, e) in archive.iter() {
         let inj = match e {
             ArchiveEntry::InjunctionIssued(s) if &s.payload.subject_community == community => {
@@ -5062,15 +5822,88 @@ fn capability_revoked(
         if inj.revoked_capabilities.contains(&capability)
             && injunction_in_force(archive, cid, inj, at)
         {
-            return true;
+            return Some(Withholding::Injunction);
         }
     }
-    false
+    if capability.is_office() {
+        if designation_in_force(archive, community, at) {
+            return Some(Withholding::Designation);
+        }
+        if expulsion_in_force(archive, community, at) {
+            return Some(Withholding::Expulsion);
+        }
+    }
+    None
 }
 
-/// Refuse `act` when `community` is held out of `capability` by an in-force injunction.
-/// One message shape for all five offices, so a refusal always names the office, the
-/// act it blocked, and the community held out.
+/// Does a designation of either tier stand against `community` as of `at`?
+///
+/// "Stands" is `designation_reversed`'s complement, so the reversal join has one
+/// definition across the crate: a lifting conduct record, a re-entry answering the
+/// designation, or a re-examination that vacated it.
+fn designation_in_force(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    at: Timestamp,
+) -> bool {
+    archive.iter().any(|(cid, e)| match e {
+        ArchiveEntry::DesignationDecided(s) => {
+            &s.payload.subject_community == community
+                && s.payload.designated_at <= at
+                && !designation_reversed(archive, cid, at)
+        }
+        _ => false,
+    })
+}
+
+/// Is a dispute against `community` standing at the expulsion rung as of `at`?
+///
+/// The last rung of the ladder was a label: `dispute_ladder_rank` ordered it,
+/// `is_second_class_rung` made it expensive to reach, and nothing read it afterwards,
+/// so a compact that expelled a community changed nothing about what that community
+/// could do. De-escalation is always legal (`bounded_conflict.md` "Reversibility and
+/// face-saving exits"), so this reads the rung a dispute *currently* stands at rather
+/// than whether it ever reached expulsion: a compact that steps back down restores
+/// what it withheld.
+///
+/// Timestamp order with insertion order as the tiebreak, matching `current_rung`'s
+/// treatment of the archive's own order as authoritative.
+fn expulsion_in_force(
+    archive: &InMemoryArchive,
+    community: &DidKey,
+    at: Timestamp,
+) -> bool {
+    let mut expelled = false;
+    for dispute_cid in archive.iter().filter_map(|(cid, e)| match e {
+        ArchiveEntry::DisputeFiled(s) if &s.payload.respondent == community => Some(cid),
+        _ => None,
+    }) {
+        let mut latest: Option<Timestamp> = None;
+        let mut rung = None;
+        for (_, e) in archive.iter() {
+            if let ArchiveEntry::LadderAdvanced(s) = e {
+                let t = &s.payload;
+                if &t.dispute_cid != dispute_cid || t.transitioned_at > at {
+                    continue;
+                }
+                if latest.is_none_or(|b| t.transitioned_at >= b) {
+                    latest = Some(t.transitioned_at);
+                    rung = Some(t.to_rung);
+                }
+            }
+        }
+        if matches!(rung, Some(kc_conduct::LadderRung::Expulsion)) {
+            expelled = true;
+        }
+    }
+    expelled
+}
+
+/// Refuse `act` when `community` is held out of `capability`. One message shape for all
+/// five offices, so a refusal always names the office, the act it blocked, the community
+/// held out, and **what** is holding it out: an injunction lapses on a date, a
+/// designation is answered by re-entry, and an expulsion is answered by de-escalation,
+/// so the three have three different remedies.
 fn require_office(
     archive: &InMemoryArchive,
     community: &DidKey,
@@ -5078,12 +5911,13 @@ fn require_office(
     at: Timestamp,
     act: &str,
 ) -> KcResult<()> {
-    if capability_revoked(archive, community, capability, at) {
+    if let Some(why) = withheld_by(archive, community, capability, at) {
         return Err(KcError::Authority(format!(
-            "community {} is held out of the {} office by an injunction in force at {}; \
+            "community {} is held out of the {} office by {} at {}; \
              {} is refused (its services are untouched)",
             community.as_str(),
             capability.as_str(),
+            why.as_str(),
             at,
             act
         )));
@@ -5307,11 +6141,29 @@ pub fn authorize_with_caps(
         // *not* name as its subject would otherwise refuse itself, which is the defect
         // §2 found the hard way. Stated rather than left as an untestable rule.
         let self_cid = entry.cid()?;
-        // The subject of a readmission does not carry weight toward it. "No single
-        // sponsor cluster can admit alone" (`capture_resistance.md` §7) is emptiest
-        // when the cluster is the returning community itself.
+        // The subject of an act about it does not carry weight toward that act. "No
+        // single sponsor cluster can admit alone" (`capture_resistance.md` §7) is
+        // emptiest when the cluster is the community the act is about — and the rule
+        // was stated for readmission alone, while the two graver cases went unguarded.
+        // Measured: a community supplied the weight that carried its *own* designation,
+        // and the weight that carried the re-examination deciding whether that
+        // designation still stands.
         let subject = match entry {
-            ArchiveEntry::ReEntryCompleted(s) => Some(&s.payload.petitioner),
+            ArchiveEntry::ReEntryCompleted(s) => {
+                Some((&s.payload.petitioner, "its own readmission"))
+            }
+            ArchiveEntry::DesignationDecided(s) => {
+                Some((&s.payload.subject_community, "its own designation"))
+            }
+            ArchiveEntry::ReexaminationConcluded(s) => {
+                match archive.get(&s.payload.designation_cid) {
+                    Some(ArchiveEntry::DesignationDecided(d)) => Some((
+                        &d.payload.subject_community,
+                        "the re-examination of the designation against it",
+                    )),
+                    _ => None,
+                }
+            }
             _ => None,
         };
         let tally = deliberative_weight(
@@ -5360,11 +6212,26 @@ pub fn authorize_with_caps(
             let self_cid = entry.cid()?;
             authorize_transition(archive, &s.payload, &self_cid, quorum_threshold)?;
         }
+        ArchiveEntry::RestitutionObligated(s) => {
+            ordinary_restoration_available(
+                archive,
+                &s.payload.subject_community,
+                s.payload.imposed_at,
+                "imposing a restitution obligation",
+            )?;
+        }
         ArchiveEntry::DesignationDecided(s) => {
             authorize_designation(archive, &s.payload, quorum_threshold)?;
         }
+        ArchiveEntry::DesignationDissented(s) => {
+            authorize_dissent(archive, &s.payload)?;
+        }
+        ArchiveEntry::NonPursuitAttested(s) => {
+            authorize_non_pursuit(archive, &s.payload)?;
+        }
         ArchiveEntry::ReexaminationConcluded(s) => {
-            authorize_reexamination(archive, &s.payload)?;
+            let self_cid = entry.cid()?;
+            authorize_reexamination(archive, &s.payload, &self_cid)?;
         }
         // The gate's second site. `LadderTransition` cites a dispute rather than a
         // designation, so it has nothing to hold; the re-engagement rung is the other

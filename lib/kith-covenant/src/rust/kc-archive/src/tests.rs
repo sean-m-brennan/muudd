@@ -1578,12 +1578,17 @@ mod escalation {
             vec![cycle(0, &p, 1000, 1100), cycle(1, &p, 1100 + W, 1200 + W)],
             "criteria", None, None, ts(2000));
         bad(&a, &no_rev);
-        // Hostis humani generis WITH a reversal path -> rejected.
+        // Hostis humani generis WITH a reversal path -> rejected. The message is
+        // asserted, not merely the refusal: the hostis tier now carries its own
+        // requirements (a prior failed return, fresh evidence, a higher bar, a
+        // re-examination date), each of which would also refuse this record, and a
+        // control that fires on the wrong rule tests nothing.
         let hostis_rev = designation(&mut a, &s, DesignationTier::HostisHumaniGeneris,
             DesignationUrgency::Normal, &[(&p, &pp), (&qc, &qp)], cited,
             vec![cycle(0, &p, 1000, 1100), cycle(1, &p, 1100 + W, 1200 + W)],
             "criteria", Some("rev".into()), None, ts(2000));
-        bad(&a, &hostis_rev);
+        let err = authorize(&a, a.get(&hostis_rev).unwrap(), Q, P).expect_err("expected");
+        assert!(err.to_string().contains("no reversal path"), "got: {err}");
     }
 
     /// §2's third withholding: probationary communities carry no deliberative weight
@@ -1747,12 +1752,15 @@ mod escalation {
             &[(&p, &pp), (&qc, &qp)], vec![act], vec![], vec![cycle(0, &p, 1000, 1100)],
             "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
         bad(&a, &low_q);
-        // The hostis tier may never be expedited.
+        // The hostis tier may never be expedited. Asserted by message, for the reason
+        // given in `designation_condition4_reversal_rules_by_tier`: that tier's own
+        // requirements would refuse this record too.
         let hostis_exp = designation_citing(&mut a, &s, DesignationTier::HostisHumaniGeneris,
             DesignationUrgency::Expedited, &[(&p, &pp), (&qc, &qp), (&r, &rp)],
             vec![act], vec![],
             vec![cycle(0, &p, 1000, 1100)], "acute harm", None, Some(ts(5000)), ts(2000));
-        bad(&a, &hostis_exp);
+        let err = authorize(&a, a.get(&hostis_exp).unwrap(), Q, P).expect_err("expected");
+        assert!(err.to_string().contains("may not be expedited"), "got: {err}");
     }
 
     // ---- restitution verifier panel ----
@@ -1980,6 +1988,1140 @@ mod escalation {
         );
     }
 
+
+    /// What a designation *does* once it is held, and what the irrecoverable tier costs.
+    ///
+    /// Measured before any of these rules existed, by the nine-phase adversary campaign in
+    /// `kith_covenant.adversary`: a community designated anathema kept every office, kept its
+    /// vote in second-class decisions, kept the ordinary restitution path that earned it the
+    /// designation, and could supply the missing weight for the designation about itself. The
+    /// *hostis humani generis* tier stood at the anathema tier's own bar. A member's refusal
+    /// to join a designation was unrecordable.
+    mod designation_teeth {
+        use super::*;
+        use kc_ceremony::inter::InterCommunityWitnessRecord;
+        use kc_escalation::{
+            DesignationDissent, GrievanceGround, NonPursuitAttestation, ReexaminationConclusion,
+            ReexaminationOutcome,
+        };
+        use kc_mediation::{MediatorEntry, MediatorRegistry};
+
+        const TERM: i64 = 365 * 24 * 3600;
+
+        fn refusal(a: &InMemoryArchive, cid: &Cid) -> String {
+            authorize(a, a.get(cid).unwrap(), Q, P)
+                .expect_err("expected a refusal")
+                .to_string()
+        }
+
+        // --- builders -----------------------------------------------------------
+
+        fn seat_mediator(a: &mut InMemoryArchive, c: &DidKey, root: &PrivKey, at: i64) -> Cid {
+            let (_mpriv, mpub) = keys::generate(Alg::Ed25519).unwrap();
+            let (_epriv, epub) = keys::generate(Alg::Ed25519).unwrap();
+            let reg = Signed::build(
+                MediatorRegistry {
+                    nominating_community: c.clone(),
+                    entries: vec![MediatorEntry {
+                        mediator_did: DidKey::from_pubkey(&mpub).unwrap(),
+                        mediator_pubkey: mpub,
+                        encryption_pubkey: epub,
+                        valid_from: ts(at),
+                        valid_until: Some(ts(at + TERM)),
+                        trained_by: None,
+                    }],
+                    issued_at: ts(at),
+                },
+                &[(c.as_str(), root)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::MediatorRegistryUpdated(reg)).unwrap()
+        }
+
+        fn adverse(a: &mut InMemoryArchive, subject: &DidKey, by: &DidKey, bp: &PrivKey, at: i64) -> Cid {
+            adverse_act(a, subject, by, bp, ts(at))
+        }
+
+        /// The formation record for a compact label: the first witness record under a label
+        /// is a formation, so §2's admitting-quorum and examining-panel rules exempt it.
+        /// This is what `shares_a_compact` reads when it asks whether a dissenting community
+        /// belongs to the compact whose designation it refuses.
+        fn seal_compact(a: &mut InMemoryArchive, label: &str, members: &[(&DidKey, &PrivKey)], at: Timestamp) -> Cid {
+            let pairs: Vec<(&str, &PrivKey)> = members.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+            let rec = Signed::build(
+                InterCommunityWitnessRecord {
+                    compact_label: label.into(),
+                    participants: members.iter().map(|(d, _)| (*d).clone()).collect(),
+                    sequenced_rites: vec![],
+                    claims: vec![],
+                    acceptances: vec![],
+                    examination_exchanges: vec![],
+                    witnessed_at: at,
+                },
+                &pairs,
+            )
+            .unwrap();
+            a.append(ArchiveEntry::InterCommunityWitness(rec)).unwrap()
+        }
+
+        fn cycle_at(who: &DidKey, i: u32, opened: i64) -> DeliberationCycle {
+            DeliberationCycle {
+                cycle_index: i,
+                representatives: vec![who.clone()],
+                opened_at: ts(opened),
+                concluded_at: ts(opened + 10),
+                reasoning: format!("consideration {i}"),
+            }
+        }
+
+        fn broken_cycle(a: &mut InMemoryArchive, subject: &DidKey, by: &DidKey, bp: &PrivKey, base: i64) -> Cid {
+            let ob = Signed::build(
+                RestitutionObligation {
+                    subject_community: subject.clone(),
+                    beneficiary: by.clone(),
+                    dispute_cid: None,
+                    terms: "restore".into(),
+                    imposed_by: vec![by.clone()],
+                    due_by: None,
+                    decision_class: DecisionClass::FirstClass,
+                    imposed_at: ts(base),
+                },
+                &[(by.as_str(), bp)],
+            )
+            .unwrap();
+            let ob_cid = a.append(ArchiveEntry::RestitutionObligated(ob)).unwrap();
+            let done = Signed::build(
+                RestitutionCompletion {
+                    obligation_cid: ob_cid,
+                    verifiers: vec![by.clone()],
+                    satisfied: true,
+                    narrative: "met".into(),
+                    verified_at: ts(base + 1),
+                },
+                &[(by.as_str(), bp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::RestitutionVerified(done)).unwrap();
+            adverse(a, subject, by, bp, base + 2);
+            cid
+        }
+
+        #[allow(clippy::too_many_arguments)]
+        fn designate(
+            a: &mut InMemoryArchive,
+            subject: &DidKey,
+            tier: DesignationTier,
+            delibs: &[(&DidKey, &PrivKey)],
+            acts: Vec<Cid>,
+            cycles_cited: Vec<Cid>,
+            deliberations: Vec<DeliberationCycle>,
+            reexamine: Option<Timestamp>,
+            at: i64,
+        ) -> Cid {
+            let names = delibs.iter().map(|(d, _)| (*d).clone()).collect();
+            let pairs: Vec<(&str, &PrivKey)> = delibs.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+            let dz = Signed::build(
+                Designation {
+                    subject_community: subject.clone(),
+                    tier,
+                    urgency: DesignationUrgency::Normal,
+                    deliberators: names,
+                    criteria: "sustained bad faith at the boundary".into(),
+                    cited_acts: acts,
+                    failed_restoration_cycles: cycles_cited,
+                    deliberation_cycles: deliberations,
+                    reversal_conditions: match tier {
+                        DesignationTier::Anathema => Some("a probation without re-violation".into()),
+                        DesignationTier::HostisHumaniGeneris => None,
+                    },
+                    reexamine_after: reexamine,
+                    decision_class: DecisionClass::SecondClass,
+                    designated_at: ts(at),
+                },
+                &pairs,
+            )
+            .unwrap();
+            a.append(ArchiveEntry::DesignationDecided(dz)).unwrap()
+        }
+
+        /// Subject S under a standing anathema, plus two deliberating communities and the
+        /// three broken cycles behind it.
+        #[allow(clippy::type_complexity)]
+        fn designated(
+        ) -> (InMemoryArchive, DidKey, PrivKey, (DidKey, PrivKey), (DidKey, PrivKey), Vec<Cid>, Cid) {
+            let mut a = InMemoryArchive::new();
+            let (s, sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let (q, qp) = community(&mut a, "Q", ts(1));
+            let cycles = vec![
+                broken_cycle(&mut a, &s, &p, &pp, 100),
+                broken_cycle(&mut a, &s, &p, &pp, 200),
+                broken_cycle(&mut a, &s, &p, &pp, 300),
+            ];
+            let dz = designate(
+                &mut a, &s, DesignationTier::Anathema, &[(&p, &pp), (&q, &qp)],
+                cycles.clone(), cycles.clone(),
+                vec![cycle_at(&p, 0, 1000), cycle_at(&p, 1, 1100 + W)],
+                Some(ts(2000 + 10 * W)), 2000,
+            );
+            (a, s, sp, (p, pp), (q, qp), cycles, dz)
+        }
+
+        // --- what a standing designation withholds ------------------------------
+
+        #[test]
+        fn a_designation_withholds_an_office() {
+            let (mut a, s, sp, _p, _q, _cycles, dz) = designated();
+            ok(&a, &dz);
+            let seat = seat_mediator(&mut a, &s, &sp, 2100);
+            let err = refusal(&a, &seat);
+            assert!(err.contains("MediatorSeat office"), "got: {err}");
+            assert!(err.contains("a standing designation"), "the refusal must name what \
+                withholds the office: an injunction lapses on a date and a designation is \
+                answered by re-entry, so the two have different remedies. got: {err}");
+        }
+
+        /// The control the office rule needs: the same act, the same archive, one designation
+        /// earlier in time, and it is authorized.
+        #[test]
+        fn an_undesignated_community_holds_the_office() {
+            let mut a = InMemoryArchive::new();
+            let (s, sp) = community(&mut a, "S", ts(1));
+            let seat = seat_mediator(&mut a, &s, &sp, 2100);
+            ok(&a, &seat);
+        }
+
+        #[test]
+        fn a_designation_withholds_deliberative_weight() {
+            let (mut a, s, sp, (p, pp), _q, _cycles, _dz) = designated();
+            // A second-class ladder rung needs two communities carrying weight. The
+            // designated community cannot be the second.
+            let d = Signed::build(
+                DisputeRecord {
+                    complainant: p.clone(),
+                    respondent: DidKey::from_pubkey(&keys::generate(Alg::Ed25519).unwrap().1).unwrap(),
+                    rung: LadderRung::LimitedSanctions,
+                    summary: "s".into(),
+                    references: vec![],
+                    filed_at: ts(2100),
+                },
+                &[(p.as_str(), &pp)],
+            )
+            .unwrap();
+            let dispute = a.append(ArchiveEntry::DisputeFiled(d)).unwrap();
+            let t = Signed::build(
+                LadderTransition {
+                    dispute_cid: dispute,
+                    from_rung: LadderRung::LimitedSanctions,
+                    to_rung: LadderRung::CollectiveSanctions,
+                    initiators: vec![p.clone(), s.clone()],
+                    decision_class: DecisionClass::SecondClass,
+                    reasoning: "the compact acts together".into(),
+                    transitioned_at: ts(2200),
+                },
+                &[(p.as_str(), &pp), (s.as_str(), &sp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::LadderAdvanced(t)).unwrap();
+            let err = refusal(&a, &cid);
+            assert!(err.contains("stand under a designation"), "got: {err}");
+        }
+
+        #[test]
+        fn a_designation_suspends_the_ordinary_restitution_path() {
+            let (mut a, s, _sp, (p, pp), _q, _cycles, _dz) = designated();
+            let ob = Signed::build(
+                RestitutionObligation {
+                    subject_community: s.clone(),
+                    beneficiary: p.clone(),
+                    dispute_cid: None,
+                    terms: "a fourth round, as if nothing had happened".into(),
+                    imposed_by: vec![p.clone()],
+                    due_by: None,
+                    decision_class: DecisionClass::FirstClass,
+                    imposed_at: ts(2100),
+                },
+                &[(p.as_str(), &pp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::RestitutionObligated(ob)).unwrap();
+            let err = refusal(&a, &cid);
+            assert!(err.contains("ordinary restoration path is suspended"), "got: {err}");
+            assert!(err.contains("re-entry is the way back"), "got: {err}");
+        }
+
+        #[test]
+        fn the_subject_does_not_count_toward_its_own_designation() {
+            let mut a = InMemoryArchive::new();
+            let (s, sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let cycles = vec![
+                broken_cycle(&mut a, &s, &p, &pp, 100),
+                broken_cycle(&mut a, &s, &p, &pp, 200),
+                broken_cycle(&mut a, &s, &p, &pp, 300),
+            ];
+            let deliberations = vec![cycle_at(&p, 0, 1000), cycle_at(&p, 1, 1100 + W)];
+            // The subject supplies the second community of the quorum of two.
+            let own = designate(&mut a, &s, DesignationTier::Anathema, &[(&p, &pp), (&s, &sp)],
+                cycles.clone(), cycles.clone(), deliberations.clone(), Some(ts(30_000)), 2000);
+            let err = refusal(&a, &own);
+            assert!(err.contains("its own designation"), "got: {err}");
+            // CONTROL: a third community instead of the subject, and the same act stands.
+            let (q, qp) = community(&mut a, "Q", ts(1));
+            let proper = designate(&mut a, &s, DesignationTier::Anathema, &[(&p, &pp), (&q, &qp)],
+                cycles.clone(), cycles, deliberations, Some(ts(30_000)), 2000);
+            ok(&a, &proper);
+        }
+
+        #[test]
+        fn the_subject_does_not_count_toward_the_re_examination_of_its_own_designation() {
+            let (mut a, s, sp, (p, pp), _q, _cycles, dz) = designated();
+            let rc = Signed::build(
+                ReexaminationConclusion {
+                    designation_cid: dz,
+                    outcome: ReexaminationOutcome::Confirmed,
+                    examiners: vec![p.clone(), s.clone()],
+                    reasoning: "it stands".into(),
+                    next_reexamine_after: Some(ts(2000 + 30 * W)),
+                    decision_class: DecisionClass::SecondClass,
+                    concluded_at: ts(2000 + 11 * W),
+                },
+                &[(p.as_str(), &pp), (s.as_str(), &sp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::ReexaminationConcluded(rc)).unwrap();
+            let err = refusal(&a, &cid);
+            assert!(err.contains("the re-examination of the designation against it"), "got: {err}");
+        }
+
+        #[test]
+        fn an_expulsion_withholds_an_office_and_a_de_escalation_restores_it() {
+            let mut a = InMemoryArchive::new();
+            let (s, sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let (q, qp) = community(&mut a, "Q", ts(1));
+            let d = Signed::build(
+                DisputeRecord {
+                    complainant: p.clone(),
+                    respondent: s.clone(),
+                    rung: LadderRung::CollectiveSanctions,
+                    summary: "s".into(),
+                    references: vec![],
+                    filed_at: ts(100),
+                },
+                &[(p.as_str(), &pp)],
+            )
+            .unwrap();
+            let dispute = a.append(ArchiveEntry::DisputeFiled(d)).unwrap();
+            let up = Signed::build(
+                LadderTransition {
+                    dispute_cid: dispute,
+                    from_rung: LadderRung::CollectiveSanctions,
+                    to_rung: LadderRung::Expulsion,
+                    initiators: vec![p.clone(), q.clone()],
+                    decision_class: DecisionClass::SecondClass,
+                    reasoning: "put out of the compact".into(),
+                    transitioned_at: ts(200),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            let up_cid = a.append(ArchiveEntry::LadderAdvanced(up)).unwrap();
+            ok(&a, &up_cid);
+            let barred = seat_mediator(&mut a, &s, &sp, 300);
+            let err = refusal(&a, &barred);
+            assert!(err.contains("an expulsion"), "got: {err}");
+            // Moved by the two that imposed it, it de-escalates and restores what the
+            // rung withheld: the ladder's reversibility is the whole reason the office
+            // rule reads the current rung rather than whether expulsion was ever reached.
+            let down = Signed::build(
+                LadderTransition {
+                    dispute_cid: dispute,
+                    from_rung: LadderRung::Expulsion,
+                    to_rung: LadderRung::LimitedSanctions,
+                    initiators: vec![p.clone(), q.clone()],
+                    decision_class: DecisionClass::SecondClass,
+                    reasoning: "stepped back".into(),
+                    transitioned_at: ts(450),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            let down_cid = a.append(ArchiveEntry::LadderAdvanced(down)).unwrap();
+            ok(&a, &down_cid);
+            let restored = seat_mediator(&mut a, &s, &sp, 500);
+            ok(&a, &restored);
+        }
+
+        /// What the compact's quorum imposed, only that quorum lifts.
+        ///
+        /// The class check reads the rung being **left** on the way down, because
+        /// reading only the destination guarded the imposing of collective sanctions and
+        /// left their removal unguarded: two communities to expel, one to un-expel, and
+        /// the cheaper of the two is the act a captured majority wants.
+        #[test]
+        fn lifting_a_second_class_rung_needs_the_quorum_that_imposed_it() {
+            let mut a = InMemoryArchive::new();
+            let (s, _sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let d = file_dispute_at(&mut a, &p, &pp, &s, LadderRung::Expulsion, ts(100));
+            let solo = transition(&mut a, &d, LadderRung::Expulsion,
+                LadderRung::LimitedSanctions, &[(&p, &pp)], DecisionClass::FirstClass, ts(400));
+            let err = refusal(&a, &solo);
+            assert!(err.contains("second-class rung"), "got: {err}");
+        }
+
+        /// The same lift, moved by the compact at its own floor, stands.
+        #[test]
+        fn the_quorum_may_lift_what_it_imposed() {
+            let mut a = InMemoryArchive::new();
+            let (s, _sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let (q, qp) = community(&mut a, "Q", ts(1));
+            let d = file_dispute_at(&mut a, &p, &pp, &s, LadderRung::Expulsion, ts(100));
+            let pair = transition(&mut a, &d, LadderRung::Expulsion,
+                LadderRung::LimitedSanctions, &[(&p, &pp), (&q, &qp)],
+                DecisionClass::SecondClass, ts(400));
+            ok(&a, &pair);
+        }
+
+        /// A de-escalation below the compact's own rungs is the complainant's
+        /// concession, and a community party to neither side has no rung of another's
+        /// to move.
+        ///
+        /// Measured against a complicit majority: a community that was neither
+        /// complainant nor respondent moved another's dispute from limited sanctions
+        /// back to registration, unilaterally and first-class, and could hold it there
+        /// for as long as it liked. Two of two such attempts were authorized.
+        #[test]
+        fn a_bystander_may_not_de_escalate_anothers_dispute() {
+            let mut a = InMemoryArchive::new();
+            let (s, _sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let (q, qp) = community(&mut a, "Q", ts(1));
+            let d = file_dispute_at(&mut a, &p, &pp, &s, LadderRung::LimitedSanctions, ts(100));
+            let bystander = transition(&mut a, &d, LadderRung::LimitedSanctions,
+                LadderRung::DisputeRegistered, &[(&q, &qp)], DecisionClass::FirstClass, ts(200));
+            let err = refusal(&a, &bystander);
+            assert!(
+                err.contains("without its complainant"),
+                "the refusal must name the missing complainant, got: {err}"
+            );
+        }
+
+        /// The respondent is not a mover either: an accused de-escalating its own
+        /// dispute is the sanctioned party reducing its own sanction.
+        #[test]
+        fn the_respondent_may_not_de_escalate_its_own_dispute() {
+            let mut a = InMemoryArchive::new();
+            let (s, sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let d = file_dispute_at(&mut a, &p, &pp, &s, LadderRung::LimitedSanctions, ts(100));
+            let own = transition(&mut a, &d, LadderRung::LimitedSanctions,
+                LadderRung::DisputeRegistered, &[(&s, &sp)], DecisionClass::FirstClass, ts(200));
+            let err = refusal(&a, &own);
+            assert!(err.contains("without its complainant"), "got: {err}");
+        }
+
+        /// The complainant itself may concede, which is what the rule is for.
+        #[test]
+        fn the_complainant_may_concede_its_own_dispute() {
+            let mut a = InMemoryArchive::new();
+            let (s, _sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let d = file_dispute_at(&mut a, &p, &pp, &s, LadderRung::LimitedSanctions, ts(100));
+            let conceded = transition(&mut a, &d, LadderRung::LimitedSanctions,
+                LadderRung::DisputeRegistered, &[(&p, &pp)], DecisionClass::FirstClass, ts(200));
+            ok(&a, &conceded);
+        }
+
+        /// A later decision does not reach backwards.
+        ///
+        /// Measured: a dismissal dated day 60 retroactively unauthorized three
+        /// transitions dated days 22 to 30, every one authorized when it was made and
+        /// none of them changed. A captured panel may end a proceeding, which is its
+        /// office; it may not unmake the complainant's account of having brought one.
+        /// The cooperative campaign never met this because it decided `Referred`, which
+        /// is not in the closing set.
+        #[test]
+        fn a_closing_decision_does_not_unauthorize_earlier_transitions() {
+            let mut a = InMemoryArchive::new();
+            let (s, _sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let d = file_dispute_at(&mut a, &p, &pp, &s, LadderRung::DisputeRegistered, ts(100));
+            let up = transition(&mut a, &d, LadderRung::DisputeRegistered,
+                LadderRung::RegisteredProtest, &[(&p, &pp)], DecisionClass::FirstClass, ts(200));
+            ok(&a, &up);
+
+            decide_citing_outcome(&mut a, d, &[(&p, &pp)], vec![],
+                DecisionOutcome::Dismissed, ts(300));
+            ok(&a, &up); // still authorized: it predates the decision
+
+            // And the closure does bind what comes after it.
+            let after = transition(&mut a, &d, LadderRung::RegisteredProtest,
+                LadderRung::ReciprocalSuspension, &[(&p, &pp)], DecisionClass::FirstClass, ts(400));
+            let err = refusal(&a, &after);
+            assert!(err.contains("is closed by a mediation decision"), "got: {err}");
+        }
+
+        // --- the withheld proceeding --------------------------------------------
+
+        /// One non-pursuit attestation, built to order.
+        #[allow(clippy::too_many_arguments)]
+        fn attest(
+            a: &mut InMemoryArchive,
+            attestor: (&DidKey, &PrivKey),
+            subject: &DidKey,
+            evidence: Vec<Cid>,
+            ground: GrievanceGround,
+            closing: Option<Cid>,
+            reasoning: &str,
+            at: i64,
+        ) -> Cid {
+            let rec = Signed::build(
+                NonPursuitAttestation {
+                    evidence,
+                    subject: subject.clone(),
+                    attestor: attestor.0.clone(),
+                    ground,
+                    closing_decision: closing,
+                    reasoning: reasoning.into(),
+                    filed_at: ts(at),
+                },
+                &[(attestor.0.as_str(), attestor.1)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::NonPursuitAttested(rec)).unwrap()
+        }
+
+        /// A compact of two with one adverse record about the first, at `at`.
+        fn grievance_fixture(
+        ) -> (InMemoryArchive, (DidKey, PrivKey), (DidKey, PrivKey), Cid) {
+            let mut a = InMemoryArchive::new();
+            let (s, sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            seal_compact(&mut a, "compact", &[(&s, &sp), (&p, &pp)], ts(10));
+            let ev = adverse(&mut a, &s, &p, &pp, 100);
+            (a, (s, sp), (p, pp), ev)
+        }
+
+        const CADENCE: i64 = 90 * 86_400;
+
+        /// The authorized case: evidence nothing took up, past the cadence.
+        #[test]
+        fn a_never_pursued_attestation_stands() {
+            let (mut a, (s, _sp), (p, pp), ev) = grievance_fixture();
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "we filed it and the compact has not taken it up", 100 + CADENCE + 1);
+            ok(&a, &att);
+        }
+
+        /// The other authorized case: a decision closed a dispute citing it.
+        #[test]
+        fn a_closed_unresolved_attestation_stands() {
+            let (mut a, (s, sp), (p, pp), ev) = grievance_fixture();
+            let (m, mp) = community(&mut a, "M", ts(1));
+            let _ = &sp;
+            // The dispute must cite the evidence for the ground to hold.
+            let d2 = {
+                let rec = Signed::build(
+                    DisputeRecord {
+                        complainant: p.clone(),
+                        respondent: s.clone(),
+                        rung: LadderRung::DisputeRegistered,
+                        summary: "citing the record".into(),
+                        references: vec![ev],
+                        filed_at: ts(400),
+                    },
+                    &[(p.as_str(), &pp)],
+                )
+                .unwrap();
+                a.append(ArchiveEntry::DisputeFiled(rec)).unwrap()
+            };
+            let dec2 = decide_citing_outcome(&mut a, d2, &[(&m, &mp)], vec![],
+                DecisionOutcome::Dismissed, ts(500));
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev],
+                GrievanceGround::ClosedUnresolved, Some(dec2),
+                "the panel dismissed it and the diversion stands", 600);
+            ok(&a, &att);
+        }
+
+        #[test]
+        fn an_attestation_must_cite_evidence() {
+            let (mut a, (s, _sp), (p, pp), _ev) = grievance_fixture();
+            let att = attest(&mut a, (&p, &pp), &s, vec![], GrievanceGround::NeverPursued,
+                None, "nothing in particular", 100 + CADENCE + 1);
+            assert!(refusal(&a, &att).contains("must cite the evidence"));
+        }
+
+        #[test]
+        fn an_attestation_must_state_its_reasoning() {
+            let (mut a, (s, _sp), (p, pp), ev) = grievance_fixture();
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "   ", 100 + CADENCE + 1);
+            assert!(refusal(&a, &att).contains("must state why"));
+        }
+
+        /// A subject's account of its own unprosecuted conduct is not a grievance.
+        #[test]
+        fn the_subject_may_not_attest_its_own_non_pursuit() {
+            let (mut a, (s, sp), (_p, _pp), ev) = grievance_fixture();
+            let att = attest(&mut a, (&s, &sp), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "nobody has prosecuted me", 100 + CADENCE + 1);
+            assert!(refusal(&a, &att).contains("is the subject of this evidence"));
+        }
+
+        /// An outsider speaks through §8 observer reports, not the compact's own record.
+        #[test]
+        fn an_outsider_may_not_attest_a_compacts_non_pursuit() {
+            let (mut a, (s, _sp), (_p, _pp), ev) = grievance_fixture();
+            let (o, op) = community(&mut a, "O", ts(1));
+            let att = attest(&mut a, (&o, &op), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "their compact is shielding them", 100 + CADENCE + 1);
+            assert!(refusal(&a, &att).contains("sits in no compact"));
+        }
+
+        #[test]
+        fn the_evidence_must_be_adverse_and_about_the_subject() {
+            // A commendation is not a grievance.
+            let (mut a, (s, sp), (p, pp), _ev) = grievance_fixture();
+            let good = {
+                let rec = Signed::build(
+                    ConductRecord {
+                        subject_community: s.clone(),
+                        reporters: vec![p.clone()],
+                        reporter_perspective: None,
+                        kind: ConductKind::Commendation,
+                        bearing: ConductBearing::Charity,
+                        severity: Severity::Minor,
+                        ladder_rung: None,
+                        decision_class: DecisionClass::FirstClass,
+                        references: vec![],
+                        narrative: "well done".into(),
+                        observed_at: ts(100),
+                        recorded_at: ts(100),
+                    },
+                    &[(p.as_str(), &pp)],
+                )
+                .unwrap();
+                a.append(ArchiveEntry::ConductAttested(rec)).unwrap()
+            };
+            let att = attest(&mut a, (&p, &pp), &s, vec![good], GrievanceGround::NeverPursued,
+                None, "unpursued", 100 + CADENCE + 1);
+            assert!(refusal(&a, &att).contains("rather than an adverse record"));
+
+            // And a record about somebody else.
+            let other = adverse(&mut a, &p, &s, &sp, 100);
+            let att2 = attest(&mut a, (&p, &pp), &s, vec![other],
+                GrievanceGround::NeverPursued, None, "unpursued", 100 + CADENCE + 2);
+            assert!(refusal(&a, &att2).contains("rather than the named subject"));
+        }
+
+        #[test]
+        fn an_attestation_may_not_predate_its_evidence() {
+            let (mut a, (s, _sp), (p, pp), ev) = grievance_fixture();
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "unpursued", 50);
+            assert!(refusal(&a, &att).contains("before the evidence it cites"));
+        }
+
+        /// The two grounds are different claims and the record must make one of them.
+        #[test]
+        fn never_pursued_names_no_closing_decision() {
+            let (mut a, (s, sp), (p, pp), ev) = grievance_fixture();
+            let (m, mp) = community(&mut a, "M", ts(1));
+            let _ = &sp;
+            let d = file_dispute_at(&mut a, &p, &pp, &s, LadderRung::DisputeRegistered, ts(200));
+            let dec = decide_citing_outcome(&mut a, d, &[(&m, &mp)], vec![],
+                DecisionOutcome::Dismissed, ts(300));
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev], GrievanceGround::NeverPursued,
+                Some(dec), "unpursued", 100 + CADENCE + 1);
+            assert!(refusal(&a, &att).contains("names a closing decision"));
+        }
+
+        /// The claim is checked against the archive rather than taken: a dispute citing
+        /// the evidence contradicts `NeverPursued`, so the attestation is refused.
+        #[test]
+        fn never_pursued_is_refused_when_something_pursued_it() {
+            let (mut a, (s, _sp), (p, pp), ev) = grievance_fixture();
+            let rec = Signed::build(
+                DisputeRecord {
+                    complainant: p.clone(),
+                    respondent: s.clone(),
+                    rung: LadderRung::DisputeRegistered,
+                    summary: "citing the record".into(),
+                    references: vec![ev],
+                    filed_at: ts(200),
+                },
+                &[(p.as_str(), &pp)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::DisputeFiled(rec)).unwrap();
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "unpursued", 100 + CADENCE + 1);
+            assert!(refusal(&a, &att).contains("cites this evidence, so it was pursued"));
+        }
+
+        /// Inside the cadence, a compact still working through its ladder has not
+        /// failed to.
+        #[test]
+        fn never_pursued_is_refused_inside_the_cadence() {
+            let (mut a, (s, _sp), (p, pp), ev) = grievance_fixture();
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "unpursued", 100 + CADENCE - 1);
+            assert!(refusal(&a, &att).contains("inside the"));
+        }
+
+        #[test]
+        fn closed_unresolved_must_name_a_real_closing_decision() {
+            let (mut a, (s, sp), (p, pp), ev) = grievance_fixture();
+            let (m, mp) = community(&mut a, "M", ts(1));
+            let _ = &sp;
+            // No decision named at all.
+            let none = attest(&mut a, (&p, &pp), &s, vec![ev],
+                GrievanceGround::ClosedUnresolved, None, "buried", 100 + CADENCE + 1);
+            assert!(refusal(&a, &none).contains("must name the decision"));
+
+            // Named, but not a decision.
+            let notadec = attest(&mut a, (&p, &pp), &s, vec![ev],
+                GrievanceGround::ClosedUnresolved, Some(ev), "buried", 100 + CADENCE + 2);
+            assert!(refusal(&a, &notadec).contains("is not a mediation decision"));
+
+            // A decision that closes nothing.
+            let d = {
+                let rec = Signed::build(
+                    DisputeRecord {
+                        complainant: p.clone(),
+                        respondent: s.clone(),
+                        rung: LadderRung::DisputeRegistered,
+                        summary: "citing".into(),
+                        references: vec![ev],
+                        filed_at: ts(200),
+                    },
+                    &[(p.as_str(), &pp)],
+                )
+                .unwrap();
+                a.append(ArchiveEntry::DisputeFiled(rec)).unwrap()
+            };
+            let referred = decide_citing_outcome(&mut a, d, &[(&m, &mp)], vec![],
+                DecisionOutcome::Referred, ts(300));
+            let open = attest(&mut a, (&p, &pp), &s, vec![ev],
+                GrievanceGround::ClosedUnresolved, Some(referred), "buried", 100 + CADENCE + 3);
+            assert!(refusal(&a, &open).contains("closes nothing"));
+
+            // A closing decision on a dispute that cites other evidence.
+            let other = adverse(&mut a, &s, &p, &pp, 110);
+            let elsewhere = {
+                let rec = Signed::build(
+                    DisputeRecord {
+                        complainant: p.clone(),
+                        respondent: s.clone(),
+                        rung: LadderRung::DisputeRegistered,
+                        summary: "another matter".into(),
+                        references: vec![other],
+                        filed_at: ts(400),
+                    },
+                    &[(p.as_str(), &pp)],
+                )
+                .unwrap();
+                a.append(ArchiveEntry::DisputeFiled(rec)).unwrap()
+            };
+            let wrong = decide_citing_outcome(&mut a, elsewhere, &[(&m, &mp)], vec![],
+                DecisionOutcome::Dismissed, ts(500));
+            let mismatched = attest(&mut a, (&p, &pp), &s, vec![ev],
+                GrievanceGround::ClosedUnresolved, Some(wrong), "buried", 100 + CADENCE + 4);
+            assert!(refusal(&a, &mismatched).contains("cites none of the evidence"));
+        }
+
+        /// An attestation dated before the decision it answers.
+        #[test]
+        fn closed_unresolved_may_not_predate_its_decision() {
+            let (mut a, (s, sp), (p, pp), ev) = grievance_fixture();
+            let (m, mp) = community(&mut a, "M", ts(1));
+            let _ = &sp;
+            let d = {
+                let rec = Signed::build(
+                    DisputeRecord {
+                        complainant: p.clone(),
+                        respondent: s.clone(),
+                        rung: LadderRung::DisputeRegistered,
+                        summary: "citing".into(),
+                        references: vec![ev],
+                        filed_at: ts(200),
+                    },
+                    &[(p.as_str(), &pp)],
+                )
+                .unwrap();
+                a.append(ArchiveEntry::DisputeFiled(rec)).unwrap()
+            };
+            let dec = decide_citing_outcome(&mut a, d, &[(&m, &mp)], vec![],
+                DecisionOutcome::Dismissed, ts(100 + CADENCE + 100));
+            let early = attest(&mut a, (&p, &pp), &s, vec![ev],
+                GrievanceGround::ClosedUnresolved, Some(dec), "buried", 100 + CADENCE + 50);
+            assert!(refusal(&a, &early).contains("before the decision it answers"));
+        }
+
+        /// One signer, first-class: a quorum requirement here would be the shielding
+        /// majority's veto over being noticed.
+        #[test]
+        fn an_attestation_is_first_class_and_self_signed() {
+            let (mut a, (s, _sp), (p, pp), ev) = grievance_fixture();
+            let att = attest(&mut a, (&p, &pp), &s, vec![ev], GrievanceGround::NeverPursued,
+                None, "unpursued", 100 + CADENCE + 1);
+            ok(&a, &att);
+            // Signed by somebody other than the attestor: the generic principal rule.
+            let (o, op) = community(&mut a, "O", ts(1));
+            let rec = Signed::build(
+                NonPursuitAttestation {
+                    evidence: vec![ev],
+                    subject: s.clone(),
+                    attestor: p.clone(),
+                    ground: GrievanceGround::NeverPursued,
+                    closing_decision: None,
+                    reasoning: "not mine to file".into(),
+                    filed_at: ts(100 + CADENCE + 2),
+                },
+                &[(o.as_str(), &op)],
+            )
+            .unwrap();
+            let forged = a.append(ArchiveEntry::NonPursuitAttested(rec)).unwrap();
+            assert!(!refusal(&a, &forged).is_empty());
+        }
+
+        // --- the hostis humani generis bar --------------------------------------
+
+        /// The archive the tier's own requirements are measured against: an anathema, a
+        /// re-entry answering it, and an adverse act after the return.
+        #[allow(clippy::type_complexity)]
+        fn returned_and_broken(
+        ) -> (InMemoryArchive, DidKey, (DidKey, PrivKey), (DidKey, PrivKey), (DidKey, PrivKey), Vec<Cid>, Cid, Cid) {
+            let (mut a, s, sp, (p, pp), (q, qp), cycles, dz) = designated();
+            let (r, rp) = community(&mut a, "R", ts(1));
+            let rec = recitation_for(&s, &sp, true);
+            let ws = vec![
+                witness_att(&p, &pp, true),
+                witness_att(&q, &qp, true),
+            ];
+            let re = Signed::build(
+                ReEntry {
+                    designation_cid: dz,
+                    petitioner: s.clone(),
+                    recitation: rec,
+                    conduct_accounting: "we account for the three".into(),
+                    public_acknowledgement: "it was wrong".into(),
+                    witnesses: ws,
+                    probation_until: ts(2000 + 40 * W),
+                    deliberators: vec![p.clone(), q.clone()],
+                    decision_class: DecisionClass::SecondClass,
+                    completed_at: ts(2000 + 2 * W),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::ReEntryCompleted(re)).unwrap();
+            let fresh = adverse(&mut a, &s, &p, &pp, 2000 + 3 * W);
+            (a, s, (p, pp), (q, qp), (r, rp), cycles, dz, fresh)
+        }
+
+        fn hostis_deliberations(who: &DidKey, base: i64) -> Vec<DeliberationCycle> {
+            (0..3).map(|i| cycle_at(who, i, base + i as i64 * 2 * W)).collect()
+        }
+
+        #[test]
+        fn hostis_stands_when_the_return_has_failed_and_the_bar_is_met() {
+            let (mut a, s, (p, pp), (q, qp), (r, rp), cycles, _dz, fresh) = returned_and_broken();
+            let base = 2000 + 5 * W;
+            let hh = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp), (&r, &rp)], vec![fresh], cycles,
+                hostis_deliberations(&p, base), Some(ts(base + 20 * W)), base + 10 * W);
+            ok(&a, &hh);
+        }
+
+        #[test]
+        fn hostis_needs_a_prior_return_that_failed() {
+            // Everything the tier asks for except the history: three broken cycles, three
+            // cycles of consideration, three communities, a date. No anathema was ever issued.
+            let mut a = InMemoryArchive::new();
+            let (s, _sp) = community(&mut a, "S", ts(1));
+            let (p, pp) = community(&mut a, "P", ts(1));
+            let (q, qp) = community(&mut a, "Q", ts(1));
+            let (r, rp) = community(&mut a, "R", ts(1));
+            let cycles = vec![
+                broken_cycle(&mut a, &s, &p, &pp, 100),
+                broken_cycle(&mut a, &s, &p, &pp, 200),
+                broken_cycle(&mut a, &s, &p, &pp, 300),
+            ];
+            let act = adverse(&mut a, &s, &p, &pp, 400);
+            let hh = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp), (&r, &rp)], vec![act], cycles,
+                hostis_deliberations(&p, 1000), Some(ts(50_000)), 1000 + 10 * W);
+            let err = refusal(&a, &hh);
+            assert!(err.contains("the presumption is always anathema"), "got: {err}");
+        }
+
+        /// The second shape of a failed return: the way back was left open and the compact
+        /// looked again at the mandated date and let the designation stand.
+        #[test]
+        fn a_confirmed_re_examination_is_also_a_failed_return() {
+            let (mut a, s, _sp, (p, pp), (q, qp), cycles, dz) = designated();
+            let (r, rp) = community(&mut a, "R", ts(1));
+            let confirm = Signed::build(
+                ReexaminationConclusion {
+                    designation_cid: dz,
+                    outcome: ReexaminationOutcome::Confirmed,
+                    examiners: vec![p.clone(), q.clone()],
+                    reasoning: "nothing has changed".into(),
+                    next_reexamine_after: Some(ts(2000 + 40 * W)),
+                    decision_class: DecisionClass::SecondClass,
+                    concluded_at: ts(2000 + 11 * W),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::ReexaminationConcluded(confirm)).unwrap();
+            let fresh = adverse(&mut a, &s, &p, &pp, 2000 + 12 * W);
+            let base = 2000 + 13 * W;
+            let hh = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp), (&r, &rp)], vec![fresh], cycles,
+                hostis_deliberations(&p, base), Some(ts(base + 30 * W)), base + 10 * W);
+            ok(&a, &hh);
+        }
+
+        #[test]
+        fn hostis_needs_evidence_later_than_the_designation_it_follows() {
+            let (mut a, s, (p, pp), (q, qp), (r, rp), cycles, _dz, _fresh) = returned_and_broken();
+            let base = 2000 + 5 * W;
+            // The predecessor's own citations, recycled whole.
+            let hh = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp), (&r, &rp)], cycles.clone(), cycles,
+                hostis_deliberations(&p, base), Some(ts(base + 20 * W)), base + 10 * W);
+            let err = refusal(&a, &hh);
+            assert!(err.contains("constitutive"), "got: {err}");
+        }
+
+        #[test]
+        fn hostis_needs_three_cycles_of_consideration() {
+            let (mut a, s, (p, pp), (q, qp), (r, rp), cycles, _dz, fresh) = returned_and_broken();
+            let base = 2000 + 5 * W;
+            let mut two = hostis_deliberations(&p, base);
+            two.pop();
+            let hh = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp), (&r, &rp)], vec![fresh], cycles,
+                two, Some(ts(base + 20 * W)), base + 10 * W);
+            let err = refusal(&a, &hh);
+            assert!(err.contains("deliberation cycles, got 2"), "got: {err}");
+        }
+
+        #[test]
+        fn hostis_needs_more_than_the_ordinary_quorum() {
+            let (mut a, s, (p, pp), (q, qp), _r, cycles, _dz, fresh) = returned_and_broken();
+            let base = 2000 + 5 * W;
+            let hh = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp)], vec![fresh], cycles,
+                hostis_deliberations(&p, base), Some(ts(base + 20 * W)), base + 10 * W);
+            let err = refusal(&a, &hh);
+            assert!(err.contains("carrying \ndeliberative weight") || err.contains("deliberative weight"),
+                "got: {err}");
+        }
+
+        #[test]
+        fn hostis_must_carry_a_re_examination_date() {
+            let (mut a, s, (p, pp), (q, qp), (r, rp), cycles, _dz, fresh) = returned_and_broken();
+            let base = 2000 + 5 * W;
+            let none = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp), (&r, &rp)], vec![fresh], cycles.clone(),
+                hostis_deliberations(&p, base), None, base + 10 * W);
+            let err = refusal(&a, &none);
+            assert!(err.contains("must set a re-examination date"), "got: {err}");
+            // A date that is not in the future is the same evasion by another route.
+            let past = designate(&mut a, &s, DesignationTier::HostisHumaniGeneris,
+                &[(&p, &pp), (&q, &qp), (&r, &rp)], vec![fresh], cycles,
+                hostis_deliberations(&p, base), Some(ts(base)), base + 10 * W);
+            let err = refusal(&a, &past);
+            assert!(err.contains("is not after the designation"), "got: {err}");
+        }
+
+        // --- the vacatur --------------------------------------------------------
+
+        #[test]
+        fn a_vacatur_reverses_the_designation_and_restores_the_offices() {
+            let (mut a, s, sp, (p, pp), (q, qp), _cycles, dz) = designated();
+            let barred = seat_mediator(&mut a, &s, &sp, 2100);
+            assert!(refusal(&a, &barred).contains("a standing designation"));
+            let vac = Signed::build(
+                ReexaminationConclusion {
+                    designation_cid: dz,
+                    outcome: ReexaminationOutcome::Vacated,
+                    examiners: vec![p.clone(), q.clone()],
+                    reasoning: "the compact was wrong: the pattern was not what we called it".into(),
+                    next_reexamine_after: None,
+                    decision_class: DecisionClass::SecondClass,
+                    concluded_at: ts(2000 + 11 * W),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::ReexaminationConcluded(vac)).unwrap();
+            ok(&a, &cid);
+            let restored = seat_mediator(&mut a, &s, &sp, 2000 + 12 * W);
+            ok(&a, &restored);
+        }
+
+        #[test]
+        fn a_vacatur_sets_no_next_date() {
+            let (mut a, _s, _sp, (p, pp), (q, qp), _cycles, dz) = designated();
+            let vac = Signed::build(
+                ReexaminationConclusion {
+                    designation_cid: dz,
+                    outcome: ReexaminationOutcome::Vacated,
+                    examiners: vec![p.clone(), q.clone()],
+                    reasoning: "wrong, and we will look again".into(),
+                    next_reexamine_after: Some(ts(2000 + 40 * W)),
+                    decision_class: DecisionClass::SecondClass,
+                    concluded_at: ts(2000 + 11 * W),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::ReexaminationConcluded(vac)).unwrap();
+            let err = refusal(&a, &cid);
+            assert!(err.contains("no next re-examination date"), "got: {err}");
+        }
+
+        #[test]
+        fn a_vacatur_does_not_double_a_reversal_that_already_happened() {
+            let (mut a, s, (p, pp), (q, qp), _r, _cycles, dz, _fresh) = returned_and_broken();
+            let _ = s;
+            let vac = Signed::build(
+                ReexaminationConclusion {
+                    designation_cid: dz,
+                    outcome: ReexaminationOutcome::Vacated,
+                    examiners: vec![p.clone(), q.clone()],
+                    reasoning: "and we also call it our error".into(),
+                    next_reexamine_after: None,
+                    decision_class: DecisionClass::SecondClass,
+                    concluded_at: ts(2000 + 11 * W),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::ReexaminationConcluded(vac)).unwrap();
+            let err = refusal(&a, &cid);
+            assert!(err.contains("already reversed by another path"), "got: {err}");
+        }
+
+        // --- the dissent --------------------------------------------------------
+
+        fn dissent(a: &mut InMemoryArchive, who: &DidKey, wp: &PrivKey, dz: Cid, why: &str, at: i64) -> Cid {
+            let d = Signed::build(
+                DesignationDissent {
+                    designation_cid: dz,
+                    dissenter: who.clone(),
+                    reasoning: why.into(),
+                    filed_at: ts(at),
+                },
+                &[(who.as_str(), wp)],
+            )
+            .unwrap();
+            a.append(ArchiveEntry::DesignationDissented(d)).unwrap()
+        }
+
+        /// A compact that seats the subject, the deliberators and one further member, so a
+        /// dissent has somewhere to come from.
+        #[allow(clippy::type_complexity)]
+        fn compact_with_a_holdout(
+        ) -> (InMemoryArchive, DidKey, PrivKey, (DidKey, PrivKey), (DidKey, PrivKey), Cid) {
+            let (mut a, s, sp, (p, pp), (q, qp), cycles, _dz) = designated();
+            let (h, hp) = community(&mut a, "H", ts(1));
+            seal_compact(&mut a, "compact", &[(&s, &sp), (&p, &pp), (&q, &qp), (&h, &hp)], ts(1));
+            let dz = designate(&mut a, &s, DesignationTier::Anathema, &[(&p, &pp), (&q, &qp)],
+                cycles.clone(), cycles, vec![cycle_at(&p, 0, 1000), cycle_at(&p, 1, 1100 + W)],
+                Some(ts(2000 + 10 * W)), 2100);
+            (a, s, sp, (h, hp), (p, pp), dz)
+        }
+
+        #[test]
+        fn a_member_may_record_its_refusal_to_designate() {
+            let (mut a, _s, _sp, (h, hp), _p, dz) = compact_with_a_holdout();
+            let cid = dissent(&mut a, &h, &hp, dz, "this is an anathema case and the return \
+                has not been exhausted", 2200);
+            ok(&a, &cid);
+        }
+
+        #[test]
+        fn a_deliberator_may_not_also_dissent() {
+            let (mut a, _s, _sp, _h, (p, pp), dz) = compact_with_a_holdout();
+            let cid = dissent(&mut a, &p, &pp, dz, "on reflection, no", 2200);
+            assert!(refusal(&a, &cid).contains("cannot also dissent"));
+        }
+
+        #[test]
+        fn the_subject_may_not_dissent() {
+            let (mut a, s, sp, _h, _p, dz) = compact_with_a_holdout();
+            let cid = dissent(&mut a, &s, &sp, dz, "we object to being designated", 2200);
+            let err = refusal(&a, &cid);
+            assert!(err.contains("own defence"), "got: {err}");
+        }
+
+        #[test]
+        fn an_outsider_may_not_dissent() {
+            let (mut a, _s, _sp, _h, _p, dz) = compact_with_a_holdout();
+            let (o, op) = community(&mut a, "Outsider", ts(1));
+            let cid = dissent(&mut a, &o, &op, dz, "we disapprove", 2200);
+            let err = refusal(&a, &cid);
+            assert!(err.contains("sits in no compact"), "got: {err}");
+        }
+
+        #[test]
+        fn a_dissent_must_say_why_and_may_not_predate_the_designation() {
+            let (mut a, _s, _sp, (h, hp), _p, dz) = compact_with_a_holdout();
+            let silent = dissent(&mut a, &h, &hp, dz, "   ", 2200);
+            assert!(refusal(&a, &silent).contains("must state its reasoning"));
+            let early = dissent(&mut a, &h, &hp, dz, "we said so all along", 1500);
+            assert!(refusal(&a, &early).contains("before the designation"));
+        }
+
+        /// A re-entry is one of the three paths that reverse a designation, and the
+        /// timestamps on these records are self-asserted. Measured before the rule: a
+        /// perfectly formed re-entry dated *before* the designation it answers was
+        /// authorized, and every as-of reading then found the designation reversed at
+        /// every instant it supposedly stood, so the offices came back and the ordinary
+        /// restitution path reopened.
+        #[test]
+        fn a_return_may_not_predate_the_designation_it_answers() {
+            let (mut a, s, sp, (p, pp), (q, qp), _cycles, dz) = designated();
+            let early = Signed::build(
+                ReEntry {
+                    designation_cid: dz,
+                    petitioner: s.clone(),
+                    recitation: recitation_for(&s, &sp, true),
+                    conduct_accounting: "we account for the three".into(),
+                    public_acknowledgement: "it was wrong".into(),
+                    witnesses: vec![witness_att(&p, &pp, true), witness_att(&q, &qp, true)],
+                    probation_until: ts(2000 + 40 * W),
+                    deliberators: vec![p.clone(), q.clone()],
+                    decision_class: DecisionClass::SecondClass,
+                    completed_at: ts(1500),
+                },
+                &[(p.as_str(), &pp), (q.as_str(), &qp)],
+            )
+            .unwrap();
+            let cid = a.append(ArchiveEntry::ReEntryCompleted(early)).unwrap();
+            let err = refusal(&a, &cid);
+            assert!(err.contains("cannot predate the thing it returns from"), "got: {err}");
+        }
+
+        #[test]
+        fn a_dissent_must_name_a_designation() {
+            let (mut a, _s, _sp, (h, hp), _p, _dz) = compact_with_a_holdout();
+            let cid = dissent(&mut a, &h, &hp, Cid::of_bytes(b"not a designation"),
+                "we refuse whatever this is", 2200);
+            assert!(refusal(&a, &cid).contains("not a designation"));
+        }
+    }
+
+
+
     #[test]
     fn reentry_against_hostis_is_rejected() {
         let mut a = InMemoryArchive::new();
@@ -2016,6 +3158,7 @@ mod escalation {
 }
 
 // --- §9 interim injunction authority ----------------------------------------
+
 
 mod injunction {
     use super::*;

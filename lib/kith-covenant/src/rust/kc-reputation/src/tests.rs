@@ -4941,6 +4941,539 @@ mod attested_nulls {
 }
 
 // ---------------------------------------------------------------------------
+// Non-pursuit: the compact keeps the form and declines to move against one member.
+// ---------------------------------------------------------------------------
+
+mod non_pursuit {
+    use super::*;
+    use crate::analytics::{
+        erosion_alert_with, unanswered_grievances, ErosionSeverity, ErosionThresholds,
+    };
+    use kc_escalation::{
+        Designation, DesignationTier, DesignationUrgency, GrievanceGround,
+        NonPursuitAttestation, RestitutionObligation,
+    };
+    use kc_mediation::{DecisionOutcome, DisputeRecord, MediationDecision};
+
+    const DAY: i64 = 86_400;
+    const CADENCE: i64 = 90 * DAY;
+
+    /// A compact of `n`, published and admitted, so `shares_a_compact` holds.
+    fn compact_of(a: &mut InMemoryArchive, n: usize) -> Vec<(DidKey, PrivKey)> {
+        let members: Vec<(PrivKey, PubKey, DidKey)> = (0..n).map(|_| fresh_id()).collect();
+        for (i, (sk, pk, did)) in members.iter().enumerate() {
+            publish_identity(a, &format!("N{i}"), did, pk, sk, t(10));
+        }
+        let parts: Vec<(&DidKey, &PrivKey)> =
+            members.iter().map(|(sk, _, did)| (did, sk)).collect();
+        publish_inter_admission(a, &parts, t(20));
+        members.into_iter().map(|(sk, _, did)| (did, sk)).collect()
+    }
+
+    /// One adverse record about `subject`, at `rung` (None for a bare Concern).
+    fn adverse(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        reporter: (&DidKey, &PrivKey),
+        kind: ConductKind,
+        rung: Option<LadderRung>,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = ConductRecord {
+            subject_community: subject.clone(),
+            reporters: vec![reporter.0.clone()],
+            reporter_perspective: None,
+            kind,
+            bearing: ConductBearing::CommonsObligation,
+            severity: Severity::Serious,
+            ladder_rung: rung,
+            decision_class: DecisionClass::FirstClass,
+            references: vec![],
+            narrative: "the diversion".into(),
+            observed_at: at,
+            recorded_at: at,
+        };
+        let signed = Signed::build(rec, &[(reporter.0.as_str(), reporter.1)]).unwrap();
+        a.append(ArchiveEntry::ConductAttested(signed)).unwrap()
+    }
+
+    fn dispute_citing(
+        a: &mut InMemoryArchive,
+        comp: (&DidKey, &PrivKey),
+        resp: &DidKey,
+        evidence: &[Cid],
+        at: Timestamp,
+    ) -> Cid {
+        let d = DisputeRecord {
+            complainant: comp.0.clone(),
+            respondent: resp.clone(),
+            rung: LadderRung::DisputeRegistered,
+            summary: "s".into(),
+            references: evidence.to_vec(),
+            filed_at: at,
+        };
+        let signed = Signed::build(d, &[(comp.0.as_str(), comp.1)]).unwrap();
+        a.append(ArchiveEntry::DisputeFiled(signed)).unwrap()
+    }
+
+    fn decide(
+        a: &mut InMemoryArchive,
+        dispute: Cid,
+        panel: &[(&DidKey, &PrivKey)],
+        outcome: DecisionOutcome,
+        at: Timestamp,
+    ) -> Cid {
+        let dec = MediationDecision {
+            dispute_cid: dispute,
+            panel: panel.iter().map(|(d, _)| (*d).clone()).collect(),
+            outcome,
+            reasoning: "so decided".into(),
+            sealed: None,
+            arguments: vec![],
+            decided_at: at,
+        };
+        let pairs: Vec<(&str, &PrivKey)> =
+            panel.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let signed = Signed::build(dec, &pairs).unwrap();
+        a.append(ArchiveEntry::MediationDecided(signed)).unwrap()
+    }
+
+    // --- the reading -------------------------------------------------------
+
+    /// The regression this module exists for.
+    ///
+    /// Measured before the reading existed: three compacts, one that prosecuted the
+    /// evidence to collective sanctions, one that dismissed the same evidence four times
+    /// through panels seated by complicit communities, and one with nothing to prosecute
+    /// at all, and all three read identically on every instrument the protocol had.
+    #[test]
+    fn burial_and_prosecution_are_no_longer_the_same_reading() {
+        let cadence = CADENCE;
+        // Buried: filed, one dispute, dismissed, nothing further.
+        let mut buried = InMemoryArchive::new();
+        let m = compact_of(&mut buried, 4);
+        let (s, _) = m[0].clone();
+        let (p, pp) = m[1].clone();
+        let ev = adverse(&mut buried, &s, (&p, &pp), ConductKind::Violation,
+            Some(LadderRung::RegisteredProtest), t(100));
+        let d = dispute_citing(&mut buried, (&p, &pp), &s, &[ev], t(200));
+        decide(&mut buried, d, &[(&m[2].0, &m[2].1)], DecisionOutcome::Dismissed, t(300));
+
+        // Prosecuted: the same evidence, the same dispute, upheld.
+        let mut upheld = InMemoryArchive::new();
+        let m2 = compact_of(&mut upheld, 4);
+        let (s2, _) = m2[0].clone();
+        let (p2, pp2) = m2[1].clone();
+        let ev2 = adverse(&mut upheld, &s2, (&p2, &pp2), ConductKind::Violation,
+            Some(LadderRung::RegisteredProtest), t(100));
+        let d2 = dispute_citing(&mut upheld, (&p2, &pp2), &s2, &[ev2], t(200));
+        decide(&mut upheld, d2, &[(&m2[2].0, &m2[2].1)], DecisionOutcome::Upheld, t(300));
+
+        // Calm: nothing to prosecute.
+        let mut calm = InMemoryArchive::new();
+        let _ = compact_of(&mut calm, 4);
+
+        let as_of = Some(t(100 + 2 * cadence));
+        assert_eq!(unanswered_grievances(&buried, as_of, cadence).len(), 1);
+        assert_eq!(unanswered_grievances(&upheld, as_of, cadence).len(), 0);
+        assert_eq!(unanswered_grievances(&calm, as_of, cadence).len(), 0);
+
+        let th = ErosionThresholds { grievance_cadence_seconds: cadence, ..Default::default() };
+        assert_ne!(
+            erosion_alert_with(&buried, as_of, &th).severity,
+            erosion_alert_with(&upheld, as_of, &th).severity,
+            "burial and prosecution must not grade alike"
+        );
+        assert_eq!(erosion_alert_with(&upheld, as_of, &th).severity, ErosionSeverity::None);
+        assert_eq!(erosion_alert_with(&calm, as_of, &th).severity, ErosionSeverity::None);
+    }
+
+    /// An adverse record nothing ever cited, past the cadence.
+    #[test]
+    fn a_record_nothing_ever_took_up_is_never_pursued() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 3);
+        let ev = adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        let g = unanswered_grievances(&a, Some(t(100 + CADENCE + 1)), CADENCE);
+        assert_eq!(g.len(), 1);
+        assert_eq!(g[0].ground, "NeverPursued");
+        assert_eq!(g[0].record_cid, ev);
+        assert_eq!(g[0].pursuits, 0);
+        assert_eq!(g[0].dismissals, 0);
+        assert!(!g[0].attested);
+    }
+
+    /// Inside the cadence there is nothing late yet.
+    #[test]
+    fn a_record_inside_the_cadence_is_not_a_grievance() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 3);
+        adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        assert!(unanswered_grievances(&a, Some(t(100 + CADENCE - 1)), CADENCE).is_empty());
+    }
+
+    /// A record carrying a rung above registered protest is the compact's own
+    /// enforcement act, and an enforcement act awaits no proceeding.
+    #[test]
+    fn an_enforcement_act_is_not_an_unpursued_grievance() {
+        let as_of = Some(t(100 + 2 * CADENCE));
+        for (rung, expected) in [
+            (LadderRung::DisputeRegistered, 1),
+            (LadderRung::RegisteredProtest, 1),
+            (LadderRung::ReciprocalSuspension, 0),
+            (LadderRung::MediatedArbitration, 0),
+            (LadderRung::LimitedSanctions, 0),
+            (LadderRung::CollectiveSanctions, 0),
+        ] {
+            let mut a = InMemoryArchive::new();
+            let m = compact_of(&mut a, 3);
+            adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Violation,
+                Some(rung), t(100));
+            assert_eq!(
+                unanswered_grievances(&a, as_of, CADENCE).len(),
+                expected,
+                "at {rung:?}"
+            );
+        }
+    }
+
+    /// A dispute still running is not an unanswered grievance, and neither is one the
+    /// compact resolved.
+    #[test]
+    fn a_running_or_resolved_proceeding_answers_the_record() {
+        let as_of = Some(t(100 + 2 * CADENCE));
+        // Filed, undecided.
+        let mut open = InMemoryArchive::new();
+        let m = compact_of(&mut open, 4);
+        let ev = adverse(&mut open, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        dispute_citing(&mut open, (&m[1].0, &m[1].1), &m[0].0, &[ev], t(200));
+        assert!(unanswered_grievances(&open, as_of, CADENCE).is_empty());
+
+        // Settled.
+        for outcome in [DecisionOutcome::Upheld, DecisionOutcome::Settled] {
+            let mut a = InMemoryArchive::new();
+            let m = compact_of(&mut a, 4);
+            let ev = adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+            let d = dispute_citing(&mut a, (&m[1].0, &m[1].1), &m[0].0, &[ev], t(200));
+            decide(&mut a, d, &[(&m[2].0, &m[2].1)], outcome, t(300));
+            assert!(
+                unanswered_grievances(&a, as_of, CADENCE).is_empty(),
+                "{outcome:?} answers the record"
+            );
+        }
+    }
+
+    /// A prosecuting compact does not read as burying its own findings.
+    ///
+    /// The false positive that caught this, on the most sympathetic case there is: the
+    /// determined-adversary campaign, where the subject was restituted three times and
+    /// designated twice, scored **six** unanswered records, because a prosecuting compact
+    /// accumulates a course of conduct and escalates once rather than filing a dispute per
+    /// record. Per-record citation is the wrong question to ask of it.
+    #[test]
+    fn a_compact_moving_against_a_member_buries_nothing() {
+        let as_of = Some(t(100 + 2 * CADENCE));
+
+        // Six records, none individually cited, and a restitution imposed on the subject.
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 4);
+        for k in 0..6 {
+            adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None,
+                t(100 + k));
+        }
+        assert_eq!(
+            unanswered_grievances(&a, as_of, CADENCE).len(),
+            6,
+            "with nothing at all against the member, every record stands"
+        );
+
+        let obl = RestitutionObligation {
+            subject_community: m[0].0.clone(),
+            beneficiary: m[1].0.clone(),
+            dispute_cid: None,
+            terms: "restore it".into(),
+            imposed_by: vec![m[1].0.clone(), m[2].0.clone()],
+            due_by: None,
+            decision_class: DecisionClass::SecondClass,
+            imposed_at: t(200),
+        };
+        let signed = Signed::build(
+            obl,
+            &[(m[1].0.as_str(), &m[1].1), (m[2].0.as_str(), &m[2].1)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::RestitutionObligated(signed)).unwrap();
+        assert!(
+            unanswered_grievances(&a, as_of, CADENCE).is_empty(),
+            "the compact moved against the member, so its record is not a burial"
+        );
+    }
+
+    /// A live dispute against the member answers its records; an abandoned one does not.
+    ///
+    /// Both directions, because the staleness bound is what stops one dormant filing from
+    /// holding every reading off a member permanently, which is the cheapest evasion the
+    /// subject-level rule would otherwise have opened.
+    #[test]
+    fn a_live_proceeding_answers_and_an_abandoned_one_does_not() {
+        // Filed late: still running as of the reading.
+        let mut live = InMemoryArchive::new();
+        let m = compact_of(&mut live, 4);
+        adverse(&mut live, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        dispute_citing(&mut live, (&m[1].0, &m[1].1), &m[0].0, &[], t(100 + 2 * CADENCE - 10));
+        assert!(
+            unanswered_grievances(&live, Some(t(100 + 2 * CADENCE)), CADENCE).is_empty(),
+            "a running proceeding against the member answers its records"
+        );
+
+        // The same filing, left untouched for longer than the cadence.
+        let mut stale = InMemoryArchive::new();
+        let n = compact_of(&mut stale, 4);
+        adverse(&mut stale, &n[0].0, (&n[1].0, &n[1].1), ConductKind::Concern, None, t(100));
+        dispute_citing(&mut stale, (&n[1].0, &n[1].1), &n[0].0, &[], t(200));
+        let g = unanswered_grievances(&stale, Some(t(200 + 2 * CADENCE)), CADENCE);
+        assert_eq!(
+            g.len(),
+            1,
+            "a filing abandoned for longer than the cadence is not a proceeding"
+        );
+        assert_eq!(g[0].ground, "NeverPursued");
+    }
+
+    /// A designation answers everything about its subject: a member the compact has cut
+    /// off is not one it declines to move against.
+    #[test]
+    fn a_designated_member_has_no_unanswered_grievances() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 4);
+        adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        assert_eq!(unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE).len(), 1);
+
+        let d = Designation {
+            subject_community: m[0].0.clone(),
+            tier: DesignationTier::Anathema,
+            urgency: DesignationUrgency::Normal,
+            deliberators: vec![m[1].0.clone(), m[2].0.clone()],
+            criteria: "sustained bad faith".into(),
+            cited_acts: vec![],
+            failed_restoration_cycles: vec![],
+            deliberation_cycles: vec![],
+            reversal_conditions: Some("restitution and a verified return".into()),
+            reexamine_after: None,
+            decision_class: DecisionClass::SecondClass,
+            designated_at: t(300),
+        };
+        let signed = Signed::build(
+            d,
+            &[(m[1].0.as_str(), &m[1].1), (m[2].0.as_str(), &m[2].1)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::DesignationDecided(signed)).unwrap();
+        assert!(unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE).is_empty());
+    }
+
+    /// The burial signature: the same seats closing the same evidence again and again.
+    #[test]
+    fn repeat_panelists_count_seats_across_dismissals() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 6);
+        let ev = adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        let panel: Vec<(&DidKey, &PrivKey)> =
+            vec![(&m[2].0, &m[2].1), (&m[3].0, &m[3].1), (&m[4].0, &m[4].1)];
+        for k in 0..4 {
+            let d = dispute_citing(&mut a, (&m[1].0, &m[1].1), &m[0].0, &[ev],
+                t(200 + 10 * k));
+            decide(&mut a, d, &panel, DecisionOutcome::Dismissed, t(205 + 10 * k));
+        }
+        let g = unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE);
+        assert_eq!(g.len(), 1);
+        assert_eq!(g[0].ground, "ClosedUnresolved");
+        assert_eq!(g[0].pursuits, 4);
+        assert_eq!(g[0].dismissals, 4);
+        assert_eq!(g[0].repeat_panelists, 3, "all three seats sat on every dismissal");
+
+        // A different panel each time is the same count of dismissals and no repeats:
+        // the reading distinguishes independent panels agreeing from one panel repeating.
+        let mut b = InMemoryArchive::new();
+        let n = compact_of(&mut b, 10);
+        let ev2 = adverse(&mut b, &n[0].0, (&n[1].0, &n[1].1), ConductKind::Concern, None, t(100));
+        for k in 0..3usize {
+            let d = dispute_citing(&mut b, (&n[1].0, &n[1].1), &n[0].0, &[ev2],
+                t(200 + 10 * k as i64));
+            let one = [(&n[2 + k * 2].0, &n[2 + k * 2].1)];
+            decide(&mut b, d, &one, DecisionOutcome::Dismissed, t(205 + 10 * k as i64));
+        }
+        let g2 = unanswered_grievances(&b, Some(t(100 + 2 * CADENCE)), CADENCE);
+        assert_eq!(g2[0].dismissals, 3);
+        assert_eq!(g2[0].repeat_panelists, 0, "three disjoint panels repeat nothing");
+    }
+
+    /// The last word on a dispute governs.
+    ///
+    /// The negative control that caught this: reducing the decisions to "was there ever
+    /// a dismissal" made the upheld case unreachable, because a dispute with no
+    /// dismissal already read as answered by the still-running branch. So the rule
+    /// existed and no fixture could tell whether it was there.
+    #[test]
+    fn the_last_decision_on_a_dispute_governs() {
+        let as_of = Some(t(100 + 2 * CADENCE));
+        // Dismissed, then upheld: answered.
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 4);
+        let ev = adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        let d = dispute_citing(&mut a, (&m[1].0, &m[1].1), &m[0].0, &[ev], t(200));
+        decide(&mut a, d, &[(&m[2].0, &m[2].1)], DecisionOutcome::Dismissed, t(300));
+        decide(&mut a, d, &[(&m[2].0, &m[2].1)], DecisionOutcome::Upheld, t(400));
+        assert!(
+            unanswered_grievances(&a, as_of, CADENCE).is_empty(),
+            "a dismissal the compact went on to reverse is not a burial"
+        );
+
+        // Upheld, then dismissed: the grievance stands again.
+        let mut b = InMemoryArchive::new();
+        let n = compact_of(&mut b, 4);
+        let ev2 = adverse(&mut b, &n[0].0, (&n[1].0, &n[1].1), ConductKind::Concern, None, t(100));
+        let d2 = dispute_citing(&mut b, (&n[1].0, &n[1].1), &n[0].0, &[ev2], t(200));
+        decide(&mut b, d2, &[(&n[2].0, &n[2].1)], DecisionOutcome::Upheld, t(300));
+        decide(&mut b, d2, &[(&n[2].0, &n[2].1)], DecisionOutcome::Dismissed, t(400));
+        let g = unanswered_grievances(&b, as_of, CADENCE);
+        assert_eq!(g.len(), 1);
+        assert_eq!(g[0].ground, "ClosedUnresolved");
+    }
+
+    /// A restitution obligation arising from the dispute is the compact having moved,
+    /// whatever the decision said.
+    #[test]
+    fn a_restitution_obligation_answers_a_dismissed_dispute() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 4);
+        let ev = adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        let d = dispute_citing(&mut a, (&m[1].0, &m[1].1), &m[0].0, &[ev], t(200));
+        decide(&mut a, d, &[(&m[2].0, &m[2].1)], DecisionOutcome::Dismissed, t(300));
+        assert_eq!(unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE).len(), 1);
+
+        let obl = RestitutionObligation {
+            subject_community: m[0].0.clone(),
+            beneficiary: m[1].0.clone(),
+            dispute_cid: Some(d),
+            terms: "restore the allocation".into(),
+            imposed_by: vec![m[1].0.clone(), m[2].0.clone()],
+            due_by: None,
+            decision_class: DecisionClass::SecondClass,
+            imposed_at: t(400),
+        };
+        let signed = Signed::build(
+            obl,
+            &[(m[1].0.as_str(), &m[1].1), (m[2].0.as_str(), &m[2].1)],
+        )
+        .unwrap();
+        a.append(ArchiveEntry::RestitutionObligated(signed)).unwrap();
+        assert!(
+            unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE).is_empty(),
+            "the compact moved on it"
+        );
+    }
+
+    /// A seat named twice on one panel is one seat.
+    ///
+    /// The §4 floor counts *distinct* mediators, so a panel may legally list a seat
+    /// twice, and the reading is about seats recurring across decisions rather than
+    /// within one. The control caught this too: without the per-decision dedup, one
+    /// dismissal by a panel naming a seat twice reported a repeat.
+    #[test]
+    fn a_seat_named_twice_on_one_panel_is_one_seat() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 5);
+        let ev = adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        let d = dispute_citing(&mut a, (&m[1].0, &m[1].1), &m[0].0, &[ev], t(200));
+        decide(
+            &mut a,
+            d,
+            &[(&m[2].0, &m[2].1), (&m[2].0, &m[2].1), (&m[3].0, &m[3].1)],
+            DecisionOutcome::Dismissed,
+            t(300),
+        );
+        let g = unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE);
+        assert_eq!(g.len(), 1);
+        assert_eq!(g[0].dismissals, 1);
+        assert_eq!(g[0].repeat_panelists, 0, "one decision cannot repeat a seat");
+    }
+
+    /// A member's attestation shows on the reading.
+    #[test]
+    fn an_attested_non_pursuit_is_marked_on_the_reading() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 3);
+        let ev = adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        let att = NonPursuitAttestation {
+            evidence: vec![ev],
+            subject: m[0].0.clone(),
+            attestor: m[1].0.clone(),
+            ground: GrievanceGround::NeverPursued,
+            closing_decision: None,
+            reasoning: "we filed it and the compact has not taken it up".into(),
+            filed_at: t(100 + CADENCE + 10),
+        };
+        let signed = Signed::build(att, &[(m[1].0.as_str(), &m[1].1)]).unwrap();
+        a.append(ArchiveEntry::NonPursuitAttested(signed)).unwrap();
+        let g = unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE);
+        assert_eq!(g.len(), 1);
+        assert!(g[0].attested, "the compact's own word for it is on the reading");
+    }
+
+    /// The alert compounds on the same rule the other omission readings use, plus the
+    /// signature a single accident does not have.
+    #[test]
+    fn the_alert_compounds_on_more_than_one_and_on_a_repeating_panel() {
+        let th = ErosionThresholds { grievance_cadence_seconds: CADENCE, ..Default::default() };
+        let as_of = Some(t(100 + 2 * CADENCE - 1));
+
+        // One record, inside twice the cadence, never pursued: a Notice.
+        let mut one = InMemoryArchive::new();
+        let m = compact_of(&mut one, 3);
+        adverse(&mut one, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        let al = erosion_alert_with(&one, as_of, &th);
+        assert_eq!(al.severity, ErosionSeverity::Notice);
+        assert_eq!(al.unanswered_grievances.len(), 1);
+        assert!(al.reasons.iter().any(|r| r.contains("no proceeding standing against them")));
+
+        // Two records: compounding.
+        let mut two = InMemoryArchive::new();
+        let m2 = compact_of(&mut two, 3);
+        adverse(&mut two, &m2[0].0, (&m2[1].0, &m2[1].1), ConductKind::Concern, None, t(100));
+        adverse(&mut two, &m2[0].0, (&m2[1].0, &m2[1].1), ConductKind::Violation, None, t(110));
+        assert_eq!(erosion_alert_with(&two, as_of, &th).severity, ErosionSeverity::Alert);
+
+        // One record, but the same seats dismissed it twice: compounding on the
+        // signature rather than on the count.
+        let mut rep = InMemoryArchive::new();
+        let m3 = compact_of(&mut rep, 5);
+        let ev = adverse(&mut rep, &m3[0].0, (&m3[1].0, &m3[1].1), ConductKind::Concern, None, t(100));
+        let panel: Vec<(&DidKey, &PrivKey)> = vec![(&m3[2].0, &m3[2].1), (&m3[3].0, &m3[3].1)];
+        for k in 0..2 {
+            let d = dispute_citing(&mut rep, (&m3[1].0, &m3[1].1), &m3[0].0, &[ev], t(200 + 10 * k));
+            decide(&mut rep, d, &panel, DecisionOutcome::Dismissed, t(205 + 10 * k));
+        }
+        let al3 = erosion_alert_with(&rep, as_of, &th);
+        assert_eq!(al3.unanswered_grievances.len(), 1);
+        assert_eq!(al3.unanswered_grievances[0].repeat_panelists, 2);
+        assert_eq!(al3.severity, ErosionSeverity::Alert);
+    }
+
+    /// Longest-unanswered first, the same worst-first ordering as the other readings.
+    #[test]
+    fn the_reading_is_worst_first() {
+        let mut a = InMemoryArchive::new();
+        let m = compact_of(&mut a, 3);
+        adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(100));
+        adverse(&mut a, &m[0].0, (&m[1].0, &m[1].1), ConductKind::Concern, None, t(50));
+        let g = unanswered_grievances(&a, Some(t(100 + 2 * CADENCE)), CADENCE);
+        assert_eq!(g.len(), 2);
+        assert!(g[0].seconds_since > g[1].seconds_since);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Substitution: the compact keeps the form and narrows what it enforces.
 // ---------------------------------------------------------------------------
 
@@ -5501,5 +6034,158 @@ mod substitution {
         assert!(!d.runs_downward(&th));
         assert!(enforcement_convergence_all(&a, Some(t(2 * YEAR)), WINDOW).is_empty());
         assert!(enforcement_direction_all(&a, Some(t(2 * YEAR)), WINDOW).is_empty());
+    }
+}
+
+// --- §5 designation consensus: who joined the gravest act, and who refused
+//
+// Measured by the adversary campaign before `DesignationDissent` existed: a
+// designation carried its deliberators and nothing else, so a compact of five in which
+// three designated and two would not read exactly like one that was unanimous.
+
+mod designation_consensus_lens {
+    use super::*;
+    use crate::analytics::designation_consensus;
+    use crate::lookup::has_capability;
+    use kc_escalation::{
+        Designation, DesignationDissent, DesignationTier, DesignationUrgency,
+        ReexaminationConclusion, ReexaminationOutcome,
+    };
+
+    /// A compact of five: the subject, three deliberators and one holdout.
+    fn compact() -> (InMemoryArchive, Vec<(PrivKey, DidKey)>, Cid) {
+        let mut a = InMemoryArchive::new();
+        let ids: Vec<(PrivKey, DidKey)> = (0..5)
+            .map(|_| {
+                let (sk, _pk, did) = fresh_id();
+                (sk, did)
+            })
+            .collect();
+        let refs: Vec<(&DidKey, &PrivKey)> = ids.iter().map(|(sk, did)| (did, sk)).collect();
+        publish_inter_admission(&mut a, &refs, t(10));
+        let subject = ids[0].1.clone();
+        let delibs: Vec<DidKey> = ids[1..4].iter().map(|(_, d)| d.clone()).collect();
+        let dz = Designation {
+            subject_community: subject,
+            tier: DesignationTier::HostisHumaniGeneris,
+            urgency: DesignationUrgency::Normal,
+            deliberators: delibs,
+            criteria: "constitutively destructive".into(),
+            cited_acts: vec![],
+            failed_restoration_cycles: vec![],
+            deliberation_cycles: vec![],
+            reversal_conditions: None,
+            reexamine_after: Some(t(1_000)),
+            decision_class: DecisionClass::SecondClass,
+            designated_at: t(100),
+        };
+        let signed = Signed::build(dz, &[(ids[1].1.as_str(), &ids[1].0)]).unwrap();
+        let cid = a.append(ArchiveEntry::DesignationDecided(signed)).unwrap();
+        (a, ids, cid)
+    }
+
+    fn dissent(a: &mut InMemoryArchive, who: &(PrivKey, DidKey), dz: Cid, at: i64) {
+        let d = DesignationDissent {
+            designation_cid: dz,
+            dissenter: who.1.clone(),
+            reasoning: "this is an anathema case".into(),
+            filed_at: t(at),
+        };
+        let signed = Signed::build(d, &[(who.1.as_str(), &who.0)]).unwrap();
+        a.append(ArchiveEntry::DesignationDissented(signed)).unwrap();
+    }
+
+    #[test]
+    fn the_split_is_read_from_the_record() {
+        let (mut a, ids, dz) = compact();
+        dissent(&mut a, &ids[4], dz, 200);
+        let c = designation_consensus(&a, &dz, Some(t(300)));
+        assert_eq!(c.tier, "HostisHumaniGeneris");
+        assert_eq!(c.deliberating.len(), 3);
+        assert_eq!(c.dissenting, vec![ids[4].1.as_str().to_string()]);
+        assert!(c.silent.is_empty());
+        assert_eq!(c.roll_size, 4, "the subject is not part of the roll it is judged by");
+        assert!(c.contested);
+        assert_eq!(c.consensus_share, Some(0.75));
+        assert_eq!(c.evidence.len(), 1);
+    }
+
+    /// The point of the denominator. A member that has said nothing is not a member that
+    /// agreed, and the reading refuses to conflate the two.
+    #[test]
+    fn silence_is_reported_as_silence() {
+        let (a, ids, dz) = compact();
+        let c = designation_consensus(&a, &dz, Some(t(300)));
+        assert_eq!(c.silent, vec![ids[4].1.as_str().to_string()]);
+        assert!(!c.contested, "nobody refused, which is not the same as everybody agreeing");
+        assert_eq!(c.consensus_share, Some(0.75));
+    }
+
+    /// A community that files twice counts once: the question is how many members
+    /// refused, not how many records they wrote.
+    #[test]
+    fn a_community_that_files_twice_counts_once() {
+        let (mut a, ids, dz) = compact();
+        dissent(&mut a, &ids[4], dz, 200);
+        dissent(&mut a, &ids[4], dz, 250);
+        let c = designation_consensus(&a, &dz, Some(t(300)));
+        assert_eq!(c.dissenting.len(), 1);
+        assert_eq!(c.evidence.len(), 2, "both records are cited as evidence");
+    }
+
+    #[test]
+    fn a_reading_of_something_that_is_not_a_designation_is_empty() {
+        let (a, _ids, _dz) = compact();
+        let c = designation_consensus(&a, &Cid::of_bytes(b"nothing"), Some(t(300)));
+        assert!(c.designation_cid.is_none() && c.roll_size == 0);
+    }
+
+    /// The vacatur is the third path to a reversal and the only one the irrecoverable
+    /// tier has, so the view's reversal join has to know it. Measured as a negative
+    /// control: with this test absent, blinding the join to a vacatur broke nothing in
+    /// either Rust suite, which is how a lens with a reader in only one tier rots.
+    #[test]
+    fn a_vacated_designation_reads_as_reversed() {
+        let (mut a, ids, dz) = compact();
+        let subject = &ids[0].1;
+        assert!(!has_capability(&a, subject, "MediatorSeat", Some(t(1_100))));
+        let vac = ReexaminationConclusion {
+            designation_cid: dz,
+            outcome: ReexaminationOutcome::Vacated,
+            examiners: vec![ids[1].1.clone(), ids[2].1.clone()],
+            reasoning: "the compact was wrong to designate at this tier".into(),
+            next_reexamine_after: None,
+            decision_class: DecisionClass::SecondClass,
+            concluded_at: t(1_050),
+        };
+        let signed = Signed::build(vac, &[(ids[1].1.as_str(), &ids[1].0)]).unwrap();
+        a.append(ArchiveEntry::ReexaminationConcluded(signed)).unwrap();
+        let view = crate::lookup::lookup(&a, subject, Some(t(1_100)));
+        assert!(view.designations.iter().all(|d| d.reversed));
+        assert_ne!(view.standing.as_str(), "Anathema");
+        assert!(has_capability(&a, subject, "MediatorSeat", Some(t(1_100))),
+            "a vacated designation withholds nothing");
+    }
+
+    /// The lens and the gate read one rule. `has_capability` is what a dashboard shows;
+    /// if it disagreed with `kc_archive::authority`, an operator would be told a
+    /// designated community held a seat it could not use.
+    #[test]
+    fn a_designation_withholds_the_offices_in_the_lens_too() {
+        let (a, ids, _dz) = compact();
+        let subject = &ids[0].1;
+        for office in ["MediatorSeat", "ObserverSeat", "ExaminerSeat", "Deliberation",
+                       "EmergencyPanelSeat"] {
+            assert!(!has_capability(&a, subject, office, Some(t(300))), "{office}");
+        }
+        for service in ["RescueCoordination", "Navigation", "Trade", "CommonsWithdrawal",
+                        "Communication"] {
+            assert!(has_capability(&a, subject, service, Some(t(300))),
+                "a designated community keeps every relation of exchange: {service}");
+        }
+        // And a community with no designation against it holds all ten.
+        for cap in ["MediatorSeat", "Trade"] {
+            assert!(has_capability(&a, &ids[4].1, cap, Some(t(300))));
+        }
     }
 }

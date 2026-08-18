@@ -38,7 +38,9 @@ use kc_observer::{
 };
 use kc_escalation::{
     Designation, InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition,
-    ReEntry, ReexaminationConclusion, RestitutionCompletion, RestitutionObligation,
+    DesignationDissent, ReEntry, ReexaminationConclusion, RestitutionCompletion,
+    NonPursuitAttestation,
+    RestitutionObligation,
     SubstantiveReEngagement,
 };
 use kc_identity::{
@@ -98,6 +100,13 @@ pub enum ArchiveEntry {
     DesignationDecided(Signed<Designation>),
     /// The recorded conclusion of a designation's mandated re-examination (§5).
     ReexaminationConcluded(Signed<ReexaminationConclusion>),
+    /// A member community's recorded refusal to join a designation (§5), self-signed.
+    /// Vetoes nothing; it is what makes the compact's own agreement legible.
+    DesignationDissented(Signed<DesignationDissent>),
+    /// A member community's attestation that evidence on the record has gone
+    /// unanswered (§5), self-signed. The other half of the same legibility: a dissent
+    /// says the compact would not join an act, and this says it would not open one.
+    NonPursuitAttested(Signed<NonPursuitAttestation>),
     /// A restitution obligation imposed on a community (§5).
     RestitutionObligated(Signed<RestitutionObligation>),
     /// A verification that a restitution obligation was met (§5), co-signed by a
@@ -244,6 +253,8 @@ impl ArchiveEntry {
             Self::LadderAdvanced(_) => "LadderAdvanced",
             Self::DesignationDecided(_) => "DesignationDecided",
             Self::ReexaminationConcluded(_) => "ReexaminationConcluded",
+            Self::DesignationDissented(_) => "DesignationDissented",
+            Self::NonPursuitAttested(_) => "NonPursuitAttested",
             Self::RestitutionObligated(_) => "RestitutionObligated",
             Self::RestitutionVerified(_) => "RestitutionVerified",
             Self::ReEntryCompleted(_) => "ReEntryCompleted",

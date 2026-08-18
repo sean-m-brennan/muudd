@@ -86,7 +86,8 @@ use kc_constitution::{
     MinimumContentAdoption, MinimumContentAmendment, MinimumSite,
 };
 use kc_escalation::{
-    Capability, DeliberationCycle, Designation, DesignationTier, DesignationUrgency,
+    Capability, DeliberationCycle, Designation, DesignationDissent, DesignationTier,
+    DesignationUrgency, GrievanceGround, NonPursuitAttestation,
     InjunctionChallenge, InjunctionConfirmation, InterimInjunction, LadderTransition, ReEntry,
     ReEntryWitnessAttestation, ReexaminationConclusion, ReexaminationOutcome,
     RestitutionCompletion, RestitutionObligation, SubstantiveReEngagement,
@@ -101,9 +102,28 @@ use kc_escalation::{
 /// is not the same reading as one nobody ever examined.
 type OverdueReexaminationRow = (String, String, String, i64, i64, usize);
 
+/// One designation's consensus reading: `(designation_cid, subject, tier, deliberating,
+/// dissenting, silent, roll_size, consensus_share, contested, evidence)`. Who joined the
+/// gravest act a compact can take, who refused it on the record, and who said nothing.
+type DesignationConsensusRow = (
+    String,
+    String,
+    String,
+    Vec<String>,
+    Vec<String>,
+    Vec<String>,
+    usize,
+    Option<f64>,
+    bool,
+    Vec<String>,
+);
+
 /// One silent standing function: `(community_did, function, seconds_since,
 /// cadence_seconds, last_was_a_null)`. Same two readers as above.
 type SilentFunctionRow = (String, String, i64, i64, bool);
+/// `(record_cid, subject_did, severity, ground, recorded_at, seconds_since,
+/// cadence_seconds, pursuits, dismissals, repeat_panelists, attested)`
+type UnansweredGrievanceRow = (String, String, String, String, i64, i64, i64, usize, usize, usize, bool);
 
 /// The thinning-deliberation reading: `(decisions, first_argument_count,
 /// latest_argument_count, first_span_seconds, latest_span_seconds,
@@ -2279,6 +2299,7 @@ impl PyArchive {
         enforcement_coverage_floor_permille=None,
         enforcement_dispersion_ceiling_permille=None,
         enforcement_downward_floor_permille=None,
+        grievance_cadence_seconds=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn erosion_alert(
@@ -2291,6 +2312,7 @@ impl PyArchive {
         enforcement_coverage_floor_permille: Option<u32>,
         enforcement_dispersion_ceiling_permille: Option<u32>,
         enforcement_downward_floor_permille: Option<u32>,
+        grievance_cadence_seconds: Option<i64>,
     ) -> PyResult<PyErosionAlert> {
         let as_of_ts = parse_as_of(as_of)?;
         let mut thresholds = kc_reputation::ErosionThresholds::default();
@@ -2314,6 +2336,9 @@ impl PyArchive {
         }
         if let Some(p) = enforcement_downward_floor_permille {
             thresholds.enforcement_downward_floor_permille = p;
+        }
+        if let Some(c) = grievance_cadence_seconds {
+            thresholds.grievance_cadence_seconds = c;
         }
         Ok(PyErosionAlert::from(&kc_reputation::erosion_alert_with(
             &self.inner,
@@ -2448,6 +2473,32 @@ impl PyArchive {
                     f.last_was_a_null,
                 )
             })
+            .collect())
+    }
+
+    /// Adverse records the compact put on its own file and then did not pursue, as
+    /// `(record_cid, subject_did, severity, ground, recorded_at, seconds_since,
+    /// cadence_seconds, pursuits, dismissals, repeat_panelists, attested)`, longest
+    /// unanswered first.
+    ///
+    /// `ground` is `NeverPursued` (no dispute ever cited it) or `ClosedUnresolved` (every
+    /// dispute that did was dismissed). A record carrying a rung above registered protest
+    /// is the compact's own enforcement act and is absent; so is one answered by an
+    /// `Upheld` or `Settled` decision, a restitution obligation, a designation, or a
+    /// dispute still running. No verdict: no protocol can tell a wrong dismissal from a
+    /// right one, and this reports the structure rather than the merits.
+    #[pyo3(signature = (as_of=None, cadence_seconds=None))]
+    fn unanswered_grievances(
+        &self,
+        as_of: Option<i64>,
+        cadence_seconds: Option<i64>,
+    ) -> PyResult<Vec<UnansweredGrievanceRow>> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let cadence = cadence_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().grievance_cadence_seconds);
+        Ok(kc_reputation::unanswered_grievances(&self.inner, as_of_ts, cadence)
+            .iter()
+            .map(grievance_row)
             .collect())
     }
 
@@ -3504,6 +3555,114 @@ impl PyArchive {
             .map(|c| c.to_string())
             .map_err(kc_err_to_py)
     }
+
+    /// A member's attestation that evidence on the record has gone unanswered (§5).
+    ///
+    /// `ground` is `NeverPursued` or `ClosedUnresolved`; the latter requires
+    /// `closing_decision`, and the former refuses it. The authority pass checks the claim
+    /// against the archive rather than taking it: an attestation is refused when the
+    /// evidence is not adverse or not about the subject, when the attestor is the subject
+    /// or shares no compact with it, when a dispute already cites the evidence on the
+    /// `NeverPursued` ground, when the named decision closes no dispute citing it, or
+    /// when the evidence is still inside the cadence. One signer, first-class.
+    #[pyo3(signature = (signer_priv, signer_did, attestor_did, subject_did, evidence,
+                        ground, reasoning, closing_decision=None, filed_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn append_non_pursuit(
+        &mut self,
+        signer_priv: Vec<u8>,
+        signer_did: &str,
+        attestor_did: &str,
+        subject_did: &str,
+        evidence: Vec<String>,
+        ground: &str,
+        reasoning: String,
+        closing_decision: Option<String>,
+        filed_at: Option<i64>,
+    ) -> PyResult<String> {
+        let ground = match ground {
+            "NeverPursued" => GrievanceGround::NeverPursued,
+            "ClosedUnresolved" => GrievanceGround::ClosedUnresolved,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "ground must be NeverPursued or ClosedUnresolved, got {other:?}"
+                )))
+            }
+        };
+        let g = NonPursuitAttestation {
+            evidence: evidence
+                .iter()
+                .map(|c| parse_cid(c))
+                .collect::<PyResult<Vec<_>>>()?,
+            subject: parse_did(subject_did)?,
+            attestor: parse_did(attestor_did)?,
+            ground,
+            closing_decision: match closing_decision {
+                Some(c) => Some(parse_cid(&c)?),
+                None => None,
+            },
+            reasoning,
+            filed_at: ts(filed_at.unwrap_or_else(now_seconds))?,
+        };
+        let sk = priv_from_bytes(&signer_priv);
+        let signed = Signed::build(g, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::NonPursuitAttested(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+    /// Append a community's recorded refusal to join a designation (§5). Signed by
+    /// `signer_priv`/`signer_did` (which may be an envoy key) and attributed to
+    /// `dissenter_did`. Vetoes nothing; it is what makes the compact's own agreement
+    /// legible.
+    #[pyo3(signature = (signer_priv, signer_did, dissenter_did, designation_cid, reasoning, filed_at))]
+    fn append_designation_dissent(
+        &mut self,
+        signer_priv: Vec<u8>,
+        signer_did: &str,
+        dissenter_did: &str,
+        designation_cid: &str,
+        reasoning: String,
+        filed_at: i64,
+    ) -> PyResult<String> {
+        let d = DesignationDissent {
+            designation_cid: parse_cid(designation_cid)?,
+            dissenter: parse_did(dissenter_did)?,
+            reasoning,
+            filed_at: ts(filed_at)?,
+        };
+        let sk = priv_from_bytes(&signer_priv);
+        let signed = Signed::build(d, &[(signer_did, &sk)]).map_err(kc_err_to_py)?;
+        self.inner
+            .append(ArchiveEntry::DesignationDissented(signed))
+            .map(|c| c.to_string())
+            .map_err(kc_err_to_py)
+    }
+
+    /// Who joined a designation, who refused it, and who said nothing (§5). Returns an
+    /// empty reading if `designation_cid` names no designation.
+    #[pyo3(signature = (designation_cid, as_of=None))]
+    fn designation_consensus(
+        &self,
+        designation_cid: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<DesignationConsensusRow> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let cid = parse_cid(designation_cid)?;
+        let c = kc_reputation::designation_consensus(&self.inner, &cid, as_of_ts);
+        Ok((
+            c.designation_cid.map(|x| x.to_string()).unwrap_or_default(),
+            c.subject,
+            c.tier,
+            c.deliberating,
+            c.dissenting,
+            c.silent,
+            c.roll_size,
+            c.consensus_share,
+            c.contested,
+            c.evidence.iter().map(|x| x.to_string()).collect(),
+        ))
+    }
 }
 
 fn parse_attested_function(s: &str) -> PyResult<AttestedFunction> {
@@ -3518,6 +3677,7 @@ fn parse_reexamination_outcome(s: &str) -> PyResult<ReexaminationOutcome> {
     match s {
         "Confirmed" => Ok(ReexaminationOutcome::Confirmed),
         "Reversed" => Ok(ReexaminationOutcome::Reversed),
+        "Vacated" => Ok(ReexaminationOutcome::Vacated),
         other => Err(PyValueError::new_err(format!("unknown re-examination outcome: {other}"))),
     }
 }
@@ -5213,6 +5373,18 @@ struct PyErosionAlert {
     /// function never staffed is absent: declining to open an office is not abandoning
     /// one.
     unstaffed_functions: Vec<(String, String, i64, i64)>,
+    /// `(record_cid, subject_did, severity, ground, recorded_at, seconds_since,
+    /// cadence_seconds, pursuits, dismissals, repeat_panelists, attested)` for each
+    /// adverse record the compact put on its own file and did not pursue, longest
+    /// unanswered first.
+    ///
+    /// The omission with a **named beneficiary**. Every other field here is a thing the
+    /// compact stopped doing; this is a thing it declines to do to one member, and
+    /// declining is compatible with a full calendar. Measured before it existed: a
+    /// compact that dismissed the same evidence four times through panels drawn from
+    /// three complicit communities read identically, on this alert and on every other
+    /// instrument, to one that prosecuted the same evidence to collective sanctions.
+    unanswered_grievances: Vec<UnansweredGrievanceRow>,
     /// The compact's enforcement has narrowed onto part of the shared taxonomy
     /// while spreading across subjects, else `None`.
     ///
@@ -5311,6 +5483,22 @@ impl From<&rep::EnforcementDirection> for PyEnforcementDirection {
     }
 }
 
+fn grievance_row(g: &rep::UnansweredGrievance) -> UnansweredGrievanceRow {
+    (
+        g.record_cid.to_string(),
+        g.subject_did.clone(),
+        g.severity.clone(),
+        g.ground.clone(),
+        g.recorded_at.as_second(),
+        g.seconds_since,
+        g.cadence_seconds,
+        g.pursuits,
+        g.dismissals,
+        g.repeat_panelists,
+        g.attested,
+    )
+}
+
 impl From<&rep::ErosionAlert> for PyErosionAlert {
     fn from(a: &rep::ErosionAlert) -> Self {
         Self {
@@ -5382,6 +5570,11 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
                         u.seconds_vacant,
                     )
                 })
+                .collect(),
+            unanswered_grievances: a
+                .unanswered_grievances
+                .iter()
+                .map(grievance_row)
                 .collect(),
             enforcement_convergence: a
                 .enforcement_convergence

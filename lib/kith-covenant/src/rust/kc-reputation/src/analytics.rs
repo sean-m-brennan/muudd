@@ -30,10 +30,10 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use kc_archive::{probationary_at, ArchiveEntry, InMemoryArchive};
+use kc_archive::{probationary_at, Archive, ArchiveEntry, InMemoryArchive};
 use kc_ceremony::inter::AntiSpiralFeature;
 use kc_commons::sanction_rank;
-use kc_conduct::{AttestedFunction, ConductBearing, ConductKind};
+use kc_conduct::{AttestedFunction, ConductBearing, ConductKind, LadderRung};
 use kc_constitution::{AmendmentKind, FastPeriod, Forbearance, ForbearanceChange, IncapableMatter};
 use kc_core::{time, Cid, DidKey, Timestamp};
 use kc_escalation::{dispute_ladder_rank, ReexaminationOutcome};
@@ -2431,6 +2431,18 @@ pub struct ErosionAlert {
     /// measuring found a compact with zero active mediators and zero active observers for
     /// forty-three years reading clean on every instrument.
     pub unstaffed_functions: Vec<UnstaffedFunction>,
+    /// Adverse records the compact put on its own file and did not pursue, longest
+    /// unanswered first ([`unanswered_grievances`]).
+    ///
+    /// The omission with a **named beneficiary**, which is what separates it from every
+    /// other reading here. A quiet pool, an empty seat and an unrevisited designation are
+    /// all things a compact stopped doing; this is a thing it declines to do *to one
+    /// member*, and declining is compatible with a full calendar. Measured before this
+    /// field existed: a compact that dismissed the same evidence four times through
+    /// panels drawn from three complicit communities scored identically, on this alert and
+    /// on every other instrument, to one that prosecuted the same evidence to collective
+    /// sanctions — and to one with nothing to prosecute at all.
+    pub unanswered_grievances: Vec<UnansweredGrievance>,
     /// The compact's enforcement has narrowed onto part of the taxonomy while
     /// spreading across subjects ([`enforcement_convergence`]).
     ///
@@ -2514,6 +2526,127 @@ pub struct OverdueReexamination {
 /// `confirmations` saying how many renewals the designation has been through. A
 /// designation overdue on its third renewal and one nobody ever examined are no longer
 /// the same reading.
+/// Who joined a designation, who refused it, and who said nothing (§5).
+///
+/// The reading that answers the one question a designation's record could not answer.
+/// `Designation` carries its deliberators and their reasoning; nothing carried a
+/// member's refusal, so a compact of six in which three designated and three would not
+/// read exactly like one that was unanimous. `DesignationDissent` is the record and this
+/// is the reading over it.
+///
+/// The denominator is the roll of every compact that seats at least one deliberator, as
+/// of the designation, minus the subject: the members whose agreement is in question are
+/// the ones who could have joined the act. A community that has said nothing is
+/// reported as **silent** rather than as consenting, because those are different things
+/// and the whole point of the reading is not to conflate them.
+///
+/// Renders no verdict, like every lens here. A contested designation is not an illegitimate
+/// one: a dissent vetoes nothing, and a compact may be right over its members' objections.
+/// What the numbers are for is that a later reader, or the observer corps, can see the
+/// split at all.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct DesignationConsensus {
+    pub designation_cid: Option<Cid>,
+    pub subject: String,
+    /// `Anathema` or `HostisHumaniGeneris`.
+    pub tier: String,
+    /// The co-signing deliberators, distinct, sorted.
+    pub deliberating: Vec<String>,
+    /// Communities that filed a dissent, distinct, in the order they filed.
+    pub dissenting: Vec<String>,
+    /// Members of the roll that neither joined nor refused. Not consent.
+    pub silent: Vec<String>,
+    /// The roll the reading is against, excluding the subject.
+    pub roll_size: usize,
+    /// Deliberators as a share of the roll; `None` when no roll resolves (an archive
+    /// with no admission records under any label).
+    pub consensus_share: Option<f64>,
+    /// Whether any member refused on the record.
+    pub contested: bool,
+    /// The dissent records, in filing order.
+    pub evidence: Vec<Cid>,
+}
+
+/// Compute [`DesignationConsensus`] for one designation as of `as_of`.
+///
+/// A community that filed twice counts once: the question is how many members refused,
+/// not how many records they wrote.
+pub fn designation_consensus(
+    archive: &InMemoryArchive,
+    designation_cid: &Cid,
+    as_of: Option<Timestamp>,
+) -> DesignationConsensus {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let Some(ArchiveEntry::DesignationDecided(signed)) = archive.get(designation_cid) else {
+        return DesignationConsensus::default();
+    };
+    let d = &signed.payload;
+    let deliberators: BTreeSet<String> =
+        d.deliberators.iter().map(|x| x.as_str().to_string()).collect();
+
+    // The roll: every compact label seating at least one deliberator, unioned.
+    let mut rolls: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::InterCommunityWitness(s) = e {
+            if s.payload.witnessed_at > d.designated_at {
+                continue;
+            }
+            let roll = rolls.entry(s.payload.compact_label.clone()).or_default();
+            for p in &s.payload.participants {
+                roll.insert(p.as_str().to_string());
+            }
+        }
+    }
+    let mut members: BTreeSet<String> = BTreeSet::new();
+    for roll in rolls.values() {
+        if roll.iter().any(|m| deliberators.contains(m)) {
+            members.extend(roll.iter().cloned());
+        }
+    }
+    members.remove(d.subject_community.as_str());
+
+    let mut dissenting: Vec<String> = Vec::new();
+    let mut evidence: Vec<Cid> = Vec::new();
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut filings: Vec<(Timestamp, &Cid, &str)> = Vec::new();
+    for (cid, e) in archive.iter() {
+        if let ArchiveEntry::DesignationDissented(s) = e {
+            if &s.payload.designation_cid != designation_cid || s.payload.filed_at > as_of {
+                continue;
+            }
+            filings.push((s.payload.filed_at, cid, s.payload.dissenter.as_str()));
+        }
+    }
+    filings.sort_by_key(|(at, _, _)| *at);
+    for (_, cid, who) in filings {
+        evidence.push(*cid);
+        if seen.insert(who.to_string()) {
+            dissenting.push(who.to_string());
+        }
+    }
+
+    let refused: BTreeSet<String> = dissenting.iter().cloned().collect();
+    let silent: Vec<String> = members
+        .iter()
+        .filter(|m| !deliberators.contains(*m) && !refused.contains(*m))
+        .cloned()
+        .collect();
+    let roll_size = members.len();
+    let joined = members.iter().filter(|m| deliberators.contains(*m)).count();
+    DesignationConsensus {
+        designation_cid: Some(*designation_cid),
+        subject: d.subject_community.as_str().to_string(),
+        tier: d.tier.as_str().to_string(),
+        deliberating: deliberators.into_iter().collect(),
+        dissenting,
+        silent,
+        roll_size,
+        consensus_share: (roll_size > 0).then(|| joined as f64 / roll_size as f64),
+        contested: !refused.is_empty(),
+        evidence,
+    }
+}
+
 pub fn overdue_reexaminations(
     archive: &InMemoryArchive,
     as_of: Option<Timestamp>,
@@ -2699,6 +2832,11 @@ pub struct ErosionThresholds {
     /// 800‰, leaving room for the scrutiny of entrants that §2 probation exists to
     /// license.
     pub enforcement_downward_floor_permille: u32,
+    /// How long an adverse record may stand with no proceeding against it before the
+    /// non-pursuit reading counts it. The same ninety days as the attestation cadence,
+    /// and the same one the authority pass requires before a member may attest it: a
+    /// compact still working through its ladder has not failed to.
+    pub grievance_cadence_seconds: i64,
 }
 
 impl Default for ErosionThresholds {
@@ -2711,6 +2849,7 @@ impl Default for ErosionThresholds {
             enforcement_coverage_floor_permille: 500,
             enforcement_dispersion_ceiling_permille: 500,
             enforcement_downward_floor_permille: 800,
+            grievance_cadence_seconds: 90 * 86_400,
         }
     }
 }
@@ -2741,6 +2880,309 @@ pub struct UnstaffedFunction {
     /// When the last seat in this function expired.
     pub vacant_since: Timestamp,
     pub seconds_vacant: i64,
+}
+
+/// One adverse record on the compact's own file that no proceeding answers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnansweredGrievance {
+    pub record_cid: Cid,
+    pub subject_did: String,
+    /// `Minor` | `Serious` | `Grave`, so a reader can weigh a dropped triviality against
+    /// a dropped grave finding rather than counting them alike.
+    pub severity: String,
+    /// `NeverPursued` (no dispute ever cited it) or `ClosedUnresolved` (every dispute
+    /// that did was dismissed). The two shapes of the same omission, kept apart because
+    /// they say different things about the compact: one never took the matter up, and one
+    /// took it up and put it down.
+    pub ground: String,
+    pub recorded_at: Timestamp,
+    pub seconds_since: i64,
+    pub cadence_seconds: i64,
+    /// Disputes citing this record.
+    pub pursuits: usize,
+    /// Dismissals over those disputes.
+    pub dismissals: usize,
+    /// Mediators who sat on more than one of those dismissals.
+    ///
+    /// The burial signature, and the one thing here a panel cannot produce by accident: a
+    /// compact whose panels dismiss the same evidence again and again out of the same few
+    /// seats is a different object from one whose independent panels each reached the same
+    /// conclusion. It is still not a verdict on the verdicts — a small compact has few
+    /// mediators and some repetition follows — which is why it is a count rather than a
+    /// threshold.
+    pub repeat_panelists: usize,
+    /// Whether a member has attested the non-pursuit (`NonPursuitAttested`). The
+    /// compact's own word for it, when it has one.
+    pub attested: bool,
+}
+
+/// Adverse records the compact put on its own file and then did not pursue (§5).
+///
+/// **The failure with no adversary and no drift.** Every other erosion reading here is a
+/// compact doing less of something it used to do. This one is a compact that keeps every
+/// form — panels sit, decisions are filed, arguments are answered — and declines to move
+/// against one member. Measured: against a complicit majority, a compact that dismissed
+/// the same evidence four times read identically, on the erosion alert and on every
+/// convergence, direction, concentration, silence and vacancy reading the protocol has,
+/// to a compact that prosecuted the same evidence to collective sanctions, and to a
+/// compact with nothing to prosecute at all. Burial produces observances, so every
+/// instrument that counts observances reads it as diligence.
+///
+/// **Absolute, like the silence readings and for the same reason.** The reference is a
+/// clock against a filed record, never the compact's own recent behaviour: a compact that
+/// pursues nothing has no shares to skew, no concentration to spike and no cadence to
+/// fall behind, and a relative measure over a population that all agrees to look away is
+/// unchanged by the looking away.
+///
+/// **What is not read, and why.** An adverse record carrying a rung *above* registered
+/// protest is the compact's own enforcement act and is not a grievance awaiting one:
+/// registration and protest are the complainant's acts, available to a wronged party with
+/// no office's help, and reciprocal suspension and above are where the compact's own
+/// machinery engages (measured: an honest minority reached limited sanctions alone and
+/// could go no further). An `Upheld` or `Settled` decision answers the matter, as does a
+/// restitution obligation or a designation citing it, as does a dispute still running.
+/// Only a dismissal leaves a grievance standing.
+///
+/// **What it does not claim.** No protocol can tell a wrong dismissal from a right one,
+/// and nothing here tries. Two structural facts are reported and neither is a verdict:
+/// that a grievance stands with no proceeding against it, and that where proceedings did
+/// happen, the same seats closed them. A compact with an honest answer to both has one;
+/// the point is that it now has to give it, where before there was nothing on any
+/// instrument to answer.
+pub fn unanswered_grievances(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    cadence_seconds: i64,
+) -> Vec<UnansweredGrievance> {
+    let as_of = as_of.unwrap_or_else(time::now);
+
+    // Disputes by the evidence they cite; decisions by the dispute they decide.
+    let mut disputes: BTreeMap<String, Vec<Cid>> = BTreeMap::new();
+    // dispute -> (decided_at, dismissed?, panel). Kept in full rather than reduced to a
+    // dismissal set, because which decision came **last** is what governs: a dispute
+    // dismissed and later upheld was answered, and one upheld and later dismissed was
+    // not. Reducing this to "was there ever a dismissal" made the upheld case
+    // unreachable, which a negative control caught by breaking nothing.
+    let mut decisions: BTreeMap<String, Vec<(Timestamp, bool, Vec<String>)>> = BTreeMap::new();
+    let mut attested: BTreeSet<String> = BTreeSet::new();
+    // Evidence some act of the compact moved on, whatever came of the act.
+    let mut acted_on: BTreeSet<String> = BTreeSet::new();
+    // The subject-level answers. A prosecuting compact does not file a dispute per
+    // conduct record; it accumulates a course of conduct and escalates once, so
+    // per-record citation is the wrong question to ask of it. These are the answers that
+    // are about the *member*: disputes naming it as respondent, restitution imposed on
+    // it, and designations of it.
+    let mut against: BTreeMap<String, Vec<Cid>> = BTreeMap::new();
+    let mut restituted: BTreeMap<String, Vec<Timestamp>> = BTreeMap::new();
+    let mut designated: BTreeMap<String, Vec<Timestamp>> = BTreeMap::new();
+    // Per dispute, the latest thing that happened on it: its filing, its latest rung, or
+    // its latest argument. An open dispute answers a grievance only while it is running;
+    // one abandoned for longer than the cadence is not a proceeding, and treating it as
+    // one would let a single dormant filing hold every reading off a member for good.
+    let mut activity: BTreeMap<String, Timestamp> = BTreeMap::new();
+
+    for (cid, entry) in archive.iter() {
+        match entry {
+            ArchiveEntry::DisputeFiled(s) if s.payload.filed_at <= as_of => {
+                for r in &s.payload.references {
+                    disputes.entry(r.to_string()).or_default().push(*cid);
+                }
+                against
+                    .entry(s.payload.respondent.as_str().to_string())
+                    .or_default()
+                    .push(*cid);
+                let e = activity.entry(cid.to_string()).or_insert(s.payload.filed_at);
+                *e = (*e).max(s.payload.filed_at);
+            }
+            ArchiveEntry::LadderAdvanced(s) if s.payload.transitioned_at <= as_of => {
+                let e = activity
+                    .entry(s.payload.dispute_cid.to_string())
+                    .or_insert(s.payload.transitioned_at);
+                *e = (*e).max(s.payload.transitioned_at);
+            }
+            ArchiveEntry::ArgumentFiled(s) if s.payload.submitted_at <= as_of => {
+                let e = activity
+                    .entry(s.payload.dispute_cid.to_string())
+                    .or_insert(s.payload.submitted_at);
+                *e = (*e).max(s.payload.submitted_at);
+            }
+            ArchiveEntry::MediationDecided(s) if s.payload.decided_at <= as_of => {
+                use kc_mediation::DecisionOutcome::*;
+                let closing = match s.payload.outcome {
+                    // A dismissal leaves the grievance standing.
+                    Dismissed => Some(true),
+                    // The complaint succeeded, or the parties settled it. Either way the
+                    // matter was answered, and by the compact's own instrument.
+                    Upheld | Settled => Some(false),
+                    // Referred and the rest close nothing: the matter is still before
+                    // the compact.
+                    _ => None,
+                };
+                if let Some(dismissed) = closing {
+                    decisions
+                        .entry(s.payload.dispute_cid.to_string())
+                        .or_default()
+                        .push((
+                            s.payload.decided_at,
+                            dismissed,
+                            s.payload.panel.iter().map(|m| m.as_str().to_string()).collect(),
+                        ));
+                }
+            }
+            ArchiveEntry::NonPursuitAttested(s) if s.payload.filed_at <= as_of => {
+                attested.extend(s.payload.evidence.iter().map(|e| e.to_string()));
+            }
+            ArchiveEntry::RestitutionObligated(s) if s.payload.imposed_at <= as_of => {
+                restituted
+                    .entry(s.payload.subject_community.as_str().to_string())
+                    .or_default()
+                    .push(s.payload.imposed_at);
+            }
+            ArchiveEntry::DesignationDecided(s) if s.payload.designated_at <= as_of => {
+                acted_on.extend(s.payload.cited_acts.iter().map(|a| a.to_string()));
+                designated
+                    .entry(s.payload.subject_community.as_str().to_string())
+                    .or_default()
+                    .push(s.payload.designated_at);
+            }
+            _ => {}
+        }
+    }
+
+    let mut out: Vec<UnansweredGrievance> = Vec::new();
+    for (cid, entry) in archive.iter() {
+        let ArchiveEntry::ConductAttested(s) = entry else { continue };
+        let c = &s.payload;
+        if c.recorded_at > as_of
+            || !matches!(c.kind, ConductKind::Concern | ConductKind::Violation)
+        {
+            continue;
+        }
+        let key = cid.to_string();
+        if acted_on.contains(&key) {
+            continue;
+        }
+        let seconds_since = as_of.as_second() - c.recorded_at.as_second();
+        if seconds_since <= cadence_seconds {
+            continue;
+        }
+
+        // Is the compact moving against this member at all? A prosecuting compact
+        // accumulates a course of conduct and escalates once, so asking whether this
+        // particular record was cited reads a compact that prosecuted its member as one
+        // that buried six of its own findings. Measured: the determined-adversary
+        // campaign, where the subject was restituted three times and designated twice,
+        // scored six unanswered records on the per-citation reading alone. Any of a live
+        // dispute against the member, a restitution imposed on it, or a designation of it
+        // is the compact having moved.
+        let subject = c.subject_community.as_str().to_string();
+        let since = |t: &Timestamp| *t >= c.recorded_at && *t <= as_of;
+        let moved = designated.get(&subject).is_some_and(|d| d.iter().any(|t| *t <= as_of))
+            || restituted.get(&subject).is_some_and(|r| r.iter().any(since))
+            || against.get(&subject).is_some_and(|ds| {
+                ds.iter().any(|d| {
+                    let dkey = d.to_string();
+                    match decisions.get(&dkey) {
+                        // Decided in the member's disfavour, after this came to light.
+                        Some(taken) => taken
+                            .iter()
+                            .max_by_key(|(at, _, _)| *at)
+                            .is_some_and(|(at, dismissed, _)| !*dismissed && since(at)),
+                        // Undecided: a live proceeding answers, an abandoned one does
+                        // not. Without the staleness bound one dormant filing would hold
+                        // every reading off a member permanently.
+                        None => activity.get(&dkey).is_some_and(|last| {
+                            as_of.as_second() - last.as_second() <= cadence_seconds
+                        }),
+                    }
+                })
+            });
+        if moved {
+            continue;
+        }
+
+        let empty = Vec::new();
+        let citing = disputes.get(&key).unwrap_or(&empty);
+        let mut panels: Vec<Vec<String>> = Vec::new();
+        let mut answered = false;
+        for d in citing {
+            let dkey = d.to_string();
+            let Some(taken) = decisions.get(&dkey) else {
+                // Filed, undecided: the ladder is still running, and a running
+                // proceeding is not an unanswered one.
+                answered = true;
+                break;
+            };
+            // The last word on the dispute governs.
+            let last = taken
+                .iter()
+                .max_by_key(|(at, _, _)| *at)
+                .expect("the entry exists, so it has at least one decision");
+            if !last.1 {
+                answered = true;
+                break;
+            }
+            panels.extend(taken.iter().filter(|(_, d, _)| *d).map(|(_, _, p)| p.clone()));
+        }
+        if answered {
+            continue;
+        }
+
+        let ground = if panels.is_empty() {
+            // Nothing ever took it up. An enforcement act needs no proceeding to
+            // await: the rung is the compact having moved.
+            let is_enforcement_act = c.ladder_rung.is_some_and(enforcement_rung);
+            if is_enforcement_act {
+                continue;
+            }
+            "NeverPursued"
+        } else {
+            "ClosedUnresolved"
+        };
+
+        let mut seen: BTreeMap<String, usize> = BTreeMap::new();
+        for panel in &panels {
+            // Per dismissal, not per seat: a mediator named twice on one panel is one
+            // seat, and the reading is about seats recurring across decisions.
+            for m in panel.iter().collect::<BTreeSet<_>>() {
+                *seen.entry(m.clone()).or_default() += 1;
+            }
+        }
+        out.push(UnansweredGrievance {
+            record_cid: *cid,
+            subject_did: c.subject_community.as_str().to_string(),
+            severity: format!("{:?}", c.severity),
+            ground: ground.to_string(),
+            recorded_at: c.recorded_at,
+            seconds_since,
+            cadence_seconds,
+            pursuits: citing.len(),
+            dismissals: panels.len(),
+            repeat_panelists: seen.values().filter(|n| **n > 1).count(),
+            attested: attested.contains(&key),
+        });
+    }
+    // Longest-unanswered first, the same worst-first ordering the other omission
+    // readings use.
+    out.sort_by(|a, b| {
+        b.seconds_since
+            .cmp(&a.seconds_since)
+            .then_with(|| a.subject_did.cmp(&b.subject_did))
+            .then_with(|| a.record_cid.to_string().cmp(&b.record_cid.to_string()))
+    });
+    out
+}
+
+/// Whether a ladder rung is the compact's own machinery rather than a party's own act.
+///
+/// Registration and protest are available to a wronged party with no office's help, and
+/// were measured to be: against a complicit majority the honest complainant climbed to
+/// limited sanctions alone and could go no further, because reciprocal suspension is
+/// where the ladder starts needing somebody other than the complainant. So a record
+/// sitting at registration or protest is a complaint lodged, and one sitting above them
+/// is the compact having moved.
+fn enforcement_rung(rung: LadderRung) -> bool {
+    !matches!(rung, LadderRung::DisputeRegistered | LadderRung::RegisteredProtest)
 }
 
 /// Functions that have gone quiet: no act and no attested null within the cadence
@@ -3368,7 +3810,7 @@ fn classify_direction(
         v
     };
     let subject_down = probationary(act.subject);
-    let reporter_down = act.reporters.iter().any(|r| probationary(r));
+    let reporter_down = act.reporters.iter().any(&mut probationary);
     match (subject_down, reporter_down) {
         (true, false) => Ordering::Less,
         (false, true) => Ordering::Greater,
@@ -3442,18 +3884,24 @@ pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> Ero
 /// instance → `Notice`, and two-or-more dimensions **or** any dimension eroded more
 /// than once → `Alert`.
 ///
-/// The twelve dimensions divide three ways, and the division is the whole design.
+/// The thirteen dimensions divide three ways, and the division is the whole design.
 /// Four fire on an **act**: somebody amends the incapable list, narrows the adopted
-/// ground, shortens a fast, or deliberates during one. Six fire on **omission** or
+/// ground, shortens a fast, or deliberates during one. Seven fire on **omission** or
 /// against a pinned baseline: a re-affirmation that never came, a ceremony drawing
 /// fewer witnesses than at its founding, a thinning deliberation, a designation left
-/// unexamined, a function gone quiet, an office left empty. The last two fire on
-/// **intensification**: a compact enforcing harder and narrower than it recites.
+/// unexamined, a function gone quiet, an office left empty, and a grievance the compact
+/// filed and did not pursue. Two fire on **intensification**: a compact enforcing
+/// harder and narrower than it recites.
 ///
 /// An alert built only from act-triggered signals reads a polity that has stopped
 /// functioning as a polity in perfect health. An alert built only from those two
 /// families reads a polity that has kept every form and substituted a smaller object
-/// underneath them as its most vigorous member.
+/// underneath them as its most vigorous member. And the omission family itself divides
+/// once more: six of its seven are things the compact stopped doing, and the seventh is
+/// a thing it declines to do to one member, which is compatible with a full calendar.
+/// Measured before that dimension existed: a compact that dismissed the same evidence
+/// four times graded identically to one that prosecuted it to collective sanctions and
+/// to one with nothing to prosecute at all.
 ///
 /// Diagnostic only, unchanged: nothing is signed, no record is emitted, and an
 /// overdue re-affirmation is *reported*, never *enforced*. Whether the cadence
@@ -3656,6 +4104,38 @@ pub fn erosion_alert_with(
             compounding = true;
         }
     }
+    // The omission with a named beneficiary. Read from the same instant as the rest, and
+    // counted as its own dimension rather than folded into the silence readings: those
+    // ask whether the compact is still working, and this asks who it is not working
+    // against.
+    let unanswered_grievances = unanswered_grievances(
+        archive,
+        Some(as_of_ts),
+        thresholds.grievance_cadence_seconds,
+    );
+    if !unanswered_grievances.is_empty() {
+        dimensions += 1;
+        let closed: usize = unanswered_grievances.iter().filter(|g| g.dismissals > 0).count();
+        reasons.push(format!(
+            "{} adverse record(s) with no proceeding standing against them past the \
+             {}-day cadence ({} closed without resolution)",
+            unanswered_grievances.len(),
+            thresholds.grievance_cadence_seconds / 86_400,
+            closed
+        ));
+        // More than one dropped record, one dropped for longer than a second full
+        // cadence, or the same seats closing the same evidence more than once. The first
+        // two are the duration rule the other omission readings use; the third is the
+        // signature a single accident does not have.
+        if unanswered_grievances.len() > 1
+            || unanswered_grievances
+                .iter()
+                .any(|g| g.seconds_since > 2 * thresholds.grievance_cadence_seconds)
+            || unanswered_grievances.iter().any(|g| g.repeat_panelists > 0)
+        {
+            compounding = true;
+        }
+    }
     if !unstaffed.is_empty() {
         dimensions += 1;
         reasons.push(format!(
@@ -3751,6 +4231,7 @@ pub fn erosion_alert_with(
         overdue_reexaminations,
         silent_functions: silent,
         unstaffed_functions: unstaffed,
+        unanswered_grievances,
         enforcement_convergence,
         enforcement_direction,
     }

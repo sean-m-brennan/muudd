@@ -183,6 +183,24 @@ pub enum ReexaminationOutcome {
     /// The designation is reversed. Requires the reversal itself to be recorded by the
     /// one path that already exists, so "reversed" keeps a single definition.
     Reversed,
+    /// The designation was an **error of the compact** and falls on this record alone.
+    ///
+    /// Distinct from `Reversed`, and the distinction is what makes the irrecoverable
+    /// tier examinable at all. `Reversed` reports a reversal that some other record
+    /// already carries, and for an `Anathema` that record is a re-entry or a lifting;
+    /// `HostisHumaniGeneris` has neither, so before this variant existed there was no
+    /// conclusion a panel re-examining that tier could reach except to confirm it.
+    ///
+    /// The doctrine names the guards against the compact's own response becoming
+    /// demonic as "public deliberation, slow procedure, periodic re-examination,
+    /// willingness to be wrong about past designations", and holds them to matter most
+    /// for this tier (justus_hostis.md "Design implications"). Willingness to be wrong
+    /// needs somewhere to be written down.
+    ///
+    /// What it does **not** do is open a way back for the designated: vacating says the
+    /// compact should not have designated, not that the designated has returned. Re-entry
+    /// stays unavailable for `HostisHumaniGeneris` either way.
+    Vacated,
 }
 
 impl ReexaminationOutcome {
@@ -190,6 +208,7 @@ impl ReexaminationOutcome {
         match self {
             Self::Confirmed => "Confirmed",
             Self::Reversed => "Reversed",
+            Self::Vacated => "Vacated",
         }
     }
 }
@@ -224,6 +243,107 @@ pub struct ReexaminationConclusion {
     pub next_reexamine_after: Option<Timestamp>,
     pub decision_class: DecisionClass,
     pub concluded_at: Timestamp,
+}
+
+/// A member community's recorded refusal to join a designation (§5).
+///
+/// A designation carries its deliberators and their published reasoning, and nothing
+/// else, so a compact of seven in which two designate and five decline reads exactly
+/// like one in which all seven did. Measured: the refusal was unrecordable. The archive
+/// held no way for a community to say "I considered this and I will not join it", which
+/// means the one question a reader most needs answered about the gravest act in the life
+/// of a compact — did the compact agree? — could not be answered from the record at all.
+///
+/// The doctrine wants this legible from both ends. Designation "cannot be unilateral nor
+/// can it be by simple majority" and "requires explicit deliberation by all compact
+/// members" (`bounded_conflict.md` condition 2), which presumes that a member's position
+/// is a thing that exists; and the danger the whole tier is hedged against is a compact
+/// talking itself into an enemy, for which the first evidence is always that some of its
+/// members would not go along.
+///
+/// A dissent **vetoes nothing.** The quorum is the quorum, and handing any member a veto
+/// over a designation would hand the capturing faction the same veto over being named.
+/// What it does is put the split on the record, where `designation_consensus` can read
+/// it and the observer corps can weigh it.
+///
+/// One signer: this is a member speaking for itself, not a decision. Filed by the
+/// dissenter, attributed to the dissenter, and irrevocable like any other record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DesignationDissent {
+    /// The `DesignationDecided` record being dissented from; must resolve.
+    pub designation_cid: Cid,
+    /// The refusing community; the record's principal.
+    pub dissenter: DidKey,
+    /// Why. Required non-empty, on the same ground as a deliberation cycle's reasoning
+    /// and a mediation decision's: a refusal that says nothing is a mood, and the
+    /// compact's own account of a disagreement is the part a later reader needs.
+    pub reasoning: String,
+    pub filed_at: Timestamp,
+}
+
+// -------------------------------------------------------------------------
+// The withheld proceeding
+// -------------------------------------------------------------------------
+
+/// Why a grievance stands unanswered: nothing ever reached it, or something closed it
+/// without resolving it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GrievanceGround {
+    /// No dispute in the archive cites the evidence at all. The compact did not decide
+    /// the matter; it never took it up.
+    NeverPursued,
+    /// A dispute citing the evidence was closed by a decision and the attestor says the
+    /// matter is unresolved. The decision is named in `closing_decision`.
+    ClosedUnresolved,
+}
+
+impl GrievanceGround {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::NeverPursued => "NeverPursued",
+            Self::ClosedUnresolved => "ClosedUnresolved",
+        }
+    }
+}
+
+/// A member's attestation that evidence on the record has gone unanswered (§5).
+///
+/// The counterpart of [`DesignationDissent`], on the other side of the same act. A
+/// dissent records a refusal to *join* a designation, so a reading over it can say
+/// whether the compact agreed. Nothing recorded a refusal to *open* one, and the
+/// measurement is that the second gap is the worse of the two: against a complicit
+/// majority the honest complainant reached limited sanctions alone and stopped there,
+/// and a compact that dismissed the same evidence four times read identically, on every
+/// instrument the protocol has, to one that prosecuted it to collective sanctions.
+///
+/// It decides nothing and alleges no verdict. No protocol can tell a wrong dismissal
+/// from a right one, and this does not try. What it records is the **structural** fact
+/// that a grievance stands with no proceeding against it, which is checkable — so the
+/// authority pass checks it, and an attestation whose claim is false when filed (a
+/// dispute is open on that evidence, or the named decision closes no dispute citing it)
+/// is refused. The record is therefore not an accusation a faction can mint; it is a
+/// claim about the archive that the archive either bears out or does not.
+///
+/// One signer, first-class: a member speaking for itself. Requiring a quorum to record
+/// that the quorum will not act would hand the shielding majority a veto over being
+/// noticed, which is the whole of what it wants.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NonPursuitAttestation {
+    /// The adverse conduct records that stand unanswered. Non-empty; each must resolve
+    /// to a conduct record whose subject is `subject`.
+    pub evidence: Vec<Cid>,
+    /// The community the evidence is about.
+    pub subject: DidKey,
+    /// The member attesting; the record's principal.
+    pub attestor: DidKey,
+    pub ground: GrievanceGround,
+    /// The closing decision, required for `ClosedUnresolved` and refused otherwise.
+    pub closing_decision: Option<Cid>,
+    /// Why the matter is unresolved. Required non-empty, on the same ground as a
+    /// dissent's reasoning: an attestation that says nothing leaves the next reader
+    /// exactly where an unrecorded one would.
+    pub reasoning: String,
+    pub filed_at: Timestamp,
 }
 
 // -------------------------------------------------------------------------

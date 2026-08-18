@@ -1,4 +1,4 @@
-*Previous: [Erosion legibility](erosion-legibility.md)*
+*Previous: [The captured prosecution](captured-prosecution.md)*
 
 # AutonomousTrust integration: melding AT and kith-covenant, hosted in KC
 
