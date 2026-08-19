@@ -23,7 +23,7 @@ use kc_ceremony::inter::{
     InterCredentialingOutcome, InterCredentialingRunner, ParticipantContext, REQUIRED_FEATURES,
 };
 use kc_ceremony::intra::IntraCommunityRiteRunner;
-use kc_ceremony::recitation::{Recitation, RecitationVersion};
+use kc_ceremony::recitation::{Commitment, CommonVirtueMovement, Recitation, RecitationVersion};
 use kc_conduct::{ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity};
 use kc_core::{
     keys, time, Alg, Cid, DidKey, KcError, KcResult, PrivKey, PubKey, Signed, Timestamp,
@@ -202,7 +202,13 @@ fn run_intra_rite(c: &Community, now: Timestamp) -> Signed<kc_ceremony::intra::I
             movement_substrate: "substrate".into(),
             movement_fallenness: "fallenness".into(),
             movement_recognition: "recognition".into(),
-            movement_common_virtue: "common virtue".into(),
+            movement_common_virtue: CommonVirtueMovement::new(
+                "We commit to the virtues this compact relies on.",
+                vec![
+                    Commitment::new("truthfulness", "We tell the truth."),
+                    Commitment::new("restitution", "We make good what we broke."),
+                ],
+            ),
             movement_non_ultimacy: "non-ultimacy".into(),
             language_tag: "en".into(),
             translation_en: None,
@@ -218,7 +224,6 @@ fn run_intra_rite(c: &Community, now: Timestamp) -> Signed<kc_ceremony::intra::I
             recitation,
             vec![attestation],
             &c.root_priv,
-            RecitationVersion::current(),
             now,
         )
         .unwrap()
@@ -534,6 +539,7 @@ fn delegate_signed_conduct(
             ladder_rung: None,
             decision_class: DecisionClass::FirstClass,
             references: vec![],
+            commitments_cited: vec![],
             narrative: note.into(),
             observed_at: at,
             recorded_at: at,
@@ -693,6 +699,7 @@ fn conduct(
             ladder_rung: None,
             decision_class: dc,
             references: vec![],
+            commitments_cited: vec![],
             narrative: "x".into(),
             observed_at: at,
             recorded_at: at,
@@ -1388,6 +1395,30 @@ mod escalation {
 
     /// An attested adverse act by `subject`, appended and returned by CID. What the
     /// expedited path's covenant-facing floor requires a designation to cite.
+    /// The citation a designation fixture anchors on. Idempotent, because a record is
+    /// content-addressed: two fixtures asking for the same act at the same instant want
+    /// the same record, not a duplicate append.
+    fn anchor_act(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        signer: &DidKey,
+        signer_priv: &PrivKey,
+        at: Timestamp,
+    ) -> Cid {
+        let entry = ArchiveEntry::ConductAttested(conduct(
+            vec![subject.clone()],
+            &[(signer, signer_priv)],
+            DecisionClass::FirstClass,
+            at,
+        ));
+        let cid = entry.cid().unwrap();
+        if a.get(&cid).is_none() {
+            a.append(entry).unwrap()
+        } else {
+            cid
+        }
+    }
+
     fn adverse_act(
         a: &mut InMemoryArchive,
         subject: &DidKey,
@@ -1418,16 +1449,18 @@ mod escalation {
         reexamine: Option<Timestamp>,
         at: Timestamp,
     ) -> Cid {
-        // The default citation names no archive record. Harmless on the normal path,
-        // where condition 1 carries the covenant-facing anchor; the expedited path
-        // needs `designation_citing` with a real act.
+        // Condition 3 resolves every citation and requires each resolved record that
+        // names a subject to name *this* subject, so the default citation is a real
+        // adverse act about the subject rather than a placeholder. It used to be
+        // `Cid::of_bytes(b"act")`, which named no record at all and was authorized.
+        let anchor = anchor_act(a, subject, deliberators[0].0, deliberators[0].1, at);
         designation_citing(
             a,
             subject,
             tier,
             urgency,
             deliberators,
-            vec![Cid::of_bytes(b"act")],
+            vec![anchor],
             cited,
             cycles,
             criteria,
@@ -1673,7 +1706,11 @@ mod escalation {
         let (r, rp) = community(&mut a, "R", ts(1));
         let delibs: &[(&DidKey, &PrivKey)] = &[(&p, &pp), (&qc, &qp), (&r, &rp)];
 
-        // A citation naming no archive record at all: refused.
+        // A citation naming no archive record at all: refused. Condition 3's resolution
+        // rule reaches it first now, and that ordering is the right one — a citation
+        // that names nothing fails as a citation before it fails as evidence. When this
+        // test was written the floor was the only rule that resolved a CID at all, so
+        // the floor's message was what a dangling citation produced.
         let dangling = designation_citing(&mut a, &s, DesignationTier::Anathema,
             DesignationUrgency::Expedited, delibs, vec![Cid::of_bytes(b"act")], vec![],
             vec![cycle(0, &p, 1000, 1100)],
@@ -1681,7 +1718,7 @@ mod escalation {
         let err = authorize(&a, a.get(&dangling).unwrap(), Q, P)
             .expect_err("an expedited designation citing nothing that resolves");
         assert!(
-            err.to_string().contains("covenant-facing floor"),
+            err.to_string().contains("names no record"),
             "the refusal must name what is missing, got: {err}"
         );
 
@@ -1697,7 +1734,12 @@ mod escalation {
             DesignationUrgency::Expedited, delibs, vec![not_conduct], vec![],
             vec![cycle(0, &p, 1000, 1100)],
             "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
-        bad(&a, &wrong_kind);
+        let err = authorize(&a, a.get(&wrong_kind).unwrap(), Q, P)
+            .expect_err("an identity record is not a covenant-facing act");
+        assert!(
+            err.to_string().contains("covenant-facing floor"),
+            "this case must isolate the floor, not condition 3, got: {err}"
+        );
 
         // An adverse act by a *different* community does not license this designation.
         let (other, _op) = community(&mut a, "O", ts(1));
@@ -1717,16 +1759,90 @@ mod escalation {
             "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
         ok(&a, &grounded);
 
-        // NEGATIVE CONTROL: the floor is the expedited path's alone. A normal
-        // designation still passes on its restitution chains with the dangling
-        // citation the helper supplies, because condition 1 is its anchor.
+        // NEGATIVE CONTROL: what the *floor* adds is still the expedited path's alone.
+        // A normal designation passes on its restitution chains without citing an
+        // adverse conduct act, so this control separates the floor from condition 3's
+        // resolution rule, which both urgencies now run.
+        //
+        // This block used to assert the opposite. It cited the helper's
+        // `Cid::of_bytes(b"act")`, which named no archive record, and the comment said
+        // that was harmless on the normal path because condition 1 was the anchor.
+        // `cited_acts_resolve` is what made it wrong: a citation that names nothing is
+        // decoration on either path. The dangling case moved into
+        // `condition_3_resolves_every_citation_on_both_paths` below.
         let mut b = InMemoryArchive::new();
         let (s2, (p2, pp2), (q2, qp2), cited) = designation_fixture(&mut b);
-        let normal = designation(&mut b, &s2, DesignationTier::Anathema,
-            DesignationUrgency::Normal, &[(&p2, &pp2), (&q2, &qp2)], cited,
+        let restitution_only = designation_citing(&mut b, &s2, DesignationTier::Anathema,
+            DesignationUrgency::Normal, &[(&p2, &pp2), (&q2, &qp2)],
+            vec![cited[0]], cited.clone(),
             vec![cycle(0, &p2, 1000, 1100), cycle(1, &p2, 1100 + W, 1200 + W)],
             "criteria", Some("rev".into()), None, ts(2000));
-        ok(&b, &normal);
+        ok(&b, &restitution_only);
+    }
+
+    /// Condition 3's resolution rule, on both urgencies.
+    ///
+    /// **Measured before it.** Condition 3 checked that `criteria` and `cited_acts`
+    /// were non-empty and never resolved a CID, so on the normal path a designation
+    /// whose *every* citation dangled was authorized, and so was one citing an attested
+    /// adverse act about a third community. On the expedited path the covenant-facing
+    /// floor did resolve, but as an existential over the list: one real act excused a
+    /// dangling citation and a misdirected one sitting beside it.
+    #[test]
+    fn condition_3_resolves_every_citation_on_both_paths() {
+        let mut a = InMemoryArchive::new();
+        let (s, (p, pp), (qc, qp), cited) = designation_fixture(&mut a);
+        let (third, tp) = community(&mut a, "Third", ts(1));
+        let (r4, r4p) = community(&mut a, "R4", ts(1));
+        let two_cycles =
+            vec![cycle(0, &p, 1000, 1100), cycle(1, &p, 1100 + W, 1200 + W)];
+
+        // A citation naming no record, on the normal path.
+        let dangling = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Normal, &[(&p, &pp), (&qc, &qp)],
+            vec![Cid::of_bytes(b"nothing")], cited.clone(), two_cycles.clone(),
+            "criteria", Some("rev".into()), None, ts(2000));
+        let err = authorize(&a, a.get(&dangling).unwrap(), Q, P)
+            .expect_err("a citation naming no record is not a citation");
+        assert!(err.to_string().contains("names no record"), "got: {err}");
+
+        // A citation that resolves, to conduct about somebody else.
+        let about_another = adverse_act(&mut a, &third, &p, &pp, ts(150));
+        let misdirected = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Normal, &[(&p, &pp), (&qc, &qp)],
+            vec![about_another], cited.clone(), two_cycles.clone(),
+            "criteria", Some("rev".into()), None, ts(2000));
+        let err = authorize(&a, a.get(&misdirected).unwrap(), Q, P)
+            .expect_err("conduct about a third community is not evidence about this one");
+        assert!(err.to_string().contains("rather than the named subject"), "got: {err}");
+
+        // Expedited: one real act no longer excuses the rest of the list.
+        let good = adverse_act(&mut a, &s, &p, &pp, ts(150));
+        let mixed = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited,
+            &[(&p, &pp), (&qc, &qp), (&r4, &r4p), (&third, &tp)],
+            vec![good, Cid::of_bytes(b"nothing")], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        bad(&a, &mixed);
+
+        // POSITIVE CONTROL: the same expedited designation citing only what resolves
+        // and only what is about the subject.
+        let clean = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Expedited,
+            &[(&p, &pp), (&qc, &qp), (&r4, &r4p), (&third, &tp)],
+            vec![good], vec![],
+            vec![cycle(0, &p, 1000, 1100)],
+            "acute harm", Some("rev".into()), Some(ts(5000)), ts(2000));
+        ok(&a, &clean);
+
+        // A restitution verification is one hop from its subject, and the hop is read:
+        // the fixture's own cycles cite the subject's obligations.
+        let via_restitution = designation_citing(&mut a, &s, DesignationTier::Anathema,
+            DesignationUrgency::Normal, &[(&p, &pp), (&qc, &qp)],
+            vec![cited[0]], cited.clone(), two_cycles,
+            "criteria", Some("rev".into()), None, ts(2000));
+        ok(&a, &via_restitution);
     }
 
     #[test]
@@ -1861,7 +1977,13 @@ mod escalation {
                 movement_substrate: blank("a"),
                 movement_fallenness: "b".into(),
                 movement_recognition: "c".into(),
-                movement_common_virtue: "d".into(),
+                movement_common_virtue: CommonVirtueMovement::new(
+                "We commit to the virtues this compact relies on.",
+                vec![
+                    Commitment::new("truthfulness", "We tell the truth."),
+                    Commitment::new("restitution", "We make good what we broke."),
+                ],
+            ),
                 movement_non_ultimacy: "e".into(),
                 language_tag: "en".into(),
                 translation_en: None,
@@ -2597,6 +2719,7 @@ mod escalation {
                         ladder_rung: None,
                         decision_class: DecisionClass::FirstClass,
                         references: vec![],
+                        commitments_cited: vec![],
                         narrative: "well done".into(),
                         observed_at: ts(100),
                         recorded_at: ts(100),
@@ -3456,6 +3579,18 @@ mod injunction {
         let delibs = deliberators.iter().map(|(d, _)| (*d).clone()).collect();
         let pairs: Vec<(&str, &PrivKey)> =
             deliberators.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        // Condition 3 resolves citations, so this names a real adverse act about the
+        // subject rather than `Cid::of_bytes(b"act")`.
+        let act = ArchiveEntry::ConductAttested(conduct(
+            vec![subject.clone()],
+            &[(deliberators[0].0, deliberators[0].1)],
+            DecisionClass::FirstClass,
+            at,
+        ));
+        let anchor = act.cid().unwrap();
+        if a.get(&anchor).is_none() {
+            a.append(act).unwrap();
+        }
         let dz = Signed::build(
             Designation {
                 subject_community: subject.clone(),
@@ -3463,7 +3598,7 @@ mod injunction {
                 urgency: DesignationUrgency::Normal,
                 deliberators: delibs,
                 criteria: "three graver failed restorations".into(),
-                cited_acts: vec![Cid::of_bytes(b"act")],
+                cited_acts: vec![anchor],
                 failed_restoration_cycles: cited,
                 deliberation_cycles: cycles,
                 reversal_conditions: Some("changed conduct over probation".into()),
@@ -10407,6 +10542,8 @@ mod inter_compact {
     use kc_commons::{
         AppropriatorLevel, CommonsKind, CommonsRegistration, CommonsSanction, SanctionLevel,
     };
+    use crate::authority::compact_of;
+    use kc_ceremony::inter::InterCommunityWitnessRecord;
     use kc_identity::CompactCharter;
 
     const Q: usize = DEFAULT_QUORUM_THRESHOLD;
@@ -10428,13 +10565,41 @@ mod inter_compact {
         priv_: PrivKey,
     }
 
-    /// Charter a compact over `members`, chartered by all of them.
+    /// Seat `members` in the §2 admission history under `label`. A charter may not name
+    /// a community the admission history does not seat, so a fixture that charters a
+    /// compact has to admit it first.
+    fn admit(
+        a: &mut InMemoryArchive,
+        label: &str,
+        members: &[(DidKey, PrivKey)],
+        at: Timestamp,
+    ) -> Cid {
+        let pairs: Vec<(&str, &PrivKey)> = members.iter().map(|(d, p)| (d.as_str(), p)).collect();
+        let rec = Signed::build(
+            InterCommunityWitnessRecord {
+                compact_label: label.into(),
+                participants: members.iter().map(|(d, _)| d.clone()).collect(),
+                sequenced_rites: vec![],
+                claims: vec![],
+                acceptances: vec![],
+                examination_exchanges: vec![],
+                witnessed_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::InterCommunityWitness(rec)).unwrap()
+    }
+
+    /// Charter a compact over `members`, chartered by all of them, seating them in the
+    /// admission history first.
     fn charter(
         a: &mut InMemoryArchive,
         label: &str,
         members: &[(DidKey, PrivKey)],
         at: Timestamp,
     ) -> (Compact, Cid) {
+        admit(a, label, members, at);
         let (priv_, pub_) = keys::generate(Alg::Ed25519).unwrap();
         let chartered: Vec<(DidKey, &PrivKey)> =
             members.iter().map(|(d, p)| (d.clone(), p)).collect();
@@ -10450,6 +10615,105 @@ mod inter_compact {
         let did = signed.payload.did.clone();
         let cid = a.append(ArchiveEntry::CompactChartered(signed)).unwrap();
         (Compact { did, priv_ }, cid)
+    }
+
+    /// One definition of membership.
+    ///
+    /// **Measured before the rule.** Two records said who belongs to a compact and
+    /// nothing joined them. A charter naming a community that no admission record ever
+    /// seated was authorized, and `compact_of` took the *first* charter in iteration
+    /// order, so a later charter that dropped a member left it answering through the
+    /// compact anyway. The ruling is that the admission history is authoritative and a
+    /// charter carries no membership claim of its own.
+    mod membership {
+        use super::*;
+
+        /// A charter over `members` with no admission behind it, bypassing the fixture.
+        fn unadmitted_charter(
+            a: &mut InMemoryArchive,
+            label: &str,
+            members: &[(DidKey, PrivKey)],
+            at: Timestamp,
+        ) -> Cid {
+            let (priv_, pub_) = keys::generate(Alg::Ed25519).unwrap();
+            let chartered: Vec<(DidKey, &PrivKey)> =
+                members.iter().map(|(d, p)| (d.clone(), p)).collect();
+            let signed = CompactCharter::new_signed(
+                label.into(),
+                &priv_,
+                pub_.clone(),
+                members.iter().map(|(d, _)| d.clone()).collect(),
+                &chartered,
+                at,
+            )
+            .unwrap();
+            a.append(ArchiveEntry::CompactChartered(signed)).unwrap()
+        }
+
+        fn three(a: &mut InMemoryArchive) -> Vec<(DidKey, PrivKey)> {
+            ["M1", "M2", "M3"].iter().map(|n| community(a, n, ts(1))).collect()
+        }
+
+        #[test]
+        fn a_charter_may_not_name_a_community_no_admission_seats() {
+            let mut a = InMemoryArchive::new();
+            let m = three(&mut a);
+            admit(&mut a, "Alpha", &m[..2], ts(10));
+            let cid = unadmitted_charter(&mut a, "Alpha", &m, ts(100));
+            refused(&a, &cid, "no admission record seats it in any compact");
+        }
+
+        #[test]
+        fn a_charter_over_admitted_members_authorizes() {
+            // POSITIVE CONTROL: the rule is about divergence, not about charters.
+            let mut a = InMemoryArchive::new();
+            let m = three(&mut a);
+            admit(&mut a, "Alpha", &m, ts(10));
+            let cid = unadmitted_charter(&mut a, "Alpha", &m, ts(100));
+            ok(&a, &cid);
+        }
+
+        #[test]
+        fn members_admitted_under_different_labels_are_not_one_compact() {
+            // Each member is seated somewhere, but no single roll seats them together,
+            // so the compact this charter names is not one the admission history knows.
+            let mut a = InMemoryArchive::new();
+            let m = three(&mut a);
+            admit(&mut a, "Alpha", &m[..2], ts(10));
+            admit(&mut a, "Beta", &m[2..], ts(10));
+            let cid = unadmitted_charter(&mut a, "Alpha", &m, ts(100));
+            refused(&a, &cid, "no single admission roll seats together");
+        }
+
+        #[test]
+        fn an_admission_after_the_charter_does_not_backfill_it() {
+            // The roll is read as of the charter's own instant, like every other reading
+            // in this pass.
+            let mut a = InMemoryArchive::new();
+            let m = three(&mut a);
+            admit(&mut a, "Alpha", &m, ts(500));
+            let cid = unadmitted_charter(&mut a, "Alpha", &m, ts(100));
+            refused(&a, &cid, "no admission record seats it in any compact");
+        }
+
+        #[test]
+        fn subsidiarity_reads_the_latest_charter_not_the_first() {
+            let mut a = InMemoryArchive::new();
+            let m = three(&mut a);
+            let (first, _) = charter(&mut a, "Alpha", &m, ts(100));
+            let (second, _) = charter(&mut a, "Alpha", &m[..2], ts(200));
+            assert_eq!(
+                compact_of(&a, &m[0].0).as_ref(),
+                Some(&second.did),
+                "M1 is in both charters and must answer through the later one"
+            );
+            assert_eq!(
+                compact_of(&a, &m[2].0).as_ref(),
+                Some(&first.did),
+                "M3 is only in the first charter, so that is still the one it answers through"
+            );
+            assert_ne!(first.did, second.did);
+        }
     }
 
     /// Two compacts of two communities each, plus the inter-compact commons they share.
@@ -11066,5 +11330,362 @@ mod office_capability {
             )))
             .unwrap();
         ok(&a, &fine);
+    }
+}
+
+/// §1 rite rules, read as archive properties. The runner refuses both of these when
+/// it seals, so these fixtures build the record by hand: a record appended without
+/// going through the runner reaches the authority pass and nothing else, and before
+/// `authorize_intra_rite` existed there was no arm for it at all.
+mod sealed_rite {
+    use super::*;
+
+    fn rite(
+        c: &Community,
+        now: Timestamp,
+        blank_movement: bool,
+        commitments: &CommonVirtueMovement,
+        version: RecitationVersion,
+    ) -> Signed<kc_ceremony::intra::IntraCommunityRiteRecord> {
+        let recitation = IntraCommunityRiteRunner::recite(
+            &c.speaker_did,
+            &c.speaker_priv,
+            Recitation {
+                community_did: c.signed_identity.payload.did.clone(),
+                speaker_did: c.speaker_did.clone(),
+                version: RecitationVersion::current(),
+                movement_substrate: if blank_movement {
+                    String::new()
+                } else {
+                    "substrate".into()
+                },
+                movement_fallenness: "fallenness".into(),
+                movement_recognition: "recognition".into(),
+                movement_common_virtue: commitments.clone(),
+                movement_non_ultimacy: "non-ultimacy".into(),
+                language_tag: "en".into(),
+                translation_en: None,
+                recited_at: now,
+            },
+        )
+        .unwrap();
+        let att = IntraCommunityRiteRunner::attest(
+            &c.witness_did,
+            &c.witness_priv,
+            recitation.payload_cid,
+            now,
+        )
+        .unwrap();
+        Signed::build(
+            kc_ceremony::intra::IntraCommunityRiteRecord {
+                recitation,
+                internal_witnesses: vec![att],
+                version_of_rite: version,
+                sealed_at: now,
+            },
+            &[(c.signed_identity.payload.did.as_str(), &c.root_priv)],
+        )
+        .unwrap()
+    }
+
+    fn appended(
+        record: Signed<kc_ceremony::intra::IntraCommunityRiteRecord>,
+        now: Timestamp,
+        c: &Community,
+    ) -> KcResult<()> {
+        let mut a = InMemoryArchive::new();
+        seed_archive(&mut a, c);
+        let _ = now;
+        let cid = a.append(ArchiveEntry::IntraCommunityRite(record)).unwrap();
+        authorize(&a, a.get(&cid).unwrap(), 2, 2)
+    }
+
+    /// The ordinary Movement 4: a preamble and two named undertakings.
+    fn recited() -> CommonVirtueMovement {
+        CommonVirtueMovement::new(
+            "We commit to the virtues this compact relies on.",
+            vec![
+                Commitment::new("truthfulness", "We tell the truth."),
+                Commitment::new("restitution", "We make good what we broke."),
+            ],
+        )
+    }
+
+    #[test]
+    fn a_complete_rite_authorizes() {
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        appended(rite(&c, now, false, &recited(), RecitationVersion::current()), now, &c)
+            .expect("a complete rite must authorize");
+    }
+
+    #[test]
+    fn a_rite_missing_a_movement_is_refused() {
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        let err = appended(rite(&c, now, true, &recited(), RecitationVersion::current()), now, &c)
+            .expect_err("a rite missing a movement must be refused");
+        assert!(format!("{err}").contains("missing a movement"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn a_rite_reciting_no_commitments_is_refused() {
+        // The item this schema exists for: a denominator that can be empty is not a
+        // denominator, and a compact whose members recite nothing would read as
+        // perfectly covered by any enforcement at all.
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        let empty = CommonVirtueMovement::new("We commit to the virtues.", vec![]);
+        let err = appended(rite(&c, now, false, &empty, RecitationVersion::current()), now, &c)
+            .expect_err("a rite reciting no commitments must be refused");
+        assert!(format!("{err}").contains("recites no commitments"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn a_rite_reciting_one_key_twice_is_refused() {
+        // Two entries under one key would count twice in the recitation and once in
+        // the object, so the list and its own denominator would disagree.
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        let mut dup = recited();
+        dup.commitments.push(Commitment::new("truthfulness", "and again"));
+        let err = appended(rite(&c, now, false, &dup, RecitationVersion::current()), now, &c)
+            .expect_err("a repeated commitment key must be refused");
+        assert!(format!("{err}").contains("twice"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn a_rite_declaring_a_version_the_recitation_does_not_is_refused() {
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        let err = appended(
+            rite(&c, now, false, &recited(), RecitationVersion("kc-rite-v99-does-not-exist".into())),
+            now,
+            &c,
+        )
+        .expect_err("a version the recitation does not declare must be refused");
+        assert!(format!("{err}").contains("declares version"), "unexpected error: {err}");
+    }
+}
+
+// --- The recited object: a citation must resolve --------------------------
+//
+// The item-A shape one layer down. A commitment key that resolves to nothing is a
+// filer naming an undertaking nobody undertook, and `commitment_coverage` would count
+// it as coverage of a commitment that does not exist.
+
+mod recited_object {
+    use super::*;
+    use kc_ceremony::inter::InterCommunityWitnessRecord;
+
+    fn seal_compact(a: &mut InMemoryArchive, members: &[(&DidKey, &PrivKey)], at: Timestamp) {
+        let pairs: Vec<(&str, &PrivKey)> =
+            members.iter().map(|(d, p)| (d.as_str(), *p)).collect();
+        let rec = Signed::build(
+            InterCommunityWitnessRecord {
+                compact_label: "compact".into(),
+                participants: members.iter().map(|(d, _)| (*d).clone()).collect(),
+                sequenced_rites: vec![],
+                claims: vec![],
+                acceptances: vec![],
+                examination_exchanges: vec![],
+                witnessed_at: at,
+            },
+            &pairs,
+        )
+        .unwrap();
+        a.append(ArchiveEntry::InterCommunityWitness(rec)).unwrap();
+    }
+
+    /// A community with a sealed rite reciting `keys`, appended at `at`.
+    fn reciting(a: &mut InMemoryArchive, name: &str, keys: &[&str], at: Timestamp) -> Community {
+        let c = mk_community(name, at);
+        a.append(ArchiveEntry::CommunityIdentityPublished(c.signed_identity.clone()))
+            .unwrap();
+        a.append(ArchiveEntry::SpeakerDelegated(c.speaker_delegation.clone()))
+            .unwrap();
+        a.append(ArchiveEntry::WitnessRegistryUpdated(c.witness_registry.clone()))
+            .unwrap();
+        let movement = CommonVirtueMovement::new(
+            "We commit to the virtues this compact relies on.",
+            keys.iter()
+                .map(|k| Commitment::new(*k, format!("we hold {k}")))
+                .collect(),
+        );
+        let recitation = IntraCommunityRiteRunner::recite(
+            &c.speaker_did,
+            &c.speaker_priv,
+            Recitation {
+                community_did: c.signed_identity.payload.did.clone(),
+                speaker_did: c.speaker_did.clone(),
+                version: RecitationVersion::current(),
+                movement_substrate: "substrate".into(),
+                movement_fallenness: "fallenness".into(),
+                movement_recognition: "recognition".into(),
+                movement_common_virtue: movement,
+                movement_non_ultimacy: "non-ultimacy".into(),
+                language_tag: "en".into(),
+                translation_en: None,
+                recited_at: at,
+            },
+        )
+        .unwrap();
+        let att = IntraCommunityRiteRunner::attest(
+            &c.witness_did,
+            &c.witness_priv,
+            recitation.payload_cid,
+            at,
+        )
+        .unwrap();
+        let delegations = vec![c.speaker_delegation.clone()];
+        let runner =
+            IntraCommunityRiteRunner::new(&c.signed_identity, &delegations, &c.witness_registry);
+        let sealed = runner.seal(recitation, vec![att], &c.root_priv, at).unwrap();
+        a.append(ArchiveEntry::IntraCommunityRite(sealed)).unwrap();
+        c
+    }
+
+    fn cite(
+        a: &mut InMemoryArchive,
+        reporter: &Community,
+        subject: &Community,
+        keys: &[&str],
+        at: Timestamp,
+    ) -> Result<(), KcError> {
+        let rec = ConductRecord {
+            subject_community: subject.signed_identity.payload.did.clone(),
+            reporters: vec![reporter.signed_identity.payload.did.clone()],
+            reporter_perspective: None,
+            kind: ConductKind::Violation,
+            bearing: ConductBearing::Charity,
+            severity: Severity::Serious,
+            ladder_rung: Some(LadderRung::MediatedArbitration),
+            decision_class: DecisionClass::FirstClass,
+            references: vec![],
+            commitments_cited: keys.iter().map(|k| (*k).to_string()).collect(),
+            narrative: "fixture".into(),
+            observed_at: at,
+            recorded_at: at,
+        };
+        let did = reporter.signed_identity.payload.did.clone();
+        let signed = Signed::build(rec, &[(did.as_str(), &reporter.root_priv)]).unwrap();
+        let cid = a.append(ArchiveEntry::ConductAttested(signed)).unwrap();
+        authorize(a, a.get(&cid).unwrap(), 2, 2)
+    }
+
+    fn compact_of_two(a: &mut InMemoryArchive, at: Timestamp) -> (Community, Community) {
+        let x = reciting(a, "Alpha", &["truthfulness", "restitution"], at);
+        let y = reciting(a, "Beta", &["truthfulness", "hospitality"], at);
+        seal_compact(
+            a,
+            &[
+                (&x.signed_identity.payload.did, &x.root_priv),
+                (&y.signed_identity.payload.did, &y.root_priv),
+            ],
+            at,
+        );
+        (x, y)
+    }
+
+    #[test]
+    fn a_recited_commitment_may_be_cited() {
+        let mut a = InMemoryArchive::new();
+        let at = ts(1000);
+        let (x, y) = compact_of_two(&mut a, at);
+        // Cited from the OTHER member's list, which is the compact's object rather
+        // than any one community's.
+        cite(&mut a, &x, &y, &["hospitality"], ts(2000)).expect("a recited key must authorize");
+    }
+
+    #[test]
+    fn citing_nothing_is_not_a_refusal() {
+        // The reading is a lens and not a gate. What the omission costs is reported by
+        // `commitment_coverage` as an uncited share, not refused here.
+        let mut a = InMemoryArchive::new();
+        let at = ts(1000);
+        let (x, y) = compact_of_two(&mut a, at);
+        cite(&mut a, &x, &y, &[], ts(2000)).expect("an act citing nothing must authorize");
+    }
+
+    #[test]
+    fn a_commitment_nobody_recited_is_refused() {
+        let mut a = InMemoryArchive::new();
+        let at = ts(1000);
+        let (x, y) = compact_of_two(&mut a, at);
+        let err = cite(&mut a, &x, &y, &["obedience-to-the-council"], ts(2000))
+            .expect_err("an invented commitment must be refused");
+        assert!(format!("{err}").contains("never recited"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn a_commitment_recited_only_outside_the_compact_is_refused() {
+        // An object is a compact's. A community elsewhere reciting a key does not put
+        // that key into this compact's object.
+        let mut a = InMemoryArchive::new();
+        let at = ts(1000);
+        let (x, y) = compact_of_two(&mut a, at);
+        let _outsider = reciting(&mut a, "Gamma", &["sabbath-rest"], at);
+        let err = cite(&mut a, &x, &y, &["sabbath-rest"], ts(2000))
+            .expect_err("a key recited outside the compact must be refused");
+        assert!(format!("{err}").contains("never recited"), "unexpected error: {err}");
+    }
+
+    /// A later rite for `c`, reciting `keys`.
+    fn re_recite(a: &mut InMemoryArchive, c: &Community, keys: &[&str], at: Timestamp) {
+        let movement = CommonVirtueMovement::new(
+            "We commit to the virtues this compact relies on.",
+            keys.iter()
+                .map(|k| Commitment::new(*k, format!("we hold {k}")))
+                .collect(),
+        );
+        let recitation = IntraCommunityRiteRunner::recite(
+            &c.speaker_did,
+            &c.speaker_priv,
+            Recitation {
+                community_did: c.signed_identity.payload.did.clone(),
+                speaker_did: c.speaker_did.clone(),
+                version: RecitationVersion::current(),
+                movement_substrate: "substrate".into(),
+                movement_fallenness: "fallenness".into(),
+                movement_recognition: "recognition".into(),
+                movement_common_virtue: movement,
+                movement_non_ultimacy: "non-ultimacy".into(),
+                language_tag: "en".into(),
+                translation_en: None,
+                recited_at: at,
+            },
+        )
+        .unwrap();
+        let att = IntraCommunityRiteRunner::attest(
+            &c.witness_did,
+            &c.witness_priv,
+            recitation.payload_cid,
+            at,
+        )
+        .unwrap();
+        let delegations = vec![c.speaker_delegation.clone()];
+        let runner =
+            IntraCommunityRiteRunner::new(&c.signed_identity, &delegations, &c.witness_registry);
+        let sealed = runner.seal(recitation, vec![att], &c.root_priv, at).unwrap();
+        a.append(ArchiveEntry::IntraCommunityRite(sealed)).unwrap();
+    }
+
+    #[test]
+    fn a_commitment_a_seated_member_takes_on_later_is_refused_before_it() {
+        // Time order, for the same reason the designation citations carry it: an act
+        // cannot be about an undertaking that had not been made when it was recorded.
+        // The member is inside the compact the whole time, so the compact scoping does
+        // none of the work here and the time bound does all of it.
+        let mut a = InMemoryArchive::new();
+        let at = ts(1000);
+        let (x, y) = compact_of_two(&mut a, at);
+        re_recite(&mut a, &y, &["truthfulness", "hospitality", "sabbath-rest"], ts(5000));
+
+        let err = cite(&mut a, &x, &y, &["sabbath-rest"], ts(2000))
+            .expect_err("a key recited after the act must be refused");
+        assert!(format!("{err}").contains("never recited"), "unexpected error: {err}");
+        // And once it has been recited, the same citation stands.
+        cite(&mut a, &x, &y, &["sabbath-rest"], ts(6000))
+            .expect("after the rite the citation resolves");
     }
 }

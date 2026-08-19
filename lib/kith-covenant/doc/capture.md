@@ -113,7 +113,7 @@ term limit retired the seats before the interval elapsed.
 
 The rule that comes out of it generalizes past this compact: **only absolute
 measures see sincere drift.** A measure that fires on an act cannot see the
-absence of acts. The alert now carries nine signals, six of them absolute,
+absence of acts. The alert now carries sixteen signals, seven of them absolute,
 including silent and unstaffed standing functions.
 
 Two record types close the specific holes. An *attested null* is the signed
@@ -131,7 +131,7 @@ missing data, and a quiet pool could not be told from a stopped one.
 The seven moves are claims, and claims about adversarial robustness are worth
 what their tests are worth.
 
-A capture-resistance harness scores ten scenarios against falsification criteria
+A capture-resistance harness scores fourteen scenarios against falsification criteria
 *stated in advance*. The ten are the seven strengthening moves, with the
 admissions move counted twice, for who a faction can seat and for what a seated
 entrant can carry, plus the two with no adversary at all, being the quiet polity

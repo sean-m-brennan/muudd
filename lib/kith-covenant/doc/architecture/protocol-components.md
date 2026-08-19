@@ -158,6 +158,37 @@ support both layers and must not conflate them.
   of each community is sealed separately and referenced into the
   inter-community record that the compact holds. Referenced by
   reputation primitives (§6).
+
+  **Movement 4 carries an indexable list.** The other four
+  movements are stances; this one is a list of undertakings, and
+  an undertaking the compact stops enforcing is the substitution
+  the audit looks for. It carries a preamble and an ordered list
+  of commitments, each a key and the text recited for it, and the
+  spoken form is **derived** from the list rather than stored
+  beside it, so the prose and the list cannot disagree. A key is
+  the identity of a commitment across re-recitations and across
+  communities: two communities using one key are committing to the
+  same thing, which is what lets a compact have an object rather
+  than a set of private vocabularies. A rite reciting no
+  commitments is refused, since a denominator that can be empty is
+  not a denominator, and so is one reciting a key twice. The
+  schema constant moves to `kc-rite-v2` accordingly, which is what
+  that constant is for.
+
+  **A sealed rite recites all five movements, and carries the
+  version it recited.** The completeness check existed but was
+  called from one place, the re-entry path, so the ordinary rite
+  never met it: the runner ran seven checks and this was not one
+  of them, and `IntraCommunityRite` had no authority arm at all.
+  Measured before the rule: a rite with movement 4 blank sealed,
+  authorized and passed `verify_all`, and so did a rite with all
+  five blank, under a version naming no schema. The check now runs
+  in the runner and again in the authority pass, so completeness
+  is a property of the archive rather than a convention of one
+  constructor. The version is no longer a parameter the caller
+  supplies beside the recitation; it is derived from the
+  recitation payload, which makes disagreement between the two
+  unrepresentable rather than merely refused.
 - **Re-affirmation scheduler.** Tracks generational cadence per
   community. Surfaces overdue or imminent intra-community
   re-affirmations. Signals cross-boundary witnesses when the
@@ -170,10 +201,14 @@ support both layers and must not conflate them.
   address of the sealed intra-community record, which the
   inter-community witness record carries, so the layer tracks
   which rite was witnessed rather than which version of it.
-  The movement itself is opaque, unindexed, and unaddressable,
-  which is why no measure can cite a numbered commitment from a
-  recited list
-  ([substitution.md](../background/substitution.md)).
+  The movement's *content* is still the community's own, but it
+  is no longer opaque: it carries an ordered list of keyed
+  commitments, so a measure can cite one from a recited list and
+  the compact has an object with a denominator
+  ([substitution.md](../background/substitution.md)). What that
+  did not change is the identity of a rite, which is still the
+  content address of the sealed record and not a version of its
+  text.
 - **Ceremony-cost proxy tracking.** Recorded proxies for asymmetric psychological cost across
   re-affirmation cycles. Preparation time and attention,
   recitant articulation of what is being committed and forgone,
@@ -413,147 +448,215 @@ prevention.
   [bounded_conflict.md "Handling the anathema"](../background/bounded_conflict.md#handling-the-anathema)),
   quorum rules, review period, emergency-variant handling.
 - **The *hostis humani generis* bar.** The irrecoverable tier carries
-  four requirements the anathema tier does not, which is what
-  "an even higher evidentiary threshold" and "the presumption is
-  always anathema" (per
+  four requirements the anathema tier does not, which is what "an even
+  higher evidentiary threshold" and "the presumption is always
+  anathema" (per
   [justus_hostis.md "Two tiers"](../background/justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis))
-  come to as rules. First, a prior anathema against the same
-  community whose **return failed**: a re-entry taken and then
-  broken by an attested adverse act, or a designation left standing
-  through at least one confirmed re-examination. The graver tier is
-  reached through the lesser one, never around it. Second, at least
-  one cited act postdating that designation, since an orientation
-  shown to be constitutive is one the subject held after being told.
-  Third, three cycles of consideration rather than two, each still
-  separated by the waiting period, and a quorum of
-  `quorum_threshold + 1` counting weight rather than signatures.
-  Fourth, a mandatory re-examination date. Measured before these
-  rules, the tier differed from anathema in exactly two ways, no
-  reversal conditions and no expedited path, so the irreversible
-  designation stood on the anathema tier's own evidence, quorum and
-  cadence, could recycle its predecessor's citations whole, and,
-  carrying no date, was invisible to `overdue_reexaminations`
-  permanently. The one act in §5 that cannot be reversed was the
-  only one nothing obliged the compact to revisit.
+  come to as rules. First, a prior anathema against the same community
+  whose **return failed**: a re-entry taken and then broken by an
+  attested adverse act, or a designation left standing through at
+  least one confirmed re-examination. The graver tier is reached
+  through the lesser one, never around it. Second, at least one cited
+  act postdating that designation, since an orientation shown to be
+  constitutive is one the subject held after being told. Third, three
+  cycles of consideration rather than two, each still separated by the
+  waiting period, and a quorum of `quorum_threshold + 1` counting
+  weight rather than signatures. Fourth, a mandatory re-examination
+  date. Measured before these rules, the tier differed from anathema
+  in exactly two ways, no reversal conditions and no expedited path.
+  The irreversible designation therefore stood on the evidence, quorum
+  and cadence of the anathema tier, and could recycle the citations
+  behind its predecessor whole. Carrying no date, it was invisible to
+  `overdue_reexaminations` permanently. The one act in §5 that cannot
+  be reversed was the only one nothing obliged the compact to revisit.
 - **What a designation withholds.** The differential protocol (per
   [bounded_conflict.md "The differential protocol"](../background/bounded_conflict.md#the-differential-protocol))
-  is operative and not only descriptive. While a designation of
-  either tier stands, the subject holds none of the five **offices**
-  and carries no deliberative weight, and the ordinary
-  restitution-and-return path is suspended, since re-entry is the
-  only way back. Its five **services** are untouched: the doctrine
-  permits a compact to deny services otherwise reciprocally
-  extended, and permitting is not imposing, so denial stays an act
-  with a signer and the rescue duty is never gated. The subject also
-  counts toward neither the quorum of its own designation nor the
-  re-examination of it. A dispute standing at the **expulsion** rung
-  withholds the offices on the same terms, and a de-escalation
-  restores them, since the ladder's reversibility is what makes the
-  reading the current rung rather than whether expulsion was ever
-  reached. Measured before these rules: a community designated
-  anathema seated mediators, nominated observers, seated examiners,
-  supplied an emergency panel against a third party, carried the
-  weight that passed second-class decisions, and opened a fourth
-  restitution cycle the day after the designation that named three.
-  The only thing that withheld anything was an interim injunction,
-  which lapses at ninety days unless the compact confirms it.
+  is operative and not only descriptive. While a designation of either
+  tier stands, the subject holds none of the five **offices** and
+  carries no deliberative weight, and the ordinary
+  restitution-and-return path is suspended, since re-entry is the only
+  way back. Its five **services** are untouched: the doctrine permits
+  a compact to deny services otherwise reciprocally extended, and
+  permitting is not imposing, so denial stays an act with a signer and
+  the rescue duty is never gated. The subject also counts toward
+  neither the quorum of its own designation nor the re-examination of
+  it. A dispute standing at the **expulsion** rung withholds the
+  offices on the same terms, and a de-escalation restores them, since
+  the reversibility of the ladder is what makes the reading the
+  current rung rather than whether expulsion was ever reached.
+  Measured before these rules, a community designated anathema seated
+  mediators, observers and examiners, and supplied an emergency panel
+  against a third party. It carried the weight that passed
+  second-class decisions, and opened a fourth restitution cycle the
+  day after the designation that named three. The only thing that
+  withheld anything was an interim injunction, which lapses at ninety
+  days unless the compact confirms it.
 - **Who may move a dispute down.** A de-escalation is the
-  complainant's concession, so the dispute's own complainant must be
-  among the initiators, and a rung the compact's quorum imposed is
-  lifted only at that quorum: the decision-class check reads the rung
-  being **left** on the way down rather than the one being entered.
-  Measured before both rules, against a compact whose majority was
-  complicit with the respondent: two of two attempts by a community
-  that was party to neither side moved another's dispute from limited
-  sanctions back to registration, unilaterally and first class, with
-  nothing to stop it doing so indefinitely; and collective sanctions
-  needed two communities to impose and one to remove, the cheaper of
-  the two being the act a captured majority wants. A respondent is not
-  a mover either, an accused de-escalating its own dispute being the
-  sanctioned party reducing its own sanction.
+  complainant's concession, so the complainant named in the dispute
+  must be among the initiators. A rung imposed at the quorum of the
+  compact is lifted only at that quorum, since the decision-class
+  check reads the rung being **left** on the way down rather than the
+  one being entered. Both rules were measured against a compact whose
+  majority was complicit with the respondent. Two of two attempts by a
+  community that was party to neither side moved the dispute of
+  another from limited sanctions back to registration, unilaterally
+  and first class, with nothing to stop it doing so indefinitely.
+  Collective sanctions needed two communities to impose and one to
+  remove, and the cheaper of the two is the act a captured majority
+  wants. A respondent is not a mover either, an accused de-escalating
+  its own dispute being the sanctioned party reducing its own
+  sanction.
 - **A closing decision does not reach backwards.** A mediation
   decision closes a dispute against transitions dated *after* it, not
-  against the whole archive. Measured before the bound: a dismissal
+  against the whole archive. Measured before the bound, a dismissal
   dated day sixty retroactively unauthorized a climb dated days
-  twenty-two to thirty, every one of those transitions authorized when
-  it was made and none of them changed, so a captured panel could do
-  more than end a proceeding, which is its office, and unmake the
-  complainant's account of having brought one, which is not.
-  Authority is evaluated per record and must be a function of what
-  stood when the record was made.
-- **Recorded non-pursuit.** `kc-escalation::NonPursuitAttestation` is a
-  member community's signed account of evidence the compact has not
-  answered, on either of two grounds: nothing ever cited the record,
-  or every dispute that did was dismissed.
+  twenty-two to thirty. Every one of those transitions was authorized
+  when it was made and none of them changed. A captured panel could
+  therefore do more than end a proceeding, which is its office. It
+  could unmake the account the complainant made of having brought one,
+  which is not. Authority is evaluated per record and must be a
+  function of what stood when the record was made.
+- **Recorded non-pursuit.** `kc-escalation::NonPursuitAttestation` is
+  the signed account of a member community, covering evidence the
+  compact has not answered, on either of two grounds: nothing ever
+  cited the record, or every dispute that did was dismissed.
   `kc_reputation::unanswered_grievances` is the reading over the same
   fact, absolute against a clock, and it is the thirteenth dimension
-  of the erosion alert. It asks first whether the compact is moving
+  of the erosion alert. Firstly, it asks whether the compact is moving
   against the member at all, by way of a live dispute naming it, a
-  restitution imposed on it, or a designation of it, since a
-  prosecuting compact accumulates a course of conduct and escalates
-  once rather than filing a dispute per record; a dispute answers only
+  restitution imposed on it, or a designation of it. A prosecuting
+  compact accumulates a course of conduct and escalates once rather
+  than filing a dispute per record. Secondly, a dispute answers only
   while it is running, a filing left dormant past the cadence being no
-  proceeding at all. Measured before that rule: the
+  proceeding at all. Measured before that rule, the
   determined-adversary campaign, whose subject was restituted three
-  times and designated twice, scored six unanswered records. The record is the counterpart of a
-  designation dissent on the other side of the same act: a dissent
-  records a refusal to *join* a designation, and this records a
-  refusal to *open* one. One signer and first class, since requiring
-  a quorum to record that the quorum will not act would hand the
-  shielding majority a veto over being noticed. It is not an
-  accusation a faction can mint, because its claim is structural and
-  therefore checkable, and the authority pass checks it rather than
-  taking it: an attestation is refused when the evidence is not
-  adverse or not about the named subject, when the attestor is that
-  subject or shares no compact with it, when a dispute already cites
-  the evidence on the never-pursued ground, when the named decision
-  closes no dispute citing it, or when the evidence is still inside
-  the cadence. No verdict is claimed on any dismissal, since no
-  protocol can tell a wrong one from a right one. Two structural
-  facts are reported instead: that a grievance stands with no
-  proceeding against it, and how many mediator seats sat on more than
-  one of the dismissals that closed it. See
-  [captured-prosecution.md](captured-prosecution.md).
-- **Recorded refusal to designate.** `kc-escalation::DesignationDissent`
-  is a member community's signed refusal to join a designation, and
-  `designation_consensus` is the reading over it: who joined, who
-  refused, and who was silent, against the roll of every compact
-  seating a deliberator, minus the subject. A dissent vetoes
-  nothing, since a member's veto over being outvoted would be the
-  capturing faction's veto over being named. A designation "cannot
-  be unilateral nor can it be by simple majority" and "requires
-  explicit deliberation by all compact members" (condition 2), which
-  presumes a member's position is a thing that exists; before this
-  record it was not, and a designation carried by three of five read
-  exactly like one carried by all five. Silence is reported as
-  silence rather than as consent.
-- **Re-examination follow-through.** The review period is an
-  absolute deadline, mandatory on the expedited path, and what
-  the panel concluded is now a record of its own
-  (`kc-escalation::ReexaminationConclusion`). A confirmation
-  answers the deadline it was held for and sets the next one,
-  since a confirmation renews the obligation rather than
-  discharging it, and it may not be dated before the deadline it
-  answers. Until this record existed, a panel that re-examined
-  at the mandated date and let the designation stand left no
-  trace and read exactly like a compact that had forgotten. The
-  erosion lens punished the diligent panel. A designation whose
-  re-examination has lapsed may not be **cited** by a further
-  escalation act, which is the one refusal the remediation of
-  the erosion audit carries (see
-  [erosion-legibility.md](erosion-legibility.md)).
-  A third outcome, `Vacated`, is the compact saying the designation
-  was its own error, and it is the only conclusion available to a
-  panel re-examining the irrecoverable tier: `Reversed` reports a
-  reversal that some other record already carries, and for
-  *hostis humani generis* there is no such record. It sets no next
-  date, since nothing is left to renew, and it cannot be entered
-  against a designation another path has already reversed. What it
-  does not do is open a way back for the designated. Vacating says
-  the compact should not have designated, not that the designated
-  has returned. "Willingness to be wrong about past designations"
-  is named as a guard against the response of the compact becoming
-  demonic, and it needed somewhere to be written down.
+  times and designated twice, scored six unanswered records. The
+  record is the counterpart of a designation dissent on the other side
+  of the same act: a dissent records a refusal to *join* a
+  designation, and this records a refusal to *open* one. One signer
+  and first class, since requiring a quorum to record that the quorum
+  will not act would hand the shielding majority a veto over being
+  noticed. It is not an accusation a faction can mint, because its
+  claim is structural and therefore checkable, and the authority pass
+  checks it rather than taking it. An attestation is refused when the
+  evidence is not adverse, when it is not about the named subject, or
+  when the attestor is that subject or shares no compact with it. It
+  is also refused when a dispute already cites the evidence on the
+  never-pursued ground, when the named decision closes no dispute
+  citing it, or when the evidence is still inside the cadence. No
+  verdict is claimed on any dismissal, since no protocol can tell a
+  wrong one from a right one. Two structural facts are reported
+  instead: that a grievance stands with no proceeding against it, and
+  how many mediator seats sat on more than one of the dismissals that
+  closed it. See [captured-prosecution.md](captured-prosecution.md).
+- **Enforcement landing on the compact's own complainants.**
+  `kc_reputation::reporter_targeting` is the other half of the same
+  capture, and the fourteenth dimension of the erosion alert. Where
+  non-pursuit is a majority declining to act, this is a majority
+  acting, hard, in the direction every instrument that counts
+  direction reads as correct. Measured before it: the complicit
+  majority ran the member that filed the evidence from dispute
+  registration up to limited sanctions, and zero instruments moved.
+  `enforcement_direction` is the lens that ought to have seen it and
+  could not, because its axis is **standing** and an honest
+  complainant holds full standing throughout, so a counter-prosecution
+  reads as enforcement between equals. What is read here instead is
+  the *relation* between an act and a prior grievance: whether the
+  subject of this act is the community that raised an earlier one
+  about whoever is bringing this one. The join is on party identity
+  and time order rather than on citation, because nothing obliges a
+  counter-prosecution to cite what it answers, and it reads all four
+  carriers of a raised matter, being a conduct record, a dispute, a
+  non-pursuit attestation and an observer report, because narrowing
+  it to one would leave the evasion of filing through another. It is
+  thresholded rather than absolute, since reciprocity is ordinary in a
+  live compact and a compact where every grievance ran one way would
+  be the stranger object, and it is read **compact-wide** for the same
+  reason as the substitution dimensions: a per-community reading
+  converges on any compact with a division of labour. A lens and never
+  a refusal. A compact may have a genuine complaint against a member
+  that itself complained, and no protocol can tell the two apart. Its
+  stated limit is measured rather than assumed: the join names a pair,
+  so a proxy prosecution brought by allies the grievance never named
+  reads zero.
+- **The compact's own recited object.**
+  `kc_reputation::commitment_coverage` grades enforcement against
+  the commitments the compact's members recited rather than
+  against the eight grounds the protocol fixes, and it is the
+  fifteenth dimension of the erosion alert. The shared taxonomy is
+  coarse: a compact that stops holding *hospitality to strangers*
+  while keeping *charity to members* moves `Charity` coverage not
+  at all. Measured before it: a compact that halved what it
+  recited across three generational rites, with rising witness
+  counts and nothing amended, scored a perfect 1.0 on
+  shared-taxonomy coverage at volume 32 and graded `None` on all
+  fourteen dimensions. The denominator is **pinned to the first
+  rite of each seated member**, which is what keeps a per-polity
+  measure absolute: a compact cannot raise its coverage by
+  reciting a shorter list, and the union only grows, so no act of
+  the compact improves the score. A commitment taken on later is
+  counted outside the object, on the rule that keeps the open
+  ground out of the shared denominator. The volume floor scales
+  with the object, because coverage over `n` commitments is a
+  coupon-collector reading and here `n` varies per compact, and
+  below it the answer is untestable rather than healthy.
+  Testability counts only acts that **cite** something: an
+  existing control established that, when the determined-adversary
+  campaign's thirteen uncited acts read as a compact enforcing
+  none of its object, which measures adoption of a citation habit
+  rather than the object. What silence costs is reported as an
+  uncited share instead.
+- **A commitment no longer recited.**
+  `kc_reputation::commitment_contraction` is the sixteenth
+  dimension and the act-triggered half of the fifteenth, because
+  the move that makes a narrowing legal is to bring the recitation
+  down to match the enforcement, and a pinned denominator is by
+  construction blind to that. It reads the pinned baseline against
+  the latest recitation, the same shape as
+  `hollowing_communities`, so a commitment taken up again clears
+  while the archive keeps both rites. Neither reading is a
+  refusal. What a compact still holds and what it once said are
+  both facts on the record, and which is the honest account of the
+  polity is not a question a rule can answer.
+- **Recorded refusal to designate.**
+  `kc-escalation::DesignationDissent` is the signed refusal of a
+  member community to join a designation, and `designation_consensus`
+  is the reading over it: who joined, who refused, and who was silent,
+  against the roll of every compact seating a deliberator, minus the
+  subject. A dissent vetoes nothing, since a veto held by a member
+  over being outvoted would be a veto held by the capturing faction
+  over being named. A designation "cannot be unilateral nor can it be
+  by simple majority" and "requires explicit deliberation by all
+  compact members" (condition 2), which presumes that the position of
+  a member is a thing that exists. Before this record it was not, and
+  a designation carried by three of five read exactly like one carried
+  by all five. Silence is reported as silence rather than as consent.
+- **Re-examination follow-through.** The review period is an absolute
+  deadline, mandatory on the expedited path, and what the panel
+  concluded is now a record of its own
+  (`kc-escalation::ReexaminationConclusion`). A confirmation answers
+  the deadline it was held for and sets the next one, since a
+  confirmation renews the obligation rather than discharging it, and
+  it may not be dated before the deadline it answers. Until this
+  record existed, a panel that re-examined at the mandated date and
+  let the designation stand left no trace and read exactly like a
+  compact that had forgotten. The erosion lens punished the diligent
+  panel. A designation whose re-examination has lapsed may not be
+  **cited** by a further escalation act, which is the one refusal the
+  remediation of the erosion audit carries (see
+  [erosion-legibility.md](erosion-legibility.md)). A third outcome,
+  `Vacated`, is the compact saying the designation was its own error,
+  and it is the only conclusion available to a panel re-examining the
+  irrecoverable tier. `Reversed` reports a reversal that some other
+  record already carries, and for *hostis humani generis* there is no
+  such record. It sets no next date, since nothing is left to renew,
+  and it cannot be entered against a designation another path has
+  already reversed. What it does not do is open a way back for the
+  designated. Vacating says the compact should not have designated,
+  not that the designated has returned. "Willingness to be wrong about
+  past designations" is named as a guard against the response of the
+  compact becoming demonic, and it needed somewhere to be written
+  down.
 - **The covenant-facing floor of the expedited path.** An
   expedited designation must cite at least one attested adverse
   `ConductRecord` naming the subject and recorded no later than
@@ -561,14 +664,12 @@ prevention.
   structurally, since condition 1 resolves three restitution
   chains through `RestitutionVerified` and `ConductAttested`,
   both compact-facing record kinds. The expedited path relaxes
-  condition 1 by design. Condition 3 checks only that `criteria`
-  and `cited_acts` are non-empty without resolving the CIDs, so
-  before this rule the emergency route was the one place a
-  designation could be assembled out of records describing what
-  a community does inside itself, or out of CIDs naming no
-  archive record at all. Measured before the rule. An expedited
-  designation citing `Cid::of_bytes(b"act")` was authorized, as
-  were all four expedited fixtures in the suite. What the rule
+  condition 1 by design. Before this rule the emergency route was
+  the one place a designation could be assembled out of records
+  describing what a community does inside itself, or out of CIDs
+  naming no archive record at all. Measured before the rule. An
+  expedited designation citing `Cid::of_bytes(b"act")` was
+  authorized, as were all four expedited fixtures in the suite. What the rule
   protects is [natural_law.md "The interior of a member
   community"](../background/natural_law.md#the-interior-of-a-member-community).
   The compact forms no verdict on the internal morality of a
@@ -578,6 +679,26 @@ prevention.
   not machine-checked and remains the judgment of the
   deliberators, the same design limit `sustained_bad_faith`
   carries for condition 1's "each more serious than the last".
+- **Every cited act resolves, and is about the subject.**
+  Condition 3 used to check only that `criteria` and `cited_acts`
+  were non-empty. Both functions that resolved CIDs let a
+  dangling one through: the covenant-facing floor is an
+  *existential* over the list and runs on the expedited path
+  alone, and the stale-designation check continues past anything
+  that is not a `DesignationDecided`. So on the **normal** path a
+  designation every one of whose citations named nothing was
+  authorized, as was one citing conduct about a third party, and
+  on the expedited path one real act excused a dangling citation
+  and a misdirected one beside it. Both urgencies now refuse per
+  citation: a CID that resolves to no archive record, and a
+  resolved record whose subject or obligated community is not the
+  designation's subject. `DesignationDecided` is exempt from the
+  second half on purpose, because consorting with a community
+  another compact has designated is itself a ground, so that
+  citation names somebody else by design. A record kind carrying
+  no subject resolves and passes, which keeps the rule about
+  dangling and misdirected citations rather than about record
+  taxonomy.
 - **Restitution tracking.** Restoration obligations, verification of
   completion.
 - **Re-entry procedure.** Examination, witnessing, re-recitation
@@ -703,6 +824,36 @@ prevention.
   Measured before the rule. Nothing stopped it, because nothing
   distinguished the levels at all.
 
+  A second rule keeps the charter from becoming a second answer
+  to a question §2 already answers. **Membership comes from the
+  admission history, and a charter may not name a community that
+  history does not seat.** Four readings already took the
+  admission roll as authoritative, those being the §2 admitting
+  quorum, `shares_a_compact`, designation consensus and
+  deliberative capacity, while subsidiarity read the charter
+  alone and nothing joined the two. Measured before the rule: a charter
+  naming a community no admission record seats anywhere was
+  authorized, and so was a charter naming communities admitted
+  under two *different* labels, so a federation could be assembled
+  out of communities that were never in one compact. The
+  authority pass now checks every member of a charter against the
+  admission roll for the charter's own label, and compact
+  formation stays reachable because the formation witness names
+  its own participants. Subsidiarity keeps reading the charter, by
+  choice rather than by accident: a commons question is about the
+  chartered enterprise, and the charter can no longer name a
+  non-member.
+
+  Beside it, `compact_of` took the **first** charter in iteration
+  order containing the community, with no date filter and no
+  supersession, so a later charter that dropped a member did not
+  drop it for subsidiarity either. It is latest-issued-wins now,
+  matching the roster convention. Recorded and not changed:
+  `NonAdmissionRecord` subtracts from no roll and there is no
+  departure record kind at all. A refusal at the door is not a
+  removal, and adding removal is protocol design rather than a
+  defect.
+
   The habitat level remains autonomous_trust's, and the compact of
   compacts is not itself a further governance tier here. What is
   built is the identity of the level, its commons, and its limit.
@@ -805,35 +956,33 @@ candidate mechanisms, layerable:
   community ignores an injunction. The teeth are withdrawal of
   protocol-level services, not external coercion.
 
-  As built, a capability is a **service** or an **office**, and
-  the two are revoked independently. The services are the
-  relations of exchange just listed. The offices are the roles
-  that select who is sanctioned: a mediator-pool seat, an observer
-  or jester seat, an examining seat, deliberative weight in a
-  second-class decision, a seat on an emergency panel. Without the
-  second kind, an injunction could suspend every relation of
-  exchange a community held and leave untouched every role by
-  which it judged others, which is the option the design wanted
-  and could not express. What may trigger the withholding stays
-  bounded by the covenant. Three things withhold, and a refusal
-  names which, because the remedies differ: an in-force injunction
-  (which lapses on a date), a standing §5 designation (answered by
-  re-entry or by a vacatur), and a dispute at the expulsion rung
-  (answered by de-escalation). The last two reach the offices only.
+  As built, a capability is a **service** or an **office**, and the
+  two are revoked independently. The services are the relations of
+  exchange just listed. The offices are the roles that select who is
+  sanctioned: a mediator-pool seat, an observer or jester seat, an
+  examining seat, deliberative weight in a second-class decision, a
+  seat on an emergency panel. Without the second kind, an injunction
+  could suspend every relation of exchange a community held and leave
+  untouched every role by which it judged others, which is the option
+  the design wanted and could not express. What may trigger the
+  withholding stays bounded by the covenant. Three things withhold,
+  and a refusal names which, because the remedies differ. An in-force
+  injunction lapses on a date, a standing §5 designation is answered
+  by re-entry or by a vacatur, and a dispute at the expulsion rung is
+  answered by de-escalation. The last two reach the offices only.
   Every one of them answers to conduct at the boundary. Holding a
-  community out of office for what it does at home would be a
-  verdict on the interior of a member, which
+  community out of office for what it does at home would be a verdict
+  on the interior of a member, which
   [natural_law.md](../background/natural_law.md#the-interior-of-a-member-community)
   forbids the compact to form. Note what deliberately does not
-  withhold: `derive_standing` reports `Anathema` both for a
-  structured §5 designation and for the coarse
-  `ConductKind::DesignationAnathema` record that predates it, and
-  only the first withholds anything. The coarse record carries none
-  of the four conditions and rides on an ordinary second-class
-  quorum, so letting it strip a community of every office would hand
-  two communities a route to disarm a third with no restoration
-  cycles, no deliberation cadence and no stated criteria. Standing is
-  a label; the withholding follows the act that earned it.
+  withhold: `derive_standing` reports `Anathema` both for a structured
+  §5 designation and for the coarse `ConductKind::DesignationAnathema`
+  record that predates it, and only the first withholds anything. The
+  coarse record carries none of the four conditions and rides on an
+  ordinary second-class quorum. Letting it strip a community of every
+  office would hand two communities a route to disarm a third, with no
+  restoration cycles, no deliberation cadence and no stated criteria.
+  Standing is a label; the withholding follows the act that earned it.
 - **Transparency-as-teeth.** Violations are published immediately
   and durably. The reputational and material cost is downstream of
   publication. The job of the protocol is ensuring publication is
@@ -1100,13 +1249,16 @@ capture-resistance test harness. Each is carried by the code named beside it:
 | The differential protocol, made operative | §5 | A standing designation withholds the five offices and all deliberative weight, suspends the ordinary restitution path, and bars the subject from the quorum of its own designation and of the re-examination of it. Services stay, since the doctrine permits their denial rather than imposing it, and the rescue duty is never gated. An expulsion rung withholds the offices on the same terms, and a de-escalation restores them. Measured before it: a designated community seated mediators, observers and examiners, supplied an emergency panel against a third party, carried second-class decisions, and opened a fourth restitution cycle the day after the designation naming three |
 | The *hostis humani generis* bar | §5 | A prior anathema whose return failed (a re-entry broken, or a confirmed re-examination), at least one cited act postdating it, three cycles of consideration, `quorum_threshold + 1` counting weight, and a mandatory re-examination date. `ReexaminationOutcome::Vacated` is the error-correction conclusion the tier needs, since it has no reversal path for `Reversed` to report. Measured before it: the irreversible tier stood at the anathema tier's own bar, on recycled evidence, with no date and so invisible to `overdue_reexaminations` for good |
 | Recorded refusal to designate | §5 | `kc-escalation::DesignationDissent` plus the `designation_consensus` reading: who joined, who refused, who was silent, against the roll minus the subject. Vetoes nothing. A co-signer may not also dissent, the subject may not (its objection is its own defence, and it has the report response, the injunction challenge and the re-entry accounting), and an outsider may not (§8 observer reports are how a community outside a compact speaks about it). Before it, a designation carried by three of five read exactly like one carried by all five |
+| The compact's own recited object as the denominator | §3, §9 | `kc_ceremony::CommonVirtueMovement` (a preamble plus an ordered `Commitment` list, the recited text derived so the two cannot disagree) plus `ConductRecord.commitments_cited`, read by `kc_reputation::compact_object` and `commitment_coverage`, the erosion alert's fifteenth dimension. Pinned to the first rite of each seated member, so the denominator is what the compact undertook and only grows; later commitments count off-object; the volume floor scales with the object and testability counts only acts that cite. Measured before it: a compact halving what it recited scored 1.0 on shared-taxonomy coverage and `None` on all fourteen dimensions. §10 scenario 13 scores it against a whole-object control |
+| A commitment no longer recited | §3, §9 | `kc_reputation::commitment_contraction`, the sixteenth dimension and the act-triggered half of the fifteenth: the move that makes a narrowing legal is to bring the recitation down to match. Pinned baseline against the latest recitation, so a commitment taken up again clears. A cited key that no member of the compact recited at or before the act is refused outright |
+| Enforcement landing on the compact's own complainants | §5, §9 | `kc_reputation::reporter_targeting` (+ `_all`), the erosion alert's fourteenth dimension and the second with a *named beneficiary*. Reads the relation between an enforcement act and a prior grievance, asking whether this act's subject is the community that raised an earlier one about whoever brings this one, joined on party identity and time order rather than citation, over all four carriers of a raised matter. Compact-wide, thresholded on a volume floor and a majority share, compounding to `Alert` when more than one pair is implicated. Measured before it: a complicit majority ran the member that filed the evidence up to limited sanctions and zero instruments moved, `enforcement_direction` included, because its axis is standing and an honest complainant holds full standing. §10 scenario 12 scores it against a same-volume control |
 | Recorded non-pursuit | §5 | `kc-escalation::NonPursuitAttestation` plus the `unanswered_grievances` reading, the erosion alert's thirteenth dimension and the first there with a *named beneficiary*: every other dimension is a thing the compact stopped doing, and this is a thing it declines to do to one member. Absolute against a clock, with two grounds (never pursued, closed unresolved), gated first on whether the compact is moving against the member at all (a live dispute naming it, a restitution on it, a designation of it), since a prosecuting compact escalates once on a course of conduct rather than filing a dispute per record. Beside the count sit the seats that sat on more than one dismissal of the same evidence. The claim is checked rather than taken, so the record is not an accusation a faction can mint. Measured before it: a compact dismissing the same evidence four times through panels seated by three complicit communities graded identically to one prosecuting it to collective sanctions and to one with nothing to prosecute at all, since burial produces observances |
 | A de-escalation is the complainant's concession | §5 | The dispute's complainant must be among the initiators of any move down, and the decision-class check reads the rung being *left* rather than entered, so what a quorum imposed only that quorum lifts. Measured before both: two of two attempts by a non-party moved another's dispute back to registration, unilaterally and first class, and collective sanctions took two communities to impose and one to remove |
 | A closing decision does not reach backwards | §5 | `dispute_is_closed` is bounded to the transition's own instant. Measured before the bound: a dismissal dated day sixty retroactively unauthorized three transitions dated days twenty-two to thirty, each authorized when made and none of them changed. The cooperative campaign never met it, having decided `Referred`, which is not in the closing set |
 | Whole-compact capture simulation | §10 | The captured-prosecution probe: the same fixture and evidence as the adversary campaign, with a complicit majority and a panel seated by it. Measures where escalation stops (limited sanctions, the seam at which the ladder turns from a party's instrument into the compact's) and whether declining to prosecute leaves a mark. See [captured-prosecution.md](captured-prosecution.md) |
 | Whole-campaign adversary simulation | §10 | `adversary.py`: nine phases over one archive, an adversary that joins by deceit, surrenders tactically three times, re-enters in bad faith and is designated *hostis humani generis*. Scores what a status *withholds* rather than whether a signal is detected, which is the axis the twelve single-signal harness scenarios cannot reach. See [adversary-campaign.md](adversary-campaign.md) |
 | Composition-drift dashboard maintained by observer corps | §8 | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
-| Capture-resistance scenario simulation in test harness | §10 | `harness.py`: ten scenarios scored against criteria stated in advance, run continuously over a parameterized space. Two of the ten have no adversary (the quiet polity, the abandoned office), which is what the omission signals need |
+| Capture-resistance scenario simulation in test harness | §10 | `harness.py`: fourteen scenarios scored against criteria stated in advance, run continuously over a parameterized space. Six of the fourteen have no adversary in the §10 sense (the quiet polity, the abandoned office, the substituted object, the buried grievance, the answered accuser, the narrowed object), which is what the omission and intensification signals need |
 | Sponsor-stake tracking | §2 | `SponsorshipRecord` + sponsor concentration in `composition_graph` |
 | Probationary-status enforcement | §2 | A probationary community may not sponsor an entrant, may not seat mediators or examiners, does not count toward `panel_min` on any of the five panels, and carries no weight toward **any second-class quorum**, including the asymmetric contraction bars, which count weight rather than signatures. `kc_archive::probationary_at` is the one predicate both the gate and `RecognitionStanding` read; `deliberative_weight` is the one counter every bar reads. `deliberative_capacity` reports what the compact can still do |
 | Credentialing-panel rotation | §2 | `ExaminerRegistry` + `ExaminerCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share, one implementation shared with the §8 observer caps. An admission into a standing compact must be examined by `panel_min` seated examiners spanning two or more communities. Drawing *by lot* is not enforced |

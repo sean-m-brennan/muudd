@@ -44,8 +44,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use kc_ceremony::inter::{ExaminerRegistry, InterCommunityWitnessRecord, SponsorshipRecord};
+use kc_ceremony::intra::IntraCommunityRiteRecord;
 use kc_commons::{is_second_class_level, sanction_rank, CommonsSanction, SanctionLevel, UsageRecord};
-use kc_conduct::{ActivityAttestation, AttestedFunction, ConductKind, DecisionClass};
+use kc_conduct::{ActivityAttestation, AttestedFunction, ConductKind, ConductRecord, DecisionClass};
 use kc_constitution::{
     AmendmentKind, CompactIncapableAmendment, FastCadenceAmendment, ForbearanceChange,
     MinimumContentAmendment,
@@ -2153,12 +2154,15 @@ fn holds_function(
 /// `InterCommunityWitness` naming its participants under a compact label. This reads the
 /// latter, which is the one every admitted community has, and asks only whether some
 /// label seats both.
-fn shares_a_compact(
-    archive: &InMemoryArchive,
-    a: &DidKey,
-    b: &DidKey,
-    at: Timestamp,
-) -> bool {
+/// Who the §2 admission records seat, per compact label, as of `at`.
+///
+/// The admission history is the authoritative answer to membership: it is the artifact
+/// every admitted community has, and admission is the act that makes one a member. A §7
+/// `CompactCharter` is a roster for the chartered enterprise and not a second answer
+/// (see `charter_members_are_admitted`). Rolls are append-only here, because a
+/// `NonAdmissionRecord` is a refusal at the door rather than a removal, and no departure
+/// record kind exists.
+fn admission_rolls(archive: &InMemoryArchive, at: Timestamp) -> BTreeMap<&str, BTreeSet<&str>> {
     let mut rolls: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
     for (_, e) in archive.iter() {
         if let ArchiveEntry::InterCommunityWitness(s) = e {
@@ -2172,6 +2176,15 @@ fn shares_a_compact(
         }
     }
     rolls
+}
+
+fn shares_a_compact(
+    archive: &InMemoryArchive,
+    a: &DidKey,
+    b: &DidKey,
+    at: Timestamp,
+) -> bool {
+    admission_rolls(archive, at)
         .values()
         .any(|roll| roll.contains(a.as_str()) && roll.contains(b.as_str()))
 }
@@ -2959,6 +2972,84 @@ fn authorize_transition(
     Ok(())
 }
 
+/// The community a cited record is *about*, where its kind names one.
+///
+/// `None` for kinds that name no subject at all — an identity, a roster, a dispute
+/// naming two parties rather than a subject — and those citations resolve and pass.
+/// The rule this feeds is about citations that name nothing and citations that name
+/// somebody else, not about which record kinds may be cited: condition 1 is what
+/// carries the covenant-facing anchor on the normal path, and the expedited floor
+/// (`cites_adverse_conduct`) is what carries it where condition 1 is relaxed.
+fn cited_act_subject<'a>(
+    archive: &'a InMemoryArchive,
+    entry: &'a ArchiveEntry,
+) -> Option<&'a DidKey> {
+    match entry {
+        ArchiveEntry::ConductAttested(s) => Some(&s.payload.subject_community),
+        // Deliberately absent: `DesignationDecided`. A designation is the *status of
+        // another community*, and citing one is how "consorting with the designated"
+        // (per bounded_conflict.md's differential protocol) is evidenced at all. The
+        // pattern the doctrine names is a third party's status plus the subject's own
+        // conduct, so a status may be about somebody else while conduct may not. Cited
+        // designations have their own gate in `no_stale_designation_cited`.
+        ArchiveEntry::RestitutionObligated(s) => Some(&s.payload.subject_community),
+        // A completion names the obligation it answers and the obligation names the
+        // community, so this is one hop rather than none. It is the kind a normal
+        // designation's restitution chains actually cite, and
+        // `authorize_restitution_completion` already refuses a completion whose
+        // obligation does not resolve, so an unresolvable hop cannot reach here in an
+        // authorized archive.
+        ArchiveEntry::RestitutionVerified(s) => match archive.get(&s.payload.obligation_cid) {
+            Some(ArchiveEntry::RestitutionObligated(o)) => Some(&o.payload.subject_community),
+            _ => None,
+        },
+        ArchiveEntry::SubstantiveReEngagementInvoked(s) => Some(&s.payload.subject_community),
+        ArchiveEntry::InjunctionIssued(s) => Some(&s.payload.subject_community),
+        ArchiveEntry::CommonsEscalated(s) => Some(&s.payload.subject_community),
+        ArchiveEntry::SanctionApplied(s) => Some(&s.payload.subject_community),
+        ArchiveEntry::ObserverReportPublished(s) => Some(&s.payload.subject_community),
+        ArchiveEntry::NonPursuitAttested(s) => Some(&s.payload.subject),
+        _ => None,
+    }
+}
+
+/// Condition 3's other half: every cited act names a record, and every record that
+/// names a subject names *this* subject.
+///
+/// **Measured before this rule.** Condition 3 was a non-emptiness check over opaque
+/// bytes, so on the normal path a designation whose every citation dangled was
+/// authorized, as was one citing an attested adverse act about a third party. The
+/// expedited floor did resolve CIDs, but as an existential over the list, so one real
+/// act excused every other citation in it. Both urgencies run this, because a citation
+/// is either evidence or decoration regardless of how urgent the designation is.
+///
+/// The subject half is narrower than it first looks, and the suite is what narrowed
+/// it: a designation for *consorting with the designated* cites another community's
+/// designation on purpose, so statuses are exempt where conduct is not. See
+/// `cited_act_subject`.
+fn cited_acts_resolve(
+    archive: &InMemoryArchive,
+    subject: &DidKey,
+    cited: &[Cid],
+) -> KcResult<()> {
+    for cid in cited {
+        let entry = archive.get(cid).ok_or_else(|| {
+            KcError::Authority(format!(
+                "cited act {cid} names no record in the archive (condition 3)"
+            ))
+        })?;
+        if let Some(named) = cited_act_subject(archive, entry) {
+            if named != subject {
+                return Err(KcError::Authority(format!(
+                    "cited act {cid} is about {named} rather than the named subject \
+                     {subject} (condition 3)"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// §5 four-condition anathema test (bounded_conflict.md §"Handling the anathema").
 /// The distinct-community quorum (condition 2's "not unilateral, not simple
 /// majority") is enforced generically via the second-class flag before this runs.
@@ -2991,6 +3082,7 @@ fn authorize_designation(
             "designation must state criteria and cite specific acts (condition 3)".into(),
         ));
     }
+    cited_acts_resolve(archive, &d.subject_community, &d.cited_acts)?;
 
     // Erosion remediation's one refusal: no lapsed designation may be cited in support
     // of a new one.
@@ -3096,11 +3188,13 @@ fn authorize_designation(
 
     // The expedited path's covenant-facing floor.
     //
-    // Condition 1 is relaxed above for the emergency path, and condition 3 checks only
-    // that `criteria` is non-empty and `cited_acts` is non-empty. The CIDs themselves are
-    // never resolved, so without this the emergency route is the one place a designation
-    // may be assembled out of records describing what a community does inside itself, or
-    // out of CIDs naming no archive record at all.
+    // Condition 1 is relaxed above for the emergency path. Condition 3 now resolves every
+    // cited CID and requires each resolved record that names a subject to name this
+    // subject, so a dangling or misdirected citation is refused on both paths; what this
+    // floor adds is that at least one of them is *covenant-facing*, which resolution
+    // alone does not say. Without it the emergency route would remain the one place a
+    // designation may be assembled entirely out of records describing what a community
+    // does inside itself.
     //
     // natural_law.md ("The interior of a member community") holds that the compact forms
     // no verdict on a member's internal morality until that morality touches the covenant.
@@ -3461,6 +3555,101 @@ fn authorize_restitution_completion(
     )
 }
 
+/// §1 rite rule: a sealed intra-community rite recites all five movements, and
+/// the version it declares is the version of the recitation it holds.
+///
+/// The runner enforces both when it seals, and this is the same invariant read
+/// as a property of the archive rather than of the constructor: a record
+/// appended without going through the runner reaches exactly this pass and
+/// nothing else. Before it existed, a rite reciting *nothing at all*, sealed
+/// under a version naming no schema, authorized and passed the integrity pass.
+fn authorize_intra_rite(record: &IntraCommunityRiteRecord) -> KcResult<()> {
+    // Movement 4 first, and with its own message. It is the one movement carrying a
+    // list, so "missing a movement" would name the wrong thing for a rite whose
+    // commitments are malformed rather than absent.
+    let virtue = &record.recitation.payload.movement_common_virtue;
+    if !virtue.well_formed() {
+        if virtue.commitments.is_empty() {
+            return Err(KcError::Authority(
+                "sealed rite recites no commitments: a denominator that can be empty is \
+                 not a denominator"
+                    .into(),
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        if let Some(dup) = virtue
+            .commitments
+            .iter()
+            .find(|c| !seen.insert(c.key.trim()))
+        {
+            return Err(KcError::Authority(format!(
+                "sealed rite recites the commitment {} twice: a key names one undertaking",
+                dup.key.trim()
+            )));
+        }
+        return Err(KcError::Authority(
+            "sealed rite has a commitment with no key or no text, or no preamble".into(),
+        ));
+    }
+    if !record.recitation.payload.movements_all_present() {
+        return Err(KcError::Authority(
+            "sealed rite is missing a movement: the rite is all five or it is not the rite"
+                .into(),
+        ));
+    }
+    if record.version_of_rite != record.recitation.payload.version {
+        return Err(KcError::Authority(format!(
+            "sealed rite declares version {} while the recitation it holds declares {}",
+            record.version_of_rite.0, record.recitation.payload.version.0
+        )));
+    }
+    Ok(())
+}
+
+/// Every commitment key an enforcement act cites must have been recited, by a community
+/// sharing a compact with the act's subject, at or before the act.
+///
+/// The item-A shape one layer down. A citation that resolves to nothing is not a
+/// narrower reading of the compact's object; it is a filer naming an undertaking nobody
+/// undertook, and `commitment_coverage` would count it as coverage of a commitment that
+/// does not exist. Scoped to the compact rather than to the whole archive because an
+/// object is a compact's: a community elsewhere reciting a key does not put that key
+/// into this compact's object.
+///
+/// Nothing here requires an act to cite anything. A citation is a lens and not a gate,
+/// and the share of enforcement that cites nothing is reported by the reading instead.
+fn cited_commitments_recited(archive: &InMemoryArchive, c: &ConductRecord) -> KcResult<()> {
+    if c.commitments_cited.is_empty() {
+        return Ok(());
+    }
+    let mut recited: BTreeSet<&str> = BTreeSet::new();
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::IntraCommunityRite(s) = entry {
+            let r = &s.payload.recitation.payload;
+            if s.payload.sealed_at > c.recorded_at {
+                continue;
+            }
+            if r.community_did != c.subject_community
+                && !shares_a_compact(archive, &r.community_did, &c.subject_community, c.recorded_at)
+            {
+                continue;
+            }
+            for k in r.movement_common_virtue.keys() {
+                recited.insert(k);
+            }
+        }
+    }
+    for key in &c.commitments_cited {
+        if !recited.contains(key.trim()) {
+            return Err(KcError::Authority(format!(
+                "cited commitment {} was never recited by this compact at or before the act",
+                key.trim()
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// §5 re-entry rule: the petition answers an `Anathema` designation (never
 /// Hostis), carries the petitioner's own complete five-movement recitation, a
 /// non-empty conduct accounting and public acknowledgement, and a quorum of
@@ -3809,20 +3998,79 @@ fn authorize_compact_charter(
             )));
         }
     }
+    charter_members_are_admitted(archive, c)?;
     Ok(())
 }
 
-/// The compact chartered at some point in the archive that has `community` as a member,
-/// if any. Used by the subsidiarity rule to find the body a community answers through.
-fn compact_of(archive: &InMemoryArchive, community: &DidKey) -> Option<DidKey> {
-    archive.iter().find_map(|(_, e)| match e {
-        ArchiveEntry::CompactChartered(s)
-            if s.payload.members.iter().any(|m| m == community) =>
-        {
-            Some(s.payload.did.clone())
+/// A charter may not name a community the admission history does not seat.
+///
+/// **One definition of membership.** Two records said who belongs to a compact and
+/// nothing joined them, so divergence was reachable in both directions: a charter could
+/// name a community no admission record ever seated, and the readings that derive a roll
+/// from admissions (`shares_a_compact`, `designation_consensus`, `deliberative_capacity`,
+/// the §2 admitting quorum) could not see a charter at all. The ruling is that the
+/// admission history is authoritative and the charter carries no membership claim of its
+/// own, and this is what stops the two from drifting rather than reconciling them after
+/// they have.
+///
+/// The join is on the roll's *contents*, not on the label. Both labels are self-declared
+/// strings, and a charter's own documentation says the DID rather than the label is its
+/// identifier, so requiring two free-text labels to agree would add a second thing to
+/// mislabel rather than a rule about membership.
+fn charter_members_are_admitted(
+    archive: &InMemoryArchive,
+    c: &kc_identity::CompactCharter,
+) -> KcResult<()> {
+    let rolls = admission_rolls(archive, c.chartered_at);
+    if rolls
+        .values()
+        .any(|roll| c.members.iter().all(|m| roll.contains(m.as_str())))
+    {
+        return Ok(());
+    }
+    let unseated: Vec<&str> = c
+        .members
+        .iter()
+        .map(|m| m.as_str())
+        .filter(|m| !rolls.values().any(|roll| roll.contains(m)))
+        .collect();
+    if !unseated.is_empty() {
+        return Err(KcError::Authority(format!(
+            "this charter names {} as a member, and no admission record seats it in any \
+             compact: membership comes from admission",
+            unseated.join(", ")
+        )));
+    }
+    Err(KcError::Authority(
+        "this charter names members that no single admission roll seats together, so the \
+         compact it charters is not one the admission history recognizes"
+            .into(),
+    ))
+}
+
+/// The compact `community` answers through, if any. Used by the subsidiarity rule to
+/// find the body an inter-compact level may not reach past.
+///
+/// **Latest-issued-wins**, matching `store::latest_rosters`. It used to take the *first*
+/// charter in iteration order that named the community, with no date filter and no
+/// supersession, so a later charter that dropped a member did not drop it here either:
+/// the community went on answering through a compact whose current charter no longer
+/// named it. Charters have no explicit supersession record, so the ordering is by
+/// `chartered_at` and then by append order for two charters at one instant.
+pub(crate) fn compact_of(archive: &InMemoryArchive, community: &DidKey) -> Option<DidKey> {
+    let mut latest: Option<(Timestamp, DidKey)> = None;
+    for (_, e) in archive.iter() {
+        if let ArchiveEntry::CompactChartered(s) = e {
+            if !s.payload.members.iter().any(|m| m == community) {
+                continue;
+            }
+            let at = s.payload.chartered_at;
+            if latest.as_ref().is_none_or(|(seen, _)| at >= *seen) {
+                latest = Some((at, s.payload.did.clone()));
+            }
         }
-        _ => None,
-    })
+    }
+    latest.map(|(_, did)| did)
 }
 
 /// §7 **subsidiarity**: the inter-compact level may not reach past a compact to its
@@ -6301,6 +6549,12 @@ pub fn authorize_with_caps(
         ArchiveEntry::MinimumContentAmended(s) => {
             let self_cid = entry.cid()?;
             authorize_minimum_amendment(archive, &s.payload, &self_cid, quorum_threshold)?;
+        }
+        ArchiveEntry::IntraCommunityRite(s) => {
+            authorize_intra_rite(&s.payload)?;
+        }
+        ArchiveEntry::ConductAttested(s) => {
+            cited_commitments_recited(archive, &s.payload)?;
         }
         _ => {}
     }

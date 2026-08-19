@@ -53,7 +53,12 @@ use kc_conduct::{
 };
 use kc_ceremony::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
 use kc_ceremony::lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
-use kc_ceremony::recitation::{Recitation, RecitationVersion};
+// `kc_core::Commitment` is the Pedersen commitment of the §7 bound proof; this one is
+// an undertaking recited in a rite. Two different things wearing one word, so the rite's
+// is aliased at the import rather than shadowing the crypto type.
+use kc_ceremony::recitation::{
+    Commitment as RiteCommitment, CommonVirtueMovement, Recitation, RecitationVersion,
+};
 use kc_principal::{PrincipalOutput, PrincipalWitnessAttestation};
 use kc_provenance::{
     EventActionInvoked, EventCorroboration, EventReport, ReviewAnswer,
@@ -1103,7 +1108,7 @@ impl PyArchive {
     /// signed here; the re-entry itself is co-signed by the admitting quorum.
     /// `movements` is (substrate, fallenness, recognition, common_virtue,
     /// non_ultimacy); `witnesses` is a list of `(priv, did, sincerity_affirmed)`.
-    #[pyo3(signature = (deliberator_privs, deliberator_dids, designation_cid, petitioner_priv, petitioner_did, movements, witnesses, conduct_accounting, public_acknowledgement, probation_until, completed_at=None))]
+    #[pyo3(signature = (deliberator_privs, deliberator_dids, designation_cid, petitioner_priv, petitioner_did, movements, commitments, witnesses, conduct_accounting, public_acknowledgement, probation_until, completed_at=None))]
     #[allow(clippy::too_many_arguments)]
     fn complete_reentry(
         &mut self,
@@ -1113,6 +1118,7 @@ impl PyArchive {
         petitioner_priv: &[u8],
         petitioner_did: &str,
         movements: (String, String, String, String, String),
+        commitments: Vec<(String, String)>,
         witnesses: Vec<(Vec<u8>, String, bool)>,
         conduct_accounting: String,
         public_acknowledgement: String,
@@ -1130,7 +1136,7 @@ impl PyArchive {
             movement_substrate: movements.0,
             movement_fallenness: movements.1,
             movement_recognition: movements.2,
-            movement_common_virtue: movements.3,
+            movement_common_virtue: common_virtue(movements.3, commitments),
             movement_non_ultimacy: movements.4,
             language_tag: "en".into(),
             translation_en: None,
@@ -2300,6 +2306,10 @@ impl PyArchive {
         enforcement_dispersion_ceiling_permille=None,
         enforcement_downward_floor_permille=None,
         grievance_cadence_seconds=None,
+        reporter_targeting_volume_floor=None,
+        reporter_targeting_floor_permille=None,
+        commitment_acts_per_commitment=None,
+        commitment_coverage_floor_permille=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn erosion_alert(
@@ -2313,6 +2323,10 @@ impl PyArchive {
         enforcement_dispersion_ceiling_permille: Option<u32>,
         enforcement_downward_floor_permille: Option<u32>,
         grievance_cadence_seconds: Option<i64>,
+        reporter_targeting_volume_floor: Option<usize>,
+        reporter_targeting_floor_permille: Option<u32>,
+        commitment_acts_per_commitment: Option<usize>,
+        commitment_coverage_floor_permille: Option<u32>,
     ) -> PyResult<PyErosionAlert> {
         let as_of_ts = parse_as_of(as_of)?;
         let mut thresholds = kc_reputation::ErosionThresholds::default();
@@ -2339,6 +2353,18 @@ impl PyArchive {
         }
         if let Some(c) = grievance_cadence_seconds {
             thresholds.grievance_cadence_seconds = c;
+        }
+        if let Some(v) = reporter_targeting_volume_floor {
+            thresholds.reporter_targeting_volume_floor = v;
+        }
+        if let Some(p) = reporter_targeting_floor_permille {
+            thresholds.reporter_targeting_floor_permille = p;
+        }
+        if let Some(v) = commitment_acts_per_commitment {
+            thresholds.commitment_acts_per_commitment = v;
+        }
+        if let Some(p) = commitment_coverage_floor_permille {
+            thresholds.commitment_coverage_floor_permille = p;
         }
         Ok(PyErosionAlert::from(&kc_reputation::erosion_alert_with(
             &self.inner,
@@ -2421,6 +2447,86 @@ impl PyArchive {
             .iter()
             .map(|(k, v)| (k.clone(), PyEnforcementDirection::from(v)))
             .collect())
+    }
+
+    /// The reading `enforcement_direction` cannot make: whether the compact's
+    /// enforcement lands on the communities that raised matters. The join is on party
+    /// identity and time order — is this act's subject the community that raised an
+    /// earlier matter about whoever is bringing this one — across all four carriers
+    /// that record one (conduct reporters, dispute complainants, non-pursuit
+    /// attestors, observer reports). A lens and never a refusal.
+    #[pyo3(signature = (as_of=None, window_seconds=None))]
+    fn reporter_targeting(
+        &self,
+        as_of: Option<i64>,
+        window_seconds: Option<i64>,
+    ) -> PyResult<PyReporterTargeting> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let w = window_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().enforcement_window_seconds);
+        Ok(PyReporterTargeting::from(
+            &kc_reputation::reporter_targeting(&self.inner, as_of_ts, w),
+        ))
+    }
+
+    /// The same reading per **enforcing** community, keyed by reporter DID. An act is
+    /// credited to a community only where the matter it answers named that community,
+    /// so a co-signer who was never named does not inherit it.
+    #[pyo3(signature = (as_of=None, window_seconds=None))]
+    fn reporter_targeting_all(
+        &self,
+        as_of: Option<i64>,
+        window_seconds: Option<i64>,
+    ) -> PyResult<BTreeMap<String, PyReporterTargeting>> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let w = window_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().enforcement_window_seconds);
+        Ok(kc_reputation::reporter_targeting_all(&self.inner, as_of_ts, w)
+            .iter()
+            .map(|(k, v)| (k.clone(), PyReporterTargeting::from(v)))
+            .collect())
+    }
+
+    /// The compact's recited object: every commitment key its members recited at their
+    /// **first** rite, plus the per-community lists behind it.
+    ///
+    /// Pinned to the first rite, which is what keeps it absolute. A compact cannot raise
+    /// its coverage by reciting a shorter list, and the union only grows.
+    #[pyo3(signature = (as_of=None))]
+    fn compact_object(&self, as_of: Option<i64>) -> PyResult<PyCompactObject> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(PyCompactObject::from(&kc_reputation::compact_object(
+            &self.inner,
+            as_of_ts,
+        )))
+    }
+
+    /// How much of its own recited object the compact still enforces, over the window
+    /// ending at `as_of`.
+    ///
+    /// The reading `enforcement_convergence` cannot make: eight coarse grounds do not
+    /// separate a compact holding the whole of what it undertook from one holding half.
+    #[pyo3(signature = (as_of=None, window_seconds=None))]
+    fn commitment_coverage(
+        &self,
+        as_of: Option<i64>,
+        window_seconds: Option<i64>,
+    ) -> PyResult<PyCommitmentCoverage> {
+        let as_of_ts = parse_as_of(as_of)?;
+        let w = window_seconds
+            .unwrap_or_else(|| kc_reputation::ErosionThresholds::default().enforcement_window_seconds);
+        Ok(PyCommitmentCoverage::from(
+            &kc_reputation::commitment_coverage(&self.inner, as_of_ts, w),
+        ))
+    }
+
+    /// Commitments a member undertook at its first rite and no longer recites.
+    #[pyo3(signature = (as_of=None))]
+    fn commitment_contraction(&self, as_of: Option<i64>) -> PyResult<PyCommitmentContraction> {
+        let as_of_ts = parse_as_of(as_of)?;
+        Ok(PyCommitmentContraction::from(
+            &kc_reputation::commitment_contraction(&self.inner, as_of_ts),
+        ))
     }
 
     /// §5 designation follow-through: designations whose mandated
@@ -3270,12 +3376,13 @@ impl PyArchive {
     /// not merely to `verify_all`. The community identity must already be
     /// published. `movements` is the five recitation movements; `witness_count`
     /// must be >= 1. Returns the rite entry CID.
-    #[pyo3(signature = (community_priv, community_did, movements, witness_count, sealed_at))]
+    #[pyo3(signature = (community_priv, community_did, movements, commitments, witness_count, sealed_at))]
     fn append_intra_rite(
         &mut self,
         community_priv: &[u8],
         community_did: &str,
         movements: Vec<String>,
+        commitments: Vec<(String, String)>,
         witness_count: usize,
         sealed_at: i64,
     ) -> PyResult<String> {
@@ -3363,7 +3470,7 @@ impl PyArchive {
                 movement_substrate: sub,
                 movement_fallenness: fal,
                 movement_recognition: rec,
-                movement_common_virtue: vir,
+                movement_common_virtue: common_virtue(vir, commitments),
                 movement_non_ultimacy: ult,
                 language_tag: "en".into(),
                 translation_en: None,
@@ -3379,7 +3486,7 @@ impl PyArchive {
             );
         }
         let rite = runner
-            .seal(recitation, attestations, &root_sk, RecitationVersion::current(), sealed)
+            .seal(recitation, attestations, &root_sk, sealed)
             .map_err(kc_err_to_py)?;
         self.inner
             .append(ArchiveEntry::IntraCommunityRite(rite))
@@ -3400,7 +3507,8 @@ impl PyArchive {
         recorded_at, observed_at,
         feature=None, bearing_detail=None, severity=String::from("Minor"),
         ladder_rung=None, decision_class=String::from("FirstClass"),
-        references=Vec::new(), narrative=String::new(), perspective=None
+        references=Vec::new(), narrative=String::new(), perspective=None,
+        commitments_cited=Vec::new()
     ))]
     #[allow(clippy::too_many_arguments)]
     fn append_conduct(
@@ -3421,6 +3529,7 @@ impl PyArchive {
         references: Vec<String>,
         narrative: String,
         perspective: Option<String>,
+        commitments_cited: Vec<String>,
     ) -> PyResult<String> {
         if signer_privs.len() != signer_dids.len() || signer_privs.is_empty() {
             return Err(PyValueError::new_err(
@@ -3449,6 +3558,7 @@ impl PyArchive {
             ladder_rung: ladder_rung.as_deref().map(parse_ladder_rung).transpose()?,
             decision_class: parse_decision_class(&decision_class)?,
             references: refs,
+            commitments_cited,
             narrative,
             observed_at: ts(observed_at)?,
             recorded_at: ts(recorded_at)?,
@@ -4102,6 +4212,20 @@ fn mk_community(name: &str, now: Timestamp) -> Result<CommunityBundle, KcError> 
     })
 }
 
+/// Movement 4 from the Python surface: the preamble plus the commitment list.
+///
+/// The list is what an enforcement act cites and what the compact's recited object is
+/// counted from, so it is supplied rather than parsed out of prose.
+fn common_virtue(preamble: String, commitments: Vec<(String, String)>) -> CommonVirtueMovement {
+    CommonVirtueMovement::new(
+        preamble,
+        commitments
+            .into_iter()
+            .map(|(key, text)| RiteCommitment::new(key, text))
+            .collect(),
+    )
+}
+
 fn seed_archive(archive: &mut InMemoryArchive, c: &CommunityBundle) -> Result<(), KcError> {
     archive.append(ArchiveEntry::CommunityIdentityPublished(
         c.signed_identity.clone(),
@@ -4114,9 +4238,20 @@ fn seed_archive(archive: &mut InMemoryArchive, c: &CommunityBundle) -> Result<()
     Ok(())
 }
 
+/// The commitments the two-community demo recites. Small and concrete, so the demo's
+/// archive has a recited object for the §6 readings to divide by.
+fn demo_commitments() -> Vec<(String, String)> {
+    vec![
+        ("truthfulness".into(), "We tell the truth about what we have done.".into()),
+        ("restitution".into(), "We make good what we have broken.".into()),
+        ("hospitality".into(), "We receive the stranger.".into()),
+    ]
+}
+
 fn run_intra_rite(
     c: &CommunityBundle,
     movements: [String; 5],
+    commitments: Vec<(String, String)>,
     now: Timestamp,
 ) -> Result<Signed<IntraCommunityRiteRecord>, KcError> {
     let delegations = vec![c.speaker_delegation.clone()];
@@ -4133,7 +4268,7 @@ fn run_intra_rite(
             movement_substrate: sub,
             movement_fallenness: fal,
             movement_recognition: rec,
-            movement_common_virtue: vir,
+            movement_common_virtue: common_virtue(vir, commitments),
             movement_non_ultimacy: ult,
             language_tag: "en".into(),
             translation_en: None,
@@ -4150,7 +4285,6 @@ fn run_intra_rite(
         recitation,
         vec![attestation],
         &c.root_priv,
-        RecitationVersion::current(),
         now,
     )
 }
@@ -4187,8 +4321,10 @@ fn run_two_community_ceremony(
     seed_archive(&mut archive, &alpha).map_err(kc_err_to_py)?;
     seed_archive(&mut archive, &beta).map_err(kc_err_to_py)?;
 
-    let alpha_rite = run_intra_rite(&alpha, alpha_arr, now).map_err(kc_err_to_py)?;
-    let beta_rite = run_intra_rite(&beta, beta_arr, now).map_err(kc_err_to_py)?;
+    let alpha_rite =
+        run_intra_rite(&alpha, alpha_arr, demo_commitments(), now).map_err(kc_err_to_py)?;
+    let beta_rite =
+        run_intra_rite(&beta, beta_arr, demo_commitments(), now).map_err(kc_err_to_py)?;
     let alpha_intra_cid = archive
         .append(ArchiveEntry::IntraCommunityRite(alpha_rite.clone()))
         .map_err(kc_err_to_py)?;
@@ -4380,6 +4516,7 @@ fn demo_capture_scenario() -> PyResult<PyCaptureScenario> {
             ladder_rung: None,
             decision_class: DecisionClass::FirstClass,
             references: vec![],
+            commitments_cited: vec![],
             narrative: format!("{feature:?}: decided a matter its charter reserves"),
             observed_at: recorded_at,
             recorded_at,
@@ -4402,6 +4539,7 @@ fn demo_capture_scenario() -> PyResult<PyCaptureScenario> {
         ladder_rung: None,
         decision_class: DecisionClass::FirstClass,
         references: vec![],
+        commitments_cited: vec![],
         narrative: "restored a lapsed member rather than expelling".into(),
         observed_at: recorded_at,
         recorded_at,
@@ -5397,6 +5535,17 @@ struct PyErosionAlert {
     /// The compact's enforcement runs at communities holding reduced standing,
     /// else `None`. Where the narrowed ground landed.
     enforcement_direction: Option<PyEnforcementDirection>,
+    /// The compact's enforcement is landing on the communities that raised matters,
+    /// else `None`. The reading `enforcement_direction` cannot make, because its axis
+    /// is standing and an honest complainant holds full standing.
+    reporter_targeting: Option<PyReporterTargeting>,
+    /// The compact is enforcing a shrinking part of the object its members recited,
+    /// else `None`. The first dimension graded against a denominator the compact
+    /// supplied rather than one the protocol fixed.
+    commitment_coverage: Option<PyCommitmentCoverage>,
+    /// A member no longer recites something it undertook at its first rite, else
+    /// `None`. The move that makes a narrowing legal.
+    commitment_contraction: Option<PyCommitmentContraction>,
 }
 
 #[pyclass(skip_from_py_object, name = "EnforcementConvergence", get_all)]
@@ -5466,6 +5615,127 @@ struct PyEnforcementDirection {
     evidence: Vec<String>,
     total: usize,
     downward_share: Option<f64>,
+}
+
+#[pyclass(skip_from_py_object, name = "CompactObject", get_all)]
+#[derive(Clone)]
+struct PyCompactObject {
+    /// Every commitment key any member recited at its first rite. Sorted.
+    keys: Vec<String>,
+    /// Community DID → (its first rite's keys, when that rite was sealed).
+    per_community: BTreeMap<String, (Vec<String>, i64)>,
+    size: usize,
+}
+
+impl From<&rep::CompactObject> for PyCompactObject {
+    fn from(o: &rep::CompactObject) -> Self {
+        Self {
+            keys: o.keys.clone(),
+            per_community: o
+                .per_community
+                .iter()
+                .map(|(k, (ks, at))| (k.clone(), (ks.clone(), at.as_second())))
+                .collect(),
+            size: o.size(),
+        }
+    }
+}
+
+#[pyclass(skip_from_py_object, name = "CommitmentCoverage", get_all)]
+#[derive(Clone)]
+struct PyCommitmentCoverage {
+    /// Size of the pinned object: the denominator.
+    object_size: usize,
+    /// Pinned commitment → acts citing it. Commitments never cited are absent.
+    per_commitment: BTreeMap<String, usize>,
+    /// Pinned commitments no act in the window cited.
+    unenforced: Vec<String>,
+    /// Cited keys outside the pinned object: commitments taken on later.
+    off_object: BTreeMap<String, usize>,
+    acts: usize,
+    /// Of those, the ones citing no commitment at all.
+    uncited_acts: usize,
+    window_seconds: i64,
+    evidence: Vec<String>,
+    coverage: Option<f64>,
+    uncited_share: Option<f64>,
+    /// Acts that named a commitment at all. What testability is measured against,
+    /// because silence about the object is not evidence about the object.
+    cited_acts: usize,
+}
+
+impl From<&rep::CommitmentCoverage> for PyCommitmentCoverage {
+    fn from(c: &rep::CommitmentCoverage) -> Self {
+        Self {
+            object_size: c.object_size,
+            per_commitment: c.per_commitment.clone(),
+            unenforced: c.unenforced.clone(),
+            off_object: c.off_object.clone(),
+            acts: c.acts,
+            uncited_acts: c.uncited_acts,
+            window_seconds: c.window_seconds,
+            evidence: c.evidence.iter().map(|c| c.to_string()).collect(),
+            coverage: c.coverage(),
+            uncited_share: c.uncited_share(),
+            cited_acts: c.cited_acts(),
+        }
+    }
+}
+
+#[pyclass(skip_from_py_object, name = "CommitmentContraction", get_all)]
+#[derive(Clone)]
+struct PyCommitmentContraction {
+    /// Community → the keys it recited first and does not recite now.
+    dropped: BTreeMap<String, Vec<String>>,
+    /// The latest rite of each contracting community.
+    evidence: Vec<String>,
+    /// Distinct commitments the compact as a whole no longer recites.
+    total_dropped: usize,
+    communities: usize,
+}
+
+impl From<&rep::CommitmentContraction> for PyCommitmentContraction {
+    fn from(c: &rep::CommitmentContraction) -> Self {
+        Self {
+            dropped: c.dropped.clone(),
+            evidence: c.evidence.iter().map(|c| c.to_string()).collect(),
+            total_dropped: c.total_dropped(),
+            communities: c.communities(),
+        }
+    }
+}
+
+#[pyclass(skip_from_py_object, name = "ReporterTargeting", get_all)]
+#[derive(Clone)]
+struct PyReporterTargeting {
+    /// The enforcing community, or `None` for the compact-wide reading.
+    community: Option<String>,
+    /// Enforcement acts inside the window.
+    acts: usize,
+    /// Of those, the ones whose subject had already raised a matter about one of the
+    /// communities now enforcing.
+    against_reporters: usize,
+    /// (the community that raised a matter and is now the subject, the community it
+    /// named and which is now enforcing).
+    pairs: Vec<(String, String)>,
+    window_seconds: i64,
+    /// The acts meeting the reading.
+    evidence: Vec<String>,
+    share: Option<f64>,
+}
+
+impl From<&rep::ReporterTargeting> for PyReporterTargeting {
+    fn from(r: &rep::ReporterTargeting) -> Self {
+        Self {
+            community: r.community.clone(),
+            acts: r.acts,
+            against_reporters: r.against_reporters,
+            pairs: r.pairs.clone(),
+            window_seconds: r.window_seconds,
+            evidence: r.evidence.iter().map(|c| c.to_string()).collect(),
+            share: r.share(),
+        }
+    }
 }
 
 impl From<&rep::EnforcementDirection> for PyEnforcementDirection {
@@ -5584,6 +5854,15 @@ impl From<&rep::ErosionAlert> for PyErosionAlert {
                 .enforcement_direction
                 .as_ref()
                 .map(PyEnforcementDirection::from),
+            reporter_targeting: a
+                .reporter_targeting
+                .as_ref()
+                .map(PyReporterTargeting::from),
+            commitment_coverage: a.commitment_coverage.as_ref().map(PyCommitmentCoverage::from),
+            commitment_contraction: a
+                .commitment_contraction
+                .as_ref()
+                .map(PyCommitmentContraction::from),
         }
     }
 }
@@ -5962,6 +6241,10 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyErosionAlert>()?;
     m.add_class::<PyEnforcementConvergence>()?;
     m.add_class::<PyEnforcementDirection>()?;
+    m.add_class::<PyReporterTargeting>()?;
+    m.add_class::<PyCompactObject>()?;
+    m.add_class::<PyCommitmentCoverage>()?;
+    m.add_class::<PyCommitmentContraction>()?;
     m.add_class::<PySponseeOutcome>()?;
     m.add_class::<PySponsorStakeReport>()?;
     m.add_class::<PyCompositionGraph>()?;

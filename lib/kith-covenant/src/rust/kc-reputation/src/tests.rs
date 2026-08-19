@@ -26,7 +26,7 @@ use kc_ceremony::inter::{
     AntiSpiralFeature, InterCommunityWitnessRecord, NonAdmissionRecord, RejectionDetail,
 };
 use kc_ceremony::intra::{InternalWitnessAttestation, IntraCommunityRiteRecord};
-use kc_ceremony::recitation::{Recitation, RecitationVersion};
+use kc_ceremony::recitation::{Commitment, CommonVirtueMovement, Recitation, RecitationVersion};
 use kc_core::{keys, Alg, Cid, DidKey, PrivKey, PubKey, Signed, Timestamp};
 use kc_identity::{
     CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessEntry, WitnessRegistry,
@@ -77,6 +77,23 @@ fn publish_intra_rite(
     witness_count: usize,
     sealed_at: Timestamp,
 ) -> Cid {
+    publish_intra_rite_with_commitments(
+        archive, community_did, root_priv, speaker_did, speaker_priv, witness_count,
+        sealed_at, &["truthfulness", "restitution"],
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn publish_intra_rite_with_commitments(
+    archive: &mut InMemoryArchive,
+    community_did: &DidKey,
+    root_priv: &PrivKey,
+    speaker_did: &DidKey,
+    speaker_priv: &PrivKey,
+    witness_count: usize,
+    sealed_at: Timestamp,
+    commitments: &[&str],
+) -> Cid {
     let recitation = Recitation {
         community_did: community_did.clone(),
         speaker_did: speaker_did.clone(),
@@ -84,7 +101,13 @@ fn publish_intra_rite(
         movement_substrate: "fixture substrate".into(),
         movement_fallenness: "fixture fallenness".into(),
         movement_recognition: "fixture recognition".into(),
-        movement_common_virtue: "fixture virtue".into(),
+        movement_common_virtue: CommonVirtueMovement::new(
+            "We commit to the virtues this compact relies on.",
+            commitments
+                .iter()
+                .map(|k| Commitment::new(*k, format!("we hold {k}")))
+                .collect(),
+        ),
         movement_non_ultimacy: "fixture non-ultimacy".into(),
         language_tag: "en".into(),
         translation_en: None,
@@ -544,6 +567,7 @@ fn publish_conduct(
         },
         decision_class: DecisionClass::FirstClass,
         references: vec![],
+        commitments_cited: vec![],
         narrative: "fixture conduct".into(),
         observed_at: recorded_at,
         recorded_at,
@@ -909,6 +933,7 @@ fn publish_conduct_with_refs(
         ladder_rung: None,
         decision_class: DecisionClass::SecondClass,
         references,
+        commitments_cited: vec![],
         narrative: "fixture designation".into(),
         observed_at: recorded_at,
         recorded_at,
@@ -1291,7 +1316,13 @@ mod escalation_projection {
             movement_substrate: "a".into(),
             movement_fallenness: "b".into(),
             movement_recognition: "c".into(),
-            movement_common_virtue: "d".into(),
+            movement_common_virtue: CommonVirtueMovement::new(
+                "We commit to the virtues this compact relies on.",
+                vec![
+                    Commitment::new("truthfulness", "We tell the truth."),
+                    Commitment::new("restitution", "We make good what we broke."),
+                ],
+            ),
             movement_non_ultimacy: "e".into(),
             language_tag: "en".into(),
             translation_en: None,
@@ -2878,7 +2909,13 @@ mod uniform_drift {
             movement_substrate: "a".into(),
             movement_fallenness: "b".into(),
             movement_recognition: "c".into(),
-            movement_common_virtue: "d".into(),
+            movement_common_virtue: CommonVirtueMovement::new(
+                "We commit to the virtues this compact relies on.",
+                vec![
+                    Commitment::new("truthfulness", "We tell the truth."),
+                    Commitment::new("restitution", "We make good what we broke."),
+                ],
+            ),
             movement_non_ultimacy: "e".into(),
             language_tag: "en".into(),
             translation_en: None,
@@ -4542,6 +4579,7 @@ mod attested_nulls {
             ladder_rung: None,
             decision_class: kc_conduct::DecisionClass::FirstClass,
             references: vec![designation_cid],
+            commitments_cited: vec![],
             narrative: "re-examined at the mandated date; confirmed".into(),
             observed_at: at,
             recorded_at: at,
@@ -4989,6 +5027,7 @@ mod non_pursuit {
             ladder_rung: rung,
             decision_class: DecisionClass::FirstClass,
             references: vec![],
+            commitments_cited: vec![],
             narrative: "the diversion".into(),
             observed_at: at,
             recorded_at: at,
@@ -5523,6 +5562,7 @@ mod substitution {
             ladder_rung: Some(rung),
             decision_class: DecisionClass::FirstClass,
             references: vec![],
+            commitments_cited: vec![],
             narrative: "fixture enforcement".into(),
             observed_at: at,
             recorded_at: at,
@@ -6035,6 +6075,205 @@ mod substitution {
         assert!(enforcement_convergence_all(&a, Some(t(2 * YEAR)), WINDOW).is_empty());
         assert!(enforcement_direction_all(&a, Some(t(2 * YEAR)), WINDOW).is_empty());
     }
+    // --- The reading `enforcement_direction` cannot make -------------------
+    //
+    // Measured before this lens existed, on the fixture below: a compact that ran an
+    // honest complainant up the ladder after it filed a matter against one of them
+    // read `downward=0 upward=0 level=6`, and `erosion_alert` graded `None` with zero
+    // reasons. Standing is not the axis a captured compact moves along.
+
+    mod targeting {
+        use super::*;
+        use crate::analytics::{reporter_targeting, reporter_targeting_all};
+
+        /// The counter-prosecution: `honest` files a matter against `wrong`, and the
+        /// compact answers with `acts` enforcement acts against `honest`, brought by
+        /// `wrong` and two others. `named` false swaps `wrong` out of the answer for a
+        /// community the grievance never named.
+        fn counter_prosecution(
+            acts: usize,
+            named: bool,
+            answering: usize,
+        ) -> (InMemoryArchive, Vec<(DidKey, PrivKey)>) {
+            let m = compact(5);
+            let mut a = InMemoryArchive::new();
+            let t0 = t(1_000_000);
+            // Only the first `answering` acts follow a matter the subject raised, so a
+            // fixture can put the share anywhere between none and all.
+            if answering > 0 {
+                enforce(&mut a, &m[1].0, &[(&m[0].0, &m[0].1)], ConductBearing::Charity,
+                        LadderRung::RegisteredProtest, t0);
+            }
+            let bringer = if named { &m[1] } else { &m[4] };
+            for i in 0..acts {
+                // Acts past `answering` are aimed at a member that raised nothing.
+                let subject = if i < answering { &m[0].0 } else { &m[3].0 };
+                enforce(
+                    &mut a, subject,
+                    &[(&bringer.0, &bringer.1), (&m[2].0, &m[2].1)],
+                    ConductBearing::Charity, LadderRung::ReciprocalSuspension,
+                    t(1_000_000 + 1000 * (i as i64 + 1)),
+                );
+            }
+            (a, m)
+        }
+
+        fn at() -> Option<Timestamp> {
+            Some(t(1_100_000))
+        }
+
+        #[test]
+        fn a_counter_prosecution_is_read_and_the_standing_lens_still_is_not() {
+            let (a, m) = counter_prosecution(6, true, 6);
+            let r = reporter_targeting(&a, at(), WINDOW);
+            assert_eq!(r.acts, 7, "the grievance is itself an enforcement act");
+            assert_eq!(r.against_reporters, 6);
+            assert_eq!(r.pairs.len(), 1);
+            assert_eq!(r.pairs[0], (m[0].0.as_str().to_string(), m[1].0.as_str().to_string()));
+            assert!(r.targets_reporters(&ErosionThresholds::default()));
+
+            // The whole reason the dimension had to exist: nobody is in probation, so
+            // every one of those acts reads as enforcement between equals.
+            let d = enforcement_direction(&a, at(), WINDOW);
+            assert_eq!((d.downward, d.upward), (0, 0));
+            assert_eq!(d.level, 7);
+
+            let al = erosion_alert_with(&a, at(), &ErosionThresholds::default());
+            assert_eq!(al.severity, ErosionSeverity::Notice);
+            assert!(al.reporter_targeting.is_some());
+            assert!(al.reasons.iter().any(|s| s.contains("complainants")), "{:?}", al.reasons);
+        }
+
+        #[test]
+        fn the_same_volume_answering_nothing_is_not_read() {
+            let (a, _m) = counter_prosecution(6, true, 0);
+            let r = reporter_targeting(&a, at(), WINDOW);
+            assert_eq!(r.acts, 6);
+            assert_eq!(r.against_reporters, 0);
+            assert!(!r.targets_reporters(&ErosionThresholds::default()));
+            let al = erosion_alert_with(&a, at(), &ErosionThresholds::default());
+            assert!(al.reporter_targeting.is_none());
+        }
+
+        #[test]
+        fn the_join_is_on_the_pair_the_grievance_names() {
+            // The reading's stated limit, measured rather than assumed. A majority
+            // willing to prosecute its accuser is also willing to choose who signs,
+            // and the alternatives — anyone in the compact, anyone enforcing after a
+            // grievance — are readings of enforcement rather than of retaliation.
+            let (a, _m) = counter_prosecution(6, false, 6);
+            let r = reporter_targeting(&a, at(), WINDOW);
+            assert_eq!(r.acts, 7);
+            assert_eq!(r.against_reporters, 0);
+            assert!(r.pairs.is_empty());
+        }
+
+        #[test]
+        fn a_minority_share_is_reciprocity_rather_than_targeting() {
+            // Two of seven acts answer a matter their subject raised. Reciprocity is
+            // ordinary in a live compact, and a compact where every grievance ran one
+            // way would be the stranger object.
+            let (a, _m) = counter_prosecution(6, true, 2);
+            let r = reporter_targeting(&a, at(), WINDOW);
+            assert_eq!((r.acts, r.against_reporters), (7, 2));
+            assert!(r.share().is_some_and(|s| s < 0.5));
+            assert!(!r.targets_reporters(&ErosionThresholds::default()));
+        }
+
+        #[test]
+        fn the_volume_floor_holds_a_reading_off_a_small_number_of_acts() {
+            // Two acts, both answering: a share of two thirds and nothing to read.
+            let (a, _m) = counter_prosecution(2, true, 2);
+            let r = reporter_targeting(&a, at(), WINDOW);
+            assert_eq!((r.acts, r.against_reporters), (3, 2));
+            let th = ErosionThresholds::default();
+            assert!(r.targets_reporters(&th), "three acts is the floor");
+            let higher = ErosionThresholds { reporter_targeting_volume_floor: 4, ..th };
+            assert!(!r.targets_reporters(&higher));
+        }
+
+        #[test]
+        fn a_dispute_carries_a_raised_matter_as_well_as_a_conduct_record() {
+            // Four carriers record a grievance, and narrowing the reading to conduct
+            // records would leave the evasion the §8 whistleblower channel exists to
+            // close: file it through a different carrier and the reading goes quiet.
+            let m = compact(4);
+            let mut a = InMemoryArchive::new();
+            let d = DisputeRecord {
+                complainant: m[0].0.clone(),
+                respondent: m[1].0.clone(),
+                rung: LadderRung::DisputeRegistered,
+                summary: "the diversion".into(),
+                references: vec![],
+                filed_at: t(1_000_000),
+            };
+            let signed = Signed::build(d, &[(m[0].0.as_str(), &m[0].1)]).unwrap();
+            a.append(ArchiveEntry::DisputeFiled(signed)).unwrap();
+            for i in 0..4 {
+                enforce(&mut a, &m[0].0, &[(&m[1].0, &m[1].1), (&m[2].0, &m[2].1)],
+                        ConductBearing::Charity, LadderRung::ReciprocalSuspension,
+                        t(1_000_000 + 1000 * (i + 1)));
+            }
+            let r = reporter_targeting(&a, at(), WINDOW);
+            assert_eq!((r.acts, r.against_reporters), (4, 4));
+            assert!(r.targets_reporters(&ErosionThresholds::default()));
+        }
+
+        #[test]
+        fn the_drill_down_credits_only_the_community_the_grievance_named() {
+            // A co-signer who was never named does not inherit the reading.
+            let (a, m) = counter_prosecution(6, true, 6);
+            let all = reporter_targeting_all(&a, at(), WINDOW);
+            let named = all.get(m[1].0.as_str()).expect("the named community enforces");
+            assert_eq!(named.against_reporters, 6);
+            let cosigner = all.get(m[2].0.as_str()).expect("the co-signer enforces too");
+            assert_eq!(cosigner.acts, 6);
+            assert_eq!(cosigner.against_reporters, 0);
+        }
+
+        #[test]
+        fn one_pair_is_a_quarrel_and_several_is_a_disposition() {
+            // The compounding condition. One pair carrying the whole of it is a
+            // quarrel between two communities, which the compact can see for itself.
+            // The same share spread over several pairs is a compact whose answer to
+            // being told something is to move against the teller.
+            let (one_pair, _m) = counter_prosecution(6, true, 6);
+            let al = erosion_alert_with(&one_pair, at(), &ErosionThresholds::default());
+            assert_eq!(al.severity, ErosionSeverity::Notice);
+            assert_eq!(al.reporter_targeting.as_ref().map(|r| r.pairs.len()), Some(1));
+
+            // Two members raise matters against two different communities, and both
+            // are answered. Same share, same volume, two pairs.
+            let m = compact(5);
+            let mut a = InMemoryArchive::new();
+            for (raiser, named) in [(0usize, 1usize), (2, 3)] {
+                enforce(&mut a, &m[named].0, &[(&m[raiser].0, &m[raiser].1)],
+                        ConductBearing::Charity, LadderRung::RegisteredProtest,
+                        t(1_000_000));
+            }
+            for i in 0..6 {
+                let (subject, bringer) = if i % 2 == 0 { (0usize, 1usize) } else { (2, 3) };
+                enforce(&mut a, &m[subject].0,
+                        &[(&m[bringer].0, &m[bringer].1), (&m[4].0, &m[4].1)],
+                        ConductBearing::Charity, LadderRung::ReciprocalSuspension,
+                        t(1_000_000 + 1000 * (i + 1)));
+            }
+            let al = erosion_alert_with(&a, at(), &ErosionThresholds::default());
+            assert_eq!(al.reporter_targeting.as_ref().map(|r| r.pairs.len()), Some(2));
+            assert_eq!(al.severity, ErosionSeverity::Alert);
+        }
+
+        #[test]
+        fn an_empty_archive_reads_as_nothing_rather_than_as_targeting() {
+            let a = InMemoryArchive::new();
+            let r = reporter_targeting(&a, at(), WINDOW);
+            assert_eq!(r.acts, 0);
+            assert_eq!(r.share(), None);
+            assert!(!r.targets_reporters(&ErosionThresholds::default()));
+            assert!(reporter_targeting_all(&a, at(), WINDOW).is_empty());
+        }
+    }
+
 }
 
 // --- §5 designation consensus: who joined the gravest act, and who refused
@@ -6042,6 +6281,316 @@ mod substitution {
 // Measured by the adversary campaign before `DesignationDissent` existed: a
 // designation carried its deliberators and nothing else, so a compact of five in which
 // three designated and two would not read exactly like one that was unanimous.
+
+// --- The recited object: substitution against the compact's own denominator
+//
+// Measured before this lens existed, on the fixture below: a compact that halved what
+// it recited across three generational rites, with RISING witness counts and nothing
+// amended, scored `1.0` on shared-taxonomy coverage at volume 32 and graded `None` on
+// every one of the fourteen erosion dimensions. Eight grounds are coarse enough that an
+// undertaking can be abandoned whole without moving any of them.
+
+mod recited_object {
+    use super::*;
+    use crate::analytics::{
+        commitment_contraction, commitment_coverage, compact_object, enforcement_convergence,
+        erosion_alert_with, ErosionSeverity, ErosionThresholds,
+    };
+
+    const YEAR: i64 = 365 * 86_400;
+    const WINDOW: i64 = 5 * YEAR;
+
+    /// A compact of `n`, seated by an admission record, each member reciting `keys`.
+    fn compact_reciting(n: usize, keys: &[&str], at: Timestamp)
+        -> (InMemoryArchive, Vec<(DidKey, PrivKey)>)
+    {
+        let mut a = InMemoryArchive::new();
+        let members: Vec<(DidKey, PrivKey)> = (0..n)
+            .map(|_| {
+                let (p, _, d) = fresh_id();
+                (d, p)
+            })
+            .collect();
+        let pairs: Vec<(&DidKey, &PrivKey)> = members.iter().map(|(d, p)| (d, p)).collect();
+        publish_inter_admission(&mut a, &pairs, at);
+        for (d, p) in &members {
+            let (spk, sp_pub) = keys::generate(Alg::Ed25519).expect("kg");
+            let sdid = DidKey::from_pubkey(&sp_pub).expect("did");
+            publish_intra_rite_with_commitments(&mut a, d, p, &sdid, &spk, 4, at, keys);
+        }
+        (a, members)
+    }
+
+    /// A later rite for every member, reciting `keys`.
+    fn re_recite(
+        a: &mut InMemoryArchive,
+        members: &[(DidKey, PrivKey)],
+        keys: &[&str],
+        at: Timestamp,
+    ) {
+        for (d, p) in members {
+            let (spk, sp_pub) = keys::generate(Alg::Ed25519).expect("kg");
+            let sdid = DidKey::from_pubkey(&sp_pub).expect("did");
+            publish_intra_rite_with_commitments(a, d, p, &sdid, &spk, 6, at, keys);
+        }
+    }
+
+    /// The eight concrete grounds, so a fixture can spread its enforcement over the
+    /// whole shared taxonomy while narrowing what it is actually about.
+    fn grounds() -> Vec<ConductBearing> {
+        use AntiSpiralFeature::*;
+        vec![
+            ConductBearing::AntiSpiral(FallenActorAnthropology),
+            ConductBearing::AntiSpiral(GraceOverMerit),
+            ConductBearing::AntiSpiral(ScapegoatDisarming),
+            ConductBearing::AntiSpiral(EnemyLoveOperational),
+            ConductBearing::AntiSpiral(NonUltimacyOfCompact),
+            ConductBearing::CommonsObligation,
+            ConductBearing::Charity,
+            ConductBearing::Rescue,
+        ]
+    }
+
+    /// One enforcement act citing `cites` of the recited object.
+    fn enforce_citing(
+        a: &mut InMemoryArchive,
+        subject: &DidKey,
+        reporter: &(DidKey, PrivKey),
+        cites: &[&str],
+        bearing: ConductBearing,
+        at: Timestamp,
+    ) -> Cid {
+        let rec = ConductRecord {
+            subject_community: subject.clone(),
+            reporters: vec![reporter.0.clone()],
+            reporter_perspective: None,
+            kind: ConductKind::Violation,
+            bearing,
+            severity: Severity::Serious,
+            ladder_rung: Some(LadderRung::MediatedArbitration),
+            decision_class: DecisionClass::FirstClass,
+            references: vec![],
+            commitments_cited: cites.iter().map(|k| (*k).to_string()).collect(),
+            narrative: "fixture enforcement".into(),
+            observed_at: at,
+            recorded_at: at,
+        };
+        let signed = Signed::build(rec, &[(reporter.0.as_str(), &reporter.1)]).expect("sign");
+        a.append(ArchiveEntry::ConductAttested(signed)).expect("append")
+    }
+
+    /// `rounds` acts per commitment in `cites`, spread over the non-reporting members.
+    fn enforce_over(
+        a: &mut InMemoryArchive,
+        members: &[(DidKey, PrivKey)],
+        cites: &[&str],
+        rounds: usize,
+        start: i64,
+    ) {
+        let mut n = 0i64;
+        for _ in 0..rounds {
+            for key in cites {
+                let subject = members[(n as usize + 2) % members.len()].0.clone();
+                let g = grounds()[n as usize % 8].clone();
+                enforce_citing(
+                    a, &subject, &members[n as usize % 2], &[key], g, t(start + n * 1000),
+                );
+                n += 1;
+            }
+        }
+    }
+
+    fn th() -> ErosionThresholds {
+        ErosionThresholds::default()
+    }
+
+    #[test]
+    fn the_object_is_pinned_to_the_first_rite_of_each_member() {
+        let (mut a, m) = compact_reciting(4, &["truthfulness", "restitution", "hospitality"], t(1000));
+        re_recite(&mut a, &m, &["truthfulness"], t(2000));
+        let object = compact_object(&a, Some(t(3000)));
+        // The compact recites one commitment now and undertook three. The denominator
+        // is what it undertook.
+        assert_eq!(object.size(), 3);
+        assert!(object.contains("hospitality"));
+        assert_eq!(object.per_community.len(), 4);
+    }
+
+    #[test]
+    fn a_compact_enforcing_its_whole_object_is_not_narrowing() {
+        // The control the reading turns on. Same volume, same recitation, every
+        // commitment still enforced.
+        let keys = ["truthfulness", "restitution", "hospitality"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        enforce_over(&mut a, &m, &keys, 4, 10_000);
+        let c = commitment_coverage(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.object_size, 3);
+        assert_eq!(c.coverage(), Some(1.0));
+        assert!(c.testable(&th()));
+        assert!(!c.narrowing(&th()));
+        assert!(c.unenforced.is_empty());
+    }
+
+    #[test]
+    fn a_compact_enforcing_a_third_of_its_object_is_narrowing() {
+        let keys = ["truthfulness", "restitution", "hospitality"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        enforce_over(&mut a, &m, &["truthfulness"], 12, 10_000);
+        let c = commitment_coverage(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.coverage(), Some(1.0 / 3.0));
+        assert!(c.narrowing(&th()));
+        assert_eq!(c.unenforced, vec!["hospitality".to_string(), "restitution".to_string()]);
+    }
+
+    #[test]
+    fn the_shared_taxonomy_cannot_see_it() {
+        // The finding this whole reading exists for. Every act above cites `Charity`,
+        // so a coverage reading over eight coarse grounds sees a compact enforcing
+        // exactly what it always enforced.
+        let keys = ["truthfulness", "restitution", "hospitality", "sabbath-rest", "rescue-readiness"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        re_recite(&mut a, &m, &["truthfulness", "restitution"], t(2000));
+        enforce_over(&mut a, &m, &["truthfulness", "restitution"], 8, 10_000);
+
+        let conv = enforcement_convergence(&a, Some(t(2 * YEAR)), WINDOW);
+        let taxonomy_says = conv.per_bearing.len();
+        let object_says = commitment_coverage(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(taxonomy_says, 8, "the whole shared taxonomy, cited throughout");
+        assert_eq!(conv.coverage(), 1.0);
+        assert!(!conv.converging(&th()));
+        assert_eq!(object_says.coverage(), Some(0.4), "two of the five it undertook");
+        assert!(object_says.narrowing(&th()));
+    }
+
+    #[test]
+    fn below_the_scaled_floor_the_reading_is_untestable_rather_than_healthy() {
+        // The floor scales with the object: a compact that undertook a great deal is
+        // not reported as narrowing for lack of acts to read.
+        let keys = ["truthfulness", "restitution", "hospitality", "sabbath-rest"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        enforce_over(&mut a, &m, &["truthfulness"], 3, 10_000);
+        let c = commitment_coverage(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.volume_floor(&th()), 8);
+        assert_eq!(c.acts, 3);
+        assert!(!c.testable(&th()));
+        assert!(!c.narrowing(&th()), "untestable is not the same answer as narrowing");
+    }
+
+    #[test]
+    fn a_compact_that_cites_nothing_is_untestable_rather_than_narrowing() {
+        let keys = ["truthfulness", "restitution"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        for i in 0..8 {
+            let subject = m[2].0.clone();
+            let g = grounds()[i as usize % 8].clone();
+            enforce_citing(&mut a, &subject, &m[0], &[], g, t(10_000 + i * 1000));
+        }
+        let c = commitment_coverage(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!((c.acts, c.uncited_acts, c.cited_acts()), (8, 8, 0));
+        assert_eq!(c.uncited_share(), Some(1.0));
+        assert_eq!(c.coverage(), Some(0.0));
+        // The correction the determined-adversary campaign forced. Silence about the
+        // object is not evidence about the object, and reading it as narrowing measures
+        // adoption of a citation habit rather than what the compact enforces.
+        assert!(!c.testable(&th()));
+        assert!(!c.narrowing(&th()));
+    }
+
+    #[test]
+    fn a_commitment_taken_on_later_counts_off_object_rather_than_toward_coverage() {
+        // The same rule the shared taxonomy takes with `Other`: a denominator that grew
+        // whenever a filer named something new would let the compact supply its own
+        // reference.
+        let keys = ["truthfulness", "restitution"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        re_recite(&mut a, &m, &["truthfulness", "restitution", "sabbath-rest"], t(2000));
+        enforce_over(&mut a, &m, &["truthfulness", "sabbath-rest"], 4, 10_000);
+        let c = commitment_coverage(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.object_size, 2, "the pin does not grow with a later recitation");
+        assert_eq!(c.coverage(), Some(0.5));
+        assert_eq!(c.off_object.get("sabbath-rest"), Some(&4));
+    }
+
+    #[test]
+    fn a_dropped_commitment_is_a_contraction_and_a_restored_one_is_not() {
+        let keys = ["truthfulness", "restitution", "hospitality"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        re_recite(&mut a, &m, &["truthfulness", "restitution"], t(2000));
+        let c = commitment_contraction(&a, Some(t(3000)));
+        assert!(c.any());
+        assert_eq!(c.communities(), 4);
+        assert_eq!(c.total_dropped(), 1);
+        assert_eq!(c.dropped.values().next().unwrap(), &vec!["hospitality".to_string()]);
+
+        // Taken up again: the compact holds it, so the reading clears. The archive still
+        // carries both rites for a reader who wants the history.
+        re_recite(&mut a, &m, &keys, t(4000));
+        assert!(!commitment_contraction(&a, Some(t(5000))).any());
+    }
+
+    #[test]
+    fn a_broadened_list_is_not_a_contraction() {
+        let (mut a, m) = compact_reciting(4, &["truthfulness"], t(1000));
+        re_recite(&mut a, &m, &["truthfulness", "restitution"], t(2000));
+        assert!(!commitment_contraction(&a, Some(t(3000))).any());
+    }
+
+    #[test]
+    fn the_alert_reads_both_and_grades_alert_on_the_pair() {
+        // The regression for the measurement above: the compact halves what it recites
+        // and enforces only what is left, with every form kept.
+        let keys = ["truthfulness", "restitution", "hospitality", "sabbath-rest", "rescue-readiness"];
+        let (mut a, m) = compact_reciting(4, &keys, t(1000));
+        re_recite(&mut a, &m, &["truthfulness", "restitution"], t(2000));
+        enforce_over(&mut a, &m, &["truthfulness", "restitution"], 8, 10_000);
+
+        let al = erosion_alert_with(&a, Some(t(2 * YEAR)), &th());
+        let c = al.commitment_coverage.as_ref().expect("the object reading fires");
+        assert_eq!(c.object_size, 5);
+        assert_eq!(c.unenforced.len(), 3);
+        assert!(al.commitment_contraction.is_some());
+        assert_eq!(al.severity, ErosionSeverity::Alert);
+        assert!(al.reasons.iter().any(|r| r.contains("commitment(s) its members recited")));
+        assert!(al.reasons.iter().any(|r| r.contains("no longer recite")));
+
+        // And every dimension that existed before this pair is still inert, which is
+        // exactly why the pair had to exist.
+        assert!(!al.list_contraction && !al.minimum_contraction && !al.fast_contraction);
+        assert_eq!(al.active_fast_deviations, 0);
+        assert!(al.overdue_reaffirmations.is_empty() && al.hollowing_communities.is_empty());
+        assert!(al.thinning_deliberation.is_none() && al.overdue_reexaminations.is_empty());
+        assert!(al.silent_functions.is_empty() && al.unstaffed_functions.is_empty());
+        assert!(al.unanswered_grievances.is_empty());
+        assert!(al.enforcement_convergence.is_none() && al.enforcement_direction.is_none());
+        assert!(al.reporter_targeting.is_none());
+    }
+
+    #[test]
+    fn a_community_that_never_sat_is_not_in_the_object() {
+        // The object is the compact's. A community reciting outside it contributes
+        // nothing to the denominator, the same scoping the citation rule takes.
+        let (mut a, _m) = compact_reciting(3, &["truthfulness"], t(1000));
+        let (p, _, d) = fresh_id();
+        let (spk, sp_pub) = keys::generate(Alg::Ed25519).expect("kg");
+        let sdid = DidKey::from_pubkey(&sp_pub).expect("did");
+        publish_intra_rite_with_commitments(
+            &mut a, &d, &p, &sdid, &spk, 4, t(1000), &["sabbath-rest"],
+        );
+        let object = compact_object(&a, Some(t(2000)));
+        assert_eq!(object.size(), 1);
+        assert!(!object.contains("sabbath-rest"));
+    }
+
+    #[test]
+    fn an_archive_with_no_rites_reads_as_nothing_rather_than_as_narrowing() {
+        let a = InMemoryArchive::new();
+        let c = commitment_coverage(&a, Some(t(2 * YEAR)), WINDOW);
+        assert_eq!(c.object_size, 0);
+        assert_eq!(c.coverage(), None);
+        assert!(!c.testable(&th()) && !c.narrowing(&th()));
+        assert!(!commitment_contraction(&a, Some(t(2 * YEAR))).any());
+    }
+}
 
 mod designation_consensus_lens {
     use super::*;

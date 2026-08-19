@@ -22,7 +22,7 @@ import pytest
 
 from kith_covenant import (
     Archive, Signer, new_identity, delegate_speaker, record_concern,
-    designate_anathema, now_seconds, run_two_community_ceremony,
+    designate_anathema, now_seconds, run_two_community_ceremony, run_intra_rite,
 )
 
 MOV = ["m1", "m2", "m3", "m4", "m5"]
@@ -108,3 +108,25 @@ def test_quorum_threshold_is_configurable():
     arch.check_authority(quorum_threshold=2)  # ok
     with pytest.raises(RuntimeError):
         arch.check_authority(quorum_threshold=3)  # needs 3 distinct communities
+
+
+# --- §1 the rite is all five movements ----------------------------------------
+
+
+def test_a_blank_movement_is_refused_by_the_facade():
+    """The facade checked that five movements were supplied and never that any of
+    them said anything, so a caller could recite nothing and seal it."""
+    arch = Archive()
+    comm = new_identity(arch, "Comm")
+    with pytest.raises(ValueError, match="blank"):
+        run_intra_rite(arch, comm, movements=["m1", "m2", "m3", "   ", "m5"],
+                       sealed_at=now_seconds())
+
+
+def test_a_complete_rite_still_seals():
+    arch = Archive()
+    comm = new_identity(arch, "Comm")
+    cid = run_intra_rite(arch, comm, movements=MOV, sealed_at=now_seconds())
+    assert cid
+    arch.verify_all()
+    arch.check_authority()

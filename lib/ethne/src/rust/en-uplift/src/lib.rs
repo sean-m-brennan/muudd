@@ -302,6 +302,10 @@ pub fn coherence_concern(
         ladder_rung: None,
         decision_class: DecisionClass::FirstClass,
         references: Vec::new(),
+        // The KC recited object is a compact-level artifact and a cohesion Concern is
+        // not about one of its commitments: this is the polity's own instrument
+        // reporting on the polity, not the compact enforcing part of what it recited.
+        commitments_cited: Vec::new(),
         narrative,
         observed_at: at,
         recorded_at: at,

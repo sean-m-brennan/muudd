@@ -14,7 +14,7 @@
 
 """The determined adversary: one deceitful actor, prosecuted end to end.
 
-The §10 harness (``harness.py``) scores twelve scenarios, and every one of them is
+The §10 harness (``harness.py``) scores fourteen scenarios, and every one of them is
 a **single signal**: an adversary takes one kind of action and a lens must flag it
 within a step. This module runs the other shape, the one the doctrine cares most
 about and the one nothing here had ever run: a **campaign**. One community joins a

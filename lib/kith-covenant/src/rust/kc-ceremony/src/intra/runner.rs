@@ -19,12 +19,17 @@
 //! Enforces the intra-layer invariants before sealing:
 //! 1. Speaker is authorized — holds an active `Reciter` delegation.
 //! 2. Recitation signature verifies against the speaker's delegated key.
-//! 3. At least one internal witness.
-//! 4. Every witness is in the community's active witness registry with
+//! 3. All five movements are recited. A rite is the whole recitation or it is
+//!    not the rite, and Movement 4 is what a polity is measured against later.
+//! 4. At least one internal witness.
+//! 5. Every witness is in the community's active witness registry with
 //!    `IntraCommunity` role at their attestation time.
-//! 5. Every attestation references the actual recitation CID.
-//! 6. Every witness attestation signature verifies.
-//! 7. The sealed record is signed by the community's root key.
+//! 6. Every attestation references the actual recitation CID.
+//! 7. Every witness attestation signature verifies.
+//! 8. The sealed record is signed by the community's root key.
+//!
+//! `version_of_rite` is **derived** from the recitation being sealed rather
+//! than supplied, so the record cannot disagree with the recitation it holds.
 //!
 //! Two-layer rule: this module must not be used to build inter-community
 //! records. The `inter::` runner consumes only completed, sealed
@@ -35,7 +40,7 @@ use kc_identity::{
     CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessRegistry, WitnessRole,
 };
 
-use crate::recitation::{Recitation, RecitationVersion};
+use crate::recitation::Recitation;
 
 use super::record::{InternalWitnessAttestation, IntraCommunityRiteRecord};
 
@@ -87,7 +92,6 @@ impl<'a> IntraCommunityRiteRunner<'a> {
         recitation: Signed<Recitation>,
         attestations: Vec<Signed<InternalWitnessAttestation>>,
         community_root_priv: &PrivKey,
-        version: RecitationVersion,
         sealed_at: Timestamp,
     ) -> KcResult<Signed<IntraCommunityRiteRecord>> {
         let community_did = &self.community.payload.did;
@@ -127,14 +131,22 @@ impl<'a> IntraCommunityRiteRunner<'a> {
             )));
         }
 
-        // 3. At least one internal witness.
+        // 3. All five movements are recited.
+        if !recitation.payload.movements_all_present() {
+            return Err(KcError::Archive(
+                "recitation is missing a movement: the rite is all five or it is not the rite"
+                    .into(),
+            ));
+        }
+
+        // 4. At least one internal witness.
         if attestations.is_empty() {
             return Err(KcError::Archive(
                 "intra-community rite requires at least one internal witness".into(),
             ));
         }
 
-        // 4+5+6. Per-witness checks.
+        // 5+6+7. Per-witness checks.
         for a in &attestations {
             if a.payload.recitation_cid != recitation.payload_cid {
                 return Err(KcError::Archive(format!(
@@ -174,11 +186,12 @@ impl<'a> IntraCommunityRiteRunner<'a> {
             })?;
         }
 
-        // 7. Seal.
+        // 8. Seal. The version is the recitation's own, never a second opinion
+        // about it.
         let record = IntraCommunityRiteRecord {
+            version_of_rite: recitation.payload.version.clone(),
             recitation,
             internal_witnesses: attestations,
-            version_of_rite: version,
             sealed_at,
         };
         Signed::build(record, &[(community_did.as_str(), community_root_priv)])

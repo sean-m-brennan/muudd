@@ -203,3 +203,37 @@ def test_restitution_projection_joins_verification():
     v = reputation_of(arch, s.did, as_of=t0 + 300)
     assert len(v.restitutions) == 1
     assert v.restitutions[0].satisfied is True
+
+
+# --- condition 3: a citation names a record, and a record about the subject ----
+
+
+def test_a_designation_citing_nothing_that_resolves_is_unauthorized():
+    """Condition 3 was a non-emptiness check over opaque bytes, so a designation
+    whose citations named no archive record at all was authorized."""
+    arch, t0, s, b, completions, act, cycles = _designation_fixture()
+    c = new_identity(arch, "Deliberator2", t0)
+    decide_designation(
+        arch, s.did, [b, c], "criteria", tier="Anathema",
+        cited_acts=["b3:" + "0" * 64], failed_restoration_cycles=completions,
+        deliberation_cycles=cycles, reversal_conditions="rev", designated_at=t0 + 5000,
+    )
+    with pytest.raises(RuntimeError, match="names no record"):
+        arch.check_authority()
+
+
+def test_a_designation_citing_conduct_about_another_community_is_unauthorized():
+    arch, t0, s, b, completions, act, cycles = _designation_fixture()
+    c = new_identity(arch, "Deliberator2", t0)
+    other = new_identity(arch, "Other", t0)
+    elsewhere = record_conduct(
+        arch, b, other.did, kind="Violation", bearing="Charity",
+        severity="Serious", recorded_at=t0 + 100,
+    )
+    decide_designation(
+        arch, s.did, [b, c], "criteria", tier="Anathema",
+        cited_acts=[elsewhere], failed_restoration_cycles=completions,
+        deliberation_cycles=cycles, reversal_conditions="rev", designated_at=t0 + 5000,
+    )
+    with pytest.raises(RuntimeError, match="rather than the named subject"):
+        arch.check_authority()

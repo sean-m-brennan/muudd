@@ -418,11 +418,18 @@ def record_conduct(
     observed_at: Optional[int] = None,
     recorded_at: Optional[int] = None,
     perspective: Optional[str] = None,
+    commitments_cited: Optional[Sequence[str]] = None,
 ) -> str:
     """Append a signed conduct record. `reporters` may be a single `Signer` or a
     quorum of them (for second-class kinds). Each report is attributed to the
     reporter's `principal` (the community) and signed by its `did`/`.priv` (which
-    may be a delegate key). Returns the CID."""
+    may be a delegate key). Returns the CID.
+
+    `bearing` says which of the compact's *shared* grounds the act touches, over a
+    taxonomy the protocol fixes. `commitments_cited` says which of the compact's *own*
+    recited commitments it touches, over a denominator the compact recited. Optional,
+    because a citation is a lens and not a gate, and every cited key must have been
+    recited by this compact at or before the act or the record is refused."""
     if isinstance(reporters, Signer):
         reporters = [reporters]
     if not reporters:
@@ -438,6 +445,7 @@ def record_conduct(
         subject_did, kind, bearing, recorded_at, observed_at,
         feature, bearing_detail, severity, ladder_rung, decision_class,
         list(references or []), narrative, perspective,
+        list(commitments_cited or []),
     )
 
 
@@ -506,6 +514,15 @@ _DEFAULT_MOVEMENTS = (
     "substrate", "fallenness", "recognition", "common virtue", "non-ultimacy",
 )
 
+# Movement 4 is the one movement with structure, because it is the only one a later act
+# can be *about*: the others are stances, this one is a list of undertakings. The
+# fourth entry of `_DEFAULT_MOVEMENTS` is its preamble and these are its commitments.
+_DEFAULT_COMMITMENTS = (
+    ("truthfulness", "We tell the truth about what we have done."),
+    ("restitution", "We make good what we have broken."),
+    ("hospitality", "We receive the stranger."),
+)
+
 
 def record_non_admission(
     archive,
@@ -541,6 +558,7 @@ def run_intra_rite(
     community: Signer,
     *,
     movements: Optional[Sequence[str]] = None,
+    commitments: Optional[Sequence[tuple]] = None,
     witness_count: int = 1,
     sealed_at: Optional[int] = None,
 ) -> str:
@@ -550,12 +568,32 @@ def run_intra_rite(
     calls at rising `sealed_at` with varying `witness_count` feed the
     ceremony-cost-decay lens. Returns the rite CID."""
     movs = list(movements) if movements is not None else list(_DEFAULT_MOVEMENTS)
+    coms = [
+        tuple(c) for c in
+        (commitments if commitments is not None else _DEFAULT_COMMITMENTS)
+    ]
     if len(movs) != 5:
         raise ValueError(f"movements must have 5 entries, got {len(movs)}")
+    blank = [i + 1 for i, m in enumerate(movs) if not m.strip()]
+    if blank:
+        raise ValueError(
+            f"movements {blank} are blank: the rite is all five or it is not the rite"
+        )
     if sealed_at is None:
         sealed_at = now_seconds()
+    if not coms:
+        raise ValueError(
+            "Movement 4 recites at least one commitment: a denominator that can be "
+            "empty is not a denominator"
+        )
+    keys = [str(k).strip() for k, _ in coms]
+    if any(not k for k in keys) or any(not str(v).strip() for _, v in coms):
+        raise ValueError("every commitment needs a key and a text")
+    if len(set(keys)) != len(keys):
+        raise ValueError("a commitment key names one undertaking and is recited once")
     return archive.append_intra_rite(
-        community.priv, community.did, movs, witness_count, sealed_at,
+        community.priv, community.did, movs, [(str(k), str(v)) for k, v in coms],
+        witness_count, sealed_at,
     )
 
 
@@ -1222,8 +1260,12 @@ def decide_designation(
     (1) >= 3 completed-then-re-violated restitution cycles cited (relaxed for the
     Expedited path); (2) >= 2 deliberation cycles separated by the waiting period
     (Expedited: 1 cycle + higher quorum + a mandatory `reexamine_after`);
-    (3) non-empty `criteria` + `cited_acts`; (4) reversal conditions present for
-    Anathema, absent for HostisHumaniGeneris. Returns the CID."""
+    (3) non-empty `criteria` + `cited_acts`, every cited CID resolving to an
+    archive record, and every resolved record that names a subject naming this
+    designation's subject (a cited `DesignationDecided` is exempt: consorting with
+    another compact's designated community is itself a ground); (4) reversal
+    conditions present for Anathema, absent for HostisHumaniGeneris. Returns the
+    CID."""
     if not deliberators:
         raise ValueError("a designation needs at least one deliberator")
     if tier not in DESIGNATION_TIERS:
@@ -1293,6 +1335,7 @@ def complete_reentry(
     movements: tuple,
     witnesses: Sequence[tuple],
     *,
+    commitments: Optional[Sequence[tuple]] = None,
     conduct_accounting: str,
     public_acknowledgement: str,
     probation_until: int,
@@ -1300,7 +1343,8 @@ def complete_reentry(
 ) -> str:
     """Complete a re-entry from an anathema designation (§5), co-signed by the
     admitting `deliberators`. `movements` is a 5-tuple (substrate, fallenness,
-    recognition, common_virtue, non_ultimacy); the petitioner's recitation and
+    recognition, common_virtue, non_ultimacy) whose fourth entry is Movement 4's
+    preamble, and `commitments` is that movement's list; the petitioner's recitation and
     each witness attestation are built and signed internally. `witnesses` is a
     sequence of `(Signer, sincerity_affirmed: bool)`. The authority pass requires
     an Anathema (not Hostis) designation, a complete recitation, a non-empty
@@ -1310,9 +1354,13 @@ def complete_reentry(
         raise ValueError("a re-entry needs at least one admitting community")
     if len(movements) != 5:
         raise ValueError("movements must be a 5-tuple of movement texts")
+    coms = [
+        (str(k), str(v)) for k, v in
+        (commitments if commitments is not None else _DEFAULT_COMMITMENTS)
+    ]
     return archive.complete_reentry(
         [s.priv for s in deliberators], [s.did for s in deliberators],
-        designation_cid, petitioner.priv, petitioner.did, tuple(movements),
+        designation_cid, petitioner.priv, petitioner.did, tuple(movements), coms,
         [(w.priv, w.did, bool(affirmed)) for (w, affirmed) in witnesses],
         conduct_accounting, public_acknowledgement, probation_until, completed_at,
     )

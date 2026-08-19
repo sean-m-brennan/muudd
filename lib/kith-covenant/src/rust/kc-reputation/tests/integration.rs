@@ -24,7 +24,7 @@ use kc_ceremony::inter::{
     InterCredentialingOutcome, InterCredentialingRunner, ParticipantContext, REQUIRED_FEATURES,
 };
 use kc_ceremony::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
-use kc_ceremony::recitation::{Recitation, RecitationVersion};
+use kc_ceremony::recitation::{Commitment, CommonVirtueMovement, Recitation, RecitationVersion};
 use kc_core::{keys, time, Alg, DidKey, KcError, PrivKey, Signed};
 use kc_identity::{
     CommunityIdentity, DelegationScope, SpeakerDelegation, WitnessEntry, WitnessRegistry,
@@ -157,7 +157,13 @@ fn run_intra_rite(c: &CommunityBundle) -> Result<Signed<IntraCommunityRiteRecord
             movement_substrate: "We are anchored above self.".into(),
             movement_fallenness: "We acknowledge our fallenness.".into(),
             movement_recognition: "We recognize the other.".into(),
-            movement_common_virtue: "We share common virtue.".into(),
+            movement_common_virtue: CommonVirtueMovement::new(
+                "We commit to the virtues this compact relies on.",
+                vec![
+                    Commitment::new("truthfulness", "We tell the truth."),
+                    Commitment::new("restitution", "We make good what we broke."),
+                ],
+            ),
             movement_non_ultimacy: "The compact is not ultimate.".into(),
             language_tag: "en".into(),
             translation_en: None,
@@ -176,7 +182,6 @@ fn run_intra_rite(c: &CommunityBundle) -> Result<Signed<IntraCommunityRiteRecord
         recitation,
         vec![attestation],
         &c.root_priv,
-        RecitationVersion::current(),
         now,
     )
 }

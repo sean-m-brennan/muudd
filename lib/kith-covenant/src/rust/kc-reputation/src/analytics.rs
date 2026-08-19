@@ -2462,6 +2462,31 @@ pub struct ErosionAlert {
     /// it landed, and it is reported separately rather than folded into the
     /// convergence dimension because either can occur without the other.
     pub enforcement_direction: Option<EnforcementDirection>,
+    /// The compact's enforcement is landing on the communities that raised matters
+    /// ([`reporter_targeting`]).
+    ///
+    /// The fourteenth dimension, and the second one with a **named beneficiary**: the
+    /// thirteenth reads a thing the compact declines to do to one member, and this reads
+    /// a thing it does to whoever asked. Neither is a form the compact stopped keeping.
+    /// Measured before this field existed: a complicit majority ran the member that filed
+    /// the evidence from dispute registration up to limited sanctions, five acts, and
+    /// every instrument the compact had read `None`. `enforcement_direction` was the lens
+    /// that ought to have seen it and could not, because its axis is standing and the
+    /// honest complainant held full standing throughout.
+    pub reporter_targeting: Option<ReporterTargeting>,
+    /// The compact is enforcing a shrinking part of the object its members recited
+    /// ([`commitment_coverage`]).
+    ///
+    /// The fifteenth dimension, and the first graded against a denominator the compact
+    /// supplied rather than one the protocol fixed. The shared taxonomy is eight coarse
+    /// grounds, so a compact can abandon an undertaking whole and move it not at all.
+    pub commitment_coverage: Option<CommitmentCoverage>,
+    /// A member no longer recites something it undertook at its first rite
+    /// ([`commitment_contraction`]).
+    ///
+    /// The sixteenth, and the act-triggered half of the fifteenth: the move that makes a
+    /// narrowing legal is to bring the recitation down to match the enforcement.
+    pub commitment_contraction: Option<CommitmentContraction>,
 }
 
 /// Why the compact's deliberation reads as thinning, with both readings reported so a
@@ -2837,6 +2862,28 @@ pub struct ErosionThresholds {
     /// and the same one the authority pass requires before a member may attest it: a
     /// compact still working through its ladder has not failed to.
     pub grievance_cadence_seconds: i64,
+    /// How many enforcement acts the reporter-targeting reading needs before its share
+    /// means anything. Lower than the substitution floor of twelve, because that one is
+    /// a coupon-collector reading over eight grounds and this one is a ratio over two
+    /// parties: a counter-prosecution is a handful of acts and is the whole signal.
+    pub reporter_targeting_volume_floor: usize,
+    /// The share of enforcement acts landing on a prior reporter at which the reading
+    /// fires. Reciprocity is ordinary in a live compact, so this is a majority rather
+    /// than any occurrence.
+    pub reporter_targeting_floor_permille: u32,
+    /// Enforcement acts the recited-object reading needs **per commitment** before its
+    /// coverage means anything.
+    ///
+    /// Unlike the substitution floor this cannot be a constant, and the reason is
+    /// arithmetic. Coverage over `n` commitments is a coupon-collector reading and `n`
+    /// varies per compact, so a fixed floor would report the compact that undertook the
+    /// most as narrowing forever. Two acts per commitment reaches about six tenths of a
+    /// small object and more of a large one.
+    pub commitment_acts_per_commitment: usize,
+    /// The share of its own recited object a compact must still be enforcing. Half, the
+    /// same cut-point the shared-taxonomy coverage takes, because the two readings
+    /// answer the same question against different denominators.
+    pub commitment_coverage_floor_permille: u32,
 }
 
 impl Default for ErosionThresholds {
@@ -2850,6 +2897,10 @@ impl Default for ErosionThresholds {
             enforcement_dispersion_ceiling_permille: 500,
             enforcement_downward_floor_permille: 800,
             grievance_cadence_seconds: 90 * 86_400,
+            reporter_targeting_volume_floor: 3,
+            reporter_targeting_floor_permille: 500,
+            commitment_acts_per_commitment: 2,
+            commitment_coverage_floor_permille: 500,
         }
     }
 }
@@ -3545,6 +3596,9 @@ fn herfindahl(counts: &BTreeMap<String, usize>, total: usize) -> Option<f64> {
 struct EnforcementAct<'a> {
     cid: Cid,
     bearing: &'a ConductBearing,
+    /// The compact's *own* recited commitments this act cites, which may be empty.
+    /// `bearing` is the shared taxonomy; this is the recited object.
+    commitments: &'a [String],
     subject: &'a DidKey,
     reporters: &'a [DidKey],
     recorded_at: Timestamp,
@@ -3577,6 +3631,7 @@ fn enforcement_acts(
             acts.push(EnforcementAct {
                 cid: *cid,
                 bearing: &c.bearing,
+                commitments: &c.commitments_cited,
                 subject: &c.subject_community,
                 reporters: &c.reporters,
                 recorded_at: c.recorded_at,
@@ -3873,6 +3928,225 @@ pub fn enforcement_direction_all(
     by_community
 }
 
+/// Who raised a matter, so a later act against them can be read as an answer to it.
+///
+/// One grievance, reduced to the pair it implicates: `raiser` put something on the
+/// record about `named`.
+struct RaisedMatter {
+    raiser: String,
+    named: String,
+    at: Timestamp,
+}
+
+/// Every matter a community raised about another, from all four carriers that record
+/// one.
+///
+/// Four rather than one, because narrowing the reading to conduct records would leave
+/// the same evasion the §8 whistleblower channel exists to close: file the grievance
+/// through a different carrier and the reading goes quiet. A dispute names its
+/// complainant, a non-pursuit attestation names its attestor, an observer report names
+/// its observer, and an adverse conduct record names its reporters.
+fn raised_matters(archive: &InMemoryArchive, as_of: Timestamp) -> Vec<RaisedMatter> {
+    let mut out = Vec::new();
+    for (_, entry) in archive.iter() {
+        match entry {
+            ArchiveEntry::ConductAttested(s) => {
+                let c = &s.payload;
+                if c.recorded_at > as_of || !c.kind.is_adverse() {
+                    continue;
+                }
+                for r in &c.reporters {
+                    if r == &c.subject_community {
+                        continue;
+                    }
+                    out.push(RaisedMatter {
+                        raiser: r.as_str().to_string(),
+                        named: c.subject_community.as_str().to_string(),
+                        at: c.recorded_at,
+                    });
+                }
+            }
+            ArchiveEntry::DisputeFiled(s) => {
+                let d = &s.payload;
+                if d.filed_at > as_of {
+                    continue;
+                }
+                out.push(RaisedMatter {
+                    raiser: d.complainant.as_str().to_string(),
+                    named: d.respondent.as_str().to_string(),
+                    at: d.filed_at,
+                });
+            }
+            ArchiveEntry::NonPursuitAttested(s) => {
+                let n = &s.payload;
+                if n.filed_at > as_of {
+                    continue;
+                }
+                out.push(RaisedMatter {
+                    raiser: n.attestor.as_str().to_string(),
+                    named: n.subject.as_str().to_string(),
+                    at: n.filed_at,
+                });
+            }
+            ArchiveEntry::ObserverReportPublished(s) => {
+                let r = &s.payload;
+                if r.reported_at > as_of {
+                    continue;
+                }
+                out.push(RaisedMatter {
+                    raiser: r.observer_did.as_str().to_string(),
+                    named: r.subject_community.as_str().to_string(),
+                    at: r.reported_at,
+                });
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Whether a compact's enforcement lands on the communities that raised matters.
+///
+/// The reading `enforcement_direction` cannot make. That lens buckets each act by
+/// **standing**, calling `probationary_at` on the parties, so an honest complainant
+/// holding full standing and prosecuted by full members reads as enforcement between
+/// equals. Standing is not the axis a captured compact moves along: the complicit
+/// majority holds the weight to run the member that filed the evidence up the ladder on
+/// its own signature, and measured before this reading, doing exactly that moved zero
+/// instruments (`doc/architecture/captured-prosecution.md`).
+///
+/// What is read here is the **relation** between an act and a prior grievance: whether
+/// the subject of this act is the community that raised an earlier one about whoever is
+/// bringing this one. The join is on party identity and time order rather than on
+/// citation, because nothing obliges a counter-prosecution to cite what it answers.
+///
+/// A lens and never a refusal. A compact may have a genuine complaint against a member
+/// that itself complained, and no protocol can tell the two apart, so this reports a
+/// structural fact and leaves the verdict where the doctrine leaves it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ReporterTargeting {
+    /// The enforcing community, or `None` for the compact-wide reading.
+    pub community: Option<String>,
+    /// Enforcement acts inside the window.
+    pub acts: usize,
+    /// Of those, the ones whose subject had already raised a matter about one of the
+    /// communities now enforcing.
+    pub against_reporters: usize,
+    /// The implicated pairs, as (the community that raised a matter and is now the
+    /// subject, the community it named and which is now enforcing). Sorted, deduplicated.
+    pub pairs: Vec<(String, String)>,
+    pub window_seconds: i64,
+    /// The acts meeting the reading, for a reader who wants to open them.
+    pub evidence: Vec<Cid>,
+}
+
+impl ReporterTargeting {
+    pub fn share(&self) -> Option<f64> {
+        if self.acts == 0 {
+            None
+        } else {
+            Some(self.against_reporters as f64 / self.acts as f64)
+        }
+    }
+
+    /// Whether enforcement is landing on the compact's own complainants: enough acts to
+    /// read, and a majority of them answering a matter their subject had raised.
+    ///
+    /// Thresholded rather than absolute, because reciprocity is ordinary. Two
+    /// communities with a real quarrel file about each other, and a compact where every
+    /// grievance ran one way would be the stranger object.
+    pub fn targets_reporters(&self, thresholds: &ErosionThresholds) -> bool {
+        self.acts >= thresholds.reporter_targeting_volume_floor
+            && self.share().is_some_and(|s| {
+                s >= thresholds.reporter_targeting_floor_permille as f64 / 1000.0
+            })
+    }
+}
+
+/// Does `act` answer a matter its own subject raised about one of its reporters?
+fn answers_a_raised_matter<'a>(
+    act: &EnforcementAct<'_>,
+    raised: &'a [RaisedMatter],
+) -> Option<&'a RaisedMatter> {
+    let subject = act.subject.as_str();
+    raised
+        .iter()
+        .filter(|m| m.at < act.recorded_at && m.raiser == subject)
+        .find(|m| act.reporters.iter().any(|r| r.as_str() == m.named))
+}
+
+fn tally_targeting(
+    out: &mut ReporterTargeting,
+    act: &EnforcementAct<'_>,
+    hit: Option<&RaisedMatter>,
+) {
+    out.acts += 1;
+    if let Some(m) = hit {
+        out.against_reporters += 1;
+        out.evidence.push(act.cid);
+        let pair = (m.raiser.clone(), m.named.clone());
+        if !out.pairs.contains(&pair) {
+            out.pairs.push(pair);
+        }
+    }
+}
+
+/// The compact-wide reporter-targeting reading over the window ending at `as_of`.
+///
+/// Compact-wide is the level the alert reads, for the same reason as the substitution
+/// dimensions (findings K5 and K6): a per-community reading converges on any compact
+/// with a division of labour, since the community that brings most matters is the one
+/// most acts are attributed to. `reporter_targeting_all` is the drill-down that names
+/// who, available once the compact-wide reading has said there is something to name.
+pub fn reporter_targeting(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    window_seconds: i64,
+) -> ReporterTargeting {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let raised = raised_matters(archive, as_of);
+    let mut out = ReporterTargeting {
+        window_seconds,
+        ..Default::default()
+    };
+    for act in enforcement_acts(archive, as_of, window_seconds) {
+        let hit = answers_a_raised_matter(&act, &raised);
+        tally_targeting(&mut out, &act, hit);
+    }
+    out.pairs.sort();
+    out
+}
+
+/// The same reading per **enforcing** community, keyed by reporter DID.
+pub fn reporter_targeting_all(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    window_seconds: i64,
+) -> BTreeMap<String, ReporterTargeting> {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let raised = raised_matters(archive, as_of);
+    let mut by_community: BTreeMap<String, ReporterTargeting> = BTreeMap::new();
+    for act in enforcement_acts(archive, as_of, window_seconds) {
+        let hit = answers_a_raised_matter(&act, &raised);
+        for reporter in act.reporters {
+            let did = reporter.as_str().to_string();
+            let entry = by_community.entry(did.clone()).or_insert_with(|| ReporterTargeting {
+                community: Some(did),
+                window_seconds,
+                ..Default::default()
+            });
+            // Credit the act to this community only where the matter it answers named
+            // this community, so a co-signer who was never named does not inherit it.
+            let mine = hit.filter(|m| m.named == reporter.as_str());
+            tally_targeting(entry, &act, mine);
+        }
+    }
+    for entry in by_community.values_mut() {
+        entry.pairs.sort();
+    }
+    by_community
+}
+
 /// Compute the erosion alert as of `as_of` (defaults to now), with the default
 /// [`ErosionThresholds`]. See [`erosion_alert_with`] for the parameterized form.
 pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> ErosionAlert {
@@ -3884,14 +4158,15 @@ pub fn erosion_alert(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> Ero
 /// instance → `Notice`, and two-or-more dimensions **or** any dimension eroded more
 /// than once → `Alert`.
 ///
-/// The thirteen dimensions divide three ways, and the division is the whole design.
+/// The fourteen dimensions divide three ways, and the division is the whole design.
 /// Four fire on an **act**: somebody amends the incapable list, narrows the adopted
 /// ground, shortens a fast, or deliberates during one. Seven fire on **omission** or
 /// against a pinned baseline: a re-affirmation that never came, a ceremony drawing
 /// fewer witnesses than at its founding, a thinning deliberation, a designation left
 /// unexamined, a function gone quiet, an office left empty, and a grievance the compact
-/// filed and did not pursue. Two fire on **intensification**: a compact enforcing
-/// harder and narrower than it recites.
+/// filed and did not pursue. Three fire on **intensification**: a compact enforcing
+/// harder and narrower than it recites, enforcement running at communities holding
+/// reduced standing, and enforcement landing on the communities that raised matters.
 ///
 /// An alert built only from act-triggered signals reads a polity that has stopped
 /// functioning as a polity in perfect health. An alert built only from those two
@@ -4212,6 +4487,77 @@ pub fn erosion_alert_with(
         }
     }
 
+    let targeting = reporter_targeting(
+        archive,
+        Some(as_of_ts),
+        thresholds.enforcement_window_seconds,
+    );
+    let reporter_targeting = if targeting.targets_reporters(thresholds) {
+        Some(targeting)
+    } else {
+        None
+    };
+    if let Some(r) = &reporter_targeting {
+        dimensions += 1;
+        reasons.push(format!(
+            "enforcement landing on the compact's own complainants: {} of {} act(s) answer a \
+             matter their subject had raised, across {} pair(s)",
+            r.against_reporters,
+            r.acts,
+            r.pairs.len()
+        ));
+        // One pair carrying the whole of it is a quarrel between two communities, which
+        // the compact can see for itself. The same share spread over several pairs is a
+        // compact whose answer to being told something is to move against the teller.
+        if r.pairs.len() > 1 {
+            compounding = true;
+        }
+    }
+
+    let object_reading = commitment_coverage(
+        archive,
+        Some(as_of_ts),
+        thresholds.enforcement_window_seconds,
+    );
+    let commitment_coverage = if object_reading.narrowing(thresholds) {
+        Some(object_reading)
+    } else {
+        None
+    };
+    if let Some(c) = &commitment_coverage {
+        dimensions += 1;
+        reasons.push(format!(
+            "the compact is enforcing {} of the {} commitment(s) its members recited, \
+             leaving {} unenforced across {} act(s)",
+            c.per_commitment.len(),
+            c.object_size,
+            c.unenforced.len(),
+            c.acts
+        ));
+        // More than half the recited object untouched is a different object, not a
+        // quiet season on part of one.
+        if c.unenforced.len() * 2 > c.object_size {
+            compounding = true;
+        }
+    }
+
+    let contraction = commitment_contraction(archive, Some(as_of_ts));
+    let commitment_contraction = if contraction.any() { Some(contraction) } else { None };
+    if let Some(c) = &commitment_contraction {
+        dimensions += 1;
+        reasons.push(format!(
+            "{} community(ies) no longer recite {} commitment(s) they undertook at their \
+             first rite",
+            c.communities(),
+            c.total_dropped()
+        ));
+        // One community trimming its own list is that community's business. Several at
+        // once is the compact's object moving.
+        if c.communities() > 1 {
+            compounding = true;
+        }
+    }
+
     let severity = match dimensions {
         0 => ErosionSeverity::None,
         1 if !compounding => ErosionSeverity::Notice,
@@ -4234,7 +4580,365 @@ pub fn erosion_alert_with(
         unanswered_grievances,
         enforcement_convergence,
         enforcement_direction,
+        reporter_targeting,
+        commitment_coverage,
+        commitment_contraction,
     }
+}
+
+// ---------------------------------------------------------------------------
+// The recited object: substitution measured against the compact's own denominator
+// (`doc/background/substitution.md`, "What the measure does not reach").
+// ---------------------------------------------------------------------------
+
+/// The commitments the compact undertook, as its members first recited them.
+///
+/// The shared taxonomy of eight grounds is the denominator the *protocol* supplies.
+/// This is the one the *compact* supplied, and it is finer: the eight grounds are
+/// coarse enough that a compact can abandon *hospitality to strangers* while keeping
+/// *charity to members* and move `Charity` coverage not at all.
+///
+/// **Pinned to the first rite of each member**, which is what keeps it absolute in the
+/// way `erosion-legibility.md` requires. A compact cannot raise its coverage by reciting
+/// a shorter list, because the denominator is what it undertook rather than what it
+/// still says. The union only grows: an admitted community adds its commitments, and no
+/// departure record exists to take any away, so the reading gets harder rather than
+/// easier as a compact ages, and it cannot be gamed downward at all.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CompactObject {
+    /// Every commitment key any member recited at its first rite. Sorted, deduplicated.
+    pub keys: Vec<String>,
+    /// Per community: the keys its first rite recited, and when that rite was sealed.
+    pub per_community: BTreeMap<String, (Vec<String>, Timestamp)>,
+}
+
+impl CompactObject {
+    pub fn size(&self) -> usize {
+        self.keys.len()
+    }
+
+    pub fn contains(&self, key: &str) -> bool {
+        self.keys.iter().any(|k| k == key)
+    }
+}
+
+/// Every community's first archived rite, keyed by community DID.
+///
+/// First rather than latest, and the whole reading turns on it. A baseline that moved
+/// with the most recent recitation would be a measure of the compact against itself,
+/// which is exactly the relative shape that cannot see a drift moving the compact
+/// uniformly.
+fn first_rites(
+    archive: &InMemoryArchive,
+    as_of: Timestamp,
+) -> BTreeMap<String, (Cid, Timestamp, Vec<String>)> {
+    let mut out: BTreeMap<String, (Cid, Timestamp, Vec<String>)> = BTreeMap::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::IntraCommunityRite(s) = entry {
+            let rec = &s.payload;
+            if rec.sealed_at > as_of {
+                continue;
+            }
+            let did = rec.recitation.payload.community_did.as_str().to_string();
+            let keys: Vec<String> = rec
+                .recitation
+                .payload
+                .movement_common_virtue
+                .keys()
+                .into_iter()
+                .map(|k| k.to_string())
+                .collect();
+            match out.get(&did) {
+                Some((_, at, _)) if *at <= rec.sealed_at => {}
+                _ => {
+                    out.insert(did, (*cid, rec.sealed_at, keys));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Every community's latest archived rite, keyed by community DID.
+fn latest_rites(
+    archive: &InMemoryArchive,
+    as_of: Timestamp,
+) -> BTreeMap<String, (Cid, Timestamp, Vec<String>)> {
+    let mut out: BTreeMap<String, (Cid, Timestamp, Vec<String>)> = BTreeMap::new();
+    for (cid, entry) in archive.iter() {
+        if let ArchiveEntry::IntraCommunityRite(s) = entry {
+            let rec = &s.payload;
+            if rec.sealed_at > as_of {
+                continue;
+            }
+            let did = rec.recitation.payload.community_did.as_str().to_string();
+            let keys: Vec<String> = rec
+                .recitation
+                .payload
+                .movement_common_virtue
+                .keys()
+                .into_iter()
+                .map(|k| k.to_string())
+                .collect();
+            match out.get(&did) {
+                Some((_, at, _)) if *at >= rec.sealed_at => {}
+                _ => {
+                    out.insert(did, (*cid, rec.sealed_at, keys));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Who the §2 admission records seat, as of `as_of`, across every compact label in the
+/// archive.
+///
+/// Labels are unioned rather than read one at a time, which is the same
+/// archive-as-one-compact convention `enforcement_convergence` and the other §6 lenses
+/// take. A reader holding two compacts in one archive wants two archives.
+fn seated_communities(archive: &InMemoryArchive, as_of: Timestamp) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for (_, entry) in archive.iter() {
+        if let ArchiveEntry::InterCommunityWitness(s) = entry {
+            if s.payload.witnessed_at > as_of {
+                continue;
+            }
+            for p in &s.payload.participants {
+                out.insert(p.as_str().to_string());
+            }
+        }
+    }
+    out
+}
+
+/// The compact's recited object as of `as_of`.
+pub fn compact_object(archive: &InMemoryArchive, as_of: Option<Timestamp>) -> CompactObject {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let seated = seated_communities(archive, as_of);
+    let mut keys: BTreeSet<String> = BTreeSet::new();
+    let mut per_community = BTreeMap::new();
+    for (did, (_, at, ks)) in first_rites(archive, as_of) {
+        if !seated.contains(&did) {
+            continue;
+        }
+        keys.extend(ks.iter().cloned());
+        per_community.insert(did, (ks, at));
+    }
+    CompactObject { keys: keys.into_iter().collect(), per_community }
+}
+
+/// How much of its own recited object a compact still enforces.
+///
+/// The reading `enforcement_convergence` cannot make. That one divides by
+/// [`CONCRETE_BEARINGS`], eight grounds the protocol fixes, and eight coarse buckets do
+/// not separate a compact holding the whole of what it undertook from one holding half.
+/// Measured before this lens existed: a compact that halved its recited object across
+/// three generational rites, with rising witness counts and nothing amended, scored
+/// **1.0** on taxonomy coverage and `None` on every erosion dimension.
+///
+/// A lens and never a refusal, like the rest of §6. What the compact still holds and
+/// what it once said are both facts on the record, and which of them is the honest
+/// account of the polity is not a question a rule can answer.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommitmentCoverage {
+    /// Size of the pinned object: the denominator.
+    pub object_size: usize,
+    /// Pinned commitment → enforcement acts citing it. Commitments never cited are
+    /// absent here and present in `unenforced`.
+    pub per_commitment: BTreeMap<String, usize>,
+    /// Pinned commitments no act in the window cited. Sorted, and the point of the
+    /// reading: it names what the compact stopped enforcing.
+    pub unenforced: Vec<String>,
+    /// Cited keys that are not in the pinned object: commitments taken on later.
+    /// Counted and reported, never in the numerator, for the same reason
+    /// `ConductBearing::Other` stays out of the taxonomy denominator.
+    pub off_object: BTreeMap<String, usize>,
+    /// Enforcement acts inside the window.
+    pub acts: usize,
+    /// Of those, the ones citing no commitment at all.
+    pub uncited_acts: usize,
+    pub window_seconds: i64,
+    /// The acts that cited something, for a reader who wants to open them.
+    pub evidence: Vec<Cid>,
+}
+
+impl CommitmentCoverage {
+    /// Distinct pinned commitments cited, over the pinned object. `None` when the
+    /// compact recited no object at all, which is a different reading from zero.
+    pub fn coverage(&self) -> Option<f64> {
+        if self.object_size == 0 {
+            None
+        } else {
+            Some(self.per_commitment.len() as f64 / self.object_size as f64)
+        }
+    }
+
+    /// The share of enforcement that named no commitment. Reported rather than
+    /// assumed away: a citation is optional, so a compact could otherwise narrow its
+    /// object and stop citing at the same time and read as untestable.
+    pub fn uncited_share(&self) -> Option<f64> {
+        if self.acts == 0 {
+            None
+        } else {
+            Some(self.uncited_acts as f64 / self.acts as f64)
+        }
+    }
+
+    /// Acts the reading needs before its coverage means anything, which scales with
+    /// the object.
+    ///
+    /// Coverage over `n` commitments is a coupon-collector quantity, and unlike the
+    /// eight-ground taxonomy `n` varies per compact: `v` acts drawn evenly reach about
+    /// `n(1 - (1 - 1/n)^v)` distinct commitments. A constant floor would report a
+    /// compact with a large recited object as narrowing forever, which would punish
+    /// the compact that undertook the most.
+    pub fn volume_floor(&self, thresholds: &ErosionThresholds) -> usize {
+        self.object_size * thresholds.commitment_acts_per_commitment
+    }
+
+    /// Enforcement acts that named a commitment at all.
+    pub fn cited_acts(&self) -> usize {
+        self.acts - self.uncited_acts
+    }
+
+    /// Enough acts **that cite something** to read at all. Below this the answer is
+    /// untestable, which is a different answer from healthy.
+    ///
+    /// Counting uncited acts toward testability was the first design and it was wrong,
+    /// and the determined-adversary campaign is what caught it: a compact prosecuting
+    /// one real adversary properly, through thirteen enforcement acts that named no
+    /// commitment because nobody there had adopted the practice, scored coverage `0.0`
+    /// and read as narrowing. That measures adoption of a citation habit rather than the
+    /// object, and it fires on the most sympathetic case there is. Silence about the
+    /// object is not evidence about the object, in either direction, and what silence
+    /// costs is reported by `uncited_share` instead.
+    pub fn testable(&self, thresholds: &ErosionThresholds) -> bool {
+        self.object_size > 0 && self.cited_acts() >= self.volume_floor(thresholds)
+    }
+
+    /// Testable, and enforcing less of its own object than the cut-point.
+    pub fn narrowing(&self, thresholds: &ErosionThresholds) -> bool {
+        self.testable(thresholds)
+            && self.coverage().is_some_and(|c| {
+                c < thresholds.commitment_coverage_floor_permille as f64 / 1000.0
+            })
+    }
+}
+
+/// The compact-wide recited-object reading over the window ending at `as_of`.
+///
+/// Compact-wide, for the K5 and K6 reason: a per-community reading converges on any
+/// compact with a division of labour, and the object belongs to the compact rather than
+/// to any member. The drill-down here is per **commitment** rather than per community,
+/// because the question the reading answers is which undertakings stopped being
+/// enforced, not who stopped enforcing them.
+pub fn commitment_coverage(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+    window_seconds: i64,
+) -> CommitmentCoverage {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let object = compact_object(archive, Some(as_of));
+    let mut out = CommitmentCoverage {
+        object_size: object.size(),
+        window_seconds,
+        ..Default::default()
+    };
+    for act in enforcement_acts(archive, as_of, window_seconds) {
+        out.acts += 1;
+        if act.commitments.is_empty() {
+            out.uncited_acts += 1;
+            continue;
+        }
+        out.evidence.push(act.cid);
+        for key in act.commitments {
+            let key = key.trim().to_string();
+            if object.contains(&key) {
+                *out.per_commitment.entry(key).or_default() += 1;
+            } else {
+                *out.off_object.entry(key).or_default() += 1;
+            }
+        }
+    }
+    out.unenforced = object
+        .keys
+        .iter()
+        .filter(|k| !out.per_commitment.contains_key(*k))
+        .cloned()
+        .collect();
+    out
+}
+
+/// Commitments a community undertook at its first rite and no longer recites.
+///
+/// The act-triggered half of the same capture, and the move that makes a narrowing
+/// legal: a compact whose enforcement has narrowed can bring its recitation down to
+/// match, after which the smaller object is the one on the record. `commitment_coverage`
+/// would not see that, because its denominator is pinned; this is what sees it.
+///
+/// Pinned baseline against the **latest** recitation rather than a running tally of
+/// every drop, the same shape as `hollowing_communities`. A commitment dropped and later
+/// taken up again clears, because the compact holds it again; the archive still carries
+/// both rites for a reader who wants the history.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommitmentContraction {
+    /// Community → the keys it recited first and does not recite now. Sorted.
+    pub dropped: BTreeMap<String, Vec<String>>,
+    /// The latest rite of each contracting community.
+    pub evidence: Vec<Cid>,
+}
+
+impl CommitmentContraction {
+    pub fn any(&self) -> bool {
+        !self.dropped.is_empty()
+    }
+
+    /// How many distinct commitments the compact as a whole no longer recites.
+    pub fn total_dropped(&self) -> usize {
+        self.dropped
+            .values()
+            .flat_map(|ks| ks.iter().cloned())
+            .collect::<BTreeSet<_>>()
+            .len()
+    }
+
+    /// How many communities contracted. One is a community trimming its own list;
+    /// several at once is the compact's object moving.
+    pub fn communities(&self) -> usize {
+        self.dropped.len()
+    }
+}
+
+/// The recited-object contraction reading as of `as_of`.
+pub fn commitment_contraction(
+    archive: &InMemoryArchive,
+    as_of: Option<Timestamp>,
+) -> CommitmentContraction {
+    let as_of = as_of.unwrap_or_else(time::now);
+    let seated = seated_communities(archive, as_of);
+    let first = first_rites(archive, as_of);
+    let latest = latest_rites(archive, as_of);
+    let mut out = CommitmentContraction::default();
+    for (did, (_, _, first_keys)) in &first {
+        if !seated.contains(did) {
+            continue;
+        }
+        let Some((cid, _, now_keys)) = latest.get(did) else {
+            continue;
+        };
+        let held: BTreeSet<&String> = now_keys.iter().collect();
+        let dropped: Vec<String> = first_keys
+            .iter()
+            .filter(|k| !held.contains(k))
+            .cloned()
+            .collect();
+        if !dropped.is_empty() {
+            out.dropped.insert(did.clone(), dropped);
+            out.evidence.push(*cid);
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------

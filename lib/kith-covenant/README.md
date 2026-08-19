@@ -164,11 +164,11 @@ in [`doc/crates.md`](doc/crates.md).
 | 3 | Archive and commons | In-memory, content-addressed, JSON dump and load, cryptographic verification |
 | 4 | Mediation | The mediator pool with term, rotation and pool-share caps; dispute intake, argument and deliberation records, recusal, protecting powers, training lineage, panel consent, and sealed reasoning under community custody |
 | 5 | Escalation and designation | The ladder through to expulsion, the four-condition anathema test, the covenant-facing floor on the expedited path, restitution and verification, re-entry, and the recorded conclusion of a mandated re-examination |
-| 6 | Reputation bridges | Lookup and standing, the capture-signal detectors, and the jester lenses, including an erosion alert with nine signals, six of them absolute |
+| 6 | Reputation bridges | Lookup and standing, the capture-signal detectors, and the jester lenses, including an erosion alert with sixteen signals, seven of them absolute and one graded against the compact's own recited object |
 | 7 | Commons governance | The five compact-level commons, usage accounting public or sealed, the graduated ladder from monitoring to exclusion, the commons equivalent of anathema, and the inter-compact level with its subsidiarity limit |
 | 8 | Jester and observer function | Observer-corps registry with enforced caps, attributed reports with an irrevocable right of response, and a whistleblower channel whose source proves insider standing by ring signature over the log preceding each filing |
 | 9 | Enforcement and non-ultimacy | The compact-incapable list as a genesis-immutable artifact with asymmetric amendment, the structured-fast cadence, interim injunctions with capability gating, and graded erosion alerting |
-| 10 | Bootstrapping and test harness | Ten scenarios scored against falsification criteria stated in advance, run over a parameterized space with seeded search, directed sweeps, and shrinking |
+| 10 | Bootstrapping and test harness | Fourteen scenarios scored against falsification criteria stated in advance, run over a parameterized space with seeded search, directed sweeps, and shrinking |
 
 Three things the implementation deliberately is not.
 

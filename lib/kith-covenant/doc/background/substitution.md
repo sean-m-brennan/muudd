@@ -186,23 +186,53 @@ enforcement has stopped reaching full members at all is doing something else, an
 negative control for the dimension is a compact enforcing against full members at any
 volume, which must never fire.
 
-## What the measure does not reach
+## The compact's own denominator
 
-The obvious reading is the one that cannot be built today, and it is worth naming rather
-than leaving as an absence. The strongest form of the measure would compare enforcement
-against the commitments a polity recites in its own rite, so that the denominator was the
-polity's own object rather than the shared taxonomy. The rite does carry a movement for the
-common virtue the community holds, and that movement is an opaque block of text with no
-indexable structure at any layer. There is no way to cite the third commitment of a recited
-list, because there is no list. Building one is protocol design and not a lens, and it is
-deferred with the reason recorded rather than guessed at.
+The shared taxonomy is the denominator the *protocol* supplies. The stronger reading grades
+a polity against the commitments it recited in its own rite, so that the denominator is the
+object that polity holds rather than the one every polity shares, and it is now built.
 
-Two smaller gaps sit under that one. The completeness check on the movements of the rite is
-enforced only on the re-entry path, so an ordinary intra-community rite with an empty
-common-virtue movement seals and archives cleanly, which means the movement would need a
-gate before it could be a denominator at all. And the version identifier a rite carries is
-never validated against the version inside the recitation it seals, so the two can legally
-disagree. Both are recorded in the backlog.
+It had to wait on protocol design rather than on a lens. Movement 4 carried the common
+virtue as an opaque block of text with no indexable structure at any layer, so there was no
+way to cite the third commitment of a recited list because there was no list. The movement
+now carries a preamble and an ordered list of commitments, each a key and the text recited
+for it, with the spoken form derived from the list rather than stored beside it so that the
+prose and the list cannot disagree. A conduct record carries the keys it is about, next to
+and not instead of its bearing: the bearing says which shared ground an act touches and the
+keys say which undertaking.
+
+The reason the finer reading is worth its cost is that eight grounds are coarse. A compact
+that quietly stops holding hospitality to strangers while keeping charity to members moves
+`Charity` coverage not at all. Measured before the reading existed: a compact that halved
+what it recited across three generational rites, with rising witness counts and nothing
+amended, scored a **perfect** 1.0 on shared-taxonomy coverage at volume 32 and graded
+`None` on every one of the fourteen erosion dimensions the audit then had.
+
+**The denominator is pinned to the first rite of each member**, which is what keeps a
+per-polity measure absolute rather than relative. A compact cannot raise its coverage by
+reciting a shorter list, because the denominator is what it undertook and not what it still
+says. The union only grows: an admitted community adds its commitments and no departure
+record exists to take any away, so the reading gets harder as a compact ages and cannot be
+improved by any act of the compact at all. A commitment taken on later is counted and
+reported outside the object, on the same principle that keeps the open ground out of the
+shared denominator.
+
+The move that would make a narrowing legal is to bring the recitation down to match the
+enforcement, and the pinned denominator does not see that by construction, so a second
+reading does: the commitments a community undertook at its first rite and no longer
+recites. It compares the pinned baseline against the latest recitation rather than tallying
+every drop, so a commitment taken up again clears while the archive still carries both
+rites.
+
+Two calibrations carry the rest. The volume floor **scales with the object**, because
+coverage over `n` commitments is a coupon-collector quantity and here `n` varies per
+compact, so a constant floor would report the compact that undertook the most as narrowing
+forever. And testability counts only the acts that cite something. That correction came
+from an existing control rather than from a plan: counting uncited acts read a compact
+prosecuting one real adversary through thirteen acts that named no commitment as enforcing
+none of its object, which measures adoption of a citation habit rather than the object, and
+it fired on the most sympathetic case there is. Silence about the object is not evidence
+about the object, and what the silence costs is reported as an uncited share instead.
 
 The larger limit is the one the uniform-drift audit already states about all of this work,
 and it is not softened here. No dimension prevents substitution. A compact whose members

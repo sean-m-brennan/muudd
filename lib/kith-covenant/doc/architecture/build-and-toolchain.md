@@ -227,12 +227,45 @@ that needs them off is in the other workspace.
 
 ## What the integrity passes cannot see
 
-`kc-archive` does not compact. `dump_json` / `load_json` write and read the
-**whole** log, there is no incremental append, no generation counter, and
-nothing prunes. This is worth stating rather than leaving implicit, because it
-is the only reason KC does not have a defect the ethne tier measured as D20,
-and the §8 whistleblower-source records are the obvious pressure toward adding
-pruning.
+`kc-archive` does not compact. Since ethne's D32 the archive is a newtype over
+`kc-log`, so the generation counter, the generation-safe cursors, the
+incremental segments and `iter_from` all exist underneath it, and the dump
+envelope records the generation. None of it is **forwarded onto
+`InMemoryArchive`**: `dump_json` / `load_json` write and read the whole log,
+every append goes to the tail, and nothing prunes. That is the deliberate
+choice, not an absence, and it is the only reason KC does not have a defect the
+ethne tier measured as D20. The §8 whistleblower-source records are the obvious
+pressure toward adding pruning, and the machinery to do it safely is already in
+the layer below.
+
+Two facts about the archive's own surface belong beside that, because neither has
+another home and both were found the same way.
+
+**The dump envelope is at version 2.** `dump_json` writes the `kc-log` envelope,
+which carries `generation` and `start` alongside `version` and `entries`. The two
+unlinked `version: 1` literals this crate used to hold, one in the writer and one
+in the reader, are gone, and both sides read `kc_log::DUMP_VERSION`. Version 1
+dumps still load, asserted in `kc-log`'s `a_version_1_envelope_still_loads` and in
+`test_bindings.py::test_a_version_1_dump_still_loads`. A version 2 dump will not
+load in a build from before the move, which is the direction that matters.
+
+**`resolve_did` used to resolve registry keys in hash order.** Found by ethne's
+D32 while measuring the archive fork. The four registry steps of
+`InMemoryArchive::resolve_did` (witness, mediator, examiner, observer) scanned the
+CID-keyed entry index and took the first match, so where two rosters named one DID
+with different keys, which is representable because only `CommunityIdentity` binds
+a DID to its pubkey, a **retired key still resolved and still verified**, about half
+the time. `community_identity`, documented "the most recent", read the same index in
+descending CID order and returned the earlier of two publications 104 times in 200.
+Both now read the log in append order, and the registry steps share
+`store::latest_rosters` with `authority::mediator_encryption_keys`, which had been
+the only function in the crate applying latest-issued-wins although the module doc
+claimed the archive did it generally. **No existing test broke**: nothing in the
+suite had ever appended two rosters for one community, which is why the defect
+survived. Four tests in `tests::append_order_resolution` cover it now. It is the
+same cover as the argument-record findings, the absence of a test rather than a
+wrong test, and it is the reason a slice that adds a rule is expected to say which
+test would have caught its absence.
 
 In ethne, an incremental save and a compaction that were each correct in
 isolation did not **compose**. A host that pruned resurrected seven dropped

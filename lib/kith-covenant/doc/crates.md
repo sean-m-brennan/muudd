@@ -263,8 +263,10 @@ capture-signal detectors and the jester lenses.
 
 The lenses cover the rejection pattern, ceremony-cost decay, and the composition
 graph, plus interpretive plurality, structured skepticism, and the adversarial
-principal. The erosion alert carries nine signals, six of them absolute,
-including silent and unstaffed standing functions.
+principal. The erosion alert carries sixteen signals, seven of them absolute,
+including silent and unstaffed standing functions, a grievance the compact filed
+and did not pursue, enforcement landing on the communities that raised matters,
+and a compact enforcing a shrinking part of the object its own members recited.
 
 Records are authorable from Python, with append-only delegation revocation
 and authority enforcement covering principal binding, scope, and quorum.
@@ -309,7 +311,7 @@ without the compiled extension.
 
 ## The harness
 
-`harness.py` scores ten scenarios against falsification criteria stated in
+`harness.py` scores fourteen scenarios against falsification criteria stated in
 advance. The ten are the seven strengthening moves, with the seventh counted
 twice for who a faction can seat and what a seated entrant can carry, plus the
 two with no adversary at all, being the quiet polity and the abandoned office.

@@ -44,7 +44,86 @@ pub struct RecitationVersion(pub String);
 
 impl RecitationVersion {
     pub fn current() -> Self {
-        Self("kc-rite-v1".to_string())
+        Self("kc-rite-v2".to_string())
+    }
+}
+
+/// One commitment of the common-virtue movement: a stable key and the text recited
+/// for it.
+///
+/// The key is what an enforcement act cites, so it is the identity of the commitment
+/// across re-recitations and across communities. Two communities using the same key
+/// are held to be committing to the same thing, which is what lets a compact have an
+/// object at all rather than a list of unrelated private vocabularies. The text is
+/// what was actually said, in the recitation's own language.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Commitment {
+    pub key: String,
+    pub text: String,
+}
+
+impl Commitment {
+    pub fn new(key: impl Into<String>, text: impl Into<String>) -> Self {
+        Self { key: key.into(), text: text.into() }
+    }
+
+    pub fn well_formed(&self) -> bool {
+        !self.key.trim().is_empty() && !self.text.trim().is_empty()
+    }
+}
+
+/// Movement 4, the common virtues the community holds.
+///
+/// The one movement with structure, and the reason is that it is the only one a later
+/// act can be *about*. Movements 1, 2, 3 and 5 are stances; this one is a list of
+/// undertakings, and an undertaking the compact stops enforcing is the substitution
+/// the audit is looking for (`doc/background/substitution.md`).
+///
+/// The recited text is **derived** from the commitments rather than stored beside
+/// them. A second field holding the prose would be a field no rule reads that can
+/// contradict the rule that does, which is the shape this codebase keeps finding on
+/// the other side of a missing rule.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommonVirtueMovement {
+    /// The framing sentence, in the recitation's own language.
+    pub preamble: String,
+    /// The undertakings, in the order recited. Keys are unique within one recitation.
+    pub commitments: Vec<Commitment>,
+}
+
+impl CommonVirtueMovement {
+    pub fn new(preamble: impl Into<String>, commitments: Vec<Commitment>) -> Self {
+        Self { preamble: preamble.into(), commitments }
+    }
+
+    /// The movement as spoken: the preamble, then the commitments in order.
+    pub fn recited_text(&self) -> String {
+        let mut out = self.preamble.trim().to_string();
+        for (i, c) in self.commitments.iter().enumerate() {
+            out.push_str(&format!("\n{}. {}", i + 1, c.text.trim()));
+        }
+        out
+    }
+
+    pub fn keys(&self) -> Vec<&str> {
+        self.commitments.iter().map(|c| c.key.trim()).collect()
+    }
+
+    /// A preamble, at least one commitment, every commitment well formed, and no key
+    /// recited twice.
+    ///
+    /// "At least one" is not a formality: a denominator that can be empty is not a
+    /// denominator, and a compact whose members recite no commitments at all would
+    /// read as perfectly covered by any enforcement whatsoever.
+    pub fn well_formed(&self) -> bool {
+        if self.preamble.trim().is_empty() || self.commitments.is_empty() {
+            return false;
+        }
+        if !self.commitments.iter().all(Commitment::well_formed) {
+            return false;
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        self.commitments.iter().all(|c| seen.insert(c.key.trim()))
     }
 }
 
@@ -58,7 +137,7 @@ pub struct Recitation {
     pub movement_substrate: String,
     pub movement_fallenness: String,
     pub movement_recognition: String,
-    pub movement_common_virtue: String,
+    pub movement_common_virtue: CommonVirtueMovement,
     pub movement_non_ultimacy: String,
     pub language_tag: String,
     pub translation_en: Option<String>,
@@ -71,7 +150,7 @@ impl Recitation {
         !self.movement_substrate.trim().is_empty()
             && !self.movement_fallenness.trim().is_empty()
             && !self.movement_recognition.trim().is_empty()
-            && !self.movement_common_virtue.trim().is_empty()
+            && self.movement_common_virtue.well_formed()
             && !self.movement_non_ultimacy.trim().is_empty()
     }
 }
@@ -91,7 +170,14 @@ mod tests {
             movement_substrate: "We anchor above ourselves in the source we did not make.".into(),
             movement_fallenness: "We acknowledge we are capable of harm.".into(),
             movement_recognition: "We recognize the other as a community bound by their own substrate.".into(),
-            movement_common_virtue: "We commit to truthfulness, restitution, hospitality.".into(),
+            movement_common_virtue: CommonVirtueMovement::new(
+                "We commit to the virtues this compact relies on.",
+                vec![
+                    Commitment::new("truthfulness", "We tell the truth about what we have done."),
+                    Commitment::new("restitution", "We make good what we have broken."),
+                    Commitment::new("hospitality", "We receive the stranger."),
+                ],
+            ),
             movement_non_ultimacy: "This compact does not claim ultimacy for itself.".into(),
             language_tag: "en".into(),
             translation_en: None,
@@ -110,6 +196,61 @@ mod tests {
         let mut r = sample_recitation();
         r.movement_substrate = "   ".into();
         assert!(!r.movements_all_present());
+    }
+
+    #[test]
+    fn a_movement_four_with_no_commitments_is_not_present() {
+        // A denominator that can be empty is not a denominator.
+        let mut r = sample_recitation();
+        r.movement_common_virtue.commitments.clear();
+        assert!(!r.movements_all_present());
+    }
+
+    #[test]
+    fn a_movement_four_with_no_preamble_is_not_present() {
+        let mut r = sample_recitation();
+        r.movement_common_virtue.preamble = "  ".into();
+        assert!(!r.movements_all_present());
+    }
+
+    #[test]
+    fn a_key_recited_twice_is_refused() {
+        // Two entries under one key would count once in the object and twice in the
+        // recitation, so the list and its own denominator would disagree.
+        let mut r = sample_recitation();
+        r.movement_common_virtue
+            .commitments
+            .push(Commitment::new("truthfulness", "and again"));
+        assert!(!r.movement_common_virtue.well_formed());
+        assert!(!r.movements_all_present());
+    }
+
+    #[test]
+    fn a_blank_key_or_text_is_refused() {
+        let mut r = sample_recitation();
+        r.movement_common_virtue.commitments[1].key = "  ".into();
+        assert!(!r.movements_all_present());
+        let mut r = sample_recitation();
+        r.movement_common_virtue.commitments[1].text = "".into();
+        assert!(!r.movements_all_present());
+    }
+
+    #[test]
+    fn the_recited_text_is_derived_from_the_commitments() {
+        // Not stored beside them: there is one representation, so the prose and the
+        // list cannot disagree.
+        let r = sample_recitation();
+        let text = r.movement_common_virtue.recited_text();
+        assert!(text.starts_with("We commit to the virtues"));
+        for (i, c) in r.movement_common_virtue.commitments.iter().enumerate() {
+            assert!(text.contains(&format!("{}. {}", i + 1, c.text)), "{text}");
+        }
+    }
+
+    #[test]
+    fn the_version_names_the_schema_that_carries_a_list() {
+        // Movement semantics changed, which is the case this constant exists for.
+        assert_eq!(RecitationVersion::current().0, "kc-rite-v2");
     }
 
     #[test]

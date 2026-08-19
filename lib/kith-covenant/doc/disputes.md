@@ -185,9 +185,11 @@ Between a dispute arising and a panel deciding, something may need to stop
 immediately.
 
 Injunctions issue, are confirmed, and may be challenged, with an emergency panel
-route and capability gating on who may act at all. The expedited designation path
-carries a covenant-facing floor: an expedited designation must cite an attested
-adverse act by the subject. Without that floor, relaxing the ordinary
+route and capability gating on who may act at all. Every designation, whatever its
+urgency, must cite acts that resolve to records in the archive, and where a resolved
+record names a subject it must name the community being designated. Beyond that the
+expedited path carries a covenant-facing floor: an expedited designation must cite an
+attested adverse act by the subject. Without that floor, relaxing the ordinary
 four-condition test leaves the emergency route resting on records about the
 internal life of a community, or on citations naming nothing.
 

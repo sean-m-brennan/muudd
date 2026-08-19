@@ -31,12 +31,18 @@ structured-skepticism, adversarial-principal). The ``_UNSUPPORTED`` list is kept
 (empty) so the structure still distinguishes supported from unsupported should a
 future scenario outrun its detector.
 
-Scenario 8 is **not** a capture move. Every one of the seven has an adversary who
-wants something and acts, which is why each leaves a trace to detect. Scenario 8
-has no adversary at all: the polity is sincere throughout and simply stops. It is
-here because the seven cannot express it, and because an alert assembled only from
-act-triggered signals reads a polity that has ceased to function as one in perfect
-health (see ``doc/architecture/erosion-legibility.md``).
+Scenarios 8 to 13 are **not** capture moves. Every one of the seven has an
+adversary who wants something and acts, which is why each leaves a trace to
+detect. These six have no such adversary. Scenario 8 is a polity that simply
+stops; scenario 9 is one whose standing functions go unexercised; scenario 10 is
+one that keeps every form and narrows what it enforces; scenario 11 is one that
+files a record about a member and never moves on it; scenario 12 is one whose
+answer to being told something is to move against the teller; scenario 13 is one
+that quietly stops holding part of what its own members recited. They are here
+because the seven cannot express any of it, and because an alert assembled only
+from act-triggered signals reads a polity that has ceased to function as one in
+perfect health (see ``doc/architecture/erosion-legibility.md`` and
+``doc/architecture/captured-prosecution.md``).
 
 Detection latency and damage bounds are the primary metrics, per §10.
 
@@ -46,8 +52,8 @@ Detection latency and damage bounds are the primary metrics, per §10.
 so drift is caught as it accumulates rather than at one snapshot. Running
 ``run_harness()`` on a loop does not achieve that: with the parameters fixed it is
 a **constant function** — 200 consecutive runs return byte-identical latency and
-damage for all ten scenarios — so a scheduler around it recomputes the same ten
-numbers forever. (That measurement establishes something else worth keeping: fresh
+damage for all fourteen scenarios — so a scheduler around it recomputes the same
+fourteen numbers forever. (That measurement establishes something else worth keeping: fresh
 Ed25519 keys are generated per run and several lenses tiebreak on DID ordering, so
 zero variation across 200 runs means the detectors are key-order-independent. It is
 kept as a regression test.)
@@ -93,13 +99,13 @@ from kith_covenant.authoring import (
     register_commons, apply_sanction, vouch, record_admission, attest_interpretation,
     report_event, corroborate_event, attest_principal, record_principal_output,
     new_mediator, register_mediators, new_observer, register_observers,
-    attest_activity, record_conduct, now_seconds,
+    attest_activity, record_conduct, file_dispute, file_argument, now_seconds,
 )
 from kith_covenant.reputation import (
     substrate_deference, ceremony_cost_decay, composition_graph,
     enforcement_convergence,
     interpretive_plurality, structured_skepticism, adversarial_principal,
-    erosion_alert,
+    reporter_targeting, commitment_coverage, erosion_alert,
 )
 
 # --- Falsification criteria, stated in advance (§10) ------------------------
@@ -161,6 +167,33 @@ MIN_SEVERITY_SUBSTITUTION = "Notice"
 # explicitly into `erosion_alert` rather than mirrored from the Rust default, so the
 # harness scores against the floor it names and the two cannot drift apart.
 SUBSTITUTION_VOLUME_FLOOR = 12
+# The buried grievance (scenario 11): a compact that puts an adverse record on its own
+# file and never moves against it must be graded at least this severe, within one
+# cadence of the cadence elapsing. Weak like the other omission scenarios, and for a
+# reason particular to this one: burial and a slow but real proceeding differ only in
+# whether the proceeding is still running, and a compact may honestly be slow.
+MIN_SEVERITY_BURIAL = "Notice"
+MAX_DAMAGE_BURIAL = 1
+# The answered accuser (scenario 12): a compact whose answer to being told something is
+# to move against the teller. Weak for the reason the reading itself carries — a compact
+# may have a genuine complaint against a member that itself complained, and no protocol
+# can tell the two apart, so what is scored is that the structure becomes visible.
+MIN_SEVERITY_RETALIATION = "Notice"
+# The enforcement acts the reporter-targeting reading needs before its share means
+# anything. Passed explicitly into `erosion_alert` for the same reason as the
+# substitution floor: the harness scores against the floor it names.
+RETALIATION_VOLUME_FLOOR = 3
+# The narrowed object (scenario 13): a compact that keeps every form, keeps enforcing at
+# volume, and quietly stops holding part of what its own members recited must be graded at
+# least this severe. Weak like the other intensification scenarios, and for one more
+# reason particular to this one: a compact may have honestly discharged an undertaking, and
+# the reading reports that its object moved rather than that anyone was wrong.
+MIN_SEVERITY_NARROWED = "Notice"
+# Enforcement acts the recited-object reading needs PER COMMITMENT before its coverage
+# means anything. Passed explicitly into `erosion_alert` for the same reason as the other
+# two floors. Unlike them it is a rate rather than a count, because the denominator is the
+# compact's own object and its size varies.
+NARROWED_ACTS_PER_COMMITMENT = 2
 
 _YEAR = 365 * 24 * 3600
 
@@ -243,6 +276,25 @@ class HarnessParams:
     substitution_batch: int = 6
     substitution_steps: int = 4
 
+    # Scenario 11: the non-pursuit cadence in days, and how many of them to run. The
+    # cadence is §5's ninety days, and the steps are cadences rather than acts: what
+    # the reading measures is a clock against a filed record.
+    burial_cadence_days: int = 90
+    burial_steps: int = 3
+
+    # Scenario 12: how many enforcement acts the majority brings against the member
+    # that raised the matter, per step, and how many steps to run.
+    retaliation_batch: int = 2
+    retaliation_steps: int = 4
+
+    # Scenario 13: how many commitments the compact recited at its founding rite, how
+    # many of them it still enforces, and how many acts it files per step. `held` must
+    # stay under half of `recited` or the compact has not narrowed its object.
+    narrowed_recited: int = 5
+    narrowed_held: int = 2
+    narrowed_batch: int = 4
+    narrowed_steps: int = 4
+
     @classmethod
     def canonical(cls) -> "HarnessParams":
         """The hand-authored case, byte-for-byte."""
@@ -277,6 +329,14 @@ class HarnessParams:
             substitution_targets=rng.choice(PARAM_RANGES["substitution_targets"]),
             substitution_batch=rng.choice(PARAM_RANGES["substitution_batch"]),
             substitution_steps=rng.choice(PARAM_RANGES["substitution_steps"]),
+            burial_cadence_days=rng.choice(PARAM_RANGES["burial_cadence_days"]),
+            burial_steps=rng.choice(PARAM_RANGES["burial_steps"]),
+            retaliation_batch=rng.choice(PARAM_RANGES["retaliation_batch"]),
+            retaliation_steps=rng.choice(PARAM_RANGES["retaliation_steps"]),
+            narrowed_recited=rng.choice(PARAM_RANGES["narrowed_recited"]),
+            narrowed_held=rng.choice(PARAM_RANGES["narrowed_held"]),
+            narrowed_batch=rng.choice(PARAM_RANGES["narrowed_batch"]),
+            narrowed_steps=rng.choice(PARAM_RANGES["narrowed_steps"]),
         )
 
     def normalized(self) -> "HarnessParams":
@@ -312,6 +372,30 @@ class HarnessParams:
                 self.substitution_steps,
                 -(-SUBSTITUTION_VOLUME_FLOOR // max(1, self.substitution_batch)) + 1,
             ),
+            # Two cadences at least: one for the record to age past the cadence and
+            # one for the reading to be owed on it.
+            burial_cadence_days=max(1, self.burial_cadence_days),
+            burial_steps=max(2, self.burial_steps),
+            retaliation_batch=max(1, self.retaliation_batch),
+            # Enough steps to carry the acts past the floor and one more, on the same
+            # reasoning as `substitution_steps`.
+            retaliation_steps=max(
+                self.retaliation_steps,
+                -(-RETALIATION_VOLUME_FLOOR // max(1, self.retaliation_batch)) + 1,
+            ),
+            narrowed_recited=max(4, self.narrowed_recited),
+            # Under half the recited object, or the compact has not narrowed it and the
+            # coverage cut-point is not the thing being tested.
+            narrowed_held=min(
+                max(1, self.narrowed_held), (max(4, self.narrowed_recited) - 1) // 2
+            ),
+            narrowed_batch=max(1, self.narrowed_batch),
+            # Enough steps to carry the CITED acts past the scaled floor and one more.
+            narrowed_steps=max(
+                self.narrowed_steps,
+                -(-(max(4, self.narrowed_recited) * NARROWED_ACTS_PER_COMMITMENT)
+                  // max(1, self.narrowed_batch)) + 1,
+            ),
         )
 
     @property
@@ -321,6 +405,10 @@ class HarnessParams:
     @property
     def abandoned_cadence_seconds(self) -> int:
         return self.abandoned_cadence_days * 86_400
+
+    @property
+    def burial_cadence_seconds(self) -> int:
+        return self.burial_cadence_days * 86_400
 
     def witness_sequence(self) -> list[int]:
         """The witness counts move 3 steps through: a flat run, then a decline.
@@ -354,6 +442,14 @@ PARAM_RANGES: dict[str, tuple[int, ...]] = {
     "substitution_targets": (3, 4, 5, 6),
     "substitution_batch": (3, 4, 6, 8),
     "substitution_steps": (3, 4, 5, 6),
+    "burial_cadence_days": (30, 60, 90),
+    "burial_steps": (2, 3, 4),
+    "retaliation_batch": (1, 2, 3),
+    "retaliation_steps": (3, 4, 5),
+    "narrowed_recited": (4, 5, 6, 8),
+    "narrowed_held": (1, 2, 3),
+    "narrowed_batch": (2, 4, 6),
+    "narrowed_steps": (3, 4, 5),
 }
 
 
@@ -445,6 +541,44 @@ def max_damage_substitution(p: HarnessParams) -> int:
     Reduces to two at the canonical parameters (a floor of twelve, six acts a
     batch), which is asserted."""
     return -(-SUBSTITUTION_VOLUME_FLOOR // max(1, p.substitution_batch))
+
+
+def max_damage_burial(p: HarnessParams) -> int:
+    """One cadence of an unpursued record, whatever the cadence length. The same
+    reasoning as `max_damage_quiet` and `max_damage_abandoned`: the cadence sets when
+    the first reading is owed, not how many are forgiven."""
+    _ = p
+    return MAX_DAMAGE_BURIAL
+
+
+def max_damage_retaliation(p: HarnessParams) -> int:
+    """The acts that land before the reading can exist: ``ceil(volume_floor / batch)``.
+
+    A ratio over two parties rather than a coupon-collector reading over eight grounds,
+    so the floor is three rather than twelve — but the arithmetic that makes it a
+    formula is identical. Below the floor a compact answering its accuser and a compact
+    with one bad month are not distinguishable by any amount of cleverness, and charging
+    the detector for the acts filed before it had a reading would be charging it for the
+    floor. Past the floor, not one batch goes unflagged.
+
+    Reduces to two at the canonical parameters (a floor of three, two acts a batch),
+    which is asserted."""
+    return -(-RETALIATION_VOLUME_FLOOR // max(1, p.retaliation_batch))
+
+
+def max_damage_narrowed(p: HarnessParams) -> int:
+    """The acts that land before the reading can exist:
+    ``ceil(recited * acts_per_commitment / batch)``.
+
+    A formula for the same reason as `max_damage_substitution`, and one degree more so.
+    That floor is a constant because the shared taxonomy has a fixed size; this
+    denominator is the compact's **own** recited object, so the floor scales with it. A
+    compact that undertook a great deal needs more acts before its coverage means
+    anything, and charging the detector for those acts would charge it for the floor.
+
+    Reduces to three at the canonical parameters (five commitments, two acts each, four
+    to a batch), which is asserted."""
+    return -(-(p.narrowed_recited * NARROWED_ACTS_PER_COMMITMENT) // max(1, p.narrowed_batch))
 
 
 @dataclass(frozen=True)
@@ -1268,6 +1402,430 @@ def _scenario_substituted_object(p: HarnessParams) -> ScenarioResult:
     )
 
 
+def _scenario_buried_grievance(p: HarnessParams) -> ScenarioResult:
+    """Scenario 11 (not a capture move): the compact that will not move against one
+    of its own.
+
+    The omission with a **named beneficiary**, and the only one here that is. Every
+    other adversary-free scenario is a thing the compact stopped doing; this is a thing
+    it declines to do to one member, and declining is compatible with a full calendar.
+    An adverse record goes onto the compact's own file and nothing is ever brought
+    against the member it names.
+
+    Measured before the dimension existed: a compact that buried the evidence, one that
+    prosecuted the same evidence, and one with nothing to prosecute all graded ``None``
+    with no reasons on every instrument the audit had, because **burial produces
+    observances** and every instrument that counts observances read it as diligence
+    (``doc/architecture/captured-prosecution.md``).
+
+    The control is the compact that is slow rather than complicit: the same record, the
+    same member, and a proceeding against that member that is still running at every
+    reading. It differs on one axis, whether anything is actually being pursued, and it
+    must never flag — a reading that cannot tell burial from a live docket is a count of
+    the compact's speed.
+
+    Falsification criterion, stated in advance: the alert must reach
+    ``MIN_SEVERITY_BURIAL`` within ``max_damage_burial`` cadences of the cadence
+    elapsing, and the live-proceeding control must never flag.
+    """
+    step_seconds = p.burial_cadence_seconds
+
+    def compact():
+        arch = Archive()
+        t0 = now_seconds()
+        members = _compact(arch, t0, p)
+        # The evidence, identical in both: a serious violation on the compact's file.
+        ev = record_conduct(
+            arch, members[1], members[0].did, "Violation", "CommonsObligation",
+            severity="Serious", recorded_at=t0 + 60,
+            narrative="diverted a shared allocation and denied the diversion",
+        )
+        return arch, t0, members, ev
+
+    subject, t0, s_members, _s_ev = compact()
+    control, c_t0, c_members, _c_ev = compact()
+    # The slow compact is moving against the member: a proceeding naming it as
+    # respondent, refreshed at every reading so it is never a dormant filing.
+    c_dispute = file_dispute(
+        control, c_members[1], c_members[0].did, "DisputeRegistered",
+        summary="the diversion", filed_at=c_t0 + 120,
+    )
+
+    ranks = {"None": 0, "Notice": 1, "Alert": 2}
+    detected = False
+    latency = None
+    damage = 0
+    severity = "None"
+    control_flagged = False
+    grievances = 0
+
+    def read(arch, base, step):
+        return erosion_alert(
+            arch,
+            as_of=base + (step + 1) * step_seconds,
+            # Held off, so what separates the two archives is the dimension under test
+            # rather than the fixture's own youth.
+            attestation_cadence_seconds=100 * _YEAR,
+            rite_cadence_seconds=100 * _YEAR,
+            grievance_cadence_seconds=p.burial_cadence_seconds,
+        )
+
+    for step in range(0, p.burial_steps):
+        # The slow compact keeps its proceeding alive; the captured one does nothing.
+        file_argument(
+            control, c_members[1], c_dispute, "Party",
+            "the complainant presses the matter", evidence=[],
+            submitted_at=c_t0 + (step + 1) * step_seconds - 60,
+        )
+        al = read(subject, t0, step)
+        c_al = read(control, c_t0, step)
+        severity = al.severity
+        grievances = len(al.unanswered_grievances)
+
+        # Nothing was rolled back, no rite is overdue, no office is empty and no
+        # enforcement reading is running. If any of those fired, the scenario is not
+        # measuring what it says.
+        assert not al.list_contraction and not al.fast_contraction
+        assert not al.minimum_contraction and al.active_fast_deviations == 0
+        assert not al.overdue_reaffirmations and not al.hollowing_communities
+        assert not al.silent_functions and not al.unstaffed_functions
+        assert al.thinning_deliberation is None
+        assert al.enforcement_convergence is None
+        assert al.enforcement_direction is None and al.reporter_targeting is None
+
+        if ranks[c_al.severity] >= ranks[MIN_SEVERITY_BURIAL]:
+            control_flagged = True
+
+        if not detected and ranks[severity] >= ranks[MIN_SEVERITY_BURIAL]:
+            detected = True
+            latency = 0
+            break
+        if not detected:
+            # A cadence the record sat on the file unread.
+            damage += 1
+
+    bound = max_damage_burial(p)
+    passed = detected and damage <= bound and not control_flagged
+    return ScenarioResult(
+        move=11, key="buried-grievance",
+        name="the buried grievance (omission with a named beneficiary)",
+        supported=True, detected=detected, detection_latency=latency, damage=damage,
+        threshold_latency=MAX_DETECTION_LATENCY_STEPS, threshold_damage=bound,
+        passed=passed,
+        notes=(
+            f"erosion_alert reached {severity} on {grievances} adverse record(s) the "
+            "compact filed and never moved on; the slow-but-moving control, holding the "
+            "same record against the same member with a proceeding still running, "
+            "stayed quiet"
+        ),
+    )
+
+
+def _scenario_answered_accuser(p: HarnessParams) -> ScenarioResult:
+    """Scenario 12 (not a capture move): the compact whose answer to being told
+    something is to move against the teller.
+
+    The inverse of scenario 11 and the other half of the same capture. There the
+    majority declines to act; here it acts, hard, in the right direction on every
+    instrument that counts direction. A member puts a matter on the record about
+    another, and what comes back is a course of enforcement against the member that
+    raised it, brought by the community it named.
+
+    Measured before the dimension existed: zero instruments moved.
+    ``enforcement_direction`` buckets each act by **standing**, and an honest
+    complainant holds full standing, so a counter-prosecution read as enforcement
+    between equals. Standing is not the axis a captured compact moves along.
+
+    The control is the same volume of enforcement, against the same member, by the same
+    communities, at the same times, with no prior grievance for it to answer. It differs
+    on one axis, whether the acts respond to something their subject raised, and it must
+    never flag — a reading that fires on enforcement as such is a count of enforcement.
+
+    Falsification criterion, stated in advance: the alert must reach
+    ``MIN_SEVERITY_RETALIATION`` within ``max_damage_retaliation`` batches, and the
+    unprovoked control must never flag.
+    """
+    step_seconds = 30 * 86_400
+
+    def compact(prior: bool):
+        arch = Archive()
+        t0 = now_seconds()
+        members = _compact(arch, t0, p)
+        if prior:
+            # The accusation. Registered protest is the wronged party's own rung, so
+            # this is a member speaking rather than the compact enforcing.
+            record_conduct(
+                arch, members[1], members[0].did, "Violation", "CommonsObligation",
+                severity="Serious", ladder_rung="RegisteredProtest",
+                recorded_at=t0 + 60,
+                narrative="diverted a shared allocation and denied the diversion",
+            )
+        return arch, t0, members
+
+    subject, t0, s_members = compact(prior=True)
+    control, c_t0, c_members = compact(prior=False)
+
+    def answer(arch, base, members, n, step):
+        """One step's worth of enforcement against the member that raised the matter,
+        brought by the community it named together with an ally."""
+        for j in range(p.retaliation_batch):
+            record_conduct(
+                arch, [members[0], members[2]], members[1].did,
+                "Violation", "CommonsObligation",
+                severity="Serious", ladder_rung="ReciprocalSuspension",
+                recorded_at=base + step * step_seconds + (n + j) * 60 + 600,
+                narrative="obstructed the compact's business with the same filing",
+            )
+
+    ranks = {"None": 0, "Notice": 1, "Alert": 2}
+    detected = False
+    latency = None
+    damage = 0
+    severity = "None"
+    control_flagged = False
+    volume_matched = False
+    share = None
+
+    def read(arch, base, step):
+        return erosion_alert(
+            arch,
+            as_of=base + step * step_seconds + step_seconds - 1,
+            attestation_cadence_seconds=100 * _YEAR,
+            rite_cadence_seconds=100 * _YEAR,
+            # The accusation itself is an unpursued record on the compact's file, and
+            # this scenario is not about that. Scenario 11 is.
+            grievance_cadence_seconds=100 * _YEAR,
+            reporter_targeting_volume_floor=RETALIATION_VOLUME_FLOOR,
+        )
+
+    filed = 0
+    for step in range(0, p.retaliation_steps):
+        answer(subject, t0, s_members, filed, step)
+        answer(control, c_t0, c_members, filed, step)
+        filed += p.retaliation_batch
+
+        al = read(subject, t0, step)
+        c_al = read(control, c_t0, step)
+        severity = al.severity
+
+        assert not al.list_contraction and not al.fast_contraction
+        assert not al.minimum_contraction and al.active_fast_deviations == 0
+        assert not al.overdue_reaffirmations and not al.hollowing_communities
+        assert not al.silent_functions and not al.unstaffed_functions
+        assert al.thinning_deliberation is None and not al.unanswered_grievances
+        # Nobody is in probation and the volume stays under the substitution floor, so
+        # what fires here is the relation between the acts and the grievance they
+        # answer, and not either of the other two enforcement readings.
+        assert al.enforcement_direction is None
+        assert al.enforcement_convergence is None
+
+        s_t = reporter_targeting(subject, t0 + step * step_seconds + step_seconds - 1)
+        c_t = reporter_targeting(control, c_t0 + step * step_seconds + step_seconds - 1)
+        share = s_t.share
+        # The two compacts must be indistinguishable on volume, or the control is not
+        # controlling for the thing it claims to.
+        volume_matched = s_t.acts == c_t.acts + 1 and c_t.against_reporters == 0
+
+        if ranks[c_al.severity] >= ranks[MIN_SEVERITY_RETALIATION]:
+            control_flagged = True
+
+        if not detected and ranks[severity] >= ranks[MIN_SEVERITY_RETALIATION]:
+            detected = True
+            latency = 0
+            break
+        if not detected:
+            damage += p.retaliation_batch
+
+    bound = max_damage_retaliation(p)
+    passed = (detected and damage <= bound and not control_flagged
+              and volume_matched)
+    return ScenarioResult(
+        move=12, key="answered-accuser",
+        name="the answered accuser (intensification, against the compact's own)",
+        supported=True, detected=detected, detection_latency=latency, damage=damage,
+        threshold_latency=MAX_DETECTION_LATENCY_STEPS, threshold_damage=bound,
+        passed=passed,
+        notes=(
+            f"erosion_alert reached {severity} with "
+            f"{share if share is None else round(share, 2)} of the compact's "
+            "enforcement answering a matter its subject had raised; the unprovoked "
+            "control, identical in volume and in who brought it, stayed quiet"
+        ),
+    )
+
+
+def _scenario_narrowed_object(p: HarnessParams) -> ScenarioResult:
+    """Scenario 13 (not a capture move): the compact that stops holding part of what it
+    recited.
+
+    The deepest of the intensification scenarios, and the one the substitution work
+    named as out of reach. Scenario 10 narrows what enforcement is *about* over a
+    taxonomy the **protocol** fixes. This narrows it over the object the **compact
+    itself** recited, which is finer by construction: eight grounds are coarse enough
+    that a compact can abandon *hospitality to strangers* while keeping *charity to
+    members* and move `Charity` coverage not at all.
+
+    Every form is kept. The founding rite recites `narrowed_recited` commitments, the
+    later rites recite only the `narrowed_held` the compact still enforces, witness
+    counts rise, nothing is amended, and the enforcement is spread over the whole
+    eight-ground taxonomy so the scenario-10 reading has nothing to say.
+
+    Measured before the dimension existed: a compact halving its recited object across
+    three generational rites scored **1.0** on shared-taxonomy coverage at volume 32 and
+    graded `None` on every one of the fourteen erosion dimensions.
+
+    The control is the compact that recited the same list and still enforces all of it,
+    at the same volume, with the same rites at the same times. It differs on one axis,
+    which commitments the enforcement is about, and it must never flag.
+
+    Falsification criterion, stated in advance: the recited-object reading must fire and
+    the alert reach ``MIN_SEVERITY_NARROWED`` within ``max_damage_narrowed`` batches, the
+    shared-taxonomy reading must stay silent at full coverage throughout, and the
+    whole-object control must never flag.
+    """
+    step_seconds = 30 * 86_400
+    recited = [f"commitment-{i}" for i in range(p.narrowed_recited)]
+    held = recited[: p.narrowed_held]
+    grounds = (
+        ("AntiSpiral", "EnemyLoveOperational"),
+        ("AntiSpiral", "FallenActorAnthropology"),
+        ("AntiSpiral", "GraceOverMerit"),
+        ("AntiSpiral", "ScapegoatDisarming"),
+        ("AntiSpiral", "NonUltimacyOfCompact"),
+        ("Charity", None),
+        ("Rescue", None),
+        ("CommonsObligation", None),
+    )
+    reporters_n = 2
+
+    def commitments(keys):
+        return [(k, f"we hold {k}") for k in keys]
+
+    def compact(later):
+        """A compact of `reporters_n + 3`, seated, reciting `recited` at its founding
+        rite and `later` at the two after it, with rising witness counts."""
+        arch = Archive()
+        t0 = now_seconds()
+        names = tuple(chr(ord("A") + i) for i in range(reporters_n + 3))
+        members = _founding(arch, names, t0)
+        record_admission(
+            arch, members, [m.did for m in members],
+            compact_label="compact", witnessed_at=t0,
+        )
+        for com in members:
+            run_intra_rite(arch, com, commitments=commitments(recited),
+                           witness_count=4, sealed_at=t0 + 1)
+            run_intra_rite(arch, com, commitments=commitments(later),
+                           witness_count=6, sealed_at=t0 + 2)
+            run_intra_rite(arch, com, commitments=commitments(later),
+                           witness_count=8, sealed_at=t0 + 3)
+        return arch, t0, members[:reporters_n], members[reporters_n:]
+
+    # The subject narrows its object; the control keeps reciting and enforcing all of it.
+    subject, t0, s_reporters, s_subjects = compact(held)
+    control, c_t0, c_reporters, c_subjects = compact(recited)
+
+    def file_batch(arch, base, reporters, subjects, cited, n, step):
+        """One step's worth of enforcement, citing only `cited` of the recited object and
+        spread over the whole shared taxonomy so scenario 10's reading stays silent."""
+        for j in range(p.narrowed_batch):
+            bearing, feature = grounds[(n + j) % len(grounds)]
+            record_conduct(
+                arch,
+                reporters[(n + j) % len(reporters)],
+                subjects[(n + j) % len(subjects)].did,
+                "Violation",
+                bearing,
+                feature=feature,
+                ladder_rung="MediatedArbitration",
+                commitments_cited=[cited[(n + j) % len(cited)]],
+                recorded_at=base + step * step_seconds + j * 60 + 600,
+            )
+
+    ranks = {"None": 0, "Notice": 1, "Alert": 2}
+    detected = False
+    latency = None
+    damage = 0
+    severity = "None"
+    control_flagged = False
+    taxonomy_blind = False
+    coverage = None
+
+    def read(arch, base, step):
+        return erosion_alert(
+            arch,
+            as_of=base + step * step_seconds + step_seconds - 1,
+            # Held off, so what fires is the object reading rather than the fixture's
+            # own youth or the shared-taxonomy one.
+            attestation_cadence_seconds=100 * _YEAR,
+            rite_cadence_seconds=100 * _YEAR,
+            grievance_cadence_seconds=100 * _YEAR,
+            commitment_acts_per_commitment=NARROWED_ACTS_PER_COMMITMENT,
+        )
+
+    filed = 0
+    for step in range(0, p.narrowed_steps):
+        file_batch(subject, t0, s_reporters, s_subjects, held, filed, step)
+        file_batch(control, c_t0, c_reporters, c_subjects, recited, filed, step)
+        filed += p.narrowed_batch
+
+        al = read(subject, t0, step)
+        c_al = read(control, c_t0, step)
+        severity = al.severity
+
+        # Every form is current: nothing rolled back, no rite overdue, no office empty.
+        assert not al.list_contraction and not al.fast_contraction
+        assert not al.minimum_contraction and al.active_fast_deviations == 0
+        assert not al.overdue_reaffirmations and not al.hollowing_communities
+        assert not al.silent_functions and not al.unstaffed_functions
+        assert al.thinning_deliberation is None and not al.unanswered_grievances
+        assert al.enforcement_direction is None and al.reporter_targeting is None
+
+        # The whole point: the reading over the SHARED taxonomy cannot see this. Read
+        # at the same instant as the alert, or it reports a compact several steps
+        # younger than the one being graded.
+        s_conv = enforcement_convergence(
+            subject, as_of=t0 + step * step_seconds + step_seconds - 1
+        )
+        taxonomy_blind = s_conv.coverage == 1.0 and al.enforcement_convergence is None
+
+        if ranks[c_al.severity] >= ranks[MIN_SEVERITY_NARROWED]:
+            control_flagged = True
+
+        # Detection is the OBJECT reading, not the alert's severity alone. The
+        # contraction dimension fires on step 0 from the rites themselves, before any
+        # enforcement, and scoring on that would score the scenario for the fixture
+        # rather than for the reading under test.
+        if (
+            not detected
+            and al.commitment_coverage is not None
+            and ranks[severity] >= ranks[MIN_SEVERITY_NARROWED]
+        ):
+            detected = True
+            latency = 0
+            coverage = al.commitment_coverage.coverage
+            break
+        if not detected:
+            # A batch of narrowed enforcement the audit could not yet read.
+            damage += 1
+
+    bound = max_damage_narrowed(p)
+    passed = detected and damage <= bound and not control_flagged and taxonomy_blind
+    return ScenarioResult(
+        move=13, key="narrowed-object",
+        name="the narrowed object (the compact's own recited denominator)",
+        supported=True, detected=detected, detection_latency=latency, damage=damage,
+        threshold_latency=MAX_DETECTION_LATENCY_STEPS, threshold_damage=bound,
+        passed=passed,
+        notes=(
+            f"erosion_alert reached {severity} on "
+            f"{coverage if coverage is None else round(coverage, 2)} of the object its "
+            f"members recited, while shared-taxonomy coverage stayed at 1.0 throughout; "
+            "the whole-object control, identical in volume and in rites, stayed quiet"
+        ),
+    )
+
+
 # --- Unsupported scenarios (detector deferred past this MVP) -----------------
 #
 # All seven capture-resistance scenarios now have a built detector; none remain
@@ -1300,19 +1858,22 @@ SCENARIOS: tuple[Callable[[HarnessParams], ScenarioResult], ...] = (
     _scenario_quiet_polity,
     _scenario_abandoned_office,
     _scenario_substituted_object,
+    _scenario_buried_grievance,
+    _scenario_answered_accuser,
+    _scenario_narrowed_object,
 )
 
 
 def run_harness(params: Optional[HarnessParams] = None) -> HarnessReport:
-    """Run the seven capture-resistance scenarios plus the quiet-polity scenario,
-    and score the supported ones against the falsification criteria. Returns a
-    `HarnessReport`. Each scenario builds a fresh, time-evolving archive through
-    the public API.
+    """Run the seven capture-resistance scenarios plus the six that have no
+    adversary, and score the supported ones against the falsification criteria.
+    Returns a `HarnessReport`. Each scenario builds a fresh, time-evolving archive
+    through the public API.
 
     `params` defaults to `HarnessParams.canonical()` — the hand-authored case — so
-    calling this with no arguments gives the same nine results it always has. Pass
-    a drawn or swept set to run the scenarios somewhere else in the space, or use
-    `run_continuous` / `sweep` to do that systematically."""
+    calling this with no arguments gives the same fourteen results it always has.
+    Pass a drawn or swept set to run the scenarios somewhere else in the space, or
+    use `run_continuous` / `sweep` to do that systematically."""
     p = (params or HarnessParams.canonical()).normalized()
     supported = [scenario(p) for scenario in SCENARIOS]
     results = sorted(supported + _unsupported_results(), key=lambda r: r.move)

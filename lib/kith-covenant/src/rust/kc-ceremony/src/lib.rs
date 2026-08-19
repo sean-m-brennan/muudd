@@ -20,4 +20,6 @@ pub mod lineage;
 pub mod recitation;
 
 pub use lineage::{InterpreterIndependenceAttestation, SubstrateInterpretation};
-pub use recitation::{Movement, Recitation, RecitationVersion};
+pub use recitation::{
+    Commitment, CommonVirtueMovement, Movement, Recitation, RecitationVersion,
+};

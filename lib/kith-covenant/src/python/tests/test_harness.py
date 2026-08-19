@@ -28,21 +28,25 @@ from kith_covenant.harness import (
     MAX_DAMAGE_INTERPRETATION, CORROBORATION_MIN, DEFAULT_QUORUM,
     MAX_DAMAGE_PROBATIONARY_WEIGHT,
     MIN_SEVERITY_SUBSTITUTION, SUBSTITUTION_VOLUME_FLOOR, max_damage_substitution,
+    MIN_SEVERITY_BURIAL, MAX_DAMAGE_BURIAL, max_damage_burial,
+    MIN_SEVERITY_RETALIATION, RETALIATION_VOLUME_FLOOR, max_damage_retaliation,
+    MIN_SEVERITY_NARROWED, NARROWED_ACTS_PER_COMMITMENT, max_damage_narrowed,
 )
 
 
 def test_all_scenarios_present_all_supported():
-    """Seven capture moves plus scenarios 8, 9 and 10 — the quiet polity, the abandoned
-    office and the substituted object — which are not capture moves (they have no
-    adversary) but are scored the same way. Move 7 carries two scenarios: who a faction
-    can seat, and what a seated entrant can carry."""
+    """Seven capture moves plus scenarios 8 to 13 — the quiet polity, the abandoned
+    office, the substituted object, the buried grievance, the answered accuser and the
+    narrowed object — which are not capture moves (they have no adversary in the §10
+    sense) but are scored the same way. Move 7 carries two scenarios: who a faction can seat, and what
+    a seated entrant can carry."""
     report = run_harness()
-    assert report.total == 11
-    assert report.supported == 11
+    assert report.total == 14
+    assert report.supported == 14
     moves = sorted(r.move for r in report.results)
-    assert moves == [1, 2, 3, 4, 5, 6, 7, 7, 8, 9, 10]
+    assert moves == [1, 2, 3, 4, 5, 6, 7, 7, 8, 9, 10, 11, 12, 13]
     # Every move has a scenario, and no scenario key is duplicated.
-    assert set(moves) == {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    assert set(moves) == {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}
     keys = [r.key for r in report.results]
     assert len(set(keys)) == len(keys)
 
@@ -99,7 +103,7 @@ def test_no_scenarios_remain_unsupported():
     report = run_harness()
     unsupported = [r for r in report.results if not r.supported]
     assert unsupported == []
-    assert report.supported == report.total == 11
+    assert report.supported == report.total == 14
 
 
 def test_probationary_weight_never_carries_a_second_class_act():
@@ -172,6 +176,16 @@ _CANONICAL_DAMAGE = {
     # cannot separate a narrowing compact from a young one (see
     # `max_damage_substitution`).
     "substituted-object": 1,
+    # One cadence of a record sitting unread on the compact's file: the cadence is
+    # when the first reading is owed, not a grace the detector chose.
+    "buried-grievance": 1,
+    # Zero, and not because the floor is low: the accusation being answered is itself
+    # an enforcement act inside the window, so the first batch of two already carries
+    # the reading past a floor of three.
+    "answered-accuser": 0,
+    # Two batches below a floor that scales with the compact's own object: five
+    # commitments at two acts each is ten cited acts, and the batch is four.
+    "narrowed-object": 2,
 }
 
 
@@ -208,6 +222,13 @@ def test_criteria_formulas_reduce_to_their_constants_at_canonical():
     # Two batches of six to clear a floor of twelve.
     assert max_damage_substitution(p) == 2
     assert SUBSTITUTION_VOLUME_FLOOR == 12
+    assert max_damage_burial(p) == MAX_DAMAGE_BURIAL == 1
+    # Two batches of two to clear a floor of three.
+    assert max_damage_retaliation(p) == 2
+    assert RETALIATION_VOLUME_FLOOR == 3
+    # Five commitments at two acts each, four to a batch.
+    assert max_damage_narrowed(p) == 3
+    assert NARROWED_ACTS_PER_COMMITMENT == 2
 
 
 def test_substituted_object_flagged_and_the_recurring_control_is_not():
@@ -220,6 +241,63 @@ def test_substituted_object_flagged_and_the_recurring_control_is_not():
     assert r.supported and r.detected and r.passed
     assert r.damage <= max_damage_substitution(HarnessParams.canonical())
     assert "stayed quiet" in r.notes
+
+
+def test_buried_grievance_flagged_and_the_slow_control_is_not():
+    """Scenario 11. The criterion the dimension turns on is the control: the flag must
+    fire on the compact that filed a record and never moved, and stay silent on the
+    compact holding the same record against the same member with a proceeding still
+    running. If both fire, the reading is a count of the compact's speed."""
+    r = next(r for r in run_harness().results if r.key == "buried-grievance")
+    assert r.supported and r.detected and r.passed
+    assert r.damage <= max_damage_burial(HarnessParams.canonical())
+    assert MIN_SEVERITY_BURIAL in r.notes or "Alert" in r.notes
+    assert "stayed quiet" in r.notes
+
+
+def test_answered_accuser_flagged_and_the_unprovoked_control_is_not():
+    """Scenario 12. The control is the same volume of enforcement against the same
+    member by the same communities with nothing for it to answer, so the only axis
+    between them is the relation the reading claims to see. If both fire, the reading
+    is a count of enforcement rather than a reading of retaliation."""
+    r = next(r for r in run_harness().results if r.key == "answered-accuser")
+    assert r.supported and r.detected and r.passed
+    assert r.damage <= max_damage_retaliation(HarnessParams.canonical())
+    assert "stayed quiet" in r.notes
+
+
+def test_narrowed_object_flagged_and_the_whole_object_control_is_not():
+    """Scenario 13. Three criteria, and the middle one is the reason the dimension
+    exists: the flag must fire on the compact enforcing two of the five commitments it
+    recited, the shared-taxonomy reading must stay silent at full coverage while it
+    does, and the control that still enforces its whole object must never flag."""
+    r = next(r for r in run_harness().results if r.key == "narrowed-object")
+    assert r.supported and r.detected and r.passed
+    assert r.damage <= max_damage_narrowed(HarnessParams.canonical())
+    assert "shared-taxonomy coverage stayed at 1.0" in r.notes
+    assert "stayed quiet" in r.notes
+
+
+def test_narrowed_object_step_count_always_reaches_the_scaled_floor():
+    """The floor scales with the compact's own object, so the step count has to as
+    well: a scenario that cannot reach the reading it tests scores the detector for
+    the floor rather than for the detector."""
+    for seed in range(60):
+        p = params_for_seed(seed)
+        assert p.narrowed_batch * p.narrowed_steps > (
+            p.narrowed_recited * NARROWED_ACTS_PER_COMMITMENT
+        )
+        # And the narrowing must be a narrowing: under half the recited object.
+        assert p.narrowed_held * 2 < p.narrowed_recited
+
+
+def test_retaliation_step_count_always_reaches_the_volume_floor():
+    """Same reasoning as the substitution floor: a scenario that cannot reach the
+    reading it tests would score the detector for the floor."""
+    for seed in range(60):
+        p = params_for_seed(seed)
+        assert p.retaliation_steps * p.retaliation_batch >= RETALIATION_VOLUME_FLOOR
+        assert p.burial_steps >= 2
 
 
 def test_substitution_step_count_always_reaches_the_volume_floor():

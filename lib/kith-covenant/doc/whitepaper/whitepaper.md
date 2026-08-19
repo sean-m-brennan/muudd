@@ -1510,6 +1510,9 @@ layers and must not conflate them.
   the record of each rite; per-community content versioning does not exist.
   The rite a witness saw is identified by the content address of the sealed
   intra-community record, which the inter-community witness record carries.
+  The movement carries an **ordered list of keyed commitments** rather than a
+  block of prose, so an enforcement act can name the undertaking it is about
+  and the compact has an object with a denominator of its own.
 
 ### 9.5 Archive / commons of memory
 

@@ -32,7 +32,7 @@ import pytest
 
 from kith_covenant import (
     Archive, new_identity, register_commons, record_usage, apply_sanction,
-    open_usage_share, open_usage, charter_compact, escalate_commons,
+    open_usage_share, open_usage, charter_compact, escalate_commons, record_admission,
     free_rider_signals, now_seconds,
 )
 
@@ -271,6 +271,12 @@ def _federation():
     t0 = now_seconds()
     one_key = new_identity(arch, "unused-keypair-for-compact-one")
     two_key = new_identity(arch, "unused-keypair-for-compact-two")
+    # A charter may not name a community the admission history does not seat, so each
+    # compact's members are admitted under its label before it is chartered.
+    record_admission(arch, members[:2], [m.did for m in members[:2]],
+                     compact_label="CompactOne", witnessed_at=t0 - 10)
+    record_admission(arch, members[2:], [m.did for m in members[2:]],
+                     compact_label="CompactTwo", witnessed_at=t0 - 10)
     charter_compact(arch, "CompactOne", one_key, [m.did for m in members[:2]],
                     members[:2], chartered_at=t0)
     charter_compact(arch, "CompactTwo", two_key, [m.did for m in members[2:]],
@@ -329,3 +335,20 @@ def test_an_unknown_appropriator_level_is_refused_in_python():
     with pytest.raises(ValueError):
         register_commons(arch, "Navigation", "n", [a.did, b.did], [a, b],
                          level="Galactic")
+
+
+def test_a_charter_may_not_name_a_community_no_admission_seats():
+    """One definition of membership. Two records said who belongs to a compact and
+    nothing joined them, so a charter could name a community the admission history had
+    never seated. The admission history is the authoritative one."""
+    arch = Archive()
+    members = [new_identity(arch, n) for n in ("M1", "M2", "M3")]
+    t0 = now_seconds()
+    key = new_identity(arch, "unused-keypair-for-the-compact")
+    record_admission(arch, members[:2], [m.did for m in members[:2]],
+                     compact_label="Alpha", witnessed_at=t0 - 10)
+    charter_compact(arch, "Alpha", key, [m.did for m in members],
+                    members, chartered_at=t0)
+    arch.verify_all()
+    with pytest.raises(RuntimeError, match="no admission record seats it"):
+        arch.check_authority()

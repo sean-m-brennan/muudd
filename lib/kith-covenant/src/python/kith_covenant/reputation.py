@@ -1513,6 +1513,227 @@ def enforcement_direction_all(
 
 
 @dataclass(frozen=True)
+class ReporterTargeting:
+    """Whether a compact's enforcement lands on the communities that raised matters.
+
+    The reading ``enforcement_direction`` cannot make. That lens buckets each act by
+    **standing**, so an honest complainant holding full standing and prosecuted by full
+    members reads as enforcement between equals. Standing is not the axis a captured
+    compact moves along: the complicit majority already holds the weight to run the
+    member that filed the evidence up the ladder on its own signature, and measured
+    before this reading, doing exactly that moved zero instruments
+    (``doc/architecture/captured-prosecution.md``).
+
+    What is read here is the *relation* between an act and a prior grievance: whether the
+    subject of this act is the community that raised an earlier one about whoever is
+    bringing this one. The join is on party identity and time order rather than on
+    citation, because nothing obliges a counter-prosecution to cite what it answers."""
+
+    community: Optional[str]
+    # enforcement acts inside the window
+    acts: int
+    # of those, the ones whose subject had already raised a matter about one of the
+    # communities now enforcing
+    against_reporters: int
+    # (the community that raised a matter and is now the subject, the community it
+    # named and which is now enforcing)
+    pairs: tuple[tuple[str, str], ...]
+    window_seconds: int
+    # the acts meeting the reading
+    evidence: tuple[str, ...]
+    share: Optional[float]
+
+
+def _targeting_from(r) -> Optional[ReporterTargeting]:
+    if r is None:
+        return None
+    return ReporterTargeting(
+        community=r.community,
+        acts=r.acts,
+        against_reporters=r.against_reporters,
+        pairs=tuple(tuple(p) for p in r.pairs),
+        window_seconds=r.window_seconds,
+        evidence=tuple(r.evidence),
+        share=r.share,
+    )
+
+
+def reporter_targeting(
+    archive, as_of: Optional[int] = None, window_seconds: Optional[int] = None
+) -> ReporterTargeting:
+    """The compact-wide reporter-targeting reading over the window ending at ``as_of``.
+
+    **This is the level the erosion alert reads, and the per-community map is not**, for
+    the same reason as the substitution dimensions: a per-community reading converges on
+    any compact with a division of labour, since the community that brings most matters
+    is the one most acts are attributed to.
+
+    A lens and never a refusal. A compact may have a genuine complaint against a member
+    that itself complained, and no protocol can tell the two apart, so this reports a
+    structural fact and leaves the verdict where the doctrine leaves it."""
+    return _targeting_from(archive.reporter_targeting(as_of, window_seconds))
+
+
+def reporter_targeting_all(
+    archive, as_of: Optional[int] = None, window_seconds: Optional[int] = None
+) -> dict[str, ReporterTargeting]:
+    """The same reading per **enforcing** community, keyed by reporter DID.
+
+    The drill-down that names who, after the compact-wide reading has said whether there
+    is anything to name. An act is credited to a co-signing community only where the
+    matter it answers named that community, so a co-signer who was never named does not
+    inherit the reading."""
+    return {
+        did: _targeting_from(r)
+        for did, r in archive.reporter_targeting_all(as_of, window_seconds).items()
+    }
+
+
+@dataclass(frozen=True)
+class CompactObject:
+    """The commitments the compact undertook, as its members first recited them.
+
+    The shared taxonomy of eight grounds is the denominator the *protocol* supplies;
+    this is the one the *compact* supplied, and it is finer. The eight grounds are
+    coarse enough that a compact can abandon *hospitality to strangers* while keeping
+    *charity to members* and move ``Charity`` coverage not at all.
+
+    **Pinned to the first rite of each member**, which is what keeps it absolute. A
+    compact cannot raise its coverage by reciting a shorter list, and the union only
+    grows: an admitted community adds its commitments and no departure record exists to
+    take any away, so the reading gets harder as a compact ages and cannot be gamed
+    downward at all."""
+
+    # every commitment key any member recited at its first rite, sorted
+    keys: tuple[str, ...]
+    # community DID -> (its first rite's keys, when that rite was sealed)
+    per_community: dict[str, tuple[tuple[str, ...], int]]
+    size: int
+
+
+@dataclass(frozen=True)
+class CommitmentCoverage:
+    """How much of its own recited object a compact still enforces.
+
+    The reading ``enforcement_convergence`` cannot make. Measured before this lens
+    existed: a compact that halved its recited object across three generational rites,
+    with rising witness counts and nothing amended, scored **1.0** on shared-taxonomy
+    coverage and ``None`` on every erosion dimension.
+
+    A lens and never a refusal. What the compact still holds and what it once said are
+    both facts on the record, and which is the honest account of the polity is not a
+    question a rule can answer."""
+
+    # size of the pinned object: the denominator
+    object_size: int
+    # pinned commitment -> acts citing it; commitments never cited are absent
+    per_commitment: dict[str, int]
+    # pinned commitments no act in the window cited: what the compact stopped enforcing
+    unenforced: tuple[str, ...]
+    # cited keys outside the pinned object, counted and reported, never in the
+    # numerator, for the same reason `Other` stays out of the taxonomy denominator
+    off_object: dict[str, int]
+    acts: int
+    # of those, the ones citing no commitment at all
+    uncited_acts: int
+    window_seconds: int
+    evidence: tuple[str, ...]
+    coverage: Optional[float]
+    uncited_share: Optional[float]
+    # acts that named a commitment at all, and what testability is measured against:
+    # silence about the object is not evidence about the object, in either direction
+    cited_acts: int
+
+
+@dataclass(frozen=True)
+class CommitmentContraction:
+    """Commitments a community undertook at its first rite and no longer recites.
+
+    The act-triggered half of the same capture, and the move that makes a narrowing
+    legal: a compact whose enforcement has narrowed can bring its recitation down to
+    match. ``commitment_coverage`` would not see that, because its denominator is
+    pinned; this is what sees it.
+
+    Pinned baseline against the **latest** recitation rather than a running tally, the
+    same shape as ``hollowing_communities``, so a commitment taken up again clears. The
+    archive still carries both rites for a reader who wants the history."""
+
+    # community -> the keys it recited first and does not recite now
+    dropped: dict[str, tuple[str, ...]]
+    evidence: tuple[str, ...]
+    total_dropped: int
+    communities: int
+
+
+def _object_from(o) -> CompactObject:
+    return CompactObject(
+        keys=tuple(o.keys),
+        per_community={
+            did: (tuple(ks), at) for did, (ks, at) in o.per_community.items()
+        },
+        size=o.size,
+    )
+
+
+def _coverage_from(c) -> Optional[CommitmentCoverage]:
+    if c is None:
+        return None
+    return CommitmentCoverage(
+        object_size=c.object_size,
+        per_commitment=dict(c.per_commitment),
+        unenforced=tuple(c.unenforced),
+        off_object=dict(c.off_object),
+        acts=c.acts,
+        uncited_acts=c.uncited_acts,
+        window_seconds=c.window_seconds,
+        evidence=tuple(c.evidence),
+        coverage=c.coverage,
+        uncited_share=c.uncited_share,
+        cited_acts=c.cited_acts,
+    )
+
+
+def _contraction_from(c) -> Optional[CommitmentContraction]:
+    if c is None:
+        return None
+    return CommitmentContraction(
+        dropped={did: tuple(ks) for did, ks in c.dropped.items()},
+        evidence=tuple(c.evidence),
+        total_dropped=c.total_dropped,
+        communities=c.communities,
+    )
+
+
+def compact_object(archive, as_of: Optional[int] = None) -> CompactObject:
+    """The compact's recited object as of ``as_of``."""
+    return _object_from(archive.compact_object(as_of))
+
+
+def commitment_coverage(
+    archive, as_of: Optional[int] = None, window_seconds: Optional[int] = None
+) -> CommitmentCoverage:
+    """The compact-wide recited-object reading over the window ending at ``as_of``.
+
+    **This is the level the erosion alert reads**, for the same reason as the
+    substitution dimensions: a per-community reading converges on any compact with a
+    division of labour, and the object belongs to the compact rather than to any member.
+    The drill-down here is per *commitment* rather than per community, because the
+    question is which undertakings stopped being enforced.
+
+    Below the volume floor the reading reports untestable, which is a different answer
+    from healthy. The floor scales with the object, since coverage over ``n``
+    commitments is a coupon-collector quantity and ``n`` varies per compact."""
+    return _coverage_from(archive.commitment_coverage(as_of, window_seconds))
+
+
+def commitment_contraction(
+    archive, as_of: Optional[int] = None
+) -> CommitmentContraction:
+    """Commitments a member undertook at its first rite and no longer recites."""
+    return _contraction_from(archive.commitment_contraction(as_of))
+
+
+@dataclass(frozen=True)
 class ErosionAlert:
     # "None" | "Notice" | "Alert" — escalates as erosion signals compound.
     severity: str
@@ -1543,6 +1764,12 @@ class ErosionAlert:
     enforcement_convergence: Optional[EnforcementConvergence]
     # enforcement running at communities holding reduced standing
     enforcement_direction: Optional[EnforcementDirection]
+    # enforcement landing on the communities that raised matters
+    reporter_targeting: Optional[ReporterTargeting]
+    # the compact is enforcing a shrinking part of the object its members recited
+    commitment_coverage: Optional[CommitmentCoverage]
+    # a member no longer recites something it undertook at its first rite
+    commitment_contraction: Optional[CommitmentContraction]
 
 
 def erosion_alert(
@@ -1556,11 +1783,15 @@ def erosion_alert(
     enforcement_dispersion_ceiling_permille: Optional[int] = None,
     enforcement_downward_floor_permille: Optional[int] = None,
     grievance_cadence_seconds: Optional[int] = None,
+    reporter_targeting_volume_floor: Optional[int] = None,
+    reporter_targeting_floor_permille: Optional[int] = None,
+    commitment_acts_per_commitment: Optional[int] = None,
+    commitment_coverage_floor_permille: Optional[int] = None,
 ) -> ErosionAlert:
     """§9 erosion-detection alerting: a graded, derived reading that escalates
     (None→Notice→Alert) as the erosion signals compound.
 
-    Thirteen signals, divided three ways, and the division is the whole design. Four fire
+    Sixteen signals, divided three ways, and the division is the whole design. Five fire
     on an *act*: a contraction of the compact-incapable list, a narrowing of the compact's
     own adopted ground, a fast contraction, deliberative acts during a fast. Seven fire on
     *omission against a reference that is not the current population*, which is the only
@@ -1569,12 +1800,17 @@ def erosion_alert(
     founding, a deliberation thinner than the compact's first, a designation past a
     mandated re-examination, a standing function that has neither acted nor attested a
     null inside its cadence, a standing function with nobody seated in it at all, and an
-    adverse record the compact filed and did not pursue. Two fire on *intensification*: a compact enforcing harder and narrower than it recites,
-    and enforcement running at communities holding reduced standing.
+    adverse record the compact filed and did not pursue. The fifth act-triggered signal
+    is a member no longer reciting something it undertook at its first rite. Four fire on
+    *intensification*:
+    a compact enforcing harder and narrower than it recites, enforcement running at
+    communities holding reduced standing, enforcement landing on the communities that
+    raised matters, and a compact enforcing a shrinking part of the object its own
+    members recited.
 
     The asymmetry is deliberate. An alert built only from act-triggered signals reads a
     polity that has stopped functioning as a polity in perfect health; one built only from
-    those two families reads a polity that has kept every form and substituted a smaller
+    those three families reads a polity that has kept every form and substituted a smaller
     object underneath them as its most vigorous member (see
     ``doc/architecture/erosion-legibility.md`` and ``doc/background/substitution.md``).
 
@@ -1583,8 +1819,15 @@ def erosion_alert(
     ``enforcement_*`` parameters override the substitution cut-points: the window the
     reading looks back over (default 5 years), the fewest acts it will read at all
     (default 12), and the coverage floor, target-dispersion ceiling and downward-share
-    floor in permille (default 500, 500, 800). Every one of these calibrations is an open
-    question in ``protocol-components.md``, so they are parameters rather than constants.
+    floor in permille (default 500, 500, 800). The two ``reporter_targeting_*`` parameters
+    override the retaliation cut-points: the fewest acts that reading will work on
+    (default 3) and the share of them landing on a prior complainant at which it fires
+    (default 500 permille). The two ``commitment_*`` parameters override the
+    recited-object cut-points: the acts the reading needs **per commitment** before its
+    coverage means anything (default 2, so the floor scales with the object) and the
+    share of its own object a compact must still be enforcing (default 500 permille).
+    Every one of these calibrations is an open question in ``protocol-components.md``,
+    so they are parameters rather than constants.
 
     An unstaffed function is *not* also counted as silent. It cannot attest, so a lapsed
     roster would otherwise fire two dimensions for one lapse and reach ``Alert`` on
@@ -1606,6 +1849,10 @@ def erosion_alert(
             enforcement_dispersion_ceiling_permille,
             enforcement_downward_floor_permille,
             grievance_cadence_seconds,
+            reporter_targeting_volume_floor,
+            reporter_targeting_floor_permille,
+            commitment_acts_per_commitment,
+            commitment_coverage_floor_permille,
         )
     )
 
@@ -1651,6 +1898,9 @@ def _erosion_from(a) -> ErosionAlert:
         ),
         enforcement_convergence=_convergence_from(a.enforcement_convergence),
         enforcement_direction=_direction_from(a.enforcement_direction),
+        reporter_targeting=_targeting_from(a.reporter_targeting),
+        commitment_coverage=_coverage_from(a.commitment_coverage),
+        commitment_contraction=_contraction_from(a.commitment_contraction),
     )
 
 

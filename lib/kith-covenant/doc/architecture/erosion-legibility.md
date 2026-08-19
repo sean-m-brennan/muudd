@@ -393,7 +393,7 @@ the level a signal is taken at is part of the signal.
 K1 divided the instruments into act-triggered and omission-triggered and found that a
 polity which merely stopped read as healthy. K5 added intensification and found that a
 polity which kept every form and narrowed the object read as healthy too. Both remedies
-share an assumption that a third measurement broke: that erosion is something happening to
+share an assumption that a third measurement broke, that erosion is something happening to
 the compact as a whole.
 
 A compact whose majority is complicit with one member erodes in neither of those ways. It
@@ -403,36 +403,37 @@ panel sits, arguments are filed and answered, a decision is recorded. So every i
 that counts observances reads the captured compact as diligent, and the compact that buried
 the same evidence four times looked busier than the compact with nothing to bury.
 
-Measured: three archives with the same evidence, differing only in the compact. One
+Three archives were measured with the same evidence, differing only in the compact. One
 prosecuted it to collective sanctions, one dismissed it four times through panels drawn
 from the same three seats, one had nothing to prosecute. All three graded `None` with no
 reasons, on the alert and on every convergence, direction, concentration, silence, vacancy
 and re-examination reading. Burial and prosecution differed on zero substantive
 instruments.
 
-**Fixed** by a thirteenth dimension, `unanswered_grievances`, absolute against a clock like
-the K3 instruments and for the same reason: a compact that pursues nothing has no shares to
-skew and no cadence to fall behind, so a relative measure over a population that all agrees
-to look away is unchanged by the looking away. It is the first dimension with a **named
-beneficiary**, which is what separates it from the other six omissions. Those are things the
-compact stopped doing; this is a thing it declines to do to one member, and declining is
-compatible with a full calendar.
+**Fixed** by a thirteenth dimension, `unanswered_grievances`, absolute against a clock
+like the K3 instruments and for the same reason. A compact that pursues nothing leaves
+shares, concentration and cadence exactly where they were, so a relative measure over a
+population that all agrees to look away is unchanged by the looking away. It is the first
+dimension with a **named beneficiary**, which is what separates it from the other six
+omissions. Those are things the compact stopped doing; this is a thing it declines to do
+to one member, and declining is compatible with a full calendar.
 
 The dimension's own design was corrected by an existing control rather than by a plan. The
 first version asked whether each adverse *record* had been cited by a dispute, and the
 determined-adversary campaign, whose subject was restituted three times and designated
-twice, scored six unanswered records against it: a prosecuting compact accumulates a
-course of conduct and escalates once rather than filing a dispute per record. The reading
-therefore asks first whether the compact is moving against the member at all, by way of a
-live dispute naming it, a restitution imposed on it, or a designation of it. A dispute
-answers only while it is running, since a filing left dormant past the cadence would
-otherwise hold every reading off a member for good.
+twice, scored six unanswered records against it. A prosecuting compact accumulates a
+course of conduct and escalates once rather than filing a dispute per record. Firstly, the
+reading asks whether the compact is moving against the member at all, by way of a live
+dispute naming it, a restitution imposed on it, or a designation of it. Secondly, a
+dispute answers only while it is running, since a filing left dormant past the cadence
+would otherwise hold every reading off a member for good.
 
 Beside the count sits the reading a panel cannot produce by accident: how many mediator
 seats sat on more than one of the dismissals that closed the same evidence. Independent
-panels each reaching the same conclusion and one panel reaching it repeatedly are different
-objects, and only the second is a signature. It stays a count rather than a threshold,
-because a small compact has few mediators and some repetition follows from arithmetic.
+panels each reaching the same conclusion and one panel reaching it repeatedly are
+different objects, and only the second is a signature. Although that repetition is the
+signature, it stays a count rather than a threshold, because a small compact has few
+mediators and some repetition follows from arithmetic.
 
 The claim stays inside what K1 to K6 already conceded. No verdict is offered on any
 dismissal, since no protocol can tell a wrong one from a right one. What the dimension
@@ -441,6 +442,134 @@ without a reading that says so, which is forensic legibility for the remnant and
 prevention. The full measurement, the two authority defects it turned up, and the member-side
 attestation that carries the same fact are in
 [captured-prosecution.md](captured-prosecution.md).
+
+### Finding K8: the same capture has a second half, and it moves every instrument the right way (fixed)
+
+K7 read a majority that will not act. The measurement that closed it left a residual
+stated in the same document: **the complicit majority can also turn the ladder on the
+member that filed the evidence, and when the probe did exactly that, zero instruments
+moved.**
+
+It is the harder half, because nothing here is an omission. The compact enforces, at
+volume, at a member, on a ground the taxonomy names, through the record types the
+protocol provides. Every instrument that counts observances reads it as vigour, and the
+one lens that was built to say where enforcement lands could not say it either.
+`enforcement_direction` buckets each act by **standing**, calling `probationary_at` on
+the parties, and an honest complainant holds full standing throughout. Six acts against
+the member that filed the evidence read `downward=0 upward=0 level=6`: enforcement
+between equals.
+
+Standing is not the axis a captured compact moves along. It does not need to reduce
+anybody first; it already holds the weight to run the accuser up the ladder on its own
+signature, which is the seam
+[captured-prosecution.md](captured-prosecution.md) measured.
+
+**Fixed** by a fourteenth dimension, `reporter_targeting`, whose axis is the *relation*
+between an act and a prior grievance: whether the subject of this act is the community
+that raised an earlier one about whoever is bringing this one. The join is on party
+identity and time order rather than on citation, because `ConductRecord::references` is
+optional and nothing obliges a counter-prosecution to cite what it answers. It reads all
+four carriers that record a raised matter, being a conduct record, a dispute, a
+non-pursuit attestation and an observer report, since narrowing it to one would leave
+the evasion
+the §8 whistleblower channel exists to close.
+
+It is the second dimension with a **named beneficiary**, and the two are mirror images:
+the thirteenth reads what the compact declines to do to one member, and this reads what
+it does to whoever asked.
+
+Three calibrations carry the design, and each answers a way the reading could have been
+wrong.
+
+- **Thresholded, not absolute.** Unlike K3's clocks, this fires on a share. Reciprocity
+  is ordinary in a live compact, since two communities with a real quarrel file about
+  each other, and a compact where every grievance ran one way would be the stranger
+  object.
+  The volume floor is three rather than the substitution twelve, because that one is a
+  coupon-collector reading over eight grounds and this is a ratio over two parties.
+- **Compact-wide, for the K5 and K6 reason.** A per-community reading converges on any
+  compact with a division of labour, since the community that brings most matters is the
+  one most acts are attributed to. `reporter_targeting_all` is the drill-down that names
+  who, once the compact-wide reading has said there is something to name, and it credits
+  an act to a co-signer only where the grievance named that co-signer.
+- **One pair is a quarrel; several is a disposition.** The dimension compounds to
+  `Alert` only when more than one pair is implicated. One pair carrying the whole of it
+  is a quarrel between two communities, which the compact can see for itself.
+
+The negative control is the determined-adversary campaign, exactly as it was for K5, and
+it holds: nine of nine phases, zero of thirteen enforcement acts answering a raised
+matter, and the erosion instruments silent through phase 9. The measurement also
+corrected the plan that predicted it would be close. **The adversary never files an
+adverse record about anybody**, so the campaign is a *silent* control on this axis rather
+than a near miss, and the discriminating control had to be built where the shape actually
+occurs: the same volume of enforcement, against the same member, by the same communities,
+with no prior grievance for it to answer.
+
+The reading's limit is measured rather than assumed. The join names a pair, so a **proxy
+prosecution** brought by allies the grievance never named reads zero, and a majority
+willing to prosecute its accuser is also willing to choose who signs. It stays as it is,
+because the alternatives, anyone in the compact or anyone enforcing after a grievance,
+are readings of enforcement rather than of retaliation.
+
+### Finding K9: the denominator is the protocol's, and a compact can narrow what is not in it (fixed)
+
+K5 gave the alert a reading of what enforcement is *about*, over the eight concrete grounds
+[`CONCRETE_BEARINGS`] fixes. That denominator is what makes the reading absolute, and it is
+also its limit. Eight grounds are coarse. A compact that quietly stops holding *hospitality
+to strangers* while keeping *charity to members* moves `Charity` coverage not at all,
+because both are the same bucket.
+
+**Measured.** A compact that halved what it recited across three generational rites, with
+rising witness counts, nothing amended, no office empty and enforcement spread across the
+whole taxonomy, scored a perfect **1.0** on shared-taxonomy coverage at volume 32 and graded
+`None` on all fourteen dimensions. Nothing in the audit read Movement 4 at all.
+
+The obstacle was never the lens. Movement 4 carried the common virtue as an opaque block of
+text, so there was no way to cite the third commitment of a recited list because there was
+no list, and building one is protocol design. It is now a preamble and an ordered list of
+commitments, each a key and its recited text, with the spoken form derived from the list so
+the prose and the list cannot disagree. A conduct record carries the keys it is about beside
+its bearing: the bearing names a shared ground, the keys name an undertaking.
+
+**Fixed** by a fifteenth dimension, `commitment_coverage`, and a sixteenth,
+`commitment_contraction`. The fifteenth is the first dimension graded against a denominator
+the **compact supplied** rather than one the protocol fixed, and three things keep that from
+being the relative measure K1 rules out.
+
+- **Pinned to the first rite of each member.** A compact cannot raise its coverage by
+  reciting a shorter list, because the denominator is what it undertook. The union only
+  grows, since an admitted community adds its commitments and no departure record exists to
+  take any away, so the reading gets harder as a compact ages and cannot be improved by any
+  act of the compact.
+- **A commitment taken on later counts outside the object.** The same rule that keeps the
+  open ground out of the shared denominator: one that grew whenever a filer named something
+  new would let the compact supply its own reference.
+- **The volume floor scales with the object.** Coverage over `n` commitments is a
+  coupon-collector quantity and here `n` varies per compact, so a constant floor would
+  report the compact that undertook the most as narrowing forever. Two acts per commitment,
+  and below it the answer is untestable rather than healthy.
+
+The sixteenth exists because the fifteenth cannot see the move that makes a narrowing
+legal. A compact whose enforcement has narrowed can bring its recitation down to match,
+after which the smaller object is the one on the record, and a pinned denominator is by
+construction blind to that. `commitment_contraction` reads the pinned baseline against the
+latest recitation, the same shape as `hollowing_communities`, so a commitment taken up again
+clears while the archive keeps both rites.
+
+**An existing control corrected the design, for the second time in this document.** The
+first version counted every enforcement act toward testability, and the determined-adversary
+campaign, whose compact prosecutes one real adversary through thirteen acts that name no
+commitment because nobody there had adopted the practice, scored coverage `0.0`, read as
+narrowing, and graded `Alert` at eight of nine phases. That measures adoption of a citation
+habit rather than the object, and it fired on the most sympathetic case there is.
+Testability now counts only acts that cite something. Silence about the object is not
+evidence about the object in either direction, and what it costs is reported as an uncited
+share, which is the same posture `free_rider_signals` takes toward a sealed usage figure.
+
+The evasion that leaves is stated rather than closed: a compact that narrows its object and
+stops citing at the same time reads untestable. It reads untestable **with an uncited share
+of one**, which is a fact on the record about a compact that has stopped saying what its
+enforcement is about.
 
 ## What is and is not claimable
 
@@ -461,7 +590,7 @@ That is itself one of the ratchets.
 
 ## Remediation
 
-Eight measures answer the findings above, and all eight are carried.
+Eleven measures answer the findings above, and all eleven are carried.
 
 1. **`ceremony_cost_decay` wired into `erosion_alert` and the dashboard.**
    An absolute staleness cadence plus the pinned witness decline. KC's first
@@ -482,6 +611,19 @@ Eight measures answer the findings above, and all eight are carried.
    two that fire on intensification rather than on an act or an omission. (K5, K6)
 8. **§10 scenario 10, the substituted object.** Detected, latency 0, damage 1 against a
    bound of 2, with the recurring-problem control silent. (K5, K6)
+9. **The relation between an enforcement act and a prior grievance**, read compact-wide
+   over all four carriers of a raised matter. The fourteenth alert dimension, and the
+   second with a named beneficiary. (K8)
+10. **§10 scenarios 11 and 12, the buried grievance and the answered accuser.** Detected,
+    latency 0, damage 1 against a bound of 1 and damage 0 against a bound of 2, each with
+    a same-volume control silent. Scenario 11 closes a gap K7 left behind: the thirteenth
+    dimension shipped with no §10 scenario at all, so K4's remedy held for the eighth
+    dimension and not for the newest one. (K7, K8)
+11. **An indexable commitment list in Movement 4**, with the compact's recited object
+    pinned to the first rite of each member, read by the fifteenth and sixteenth alert
+    dimensions, and **§10 scenario 13, the narrowed object**: detected, latency 0, damage 2
+    against a bound of 3, with the shared-taxonomy reading silent at full coverage
+    throughout and the whole-object control quiet. (K9)
 
 Measure 2 used to carry the confirm-leaves-no-record limit as a stated limitation.
 **It is closed.** A re-examination that confirmed a designation left no trace, so a
@@ -583,6 +725,48 @@ form for the first two.
    1.0 and is silent, while a sustained off-taxonomy share scores coverage 0.0 and fires on
    the ordinary reading. The control holds by construction rather than by a rule, since
    `Other` is outside the denominator.
+
+The reporter-targeting dimension carries five, and two of them broke nothing on their
+first pass, which is what found the two rules no fixture reached.
+
+1. **The pair the grievance names.** Enforcement against a member that raised a matter
+   about *somebody else* must not fire. Removing the join broke no test at all until the
+   probe grew an arm for it, so the reading's own limit had been asserted in prose and
+   measured nowhere.
+2. **One pair or several.** The compounding condition had the same problem: no fixture
+   implicated two pairs, so `Alert` was unreachable and removing the rule changed
+   nothing. Two pairs at the same share now separate a quarrel from a disposition.
+3. **Ordinary reciprocity.** A minority of acts answering a raised matter must not fire,
+   or the reading is a count of enforcement rather than of retaliation.
+4. **The volume floor.** Three acts is the floor and two is not, so a compact with one
+   bad month is not read as a captured one.
+5. **The drill-down credit.** A co-signer the grievance never named does not inherit the
+   reading, so `reporter_targeting_all` names who rather than everyone present.
+
+The recited-object dimensions carry ten, and one of them broke nothing on its first pass.
+
+1. **The pin.** Reading the object from the latest rite rather than the first breaks four
+   tests at once, which is the whole absoluteness argument in one control.
+2. **The seated filter.** A community reciting outside the compact contributes nothing to
+   the denominator, the same scoping the citation rule takes.
+3. **Off-object keys.** A commitment taken on later counts outside the object and never
+   into the numerator.
+4. **Testability against cited acts.** The control the campaign supplied: counting uncited
+   acts reads a compact that has not adopted the practice as one that has abandoned its
+   object.
+5. **The scaled floor.** A constant floor reports the compact that undertook the most as
+   narrowing forever.
+6. **The contraction baseline.** Comparing the latest rite against itself finds nothing,
+   which is what a pinned baseline is for.
+7. **The whole-object control.** A compact still enforcing everything it recited must never
+   flag at any volume.
+8. **A broadened list is not a contraction.**
+9. **The citation resolves.** A key nobody recited is refused, and one recited only outside
+   the compact is refused with it.
+10. **The citation's time bound.** This is the one that broke nothing at first: the compact
+    scoping was doing all the work in the fixture, because the later reciter was also a
+    later member. Rewritten so a **seated** member takes the commitment on afterwards, the
+    bound is the only thing refusing the earlier citation.
 
 ## Provenance
 

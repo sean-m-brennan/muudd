@@ -23,7 +23,7 @@ use kc_identity::{
     WitnessRole,
 };
 
-use crate::recitation::{Recitation, RecitationVersion};
+use crate::recitation::{Commitment, CommonVirtueMovement, Recitation, RecitationVersion};
 
 use super::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
 
@@ -112,7 +112,13 @@ fn draft_recitation(community_did: &DidKey, speaker_did: &DidKey, recited_at: Ti
         movement_substrate: "We anchor above ourselves.".into(),
         movement_fallenness: "We know we can harm.".into(),
         movement_recognition: "We recognize the other.".into(),
-        movement_common_virtue: "We commit to truthfulness.".into(),
+        movement_common_virtue: CommonVirtueMovement::new(
+            "We commit to the virtues this compact relies on.",
+            vec![
+                Commitment::new("truthfulness", "We tell the truth about what we have done."),
+                Commitment::new("restitution", "We make good what we have broken."),
+            ],
+        ),
         movement_non_ultimacy: "This compact is not ultimate.".into(),
         language_tag: "en".into(),
         translation_en: None,
@@ -145,7 +151,6 @@ fn happy_path_seals() {
             recitation,
             attestations,
             &f.root_priv,
-            RecitationVersion::current(),
             f.now,
         )
         .expect("intra rite should seal");
@@ -169,7 +174,6 @@ fn zero_witnesses_rejected() {
             recitation,
             vec![],
             &f.root_priv,
-            RecitationVersion::current(),
             f.now,
         )
         .unwrap_err();
@@ -198,7 +202,7 @@ fn speaker_without_delegation_rejected() {
     )
     .unwrap()];
     let err = runner
-        .seal(recitation, attestations, &f.root_priv, RecitationVersion::current(), f.now)
+        .seal(recitation, attestations, &f.root_priv, f.now)
         .unwrap_err();
     match err {
         kc_core::KcError::Archive(msg) => assert!(msg.contains("no active Reciter delegation")),
@@ -234,7 +238,7 @@ fn revoked_delegation_rejected() {
     )
     .unwrap()];
     assert!(matches!(
-        runner.seal(recitation, attestations, &f.root_priv, RecitationVersion::current(), f.now),
+        runner.seal(recitation, attestations, &f.root_priv, f.now),
         Err(kc_core::KcError::Archive(_))
     ));
 }
@@ -259,7 +263,7 @@ fn tampered_recitation_fails_signature() {
     )
     .unwrap()];
     let err = runner
-        .seal(recitation, attestations, &f.root_priv, RecitationVersion::current(), f.now)
+        .seal(recitation, attestations, &f.root_priv, f.now)
         .unwrap_err();
     assert!(matches!(err, kc_core::KcError::SignatureInvalid));
 }
@@ -283,7 +287,7 @@ fn attestation_referencing_wrong_cid_rejected() {
     )
     .unwrap()];
     let err = runner
-        .seal(recitation, attestations, &f.root_priv, RecitationVersion::current(), f.now)
+        .seal(recitation, attestations, &f.root_priv, f.now)
         .unwrap_err();
     match err {
         kc_core::KcError::Archive(msg) => assert!(msg.contains("recitation_cid")),
@@ -312,7 +316,7 @@ fn non_registered_witness_rejected() {
     )
     .unwrap()];
     let err = runner
-        .seal(recitation, attestations, &f.root_priv, RecitationVersion::current(), f.now)
+        .seal(recitation, attestations, &f.root_priv, f.now)
         .unwrap_err();
     match err {
         kc_core::KcError::Archive(msg) => assert!(msg.contains("IntraCommunity role")),
@@ -338,10 +342,67 @@ fn sealed_record_roundtrips_through_cbor() {
     )
     .unwrap()];
     let sealed = runner
-        .seal(recitation, attestations, &f.root_priv, RecitationVersion::current(), f.now)
+        .seal(recitation, attestations, &f.root_priv, f.now)
         .unwrap();
     let bytes = kc_core::canonical::to_canonical_cbor(&sealed).unwrap();
     let decoded: Signed<IntraCommunityRiteRecord> =
         kc_core::canonical::from_canonical_cbor(&bytes).unwrap();
     assert_eq!(sealed, decoded);
+}
+
+#[test]
+fn a_rite_missing_a_movement_is_refused() {
+    let f = mk_fixture("Alpha", 1);
+    let runner = IntraCommunityRiteRunner::new(&f.community, &f.delegations, &f.witness_registry);
+    let mut draft = draft_recitation(&f.community.payload.did, &f.speaker_did, f.now);
+    draft.movement_common_virtue.commitments.clear();
+    let rec = IntraCommunityRiteRunner::recite(&f.speaker_did, &f.speaker_priv, draft).unwrap();
+    let att =
+        IntraCommunityRiteRunner::attest(&f.witnesses[0].0, &f.witnesses[0].1, rec.payload_cid, f.now)
+            .unwrap();
+    let err = runner
+        .seal(rec, vec![att], &f.root_priv, f.now)
+        .expect_err("a rite missing Movement 4 must not seal");
+    assert!(format!("{err}").contains("missing a movement"), "unexpected error: {err}");
+}
+
+#[test]
+fn a_rite_reciting_nothing_is_refused() {
+    let f = mk_fixture("Alpha", 1);
+    let runner = IntraCommunityRiteRunner::new(&f.community, &f.delegations, &f.witness_registry);
+    let mut draft = draft_recitation(&f.community.payload.did, &f.speaker_did, f.now);
+    draft.movement_substrate = String::new();
+    draft.movement_fallenness = String::new();
+    draft.movement_recognition = String::new();
+    draft.movement_common_virtue = CommonVirtueMovement::new("", vec![]);
+    draft.movement_non_ultimacy = String::new();
+    let rec = IntraCommunityRiteRunner::recite(&f.speaker_did, &f.speaker_priv, draft).unwrap();
+    let att =
+        IntraCommunityRiteRunner::attest(&f.witnesses[0].0, &f.witnesses[0].1, rec.payload_cid, f.now)
+            .unwrap();
+    assert!(
+        runner.seal(rec, vec![att], &f.root_priv, f.now).is_err(),
+        "a rite reciting nothing at all must not seal"
+    );
+}
+
+#[test]
+fn the_sealed_version_is_the_recitation_version() {
+    // `version_of_rite` is derived rather than supplied, so a sealed record cannot
+    // disagree with the recitation it holds. Before this, `seal` took the version as
+    // a parameter and nothing compared the two.
+    let f = mk_fixture("Alpha", 1);
+    let runner = IntraCommunityRiteRunner::new(&f.community, &f.delegations, &f.witness_registry);
+    let mut draft = draft_recitation(&f.community.payload.did, &f.speaker_did, f.now);
+    draft.version = RecitationVersion("kc-rite-v-unreleased".into());
+    let rec = IntraCommunityRiteRunner::recite(&f.speaker_did, &f.speaker_priv, draft).unwrap();
+    let att =
+        IntraCommunityRiteRunner::attest(&f.witnesses[0].0, &f.witnesses[0].1, rec.payload_cid, f.now)
+            .unwrap();
+    let sealed = runner.seal(rec, vec![att], &f.root_priv, f.now).expect("should seal");
+    assert_eq!(
+        sealed.payload.version_of_rite,
+        sealed.payload.recitation.payload.version
+    );
+    assert_eq!(sealed.payload.version_of_rite.0, "kc-rite-v-unreleased");
 }

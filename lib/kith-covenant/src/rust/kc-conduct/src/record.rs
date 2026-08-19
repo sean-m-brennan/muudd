@@ -157,6 +157,21 @@ pub struct ConductRecord {
     /// Prior conduct records this one responds to (resolution / supersession
     /// chains). E.g. a `DesignationLifted` references the `DesignationAnathema`.
     pub references: Vec<Cid>,
+    /// The commitment keys of the recited object this act is about, if the filer
+    /// named any.
+    ///
+    /// `bearing` says which of the compact's *shared* grounds an act touches, over a
+    /// taxonomy the protocol fixes. This says which of the compact's *own* recited
+    /// commitments it touches, over a denominator the compact itself recited
+    /// (`kc_ceremony::Commitment`). The two are separate on purpose: the shared
+    /// taxonomy is eight coarse grounds, so a compact can abandon *hospitality to
+    /// strangers* while keeping *charity to members* and move `Charity` coverage not
+    /// at all.
+    ///
+    /// Optional, and the omission is reported rather than assumed away. Requiring a
+    /// citation would make the reading a gate rather than a lens, so
+    /// `commitment_coverage` carries the share of enforcement that cited nothing.
+    pub commitments_cited: Vec<String>,
     /// Free-form account for the reader; not machine-interpreted.
     pub narrative: String,
     /// When the conduct was observed.

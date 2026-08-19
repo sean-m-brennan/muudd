@@ -71,6 +71,10 @@ try:
         ThinningDeliberation,
         EnforcementConvergence, enforcement_convergence, enforcement_convergence_all,
         EnforcementDirection, enforcement_direction, enforcement_direction_all,
+        ReporterTargeting, reporter_targeting, reporter_targeting_all,
+        CompactObject, compact_object,
+        CommitmentCoverage, commitment_coverage,
+        CommitmentContraction, commitment_contraction,
     )
     from kith_covenant.harness import (
         ScenarioResult, HarnessReport, run_harness,
@@ -153,6 +157,11 @@ try:
         'enforcement_convergence_all',
         'EnforcementDirection', 'enforcement_direction',
         'enforcement_direction_all',
+        'ReporterTargeting', 'reporter_targeting',
+        'reporter_targeting_all',
+        'CompactObject', 'compact_object',
+        'CommitmentCoverage', 'commitment_coverage',
+        'CommitmentContraction', 'commitment_contraction',
         'ScenarioResult', 'HarnessReport', 'run_harness',
     'HarnessParams', 'PARAM_RANGES', 'run_continuous', 'ContinuousReport',
     'ScenarioStats', 'ScenarioFailure', 'replay', 'params_for_seed',

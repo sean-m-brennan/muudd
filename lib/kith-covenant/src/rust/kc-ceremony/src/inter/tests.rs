@@ -24,7 +24,7 @@ use kc_identity::{
 };
 
 use crate::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
-use crate::recitation::{Recitation, RecitationVersion};
+use crate::recitation::{Commitment, CommonVirtueMovement, Recitation, RecitationVersion};
 
 use super::anti_spiral::{AntiSpiralFeature, REQUIRED_FEATURES};
 use super::runner::{InterCredentialingOutcome, InterCredentialingRunner, ParticipantContext};
@@ -91,7 +91,13 @@ fn mk_community(name: &str, now: Timestamp) -> Community {
             movement_substrate: format!("{name} anchors above itself."),
             movement_fallenness: "We are capable of harm.".into(),
             movement_recognition: "We recognize the other.".into(),
-            movement_common_virtue: "We commit to truthfulness and restitution.".into(),
+            movement_common_virtue: CommonVirtueMovement::new(
+                "We commit to the virtues this compact relies on.",
+                vec![
+                    Commitment::new("truthfulness", "We tell the truth about what we have done."),
+                    Commitment::new("restitution", "We make good what we have broken."),
+                ],
+            ),
             movement_non_ultimacy: "This compact is not ultimate.".into(),
             language_tag: "en".into(),
             translation_en: None,
@@ -111,7 +117,6 @@ fn mk_community(name: &str, now: Timestamp) -> Community {
             recitation,
             vec![attestation],
             &root_priv,
-            RecitationVersion::current(),
             now,
         )
         .unwrap();

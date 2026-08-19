@@ -31,7 +31,9 @@ use kc_ceremony::inter::{
     InterCredentialingOutcome, InterCredentialingRunner, ParticipantContext, REQUIRED_FEATURES,
 };
 use kc_ceremony::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
-use kc_ceremony::recitation::{Recitation, RecitationVersion};
+use kc_ceremony::recitation::{
+    Commitment, CommonVirtueMovement, Recitation, RecitationVersion,
+};
 use kc_core::{keys, time, Alg, DidKey, PrivKey, Signed, Timestamp};
 use kc_identity::{
     CommunityIdentity, DelegationScope, Keystore, SpeakerDelegation, WitnessEntry,
@@ -165,6 +167,18 @@ fn seed_archive(archive: &mut InMemoryArchive, c: &Community) {
         .unwrap();
 }
 
+/// The commitments each community recites in Movement 4.
+///
+/// Three named undertakings rather than a paragraph, because this is the list an
+/// enforcement act cites and the compact's recited object is counted from.
+fn demo_commitments() -> Vec<Commitment> {
+    vec![
+        Commitment::new("truthfulness", "We tell the truth about what we have done."),
+        Commitment::new("restitution", "We make good what we have broken."),
+        Commitment::new("hospitality", "We receive the stranger."),
+    ]
+}
+
 fn run_intra_rite(
     c: &Community,
     movements: [String; 5],
@@ -188,7 +202,7 @@ fn run_intra_rite(
             movement_substrate: sub,
             movement_fallenness: fal,
             movement_recognition: rec,
-            movement_common_virtue: vir,
+            movement_common_virtue: CommonVirtueMovement::new(vir, demo_commitments()),
             movement_non_ultimacy: ult,
             language_tag: language.to_string(),
             translation_en: None,
@@ -208,7 +222,6 @@ fn run_intra_rite(
             recitation,
             vec![attestation],
             &c.root_priv,
-            RecitationVersion::current(),
             now,
         )
         .unwrap()
