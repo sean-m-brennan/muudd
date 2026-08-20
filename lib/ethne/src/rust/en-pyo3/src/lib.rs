@@ -1569,6 +1569,21 @@ struct PyFusionOutcome {
     dissolutions: Vec<String>,
 }
 
+/// What a polity hands KC so KC can hold its rite: the authorizations and the draft,
+/// never the signatures.
+///
+/// `recitation` is **unsigned** on purpose. Sealing it needs the reciter's key and
+/// every witness's, and this seam holds nobody's key but the polity root's, so
+/// whoever runs the ceremony signs. Each field is JSON a KC-side consumer appends
+/// or signs verbatim.
+#[pyclass(skip_from_py_object, name = "RiteHandoff", get_all)]
+#[derive(Clone)]
+struct PyRiteHandoff {
+    reciter: String,
+    witnesses: String,
+    recitation: String,
+}
+
 /// The Concern: if — and only if — `report` has reached `Concern`-level erosion,
 /// a signed KC conduct record about the polity, as JSON. Below that level the
 /// strain is ethne's own business and nothing crosses the boundary (`None`). The
@@ -3190,6 +3205,59 @@ impl PyArchive {
         )
         .map_err(en_err_to_py)?;
         serde_json::to_string(&signed).map_err(json_err_to_py)
+    }
+
+    /// Emit the records KC's intra-community rite is held to: the reciter
+    /// delegation, the witness registry, and the drafted recitation (each JSON).
+    ///
+    /// The polity's **Inductor** recites — the office that presides over the polity's
+    /// own rite is the office that carries one across the border, and KC's `Envoy`
+    /// scope is for representation and deliberately not this. The **attendees**
+    /// witness: the members present for every movement of the polity's own rite, so
+    /// the KC record answers to the people who were there rather than to whoever holds
+    /// a key. The five movements are drafted from the charter, and the polity's
+    /// in-force commitment keys travel into Movement 4 verbatim.
+    ///
+    /// A rite is not mintable from nothing. This is an error unless a rite of the
+    /// polity's stands complete as of `at`, unless `inductor_did` holds the Inductor
+    /// office and has been inducted, and unless the polity has commitments in force.
+    ///
+    /// Nothing is signed here but the two authorizations, under the polity root. Feed
+    /// `recitation` to KC's `IntraCommunityRiteRunner`: the reciter signs it, each
+    /// witness signs its own attestation, and the runner seals.
+    #[pyo3(signature = (polity_did, inductor_did, root_priv, root_pub, at=None))]
+    fn intra_rite(
+        &self,
+        polity_did: &str,
+        inductor_did: &str,
+        root_priv: &[u8],
+        root_pub: &[u8],
+        at: Option<i64>,
+    ) -> PyResult<PyRiteHandoff> {
+        let polity = parse_did(polity_did)?;
+        let charter = self.charter_of(&polity)?;
+        let at = ts_or_now(at)?;
+        let state = charter_state(&self.inner, &polity, at);
+        let offices = office_state(&self.inner, &polity, at);
+        let affirmations = affirmation_state(&self.inner, &polity, at);
+        let rites = rite_state(&self.inner, &polity, at);
+        let handoff = en_uplift::intra_rite(
+            &charter,
+            &state.commitments,
+            &offices,
+            &affirmations,
+            &rites,
+            &parse_did(inductor_did)?,
+            &priv_from_bytes(root_priv),
+            pub_from_bytes(root_pub),
+            at,
+        )
+        .map_err(en_err_to_py)?;
+        Ok(PyRiteHandoff {
+            reciter: to_json(&handoff.reciter)?,
+            witnesses: to_json(&handoff.witnesses)?,
+            recitation: to_json(&handoff.recitation)?,
+        })
     }
 
     /// Emit a **ratified** split into N (≥ 2) successors: the community has already
@@ -5231,6 +5299,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyHostConfig>()?;
     m.add_class::<PyDueAction>()?;
     m.add_class::<PyHostCycle>()?;
+    m.add_class::<PyRiteHandoff>()?;
     m.add_class::<PyFissionOutcome>()?;
     m.add_class::<PyFusionOutcome>()?;
     m.add_class::<PyAtProvider>()?;

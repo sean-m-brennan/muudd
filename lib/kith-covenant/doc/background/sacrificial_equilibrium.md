@@ -143,7 +143,7 @@ the medium through which the observation arrives pre-laundered.
 
 ### The designation apparatus cannot reach unanimity
 
-Two amendments to the procedure, both on the compact and neither on any member.
+Two amendments to the procedure follow, both on the compact and neither on any member.
 
 An advocate is drawn by lot from a community that is not a party, with the duty of stating
 the strongest case for the designated party, and the statement is archived as part of the
@@ -172,7 +172,7 @@ designation may rest on and the other bounding how the compact may agree about i
 An absolute measure, per member, of whether the population bearing its internal sanctions
 coincides with the population holding no channel of appeal. Absolute rather than
 act-triggered, because a member in equilibrium does nothing that trips an act-triggered
-alarm. A lens and never a gate.
+alarm. It is a lens and never a gate.
 
 The ground for taking this measure at all is the capacity distinction rather than any moral
 one. A member whose protective perimeter is far narrower than the one the compact keeps is a

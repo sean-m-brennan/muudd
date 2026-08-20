@@ -8,7 +8,7 @@ communities. It never learns where either came from.
 
 That is achievable only if the border is narrow and speaks the vocabulary of the
 compact rather than a vocabulary of its own. Although the border carries real
-weight, it is narrow. Six artifacts cross it, all of them record types the
+weight, it is narrow. Seven artifacts cross it, all of them record types the
 compact already understands, and nothing else does. There is no adapter
 protocol, no negotiation, and no handshake. A polity emits a signed payload and
 something on the other side appends it.
@@ -18,7 +18,7 @@ tier speaks the record types of the compact, and every other crate depends only
 on the neutral base. That property is checked mechanically rather than asserted,
 and it is checked again whenever a crate is added.
 
-## The six artifacts
+## The seven artifacts
 
 *A community identity.* A chartered polity is handed off as a self-signed
 community identity, being a root identifier and its delegation graph.
@@ -65,6 +65,31 @@ archive, which keeps the crate that speaks compact vocabulary from having to
 read the log.
 
 *A member roll.* The published roll of the polity, under its root key.
+
+*A rite.* The five-movement ceremony of the polity becomes the records the intra
+rite of the compact is held to, being a reciter delegation, a witness registry,
+and the recitation itself. This is the youngest artifact and the one whose
+absence was the most consequential, since the ceremony that admits a community to
+a compact takes a sealed intra rite as its input. A polity could therefore be
+recognized in the compact and admitted to nothing.
+
+Two rulings decide its shape. The office that presides over the rite of the
+polity is the office that carries one across, so the inductor recites and the
+speaker does not, a speaker being for representation. And the witnesses are the
+members who were present for every movement of the ceremony the polity actually
+held, so the record answers to the people who were there rather than to whoever
+holds a key.
+
+The commitments travel with it. The commitment keys of the polity become the
+fourth movement of the recitation unchanged, the two tiers happening to carry the
+same shape for a commitment. So the compact grades its members against the object
+each one actually holds, rather than against a taxonomy fixed for them.
+
+What does not travel is a signature. The two authorizations are signed under the
+root key of the polity, and the recitation crosses unsigned, since sealing it
+needs the key of the reciter and of every witness and the border holds neither.
+Whoever holds the ceremony signs, which is the division the compact already
+draws for every community under it.
 
 ## Why the roll had to cross
 
@@ -128,9 +153,10 @@ conferred standing is an adjudication, and wiring one to the other numerically
 is the category error this tier was built to avoid rather than to commit at its
 own border.
 
-Third, no office crosses except through an envoy delegation. Internal offices
-are internal, and the compact has no business knowing who convenes a member
-community or who keeps its charter.
+Third, no office crosses except as a delegation, being the envoy who speaks and
+the inductor who recites. Internal offices are internal, and the compact has no
+business knowing who convenes a member community or who keeps its charter. What
+crosses is the authorization, never the office.
 
 Lastly, no archive dependency crosses. This tier emits serialized signed
 payloads that a consumer on the far side appends, and it never depends on the
@@ -145,7 +171,9 @@ record of who withdrew if anybody did. It has offices conferred by its roll and
 lapsing with it. It has a rite by which members actually receive what it stands
 for, and a measure of whether that rite is getting cheaper. It has a monitor
 that can tell the difference between quiet and stopped. And it can hand all of
-that to a stranger as six artifacts in a vocabulary the stranger already speaks.
+that to a stranger as seven artifacts in a vocabulary the stranger already
+speaks, the last of them being the rite that makes it admissible rather than
+merely recognizable.
 
 What it does not have is any relation to that stranger. Two chartered polities
 on opposite sides of a ridge, or of an orbit, share no history, no founding, and
@@ -158,9 +186,9 @@ book.
 
 ## Further reading
 
-- [Design decisions D1 to D34](design.md): D4, D9 and D10 for the upward
+- [Design decisions D1 to D35](design.md): D4, D9 and D10 for the upward
   interface and its confinement, D14 for the envoy delegation, D25 for N-ary
-  fission and fusion, and D26 for the roll.
+  fission and fusion, D26 for the roll, and D35 for the rite.
 - [Protected dissent](../../kith-covenant/doc/jester.md) and
   [whistleblower cryptography](../../kith-covenant/doc/architecture/whistleblower-crypto.md):
   the ring the roll feeds, and what it now computes over.

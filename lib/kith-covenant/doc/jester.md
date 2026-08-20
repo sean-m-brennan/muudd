@@ -9,12 +9,12 @@ the substrate itself are all things a determined faction can come to control.
 The jester is the one role explicitly designed to name what the institutions are
 becoming when the institutions themselves cannot.
 
-The tradition is long and cross-cultural. The medieval fool who could say to the
-king what no courtier could. The prophets of the Hebrew Bible, whose entire
-office was telling Israel what Israel did not want to hear. The satyagrahi. The
-modern investigative journalist. In each case a licensed truth-teller, protected
-by convention, whose protection exists precisely because what they say is
-unwelcome.
+The tradition is long and cross-cultural. It runs from the medieval fool who
+could say to the king what no courtier could, through the prophets of the Hebrew
+Bible whose entire office was telling Israel what Israel did not want to hear, to
+the satyagrahi and the modern investigative journalist. In each case there is a
+licensed truth-teller, protected by convention, whose protection exists precisely
+because what they say is unwelcome.
 
 This compact promotes the jester from a cultural affordance to a substrate-level
 capture detector, which means giving the role structural protection,

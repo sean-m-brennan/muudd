@@ -147,7 +147,8 @@ support both layers and must not conflate them.
   *Design state:* the implemented ceremony (`kc-ceremony`) models
   presence as a witness co-signature over a recitation CID plus a
   timestamp. There is no location, liveness, or bodily-attendance field,
-  and a single internal witness satisfies the intra rite. Co-presence is
+  and a single internal witness satisfies the intra rite, provided it is
+  not the speaker (see the recitation archive below). Co-presence is
   therefore not enforced at the code layer. A CID co-signature can be
   produced anywhere. Whether co-presence should be given a code-layer
   attestation (itself spoofable) or left a social requirement audited
@@ -189,6 +190,20 @@ support both layers and must not conflate them.
   supplies beside the recitation; it is derived from the
   recitation payload, which makes disagreement between the two
   unrepresentable rather than merely refused.
+  **The witness to a rite is not the person who recited it.** The
+  runner required at least one internal witness and never asked who
+  it was, so a rite attested only by its own speaker sealed,
+  archived and authorized clean. Measured on the ethne polity
+  border, where a polity's `Inductor` recites the KC rite and the
+  witnesses are the attendees of the polity's own ceremony, a set
+  the `Inductor` may well be in. A self-attestation is not a
+  witness, and one witness who is the speaker is no witness at
+  all, so the rule now runs in the runner and again in the
+  authority pass, as the completeness check does. It is not a
+  prohibition on the speaker attending: in a small community the
+  reciter attends everyone else's rite, and a speaker who
+  co-signs *alongside* another witness is accepted.
+
 - **Re-affirmation scheduler.** Tracks generational cadence per
   community. Surfaces overdue or imminent intra-community
   re-affirmations. Signals cross-boundary witnesses when the
@@ -461,8 +476,8 @@ prevention.
   constitutive is one the subject held after being told. Third, three
   cycles of consideration rather than two, each still separated by the
   waiting period, and a quorum of `quorum_threshold + 1` counting
-  weight rather than signatures. Fourth, a mandatory re-examination
-  date. Measured before these rules, the tier differed from anathema
+  weight rather than signatures. Fourth, the tier carries a mandatory
+  re-examination date. Measured before these rules, the tier differed from anathema
   in exactly two ways, no reversal conditions and no expedited path.
   The irreversible designation therefore stood on the evidence, quorum
   and cadence of the anathema tier, and could recycle the citations
@@ -573,8 +588,8 @@ prevention.
   live compact and a compact where every grievance ran one way would
   be the stranger object, and it is read **compact-wide** for the same
   reason as the substitution dimensions: a per-community reading
-  converges on any compact with a division of labour. A lens and never
-  a refusal. A compact may have a genuine complaint against a member
+  converges on any compact with a division of labour. It is a lens and
+  never a refusal. A compact may have a genuine complaint against a member
   that itself complained, and no protocol can tell the two apart. Its
   stated limit is measured rather than assumed: the join names a pair,
   so a proxy prosecution brought by allies the grievance never named

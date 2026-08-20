@@ -32,11 +32,12 @@ psychological cost is a property of bodies in rooms, and you cannot automate it.
 The internal rite has a five-movement structure. It is performed by the community
 for itself, not as a joint ritual with strangers.
 
-Firstly, *the naming of the substrate*, in the terms of that community. Second,
-*the acknowledgment of fallenness*. Third, *the recognition of the other as
-peers*, bearing the *imago Dei* or the equivalent that tradition carries. Fourth,
-*the commitment to the common virtues as dispositions* rather than as rules.
-Lastly, *the submission of the compact itself*, which is not the ultimate.
+The movements are: firstly, *the naming of the substrate*, in the terms of that
+community; second, *the acknowledgment of fallenness*; third, *the recognition of
+the other as peers*, bearing the *imago Dei* or the equivalent that tradition
+carries; fourth, *the commitment to the common virtues as dispositions* rather
+than as rules; and lastly, *the submission of the compact itself*, which is not
+the ultimate.
 
 That last movement is the one doing structural work. It is where the second rule
 of the previous chapter becomes an act somebody performs rather than a claim

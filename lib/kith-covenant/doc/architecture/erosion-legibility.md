@@ -113,7 +113,7 @@ and documented as such. The anchors are neutral, floor, and ceiling.
 - A targeted search for the telltale patterns (dividing by `len(reputations)`,
   `max`/`min` over the population, percentile or rank) returns nothing.
 
-Better than neutral, in fact. Because each term is multiplied by the reputation
+It is better than neutral, in fact. Because each term is multiplied by the reputation
 of the *counterparty*, a uniform decline in submitted scores drives the reputation
 of every peer down faster than linearly. Uniform drift is amplified by this
 scalar, not hidden by it.

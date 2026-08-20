@@ -54,8 +54,8 @@ not be told from a stopped one.
 
 ## `kc-mediation`
 
-The mediation slice. Per-community mediator registries whose union is the pool,
-dispute records, argument records, recusal requests and their answers,
+The mediation slice holds per-community mediator registries whose union is the
+pool, dispute records, argument records, recusal requests and their answers,
 protecting-power designations, and paneled decisions. The panel rule, being
 registered, non-party, and at or above the minimum, is enforced by the authority
 pass of the archive.
@@ -193,7 +193,7 @@ nothing about the holds that stood.
 
 ## `kc-commons`
 
-The commons slice. The five compact-level commons, Ostrom-style boundary
+The commons slice holds the five compact-level commons, Ostrom-style boundary
 definitions, usage accounting, and the graduated-sanction ladder from monitoring
 to exclusion with the heavier levels quorum-gated.
 
@@ -213,8 +213,8 @@ whom can open them for cause. The reporter may not be one of its own custodians.
 
 Sealing is not a way to disappear, and measuring is what showed it would have
 been. `free_rider_signals` summed the figures, so a community sealing 1,850
-units read as having consumed zero and ranked nowhere. Not absent, but
-apparently the most scrupulous member of the compact. The lens now counts sealed
+units read as having consumed zero and ranked nowhere. That reads not as absent,
+but as apparently the most scrupulous member of the compact. The lens now counts sealed
 records, reports whether the accounting is complete, and turns each proof into a
 bound on what is hidden, so its totals are honestly a floor rather than
 dishonestly a figure.

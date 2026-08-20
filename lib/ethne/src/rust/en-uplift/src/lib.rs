@@ -19,7 +19,7 @@
 //!
 //! A chartered polity is a self-contained thing; kith-covenant needs nothing from
 //! ethne to run (KC ⟂ ethne). But when a polity *wants* to be recognized as a KC
-//! party, four things must cross the boundary, all in KC's existing vocabulary:
+//! party, these things must cross the boundary, all in KC's existing vocabulary:
 //!
 //! 1. **Handoff** — the polity presents itself as a [`CommunityIdentity`]
 //!    (the neutral primitive shared through `kc-core`), self-signed by its root
@@ -41,11 +41,18 @@
 //!    was not in the ring at all and a polity that had delegated nobody had no
 //!    channel. This tier is the thing that *does* model membership, so it is the
 //!    feed. See [`member_roll`].
+//! 6. **Rite** — the polity's own five-movement ceremony becomes the records KC's
+//!    intra-community rite is held to: a `Reciter` delegation naming the polity's
+//!    `Inductor`, a witness registry naming the attendees, and the recitation itself.
+//!    Without this a polity could be *identified* in KC and never admitted to a
+//!    compact, because KC's inter-community ceremony takes a sealed intra rite as its
+//!    input. See [`intra_rite`].
 //!
 //! # Why this crate exists (the confined coupling)
 //!
 //! This is the **one** ethne crate permitted to depend on kith-covenant *record*
-//! crates (`kc-conduct`, and `kc-identity` for the envoy delegation). Everything
+//! crates (`kc-conduct`, `kc-identity` for the envoy delegation and the witness
+//! registry, and `kc-ceremony` for the recitation). Everything
 //! below the uplift boundary — the core, charter, substrate, at-adapter, and
 //! cohesion crates — stays `kc-core`-only. The Concern deliberately uses `ConductBearing::Other(
 //! "coherence-erosion")` rather than the covenant-specific `AntiSpiral` bearing,
@@ -58,12 +65,21 @@
 //! a KC-side consumer wraps each into an `ArchiveEntry` and appends it. Nothing
 //! here touches an archive.
 
-use en_charter::{CharterDissolution, EnvoyState, PolityCharter};
+use en_charter::{
+    AffirmationState, CharterDissolution, Commitment, EnvoyState, Office, OfficeState,
+    PolityCharter, Rite,
+};
 use en_cohesion::{CohesionReport, ErosionLevel};
 use en_core::{DidKey, KcError, KcResult, PrivKey, PubKey, Signed, Timestamp};
 use kc_conduct::{ConductBearing, ConductKind, ConductRecord, DecisionClass, Severity};
 use kc_core::{CommunityIdentity, SuccessorLink};
-use kc_identity::{DelegationScope, MemberRoll, RollMember, SpeakerDelegation};
+use kc_ceremony::recitation::{
+    Commitment as RiteCommitment, CommonVirtueMovement, Recitation, RecitationVersion,
+};
+use kc_identity::{
+    DelegationScope, MemberRoll, RollMember, SpeakerDelegation, WitnessEntry, WitnessRegistry,
+    WitnessRole,
+};
 
 /// The handoff: turn a ratified [`PolityCharter`] into a self-signed
 /// [`CommunityIdentity`] KC can recognize. The polity's root keypair is supplied
@@ -205,6 +221,190 @@ pub fn member_roll(
     let payload =
         MemberRoll { community_did: charter.polity.clone(), members: out, as_of, published_at };
     Signed::build(payload, &[(charter.polity.as_str(), root_priv)])
+}
+
+/// What a polity hands KC so KC can hold its rite: the authorizations and the draft,
+/// never the signatures.
+///
+/// The recitation is returned **unsigned** on purpose. Sealing it needs the reciter's
+/// key and every witness's, and this crate holds nobody's key but the one the caller
+/// passes for the polity root. Whoever runs the ceremony signs, which is the same
+/// division `IntraCommunityRiteRunner` already draws.
+pub struct RiteHandoff {
+    /// KC's `Reciter` delegation, naming the polity's `Inductor`.
+    pub reciter: Signed<SpeakerDelegation>,
+    /// KC's witness registry, naming the members who attended the polity's own rite
+    /// throughout, with the `IntraCommunity` role.
+    pub witnesses: Signed<WitnessRegistry>,
+    /// The five movements, drafted from the charter. The reciter signs it.
+    pub recitation: Recitation,
+}
+
+/// The rite: turn the polity's own five-movement ceremony into the records KC's intra
+/// rite is held to.
+///
+/// This is the artifact whose absence stopped a polity from being admitted to a compact
+/// at all. KC's `IntraCommunityRiteRunner::seal` requires a `Reciter` delegation and a
+/// witness registry, and the border emitted neither, so a polity could be *identified*
+/// in KC (its `CommunityIdentity`, its envoy, its roll all authorize) and could never
+/// produce the `IntraCommunityRiteRecord` KC's inter ceremony takes as its input.
+///
+/// **The `Inductor` recites.** That office presides over the polity's own rite, so it
+/// is the office that carries a rite across the border; KC's `Envoy` scope is for
+/// representation and is deliberately not this. **The attendees witness**: the members
+/// who were present for every movement of the polity's rite, which is exactly the set
+/// `Rite::attended_throughout` reports, so the KC record is answerable to the people
+/// who were actually there rather than to whoever holds a key.
+///
+/// **A rite is not mintable from nothing.** This refuses unless a rite of the polity's
+/// stands complete, and unless the Inductor holds the substrate it is about to recite.
+/// What it does *not* re-derive is the content: this tier's authority pass already
+/// requires movement 1 to name the charter's substrate, movement 4 to commit to exactly
+/// the in-force keys, and movement 5 to name the charter's anchor, so in an authorized
+/// archive the charter **is** what was recited, and re-checking it here would be a
+/// second copy of somebody else's rule.
+///
+/// The commitment keys travel. Ethne's `Commitment { key, description }` and KC's
+/// `Commitment { key, text }` are the same shape, so the polity's in-force commitments
+/// become KC's Movement 4 verbatim, which is what lets KC's recited-object reading
+/// grade a compact of polities against the object each one actually holds.
+///
+/// Errors if the charter's polity DID does not match the supplied root key (the same
+/// guard as the other emitters), if `inductor` holds no Inductor office, if it has not
+/// been inducted, if no complete rite stands, or if the polity has no commitments in
+/// force (KC refuses a Movement 4 that recites nothing).
+#[allow(clippy::too_many_arguments)]
+pub fn intra_rite(
+    charter: &PolityCharter,
+    commitments: &[Commitment],
+    offices: &OfficeState,
+    affirmations: &AffirmationState,
+    rites: &[Rite],
+    inductor: &DidKey,
+    root_priv: &PrivKey,
+    root_pub: PubKey,
+    at: Timestamp,
+) -> KcResult<RiteHandoff> {
+    let derived = DidKey::from_pubkey(&root_pub)?;
+    if charter.polity != derived {
+        return Err(KcError::InvalidDid(format!(
+            "charter polity {} does not match the supplied root key (DID {derived})",
+            charter.polity
+        )));
+    }
+
+    // The caller names the reciter and this checks the standing, exactly as
+    // `envoy_delegation` does. An office may have several holders, and choosing one of
+    // them here would put an arbitrary order where an authorization belongs.
+    if !offices.holds(inductor, &Office::Inductor) {
+        return Err(KcError::Authority(format!(
+            "{inductor} holds no Inductor office for {}, and the office that presides \
+             over the polity's rite is the office that carries one across the border",
+            charter.polity
+        )));
+    }
+    if !affirmations.is_inducted(inductor) {
+        return Err(KcError::Authority(format!(
+            "the Inductor {inductor} has not received the substrate it would be reciting"
+        )));
+    }
+
+    let complete = rites
+        .iter()
+        .filter(|r| r.completed_at.is_some())
+        .max_by_key(|r| r.completed_at)
+        .ok_or_else(|| {
+            KcError::Authority(format!(
+                "no complete rite stands for polity {}: a KC rite is not mintable from \
+                 a ceremony nobody performed",
+                charter.polity
+            ))
+        })?;
+    // The reciter is not its own witness. Ethne draws that line inside each rite (a
+    // member's attendees are the roll minus themselves), and the border keeps it: the
+    // Inductor may well have attended the rite whose attendees these are, and an
+    // attestation to one's own recitation is worth nothing. Measured: without this the
+    // Inductor witnessed the rite it recited, and KC sealed it.
+    let attended: Vec<DidKey> = complete
+        .attended_throughout()
+        .into_iter()
+        .filter(|w| w != inductor)
+        .collect();
+    if attended.is_empty() {
+        return Err(KcError::Authority(format!(
+            "the last complete rite of polity {} had nobody present throughout besides \
+             the reciter, and KC requires at least one internal witness who is not it",
+            charter.polity
+        )));
+    }
+    if commitments.is_empty() {
+        return Err(KcError::Authority(format!(
+            "polity {} holds no commitments in force, and a movement 4 that recites \
+             nothing is not a movement 4",
+            charter.polity
+        )));
+    }
+
+    let reciter = Signed::build(
+        SpeakerDelegation {
+            community_did: charter.polity.clone(),
+            speaker_did: inductor.clone(),
+            speaker_pubkey: inductor.to_pubkey()?,
+            scope: DelegationScope::Reciter,
+            issued_at: at,
+            expires_at: None,
+            revoked_at: None,
+        },
+        &[(charter.polity.as_str(), root_priv)],
+    )?;
+
+    let mut entries = Vec::with_capacity(attended.len());
+    for w in &attended {
+        entries.push(WitnessEntry {
+            witness_did: w.clone(),
+            witness_pubkey: w.to_pubkey()?,
+            role: WitnessRole::IntraCommunity,
+            valid_from: at,
+            valid_until: None,
+        });
+    }
+    let witnesses = Signed::build(
+        WitnessRegistry { community_did: charter.polity.clone(), entries, issued_at: at },
+        &[(charter.polity.as_str(), root_priv)],
+    )?;
+
+    let recitation = Recitation {
+        community_did: charter.polity.clone(),
+        speaker_did: inductor.clone(),
+        version: RecitationVersion::current(),
+        movement_substrate: charter.substrate.statement.clone(),
+        // Movements 2 and 3 carry nothing checkable at either tier, and this crate does
+        // not invent content for them: what crosses is that they were performed.
+        movement_fallenness: format!(
+            "{} acknowledges its own fallenness, as its rite recited.",
+            charter.polity
+        ),
+        movement_recognition: format!(
+            "{} recognizes the other as bound by a ground it did not make.",
+            charter.polity
+        ),
+        movement_common_virtue: CommonVirtueMovement::new(
+            format!("{} holds the commitments its charter binds it to.", charter.polity),
+            commitments
+                .iter()
+                .map(|c| RiteCommitment::new(c.key.clone(), c.description.clone()))
+                .collect(),
+        ),
+        movement_non_ultimacy: match &charter.substrate.anchor {
+            Some(anchor) => format!("This polity is not ultimate; it answers to {anchor}."),
+            None => "This polity is not ultimate, and names no keyed ground.".into(),
+        },
+        language_tag: "en".into(),
+        translation_en: None,
+        recited_at: at,
+    };
+
+    Ok(RiteHandoff { reciter, witnesses, recitation })
 }
 
 /// The Concern: if — and only if — the cohesion `report` has reached

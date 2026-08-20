@@ -184,7 +184,7 @@ appears to require something that humans receive rather than
 generate. Call it grace, call it the participation of cosmologies in
 a transcendent reality, call it the substrate of moral order.
 Without that received element, cooperation reverts to the
-default. Predation, faction, war.**
+default of predation, faction, and war.**
 
 This is the hypothesis this document takes seriously. It is
 a *theological* hypothesis, not a sociological one. It claims that
@@ -468,7 +468,7 @@ expansively, across ethnic and religious boundaries, by the
 criterion of mercy shown rather than the criterion of group
 membership shared.**
 
-Two clarifications on the parable before drawing the
+Two clarifications on the parable come before drawing the
 implication. First, the neighbor is the one the Samaritan
 *encountered*, the man he met on the road. The priest and Levite
 had also encountered the wounded man. Their failure was a

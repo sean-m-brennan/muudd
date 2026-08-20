@@ -1,6 +1,6 @@
 # Kith-Covenant Protocol Architecture
 
-Technical architecture documentation for the Kith-Covenant social protocol evaluation framework.
+This directory holds the technical architecture documentation for the Kith-Covenant social protocol evaluation framework.
 
 ## Contents
 

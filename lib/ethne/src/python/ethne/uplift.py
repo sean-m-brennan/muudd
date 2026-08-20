@@ -30,6 +30,11 @@ These artifacts cross the boundary, and nothing else:
 5. **The member roll** — `member_roll` publishes who belongs, which is what makes
    KC's anonymous whistleblower channel real. KC models communities and speakers,
    not members; this tier models members.
+6. **The rite** — `intra_rite` turns the polity's own five-movement ceremony into
+   the records KC's intra-community rite is held to: a reciter delegation, a witness
+   registry, and the drafted recitation. Without it a polity could be identified in
+   KC and never admitted to a compact, because KC's inter-community ceremony takes a
+   sealed intra rite as its input.
 
 Every artifact crosses as **JSON**, which a KC-side consumer appends to its own
 log verbatim; each function here has a `*_dict` twin that parses it for
@@ -46,6 +51,7 @@ from ethne import _core
 from ethne.authoring import Signer
 
 FissionOutcome = _core.FissionOutcome
+RiteHandoff = _core.RiteHandoff
 FusionOutcome = _core.FusionOutcome
 
 
@@ -108,6 +114,38 @@ def member_roll(
     return archive.member_roll(
         polity_did, root_priv, root_pub, as_of, published_at
     )
+
+
+def intra_rite(
+    archive,
+    polity_did: str,
+    inductor_did: str,
+    root_priv: bytes,
+    root_pub: bytes,
+    at: Optional[int] = None,
+) -> RiteHandoff:
+    """The records KC's intra-community rite is held to: `reciter`, `witnesses` and
+    `recitation`, each JSON.
+
+    The polity's **Inductor** recites, because the office that presides over the
+    polity's own rite is the office that carries one across the border; KC's `Envoy`
+    scope is for representation and deliberately not this. The **attendees** witness:
+    the members present for every movement of the polity's own rite, so the KC record
+    answers to the people who were there rather than to whoever holds a key. The five
+    movements are drafted from the charter, and the polity's in-force commitment keys
+    travel into Movement 4 verbatim, which is what lets KC grade a compact of polities
+    against the object each one actually holds.
+
+    A rite is not mintable from nothing: an error unless a rite of the polity's stands
+    complete as of `at`, unless `inductor_did` holds the Inductor office and has been
+    inducted, and unless the polity has commitments in force.
+
+    Only the two authorizations are signed here, under the polity root. `recitation`
+    is unsigned on purpose — sealing it needs the reciter's key and every witness's,
+    which this seam does not hold. Feed it to KC's `IntraCommunityRiteRunner`, where
+    the reciter signs the recitation, each witness signs its own attestation, and the
+    runner seals."""
+    return archive.intra_rite(polity_did, inductor_did, root_priv, root_pub, at)
 
 
 def coherence_concern(
@@ -182,6 +220,16 @@ def delegation_dict(delegation_json: str) -> dict:
     return json.loads(delegation_json)
 
 
+def rite_dict(handoff: RiteHandoff) -> dict:
+    """An `intra_rite` handoff parsed for inspection, keyed as the handoff is. The
+    JSON strings themselves are what cross to KC."""
+    return {
+        "reciter": json.loads(handoff.reciter),
+        "witnesses": json.loads(handoff.witnesses),
+        "recitation": json.loads(handoff.recitation),
+    }
+
+
 def concern_dict(concern_json: Optional[str]) -> Optional[dict]:
     """`coherence_concern`'s output parsed, passing `None` through."""
     return None if concern_json is None else json.loads(concern_json)
@@ -190,6 +238,7 @@ def concern_dict(concern_json: Optional[str]) -> Optional[dict]:
 __all__ = [
     "FissionOutcome",
     "FusionOutcome",
+    "RiteHandoff",
     "coherence_concern",
     "community_identity",
     "concern_dict",
@@ -198,5 +247,7 @@ __all__ = [
     "fission",
     "fusion",
     "identity_dict",
+    "intra_rite",
     "member_roll",
+    "rite_dict",
 ]

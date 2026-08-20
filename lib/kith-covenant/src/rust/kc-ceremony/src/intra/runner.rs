@@ -146,6 +146,24 @@ impl<'a> IntraCommunityRiteRunner<'a> {
             ));
         }
 
+        // 4b. At least one witness who is not the speaker.
+        //
+        // A registry may legitimately seat the speaker: in a small community the person
+        // who recites this rite attends everyone else's. What it may not do is let that
+        // stand as the witnessing of their own. Measured before this rule, on the ethne
+        // border where it first appeared: a rite whose only internal witness was its own
+        // speaker sealed and archived clean.
+        if attestations
+            .iter()
+            .all(|a| a.payload.witness_did == recitation.payload.speaker_did)
+        {
+            return Err(KcError::Archive(
+                "intra-community rite is witnessed only by its own speaker: an attestation \
+                 to one's own recitation witnesses nothing"
+                    .into(),
+            ));
+        }
+
         // 5+6+7. Per-witness checks.
         for a in &attestations {
             if a.payload.recitation_cid != recitation.payload_cid {

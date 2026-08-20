@@ -415,7 +415,7 @@ so nothing invasive ships unmeasured:
    change.
 2. **Enforcement hook (gated).** From the KC→AT writer, gate the corresponding AT
    behavior on the policy flag via an AT-exposed hook (negotiation admission,
-   `repprocess.py` slash/exclusion). Invasive, so done second and always behind the
+   `repprocess.py` slash/exclusion). That is invasive, so it is done second and always behind the
    flag.
 
 The KC library already provides the base policy

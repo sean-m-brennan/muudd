@@ -51,8 +51,9 @@ carries load. The *inter*-community layer is a different problem
 and is governed by the thin-functional-domain pattern documented
 in [historical_cases.md "Convergence without shared
 culture"](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases).
-Kadesh, the Rhodian transmission, Mediterranean frontier norms,
-polycentric diplomatic immunity, the Red Crescent. The two
+Those cases are Kadesh, the Rhodian transmission, Mediterranean
+frontier norms, polycentric diplomatic immunity, and the Red
+Crescent. The two
 layers are treated separately in the section that follows. The
 creed analysis in the body of this document applies to the
 intra-community layer.

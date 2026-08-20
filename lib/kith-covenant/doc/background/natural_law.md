@@ -12,7 +12,7 @@ of them itself. The functional account derives a short list of forbearances from
 plus the circumstances of vulnerable parties; the compact claims that list as its own
 operative ground wherever it acts and consent has run out.
 
-Hence three things: a silence, a commitment, and a limit. First, the phrase
+Hence three things follow: a silence, a commitment, and a limit. First, the phrase
 "natural law" never appears in the voice of the compact itself, because a
 protocol that named it as its foundation would have ruled on the nature of
 the human person, which is the first-order metaphysical ruling the
@@ -216,9 +216,9 @@ The virtue list is structured as virtue followed by refusals, and the refusals
 are shape rather than limit. A party behaving in the spirit of a virtue
 generates further refusals as circumstances arise, and a party gaming the list
 stays inside the letter while violating the spirit, which third parties can
-see. Strip the framing and the refusals are exceptionless negative precepts. No
-attacks on life support. No interdiction of rescue vessels. No false-flag use
-of rescue markings. No collective punishment. No burning of archives. Each
+see. Strip the framing and the refusals are exceptionless negative precepts: no
+attacks on life support, no interdiction of rescue vessels, no false-flag use
+of rescue markings, no collective punishment, and no burning of archives. Each
 binds in every case, and each is satisfiable by refraining.
 
 This is the asymmetry of the tradition reproduced without the vocabulary. The

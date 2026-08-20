@@ -292,7 +292,7 @@ endpoint. The Hanse formally dissolved in stages thereafter.
 
 ### Lesson for kith-covenant
 
-Three sharp lessons. First, a confederation without taxation, military
+Three sharp lessons follow. First, a confederation without taxation, military
 authority, or permanent staff is brittle to external coercion when
 states arise that have all three. Kith-Covenant must answer what its
 *permanent capacity* is. Not "central authority" (the Hanse's absence
@@ -625,7 +625,7 @@ structures imposed on it.
 
 ### Lesson for kith-covenant
 
-Three lessons of unusual weight.
+Three lessons of unusual weight follow.
 
 First, the *sacred-substrate function* does not require Christianity
 specifically. The Kaianerekowa carried the same load that Christian
@@ -652,7 +652,7 @@ Post-violation reintegration (see protocol sketch in
 de-escalation when one party is in the grip of grief or rage,
 restitution-and-return paths.
 
-Third, and most uncomfortable. The Confederacy survived internal
+Third, and most uncomfortable, the Confederacy survived internal
 disputes for centuries but could not survive *being forced to take
 sides in an external existential war.* This is the failure mode
 kith-covenant most needs to confront. A compact has no answer to the
@@ -977,7 +977,7 @@ the 1929 Women's War when Igbo women protested the alien authority).
 The Aro Oracle was destroyed by British military expedition in
 1901-1902.
 
-**Assessment.** A mixed case. The Aro Oracle system involves a
+**Assessment.** This is a mixed case. The Aro Oracle system involves a
 sacred substrate (divine judgment) facilitating inter-community
 cooperation, *supporting* the thesis. But the Aro were also
 traders who profited from the authority of the oracle, and their
@@ -1430,7 +1430,7 @@ but the cooperation is real and the relationship is genuine. The full
 compact is the Mosaic tier. More is required, more is provided, and
 the institutional architecture is correspondingly deeper.
 
-The design implication. The kith-covenant founding documents should
+The design implication is that the kith-covenant founding documents should
 include a commons-compact template alongside the full-compact
 template, specifying the lighter substrate requirements, the
 available mechanisms, and the pathway (if any) from commons compact
@@ -1478,7 +1478,7 @@ Mitannian and Assyrian diplomatic correspondence (Amarna letters,
 mid-14th c.), and, the inheritance that matters for the later
 substrate tradition, in the Sinai covenant, which adopts the
 six-part suzerainty-treaty form for Israel's covenant with YHWH.
-The significance for the present argument. A diplomatic grammar
+The significance for the present argument is that a diplomatic grammar
 shared across radically different cosmologies operated reliably
 for centuries before any of the substrates later discussed in
 this document came into being. Convergence on the *form* did not

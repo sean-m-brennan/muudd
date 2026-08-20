@@ -269,7 +269,7 @@ across community boundaries.
 
 ## Costly signaling
 
-A final body of theory worth marking. **Costly signaling**,
+A final body of theory is worth marking. **Costly signaling**,
 introduced in evolutionary biology by Amotz Zahavi (1975) and applied
 to economics and politics by Michael Spence (1973) and others,
 addresses how parties communicate trustworthy information when cheap

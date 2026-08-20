@@ -938,7 +938,7 @@ Law. The Hanse presupposed cities that already participated in the
 Baltic trade network. In every case, the cooperation framework
 organized and protected something that already existed.
 
-The practical implication. The first kith-covenant compacts
+The practical implication is that the first kith-covenant compacts
 must be formed among communities that *already* meet the
 preconditions. That already acknowledge a Creator, already hold
 pro-human and pro-cooperation orientations, and already
@@ -1015,18 +1015,18 @@ sacred-equivalent commitments *emerge* in the communities that hold
 substrate, and it refuses to desecrate what emerges. It never
 specifies what the emergent content must be.
 
-The distinction is load-bearing in three places. First, the
+The distinction is load-bearing in three places. Consider first the
 never-target categories. Rescue is the strongest candidate for
 sacred-equivalent status because every party is simultaneously
 potential donor and beneficiary, but the compact protects rescue
 as a common virtue and lets its sacredness accrue through
 practice. A decreed sacredness would be civil religion, the
-degenerate form. Second, the restoration paths. The
+degenerate form. Consider second the restoration paths. The
 restitution-and-return architecture of the compact follows the
 Christian penance tradition and the Iroquois condolence
 tradition without legislating either. Each community brings its
 own theology of repair to a protocol shape both traditions
-recognize. Third, the ceremonies. Re-affirmation occasions are
+recognize. Consider third the ceremonies. Re-affirmation occasions are
 protected by protocol (their time, their witnesses) while their
 content belongs to each community.
 
@@ -1045,8 +1045,8 @@ frame even when they are losing. This assumption is necessary as a
 *default* but it is not universally true, and the rest of the
 design of kith-covenant has not adequately addressed the cases
 where it fails. The gap is real. There are actors whose
-orientation toward the compact is not competitive but destructive.
-Defectors not from this or that commitment but from the very
+orientation toward the compact is not competitive but destructive:
+defectors not from this or that commitment but from the very
 premise. The classical Roman legal tradition has the right name
 for this category: ***hostis humani generis***, "enemy of
 humankind." Originally applied to pirates (adversaries who operate
@@ -1077,7 +1077,7 @@ limits that travel with it, in [natural_law.md "The ground the
 compact claims for
 itself"](natural_law.md#the-ground-the-compact-claims-for-itself).
 
-A note on the Schmittian connection before developing the category.
+A note on the Schmittian connection is due before developing the category.
 Carl Schmitt's friend/enemy distinction (*Der Begriff des Politischen*,
 1932) holds that the political is constituted by the
       friend/enemy distinction, that politics exists where there

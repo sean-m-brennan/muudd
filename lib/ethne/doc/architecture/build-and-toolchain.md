@@ -142,7 +142,7 @@ interpreter, not an argument.
 **Never run `cargo clippy --fix` on `en-pyo3`.** The `#[pyfunction]` /
 `#[pymethods]` expansion emitted an identity `PyErr -> PyErr` conversion, which
 clippy reported as `useless_conversion` once per exported function, 73 of them.
-Every span pointed at a function's `PyResult<...>` return type and no body of
+Every span pointed at the `PyResult<...>` return type of a function and no body of
 ours contained an `.into()`, so `--fix` offers to "apply 73 suggestions" and
 would be editing return types. The premise was checked against
 `pyo3-macros-backend/src/quotes.rs::ok_wrap` rather than the changelog, which
@@ -159,7 +159,7 @@ the claim worth making. Not that the report is clean, but that nothing is
 hiding.
 
 The tuple-heavy returns are worth naming for a reason beyond the lint. A row
-that crosses the Python seam in both directions, once as a getter's return and
+that crosses the Python seam in both directions, once as the return of a getter and
 once as a parameter, has to agree with itself element for element, and a bare
 tuple repeated in two signatures is a contract nothing states.
 
@@ -202,7 +202,7 @@ effectively untested as a link target. `build.rs` compensates with
 those `PUBLIC` on the AT side.
 
 `protobuf` was missing from that default list while `build.rs`'s own comment
-named it, so `--features at-ffi` **could not link at all**. Two consequences
+named it, so `--features at-ffi` **could not link at all**. Two consequences are
 worth carrying. A default list and a comment that disagree is a build that fails
 for a reason nobody reads, and this failure looked like an AT bug rather than an
 ethne one.
@@ -228,7 +228,7 @@ evidence would have shipped a flaky suite.
 file and `pkill -f autonomous_trust` afterward. A stopped daemon also leaves
 subsystem processes running (AT `ISSUES.md` §2.1.3); this tier live test kills
 the ones it caused, identifying them exactly, since AT forks without exec and so
-an orphan's `/proc/<pid>/exe` is the test binary itself.
+the `/proc/<pid>/exe` of an orphan is the test binary itself.
 
 **Fixtures must not hold a single monitor.** D19's retention floor counts
 distinct *watchers* per member since D28, so a fixture whose observations all

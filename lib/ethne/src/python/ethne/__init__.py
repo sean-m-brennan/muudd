@@ -32,7 +32,7 @@ Six modules, following the tier's own shape:
   event stream into that candidate, and the change stream a host observes it through.
 - `ethne.host` — what a host does on a cadence: `HostCycle.tick` returns the duties
   owed, and `HostCycle.grade` is the safe form of `cohesion_report`.
-- `ethne.uplift` — the four artifacts that cross to kith-covenant.
+- `ethne.uplift` — the artifacts that cross to kith-covenant.
 
 The governing discipline shows up in the API: a proposal carries no authority, so
 `propose_charter` only returns JSON and `ratify_charter` needs a majority of the
@@ -141,9 +141,11 @@ from ethne.host import (
 from ethne.uplift import (
     FissionOutcome,
     FusionOutcome,
+    RiteHandoff,
     coherence_concern,
     community_identity,
     envoy_delegation,
+    intra_rite,
     member_roll,
     fission,
     fusion,
@@ -247,9 +249,11 @@ __all__ = [
     # uplift
     "FissionOutcome",
     "FusionOutcome",
+    "RiteHandoff",
     "coherence_concern",
     "community_identity",
     "envoy_delegation",
+    "intra_rite",
     "member_roll",
     "fission",
     "fusion",

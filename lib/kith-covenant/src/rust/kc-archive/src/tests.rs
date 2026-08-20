@@ -11455,6 +11455,32 @@ mod sealed_rite {
     }
 
     #[test]
+    fn a_rite_witnessed_only_by_its_own_speaker_is_refused() {
+        // The archive half of the ceremony rule, so it is a property of the record
+        // rather than a convention of the runner. A hand-built rite reaches this pass
+        // and nothing else.
+        let now = time::now();
+        let c = mk_community("Alpha", now);
+        let mut r = rite(&c, now, false, &recited(), RecitationVersion::current());
+        let self_att = IntraCommunityRiteRunner::attest(
+            &c.speaker_did,
+            &c.speaker_priv,
+            r.payload.recitation.payload_cid,
+            now,
+        )
+        .unwrap();
+        let mut payload = r.payload.clone();
+        payload.internal_witnesses = vec![self_att];
+        r = Signed::build(payload, &[(c.signed_identity.payload.did.as_str(), &c.root_priv)])
+            .unwrap();
+        let err = appended(r, now, &c).expect_err("a self-witnessed rite must be refused");
+        assert!(
+            format!("{err}").contains("witnessed only by its own speaker"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
     fn a_rite_declaring_a_version_the_recitation_does_not_is_refused() {
         let now = time::now();
         let c = mk_community("Alpha", now);

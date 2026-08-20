@@ -29,23 +29,23 @@ crossed*, or *whether a deadline has passed*, it is machine work.
 
 ## What software carries
 
-Identity and credentials, being cryptographic proofs that a community authorized
+Identity and credentials are cryptographic proofs that a community authorized
 an envoy, standing tokens with explicit issuance time and half-life and decay
 curves, and revocation propagation with priority over unexpired tokens.
 
-The audit commons, being an append-only log, cryptographically immutable and
+The audit commons is an append-only log, cryptographically immutable and
 distributed-redundant, with selective disclosure that lets different observers see
 different layers.
 
-The escalation-ladder state machine, being dispute registration, rung tracking,
+The escalation-ladder state machine covers dispute registration, rung tracking,
 automatic timeouts, quorum signatures, ratification thresholds, and restitution
 workflows.
 
-The decision-class router, enforcing first-class against second-class decisions
-cryptographically, and self-protecting because reclassification is itself
+The decision-class router enforces first-class against second-class decisions
+cryptographically, and protects itself because reclassification is itself
 second-class.
 
-The commons drawdown ledger, tracking consumption, threshold proximity,
+The commons drawdown ledger tracks consumption, threshold proximity,
 proportional-contribution accounting, and threshold-crossing alerts.
 
 Reputation propagation, being a gossip protocol with eventual consistency,
@@ -196,9 +196,9 @@ becomes legible.
 
 One is answered through a separate research artifact, being *the machine model*.
 
-And three are scoped without being solved. *Detection under light-lag, opacity,
-and mimicry*. *Colonialism and the frontier asymmetry*. And *the bootstrap
-condition*, at both the human layer, where a compact must form among communities
+And three are scoped without being solved. The first two are *detection under
+light-lag, opacity, and mimicry* and *colonialism and the frontier asymmetry*.
+The third is *the bootstrap condition*, at both the human layer, where a compact must form among communities
 that already meet its preconditions, and the machine layer, where machines carry
 first-contact back to principals rather than authorizing anything new.
 

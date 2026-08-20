@@ -14,6 +14,18 @@ members = [
     "src/rust/examples/polity_host",
 ]
 
+# `examples/recognition_handoff` is deliberately NOT a member. It is the border
+# composition, so it needs `kc-archive` and `kc-reputation`, and those two opt back in
+# to `kc-core`'s `source-protection` feature. Resolver-3 feature unification is
+# per-invocation across the selected packages, so a member that enables the feature
+# puts the §8 whistleblower crypto back into `en-core` for every `--workspace` build,
+# which is the leak `kith-covenant/doc/architecture/whistleblower-crypto.md` warns
+# about: an opt-out is only as good as the least careful crate on the path. Excluded,
+# it carries its own workspace and its own resolution, so the crypto is in the graph
+# that genuinely needs it and in no other. `run-tests.sh` builds and runs it by
+# `--manifest-path`.
+exclude = ["src/rust/examples/recognition_handoff"]
+
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
@@ -77,8 +89,13 @@ kc-conduct = { path = "../kith-covenant/src/rust/kc-conduct" }
 # KC identity records. Decision D14 (offices in use): naming who may speak for the
 # polity produces KC's envoy `SpeakerDelegation`, so `en-uplift` — and only
 # `en-uplift` — also speaks this crate's language. The confinement rule is
-# unchanged: two KC-record deps, both stopping at the uplift boundary.
+# unchanged by it: every KC-record dep stops at the uplift boundary.
 kc-identity = { path = "../kith-covenant/src/rust/kc-identity" }
+
+# KC ceremony records. `en-uplift` emits the intra rite a polity hands KC, so the
+# confinement boundary now holds three KC-record deps rather than two. The rule is the
+# boundary, not the count, and the measured closure cost of this one is a single crate.
+kc-ceremony = { path = "../kith-covenant/src/rust/kc-ceremony" }
 
 # Internal ethne crates (prefix `en-`).
 en-core = { path = "src/rust/en-core" }

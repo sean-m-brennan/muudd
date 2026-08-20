@@ -425,7 +425,7 @@ community-visible audit commons, where commendations and censures of
    by the guardian is witnessed as an oath that is substrate-referent,
    community-witnessed, and generationally re-affirmed (see
    [../background/recognition_protocols.md](../background/recognition_protocols.md)).
-   Not merely civil-contractual.
+   It is not merely civil-contractual.
 2. **Community as operative third party.** How the community
    receives machine conduct is part of the active operation of the
    mechanism, not just a reputational side-effect.
@@ -549,7 +549,7 @@ Y. If Y is outside KC entirely, machine standing
 dissolves at the boundary. This parallels [exit and
 succession](../background/exit_and_succession.md) at the community layer.
 
-**Fan-out amplification.** One guardian, many machines. The conduct
+**Fan-out amplification.** One guardian may hold many machines. The conduct
 of each machine carries guardian standing, and misbehavior by
 any one reflects on the guardian and on all siblings. The audit
 commons surfaces fan-out explicitly, the community may set fan-out

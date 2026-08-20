@@ -69,27 +69,27 @@ properties the compact looks for in member communities, because their absence
 reliably produces one specific failure: the *purity spiral*, in which competitive
 virtue-signaling escalates until the community starts purging its own.
 
-Firstly, a *universal fallen-actor anthropology*. Everyone is fallen, including
-the most virtuous member. The line between good and evil runs through each
+Firstly, a *universal fallen-actor anthropology* holds that everyone is fallen,
+including the most virtuous member. The line between good and evil runs through each
 person rather than between groups. This forecloses the us-pure and them-impure
 move that purity spirals depend on.
 
-Second, *grace over merit*. Standing is received rather than earned. That makes
+Second, *grace over merit* means that standing is received rather than earned. That makes
 competitive virtue-signaling incoherent, since if virtue is a gift there is no
 status to compete for.
 
-Third, *scapegoat-revelation or a functional equivalent*. Some mechanism that
-disarms the social reflex of resolving group anxiety by exiling somebody.
+Third, *scapegoat-revelation or a functional equivalent* supplies a mechanism
+that disarms the social reflex of resolving group anxiety by exiling somebody.
 Christianity has the cross. Buddhism has *anatta* together with universal
 compassion. The Iroquois have the Condolence ceremony.
 
-Fourth, *enemy-love as an operational norm*. This is a structural constraint
-rather than a sentiment. The community owes moral seriousness to the person
+Fourth, *enemy-love as an operational norm* is a structural constraint rather
+than a sentiment. The community owes moral seriousness to the person
 actually in front of it, regardless of category, which blocks the in-group and
 out-group compression that purity spirals run on.
 
-Lastly, *non-ultimacy of the political community*. The compact is not the highest
-thing, and something stands in judgement over it.
+Lastly, *non-ultimacy of the political community* means the compact is not the
+highest thing, and that something stands in judgement over it.
 
 These are not theological claims the compact endorses. They are observable
 patterns it looks for.

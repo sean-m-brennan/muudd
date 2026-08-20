@@ -32,6 +32,7 @@ struct Fixture {
     root_priv: PrivKey,
     speaker_did: DidKey,
     speaker_priv: PrivKey,
+    speaker_pubkey: kc_core::PubKey,
     delegations: Vec<Signed<SpeakerDelegation>>,
     witness_registry: Signed<WitnessRegistry>,
     witnesses: Vec<(DidKey, PrivKey)>,
@@ -91,12 +92,12 @@ fn mk_fixture(name: &str, n_witnesses: usize) -> Fixture {
     )
     .unwrap();
 
-    let _ = speaker_pk;
     Fixture {
         community,
         root_priv,
         speaker_did,
         speaker_priv,
+        speaker_pubkey: speaker_pk,
         delegations: vec![delegation],
         witness_registry,
         witnesses,
@@ -348,6 +349,70 @@ fn sealed_record_roundtrips_through_cbor() {
     let decoded: Signed<IntraCommunityRiteRecord> =
         kc_core::canonical::from_canonical_cbor(&bytes).unwrap();
     assert_eq!(sealed, decoded);
+}
+
+/// A rite attested only by the person who recited it is not witnessed.
+///
+/// Found on the ethne border, where a polity's `Inductor` recites the KC rite and the
+/// witnesses are the attendees of the polity's own ceremony, a set the Inductor may
+/// well be in. Measured before the rule: it sealed and archived clean.
+#[test]
+fn a_rite_witnessed_only_by_its_own_speaker_is_refused() {
+    let f = mk_fixture("Alpha", 1);
+    let draft = draft_recitation(&f.community.payload.did, &f.speaker_did, f.now);
+    let rec = IntraCommunityRiteRunner::recite(&f.speaker_did, &f.speaker_priv, draft).unwrap();
+    // The speaker is ALSO seated as an internal witness, which is what the border
+    // measurement produced: a polity's Inductor attends another member's rite and is
+    // therefore among the attendees the registry names.
+    let mut reg = f.witness_registry.payload.clone();
+    reg.entries.push(kc_identity::WitnessEntry {
+        witness_did: f.speaker_did.clone(),
+        witness_pubkey: f.speaker_pubkey.clone(),
+        role: WitnessRole::IntraCommunity,
+        valid_from: f.now,
+        valid_until: None,
+    });
+    let reg = Signed::build(reg, &[(f.community.payload.did.as_str(), &f.root_priv)]).unwrap();
+    let runner = IntraCommunityRiteRunner::new(&f.community, &f.delegations, &reg);
+    let att = IntraCommunityRiteRunner::attest(&f.speaker_did, &f.speaker_priv, rec.payload_cid, f.now);
+    let att = att.expect("the speaker can attest; what it cannot do is be the only one");
+    let err = runner
+        .seal(rec, vec![att], &f.root_priv, f.now)
+        .expect_err("a self-witnessed rite must be refused");
+    assert!(format!("{err}").contains("witnessed only by its own speaker"), "{err}");
+}
+
+/// The control that keeps the rule from being a prohibition on the speaker attending.
+/// A small community's reciter attends everyone else's rite; what it may not do is be
+/// the only witness to its own.
+#[test]
+fn the_speaker_may_witness_alongside_another() {
+    let f = mk_fixture("Alpha", 1);
+    let draft = draft_recitation(&f.community.payload.did, &f.speaker_did, f.now);
+    let rec = IntraCommunityRiteRunner::recite(&f.speaker_did, &f.speaker_priv, draft).unwrap();
+    let mut reg = f.witness_registry.payload.clone();
+    reg.entries.push(kc_identity::WitnessEntry {
+        witness_did: f.speaker_did.clone(),
+        witness_pubkey: f.speaker_pubkey.clone(),
+        role: WitnessRole::IntraCommunity,
+        valid_from: f.now,
+        valid_until: None,
+    });
+    let reg = Signed::build(reg, &[(f.community.payload.did.as_str(), &f.root_priv)]).unwrap();
+    let runner = IntraCommunityRiteRunner::new(&f.community, &f.delegations, &reg);
+    let mine =
+        IntraCommunityRiteRunner::attest(&f.speaker_did, &f.speaker_priv, rec.payload_cid, f.now)
+            .unwrap();
+    let theirs = IntraCommunityRiteRunner::attest(
+        &f.witnesses[0].0,
+        &f.witnesses[0].1,
+        rec.payload_cid,
+        f.now,
+    )
+    .unwrap();
+    runner
+        .seal(rec, vec![mine, theirs], &f.root_priv, f.now)
+        .expect("a speaker among other witnesses is not the defect");
 }
 
 #[test]

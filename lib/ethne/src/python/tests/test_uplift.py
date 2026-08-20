@@ -14,7 +14,7 @@
 
 """The artifacts that cross to kith-covenant, as JSON: the identity handoff, the
 coherence Concern, the two lifecycle changes (fission and fusion), the envoy
-delegation, and the member roll."""
+delegation, the member roll, and the rite."""
 from __future__ import annotations
 
 import json
@@ -29,6 +29,8 @@ from ethne.authoring import (
 )
 from ethne.uplift import (
     coherence_concern,
+    intra_rite,
+    rite_dict,
     community_identity,
     concern_dict,
     delegation_dict,
@@ -335,3 +337,96 @@ def test_a_roll_needs_the_polity_root_key(polity):
     with pytest.raises(RuntimeError, match="does not match"):
         member_roll(polity.archive, polity.did, other_priv, other_pub, as_of=300)
 
+
+# --- The rite ------------------------------------------------------------------
+#
+# The artifact whose absence stopped a polity from being admitted to a compact at
+# all: KC's inter-community ceremony takes a sealed intra rite as its input, and the
+# border emitted no reciter delegation and no witness registry, so there was nothing
+# to seal.
+
+COMMITMENTS = (("mutual-aid", "we carry each other"), ("truthfulness", "we do not lie"))
+
+
+@pytest.fixture
+def reciting(found):
+    """A polity with commitments, an Inductor, and one complete rite standing.
+
+    The Inductor attends the rite as well, which is the ordinary case in a small
+    polity and the one the border has to handle: the attendees are the witnesses, and
+    the reciter cannot be among them.
+    """
+    p = found(4, commitments=COMMITMENTS)
+    inductor = p.founders[0]
+    confer_office(p.archive, p.did, "Inductor", inductor, p.quorum(as_of=300),
+                  rationale="presides over the rite", decided_at=300)
+    p.renew(p.founders[1], at=400, attending=[inductor, p.founders[2]],
+            commitments=[k for k, _ in COMMITMENTS])
+    p.archive.check_authority()
+    return p, inductor
+
+
+def test_the_inductor_recites_and_the_attendees_witness(reciting):
+    p, inductor = reciting
+    handoff = rite_dict(intra_rite(p.archive, p.did, inductor.did, p.priv, p.pub, at=500))
+
+    delegation = handoff["reciter"]["payload"]
+    assert delegation["community_did"] == p.did
+    assert delegation["speaker_did"] == inductor.did
+    assert delegation["scope"] == "Reciter", "the Envoy scope is representation, not recital"
+
+    registry = handoff["witnesses"]["payload"]
+    seated = {entry["witness_did"] for entry in registry["entries"]}
+    # The other attendee witnesses; the reciter does not witness its own recitation.
+    assert seated == {p.founders[2].did}
+    assert all(entry["role"] == "IntraCommunity" for entry in registry["entries"])
+
+
+def test_the_recitation_carries_the_polity_s_own_commitments(reciting):
+    p, inductor = reciting
+    handoff = rite_dict(intra_rite(p.archive, p.did, inductor.did, p.priv, p.pub, at=500))
+    recitation = handoff["recitation"]
+
+    assert recitation["speaker_did"] == inductor.did
+    assert recitation["movement_substrate"] == "answers to what it did not author"
+    recited = [c["key"] for c in recitation["movement_common_virtue"]["commitments"]]
+    assert recited == [k for k, _ in COMMITMENTS]
+    # Unsigned on purpose: the reciter holds that key, and this seam does not.
+    assert "signatures" not in recitation
+
+
+def test_a_member_who_holds_no_inductor_office_may_not_recite(reciting):
+    p, _inductor = reciting
+    with pytest.raises(RuntimeError, match="holds no Inductor office"):
+        intra_rite(p.archive, p.did, p.founders[3].did, p.priv, p.pub, at=500)
+
+
+def test_a_rite_is_not_mintable_from_a_ceremony_nobody_performed(found):
+    """A polity that has held no rite of its own cannot hand KC one. The office is
+    conferred and the commitments are in force; what is missing is the ceremony."""
+    p = found(4, commitments=COMMITMENTS)
+    inductor = p.founders[0]
+    confer_office(p.archive, p.did, "Inductor", inductor, p.quorum(as_of=300),
+                  decided_at=300)
+    with pytest.raises(RuntimeError, match="no complete rite stands"):
+        intra_rite(p.archive, p.did, inductor.did, p.priv, p.pub, at=500)
+
+
+def test_a_polity_with_no_commitments_recites_no_movement_four(found):
+    """KC refuses a Movement 4 that commits to nothing, so the border refuses first
+    rather than drafting one KC will reject."""
+    p = found(4)
+    inductor = p.founders[0]
+    confer_office(p.archive, p.did, "Inductor", inductor, p.quorum(as_of=300),
+                  decided_at=300)
+    p.renew(p.founders[1], at=400, attending=[inductor, p.founders[2]])
+    p.archive.check_authority()
+    with pytest.raises(RuntimeError, match="no commitments in force"):
+        intra_rite(p.archive, p.did, inductor.did, p.priv, p.pub, at=500)
+
+
+def test_a_rite_needs_the_polity_root_key(reciting):
+    p, inductor = reciting
+    other_priv, other_pub, _did = e.generate_keypair()
+    with pytest.raises(RuntimeError, match="does not match"):
+        intra_rite(p.archive, p.did, inductor.did, other_priv, other_pub, at=500)

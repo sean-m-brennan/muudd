@@ -275,9 +275,9 @@ The precise formulation: **Westphalia initiated the institutional
 trajectory whose mature form was the nineteenth-century European
 state system**, and the specific 1648 provisions encoded several of
 the load-bearing features of that system (formal equality among
-sovereigns in the Imperial-Estates system. The right of alliance.
-The amnesty-and-restoration architecture. The guarantor mechanism.
-The compulsory-negotiation provision), but the 1648 texts themselves
+sovereigns in the Imperial-Estates system, the right of alliance,
+the amnesty-and-restoration architecture, the guarantor mechanism,
+and the compulsory-negotiation provision), but the 1648 texts themselves
 did not fully articulate the principles the 19th century retroactively
 attributed to them. The trajectory is real. The myth of an
 instantaneous 1648 revolution in international order is not.
@@ -537,11 +537,11 @@ commitment against the late-modern slide.
 
 **Compulsory negotiation before force, amnesty-and-restoration,
 and guarantor mechanisms are real Westphalian institutional
-innovations that kith-covenant can adopt**. The three-year
-negotiation window before armed escalation. The amnesty clauses
-automatically restoring territorial status absent prosecution.
-The explicit guarantor role for external parties invited into
-the treaty text. These are mechanisms whose effectiveness in the
+innovations that kith-covenant can adopt**. They are the three-year
+negotiation window before armed escalation, the amnesty clauses
+automatically restoring territorial status absent prosecution, and
+the explicit guarantor role for external parties invited into the
+treaty text. These are mechanisms whose effectiveness in the
 *jus publicum* is well-attested, and they are transferrable to
 inter-community protocol of kith-covenant.
 
@@ -733,7 +733,7 @@ stronger institutions that performed overlapping functions:
 
 ### Lesson for kith-covenant
 
-Three sharp lessons.
+Three sharp lessons follow.
 
 First, **a substrate-only enforcement regime can work at scale
 across polities that share no common government, provided the
@@ -1500,9 +1500,9 @@ witnesses on the later arbitrator model.
 
 Second, **the escalation ladder with face-saving exits at every
 rung is the structural pattern**. The specific rungs of the duel
-(challenge. Negotiation between seconds. Apology options.
-Meeting- conditions negotiation. Meeting itself. Deloping.
-Acknowledged outcome) each provided an exit at which honor could
+(challenge, negotiation between seconds, apology options,
+meeting-conditions negotiation, the meeting itself, deloping, and
+acknowledged outcome) each provided an exit at which honor could
 be satisfied short of escalation to the next rung. The
 escalation protocols of Kith-Covenant
 ([bounded_conflict.md](bounded_conflict.md#escalation-ladders))
@@ -1539,10 +1539,10 @@ conflict) is given institutional form that makes the commitment
 operative across polities.
 
 **Second, each case has a named path to restitution and
-return**. The amnesty clauses of Westphalia. The penances and
-formal reconciliation of the Peace of God; *Verhansung* with
-defined re-admission. The restitution requirements of the *lex
-mercatoria*. The honor-satisfied formula of the duel. Each is a
+return**. They are the amnesty clauses of Westphalia; the penances
+and formal reconciliation of the Peace of God; *Verhansung* with
+defined re-admission; the restitution requirements of the *lex
+mercatoria*; and the honor-satisfied formula of the duel. Each is a
 structural provision for restoring a violating party to standing
 once the violation is addressed, through amnesty, penance, and
 restitution. The confession-restitution-return architecture is
@@ -1562,10 +1562,10 @@ honor-bearing peers before, during, and after the meeting. The
 across all five cases.
 
 **Fourth, each case has a load-bearing institution external to
-but recognized by the sovereign**. Westphalia. External
+but recognized by the sovereign**. Westphalia: external
 guarantor powers, the Imperial structure of the Diet that the
-Emperor could not dissolve, the permanent diplomatic corps.
-Peace of God. The episcopate and the monastic networks. Hanse:
+Emperor could not dissolve, and the permanent diplomatic corps.
+Peace of God: the episcopate and the monastic networks. Hanse:
 the Hansetag and the *Kontore*. Lex mercatoria: the merchant
 forums and the consular-court traditions. Codes duello: the
 seconds and the procedural community of the honor code. The
@@ -1784,8 +1784,8 @@ The failure modes for this feature in Christendom history are
 significant: Divine-right monarchy (claim that the sovereign
 *is* the representative of the ultimate in such a way that
 resistance is sin); state-churches that collapsed church into
-state. Modern civil-religious nationalism that treats the nation
-as quasi-divine. These are all Christian-ish betrayals of the
+state; and modern civil-religious nationalism that treats the
+nation as quasi-divine. These are all Christian-ish betrayals of the
 feature. Each was substantially resisted by some strand of the
 tradition (the two-swords doctrine against caesaropapism; the
 Huguenot and other Reformed traditions against divine-right
@@ -1853,8 +1853,8 @@ non-Christian analogues. The combination of all five in developed
 form is what the Christendom cases instantiate.
 
 **Third, the failure modes are betrayals rather than absences**.
-Intra-Christian violence, colonial selectivity, Crusading
-externalization. Each is a failure of Christian actors to apply
+They are intra-Christian violence, colonial selectivity, and
+Crusading externalization. Each is a failure of Christian actors to apply
 the anti-spiral features their substrate supplies, not an
 absence of the features in the substrate. This is the same form
 of failure visible in the Buddhist nationalism cases, and it
@@ -1900,9 +1900,9 @@ Several lessons gain additional specificity:
 **From Westphalia.** Formal equality among members must be
 structurally protected against combined action by a subset of
 members (against the Polish-partitions failure mode). The
-compact must include a credible procedural defense. Standing
-objection rights. External guarantors invited in the text.
-Compulsory consultation before armed action by any members
+compact must include a credible procedural defense: standing
+objection rights, external guarantors invited in the text, and
+compulsory consultation before armed action by any members
 against any other. The text of the compact, guarantors, and
 registration mechanism should be at least as operationally real
 as the Westphalian instruments.
@@ -1949,7 +1949,7 @@ application of recognition machinery to all encountered parties.
 - The Westphalian partitions of Poland demonstrate a specific
   failure mode (combined action by a subset against another
   member) that the *jus publicum* had no institutional answer
-  to. What is the strongest available institutional answer.
+  to. What is the strongest available institutional answer?
   External guarantors? Standing third-party intervention?
   Mandatory dispute resolution before action? Procedural
   invalidation of territorial transfers absent consent? And how

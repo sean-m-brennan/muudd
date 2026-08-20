@@ -3597,6 +3597,18 @@ fn authorize_intra_rite(record: &IntraCommunityRiteRecord) -> KcResult<()> {
                 .into(),
         ));
     }
+    if !record.internal_witnesses.is_empty()
+        && record
+            .internal_witnesses
+            .iter()
+            .all(|a| a.payload.witness_did == record.recitation.payload.speaker_did)
+    {
+        return Err(KcError::Authority(
+            "sealed rite is witnessed only by its own speaker: an attestation to one's own \
+             recitation witnesses nothing"
+                .into(),
+        ));
+    }
     if record.version_of_rite != record.recitation.payload.version {
         return Err(KcError::Authority(format!(
             "sealed rite declares version {} while the recitation it holds declares {}",

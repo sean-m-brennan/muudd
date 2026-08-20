@@ -20,3 +20,13 @@ kc-core = { workspace = true }
 kc-conduct = { workspace = true }
 # Likewise for KC's envoy delegation (D14). Both KC-record deps stop here.
 kc-identity = { workspace = true }
+# KC's ceremony records. The third KC-record dep and the confinement rule is unchanged:
+# what the rule protects is that these stop HERE, not how many there are. Measured
+# closure cost: exactly one crate. `kc-ceremony` depends on `kc-core`, `kc-identity`,
+# serde, thiserror and jiff, every one of which this crate already carried.
+#
+# It is here because the border artifact for a rite IS a KC ceremony record. Emitting
+# the delegation and the registry from this crate and leaving the recitation to be
+# assembled elsewhere would hand KC half an artifact and put the mapping of the
+# polity's Movement 4 onto KC's outside the tier that owns it.
+kc-ceremony = { workspace = true }

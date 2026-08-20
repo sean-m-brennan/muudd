@@ -51,7 +51,7 @@ capture as exception. The strengthening moves below treat
 capture as the standing condition that operational practice must
 resist by structural design.
 
-A second implication. Capture resistance is not solely a
+A second implication follows. Capture resistance is not solely a
 protocol-layer concern. It operates at the substrate, protocol,
 and implementation layers, which are respectively internal
 community practice, the compact mechanisms, and the software
@@ -59,8 +59,8 @@ that carries the protocol. Effective capture resistance
 interlocks across all three. A protocol layer with strong
 capture resistance built on substrate communities that have been
 individually captured fails. A substrate layer with healthy
-practice running on a captured implementation fails. And so on.
-The architecture below is layered.
+practice running on a captured implementation fails, and so on for
+every other combination. The architecture below is layered.
 
 ## The seven strengthening moves
 

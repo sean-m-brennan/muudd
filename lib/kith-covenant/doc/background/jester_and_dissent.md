@@ -72,7 +72,7 @@ information channel.
 Enid Welsford (*The Fool*, 1935) traces the fool tradition back
 to the Roman *mimus* and the Germanic *scop*, and forward to the
 Shakespearean fool (Feste, Touchstone, and the Fool in Lear) and
-the modern satirist. The structural constant across all
+the modern satirist. One structural constant holds across all
 variants. The fool speaks from a position of apparent weakness
 (he has no power, no office, no authority) but actual
 informational strength (he sees what others see but names what

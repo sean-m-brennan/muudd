@@ -89,5 +89,23 @@ echo "=== python src/python/examples/polity_host.py ==="
 python src/python/examples/polity_host.py >/dev/null
 echo "  ✓ exit 0"
 
+# The border in both directions: two ethne polities emit their identities, envoys,
+# rolls and rites, and kith-covenant admits them to one compact. The only place in
+# either tree where the two tiers' records meet at runtime.
+#
+# By `--manifest-path` because this example is NOT a workspace member: it needs
+# `kc-archive`, which opts back in to `kc-core`'s `source-protection`, and feature
+# unification would put the §8 crypto back into `en-core` for every `--workspace`
+# build. See the exclusion comment in the root manifest.
+HANDOFF=src/rust/examples/recognition_handoff/Cargo.toml
+echo
+echo "=== cargo test --manifest-path $HANDOFF ==="
+cargo test --manifest-path "$HANDOFF" "$@"
+
+echo
+echo "=== cargo run --manifest-path $HANDOFF ==="
+cargo run --quiet --manifest-path "$HANDOFF" >/dev/null
+echo "  ✓ exit 0"
+
 echo
 echo "=== all checks passed ==="

@@ -129,7 +129,7 @@ harder to game because the point is not "stay on the legal side of the
 line" but "do not want the thing the rule forbids."
 
 From a virtue-centered society, harming life *even of a just enemy* is a
-no-go zone. Not because it is forbidden. Because a community that has
+no-go zone, not because it is forbidden but because a community that has
 cultivated the relevant disposition does not consider the act live in its
 option space in the first place. The rule-framed formulation ("attacks on
 medical personnel are prohibited") is downstream of the virtuous
@@ -320,7 +320,7 @@ Design implications for kith-covenant:
   between the foundation (which must not shift) and the building
   (which must adapt).
 
-The uncomfortable corollary. The kith-covenant commitments are
+The uncomfortable corollary is that the kith-covenant commitments are
 enforceable only in communities where the virtue-frame itself is
 intelligible. Against a pure rule-optimizer, kith-covenant can
 only impose reputational and relational cost, not rule-based

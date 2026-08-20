@@ -2,7 +2,7 @@
 
 # Machines as delegates
 
-Some of the parties here are software. Instrument controllers, navigation aides,
+Some of the parties here are software: instrument controllers, navigation aides,
 communications mediators, and eventually general-capability agents. A compact
 that governs communities across light-lag will be operated substantially by
 machines, because a decision that has to wait forty minutes for a human is not a

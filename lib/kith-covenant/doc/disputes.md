@@ -22,10 +22,10 @@ would make every rung a step toward it.
 ## Two choices that distinguish this from a rules system
 
 *Common virtues rather than non-negotiable rules.* The protected categories of
-the compact are stated as dispositions rather than prohibitions. Reverence for
-life. Sanctuary of rescuers. The communicative commons. Passage for travelers.
-Innocence of non-combatants. Inheritance of future generations. Memory of the
-dead. Good faith of confession.
+the compact are stated as dispositions rather than prohibitions. They are
+reverence for life, sanctuary of rescuers, the communicative commons, passage for
+travelers, innocence of non-combatants, inheritance of future generations, memory
+of the dead, and good faith of confession.
 
 The reason is that virtue-based standards are harder to game than rule-based
 ones. Rules invite optimization against the letter, which is how combatants get
@@ -197,8 +197,8 @@ internal life of a community, or on citations naming nothing.
 
 Recognizable in every long-running historical case is a third place between
 communities, drawing its authority from the compact rather than from any member.
-The Iroquois Council Fire. The Hanseatic *Kontore*. The pie-powder courts. The
-free ports. The Geneva of the Red Cross.
+The cases are the Iroquois Council Fire, the Hanseatic *Kontore*, the pie-powder
+courts, the free ports, and the Geneva of the Red Cross.
 
 The version here is the distributed mediator pool plus shared physical
 infrastructure, being docking stations at Lagrange points, communications relays,

@@ -55,16 +55,16 @@ communities.
 Ask instead how strangers have historically come to *fight within limits*.
 Answer that, and invert each ingredient.
 
-Bounded conflict requires four things. Mutual recognition of the other as a
-legitimate peer, rather than as a criminal, a heretic, or vermin. Symmetric rules
-that bind both sides. Protected channels, being envoys, the wounded, and
-communications, that the conflict does not touch. And a defined ending that lets
-both sides return to standing.
+Bounded conflict requires four things. Firstly, the parties recognize each other
+as legitimate peers, rather than as criminals, heretics, or vermin. Second,
+symmetric rules bind both sides. Third, protected channels for envoys, the
+wounded, and communications stay outside the conflict. Lastly, a defined ending
+lets both sides return to standing.
 
-Invert each and the primitives of cooperation fall out. Standing-recognition
-baselines. Procedures that apply equally regardless of size or wealth.
-Never-target categories, being life support, rescue, children, and
-communications. And termination procedures that include re-entry.
+Invert each and the primitives of cooperation fall out: standing-recognition
+baselines; procedures that apply equally regardless of size or wealth;
+never-target categories, being life support, rescue, children, and
+communications; and termination procedures that include re-entry.
 
 The classical name for the legitimate-peer-enemy relation is *justus hostis*.
 Kith-Covenant borrows the structure and applies it to communities that are not
@@ -85,7 +85,7 @@ authority the swearer treats as exceeding the compact costs something real in a
 dimension that compact-internal enforcement cannot reach. The compact is
 structurally forbidden the role of that authority.
 
-Lastly, the filter. *A community qualifies for full membership only if its own
+Lastly comes the filter. *A community qualifies for full membership only if its own
 tradition carries five features* that historically block the loyalty-cascade
 failure. Members can fail, including the virtuous ones. Virtue is received rather
 than earned. Victim-selection as communal hygiene is refused. Moral obligation

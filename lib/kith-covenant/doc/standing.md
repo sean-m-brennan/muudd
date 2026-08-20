@@ -37,8 +37,8 @@ requiring referral to a human.
 ## The second tier inside anathema
 
 Within anathema sits a second and extremely rare tier, being *hostis humani
-generis* proper, the classical enemy of humankind. Pirates, slavers, and actors
-standing outside every cooperative framework.
+generis* proper, the classical enemy of humankind. It covers pirates, slavers,
+and actors standing outside every cooperative framework.
 
 Three things distinguish it. The evidentiary threshold is higher still. Re-entry
 does not meaningfully arise. And the presumption is always anathema first.

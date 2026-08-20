@@ -384,10 +384,11 @@ purity-spiral mechanism:
    enemy-love traditions supply partial functional equivalents. Substrates
    that lack any form of this feature (that treat victim-selection as simply
    what a healthy community does to its traitors) fail decisively.
-4. **Enemy-love as operational norm.** Not sentiment, structural constraint.
-   The Samaritan moment generalized. Moral seriousness is owed to the person
-   actually before you regardless of which side designated whom as enemy.
-   Blocks the in-group/out-group compression that purity spirals weaponize.
+4. **Enemy-love as operational norm.** This is not sentiment but a structural
+   constraint, the Samaritan moment generalized. Moral seriousness is owed to
+   the person actually before you regardless of which side designated whom as
+   enemy, which blocks the in-group/out-group compression that purity spirals
+   weaponize.
 5. **Non-ultimacy of the political community.** The *polis* (and the compact)
    cannot be the ultimate, because it is not what the community
    commitments are for. Already encoded in the fifth movement of our
@@ -403,7 +404,7 @@ in their most developed combination by historical Christianity (a
 historical observation, not a theological claim), and other traditions
 supply partial combinations of varying depth (Judaism's *teshuva* plus
 fallen-actor anthropology; Buddhism's compassion plus anatta-dissolution of
-competitive virtue; Haudenosaunee condolence. Mature Sufi Islam. Various
+competitive virtue; Haudenosaunee condolence; mature Sufi Islam; and various
 indigenous traditions with strong guest/stranger obligations). **Kith-covenant
 requires the features. It does not require the theology that most fully
 supplies them**.
@@ -661,21 +662,21 @@ This section enumerates the social components of the compact before
 developing each. We name six, in the order they typically come into play for
 a pair of interacting communities:
 
-1. **Escalation ladders** (§6.2). Graduated rungs from démarche through
+1. **Escalation ladders** (§6.2): graduated rungs from démarche through
    rupture, replacing the binary peace/war distinction. Each rung costs more
    than the last and offers a dignified exit.
-2. **Two-layer recognition** (§6.3): intra-community authorization rite on
-   envoys. Inter-community thin grammar and credentialing across the
+2. **Two-layer recognition** (§6.3): an intra-community authorization rite on
+   envoys, plus inter-community thin grammar and credentialing across the
    boundary.
 3. **The four categories** (§6.4): members, *justus hostis*, anathema
    (including the rare *hostis humani generis* subclass), and
    non-members-encountered.
 4. **Liminal institutions** (§6.5): third places, the mediator pool, the
-   observer corps, emergency roles. Capture-resistant institutions that live
-   between member communities.
+   observer corps, and emergency roles, all of them capture-resistant
+   institutions that live between member communities.
 5. **Commons governance** (§6.6): Ostrom's design principles applied, plus
    the *tragedy of the virtues* (spirit-gaming, not just overuse).
-6. **Common virtue and the jester** (§6.7). Virtue as disposition rather
+6. **Common virtue and the jester** (§6.7): virtue as disposition rather
    than rule, plus the protected dissent that keeps the compact from
    becoming its own ultimate.
 
@@ -704,10 +705,10 @@ two-party conflict escalates faster than three-party conflict.
 Kith-covenant inherits this architecture with two specific overlays. The
 **common-virtue overlay** (§6.7) frames the rungs as virtue-violations with
 restitution paths rather than as prohibited acts with sanctions. The
-**restitution-and-return commitment** that the fallen-actor anthropology
-demands. Every rung of the ladder must have an attached restoration procedure
-by which a violating community, having completed restitution, is restored to
-its prior standing. The ladder we build is reversible along every rung
+**restitution-and-return commitment** that the fallen-actor anthropology demands
+requires every rung of the ladder to carry an attached restoration procedure, by
+which a violating community, having completed restitution, is restored to its
+prior standing. The ladder we build is reversible along every rung
 except the rarely-invoked *hostis humani generis* designation (§6.4).
 
 ### 6.3 Recognition. Two layers
@@ -893,16 +894,16 @@ the observer corps, the emergency-procedure roles) sit in the space
 between member communities and carry the collective functions of the
 compact where no single community has authority.
 
-Our institutional design draws on five historical precedents,
-beginning with the Haudenosaunee Council Fire at Onondaga. The
-Hanseatic *Kontore* in London and Bergen and Novgorod. The
-pie-powder courts of English fair law. The temple precincts of the
-ancient Near East. And the free ports of the early modern
-Mediterranean. Common structural features. Mediator selection by
-lot and rotation among willing members to resist capture. Witnessed
-proceedings with published reasoning so factional coordination
-becomes visible. The Onondaga principle of **separating power from
-memory.** The community hosting the council fire (Onondaga) was not
+Our institutional design draws on five historical precedents:
+the Haudenosaunee Council Fire at Onondaga, the Hanseatic *Kontore*
+in London and Bergen and Novgorod, the pie-powder courts of English
+fair law, the temple precincts of the ancient Near East, and the
+free ports of the early modern Mediterranean. They share three
+structural features. Mediators are selected by lot and rotate among
+willing members, which resists capture. Proceedings are witnessed
+and their reasoning published, so factional coordination becomes
+visible. And the Onondaga principle **separates power from
+memory**: the community hosting the council fire (Onondaga) was not
 the community with the decisive voice on matters. The compact
 should imitate this.
 
@@ -922,7 +923,7 @@ giving clear boundaries, proportional equivalence between benefits
 and contributions, collective-choice arrangements, monitoring,
 graduated sanctions, low-cost conflict resolution, recognition of
 rights to organize, nested enterprises. One addition we cannot
-ignore. The **tragedy of the virtues**. A commons can be polluted
+ignore is the **tragedy of the virtues**. A commons can be polluted
 by optimization-against-spirit as readily as by overuse. A party
 that honors the letter of every commons rule while gaming every
 margin damages the commons differently from a party that overfishes
@@ -1176,10 +1177,10 @@ oath-binding does in one experiential move.
 
 The binding separates into three facets, and we must carry all three.
 
-**Facet 1. Engineering.** Bounded operational surface. Tuned re-attestation
-cadence. Named trust roots whose failure modes are explicit. Weight-drift
-detection with windows calibrated to maximum-damage-over-window.
-Capability-gating keyed to attestation. Largely implementation-ready. The
+**Facet 1. Engineering.** This facet covers a bounded operational surface, a
+tuned re-attestation cadence, named trust roots whose failure modes are explicit,
+weight-drift detection with windows calibrated to maximum-damage-over-window, and
+capability-gating keyed to attestation. It is largely implementation-ready. The
 remaining work is engineering choices under named assumptions.
 
 **Facet 2. Guardianship.** The human side of the binding is
@@ -1196,8 +1197,8 @@ Implementation requirements we draw from this frame:
 - **Vouching by track-record.** Weights are opaque. The audit commons is
   the observability surrogate. Tooling must make track-record inspection
   tractable for a lay guardian.
-- **Fan-out caps per guardian**, with standing-weight that decays past the
-  cap. A guardian of a thousand machines has thinned vouching to
+- **Fan-out caps per guardian** come with standing-weight that decays past
+  the cap. A guardian of a thousand machines has thinned vouching to
   near-nothing.
 - **Fiduciary-duty tooling.** Conflict-of-interest disclosure. Attendance
   proofs as a care requirement. Correction channel audit-logged as an
@@ -1205,7 +1206,7 @@ Implementation requirements we draw from this frame:
 - **Community-visible guardian standing.** Commendations and censures of
   *guardians*, not only of machines, are part of the permanent record.
 
-Three extensions where KC exceeds ordinary guardianship. The guardian
+Three extensions take KC past ordinary guardianship. The guardian
 acceptance is witnessed as an **oath** (substrate-referent,
 community-witnessed, generationally re-affirmed); the **community is an
 operative third party**, not a side-effect. And the guardianship coupling is
@@ -1221,12 +1222,13 @@ preserved, revival only via subsequent transfer ceremony);
 guardian-fall (capability revocation propagates automatically,
 held-pending until restoration or transfer); guardian-absence
 (attendance proofs required, progressive capability decay with audit
-surfacing). Community departure (guardian moves to community Y).
-Machine standing moves with the guardian. Cross-community transfer
-required if Y is a KC community. Dissolution at the boundary if Y is
-outside KC. Fan-out amplification. Each machine conduct carries the
-guardian standing. Misbehavior by any one reflects on siblings.
-Standing-weight decays with fan-out. The audit commons surfaces the
+surfacing). Community departure moves the guardian to community Y,
+and machine standing moves with the guardian. A cross-community
+transfer is required if Y is a KC community, and the coupling
+dissolves at the boundary if Y is outside KC. Fan-out amplifies, so
+each machine's conduct carries the guardian standing, misbehavior by
+any one reflects on siblings, and standing-weight decays with
+fan-out. The audit commons surfaces the
 fan-out explicitly.
 
 **The binding is as strong as the weakest facet**. Well-engineered machines
@@ -1825,8 +1827,8 @@ to build.
    The jester function is protocol-level support for emergence
    rather than dictation; Movement 5 of the recognition ceremony
    forecloses the compact from becoming its own ultimate.
-3. **The M2M model** is *answered* (§§7 to 8). The reduction and
-   non-emergence claims. The handshake and authority envelope. The
+3. **The M2M model** is *answered* (§§7 to 8): the reduction and
+   non-emergence claims, the handshake and authority envelope, and the
    ratchet rule.
 4. **Demonic detection under light-lag, opacity, and perfected
    mimicry** is *scoped* (§8.5). The design bounds damage by

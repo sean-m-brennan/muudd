@@ -1,0 +1,33 @@
+# Its own workspace, on purpose.
+#
+# This crate composes the two tiers, so it depends on `kc-archive` and `kc-reputation`,
+# and both opt back in to `kc-core`'s default-off `source-protection` feature. Cargo
+# unifies features across the packages selected in one invocation, so as an ethne
+# workspace member this crate would put the §8 whistleblower crypto back into `en-core`
+# for every `cargo build --workspace`, undoing a property that tier measured and holds
+# (`kith-covenant/doc/architecture/whistleblower-crypto.md`). Standing alone, it
+# resolves its own graph and leaves ethne's untouched.
+#
+# Nothing is inherited, because there is no parent to inherit from. The versions and
+# the paths below are the ethne workspace's, kept in step by hand; the paths reach into
+# both trees because that is exactly what this example is about.
+[workspace]
+
+[package]
+name = "recognition_handoff"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+en-core = { path = "../../en-core" }
+en-archive = { path = "../../en-archive" }
+en-charter = { path = "../../en-charter" }
+en-uplift = { path = "../../en-uplift" }
+kc-core = { path = "../../../../../kith-covenant/src/rust/kc-core" }
+kc-identity = { path = "../../../../../kith-covenant/src/rust/kc-identity" }
+kc-ceremony = { path = "../../../../../kith-covenant/src/rust/kc-ceremony" }
+kc-archive = { path = "../../../../../kith-covenant/src/rust/kc-archive" }
+kc-reputation = { path = "../../../../../kith-covenant/src/rust/kc-reputation" }

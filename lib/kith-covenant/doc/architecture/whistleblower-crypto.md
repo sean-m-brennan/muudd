@@ -266,7 +266,7 @@ nonce commitments the verifier can only reconstruct from the challenges. Carryin
 bytes a bit and makes the check acyclic.
 
 **It is not succinct.** About 15 KB per bound proof, verification linear in the bit width.
-Affordable for periodic accounting on a replicated archive, and not for anything
+It is affordable for periodic accounting on a replicated archive, and not for anything
 high-volume. The figure is asserted in a test so it cannot drift.
 
 **Points from untrusted input are checked for torsion**, which the signature paths do not
@@ -380,10 +380,26 @@ expectation:
   flag; the four crates that need the feature (`kc-archive`, `kc-observer`, `kc-pyo3`,
   `kc-reputation`) opt back in by name.
 
-The second point is also why `kc-conduct` and `kc-identity` opt out on the *KC* side.
-Neither uses ring or custody, but ethne reaches both through `en-uplift`, and feature
-unification means one crate enabling the default would restore the crypto to ethne's
-entire graph. An opt-out is only as good as the least careful crate on the path.
+The second point is also why `kc-conduct`, `kc-identity` and `kc-ceremony` opt out on
+the *KC* side. None of the three uses ring or custody, but ethne reaches all three
+through `en-uplift`, and feature unification means one crate enabling the default would
+restore the crypto to ethne's entire graph. An opt-out is only as good as the least
+careful crate on the path.
+
+**And a new crate is the least careful one by default.** The rule was stated here
+before anything had tested it; ethne D35 then added
+`examples/recognition_handoff`, the composition where a polity's border artifacts pass
+through KC's rites, which needs `kc-archive` to append and `kc-reputation` to read. Both
+opt back in, and Cargo unifies features across the packages selected in one invocation,
+so as an ethne workspace member that example put `chacha20poly1305` and its seven
+companions straight back into `en-core` for every `cargo build --workspace`. Nothing
+warned: per-package closures still measured 53 crates, and `maturin develop` selects
+only `en-pyo3`, so no deployment path regressed and no test failed. The example is
+therefore **excluded** from the ethne workspace and carries its own, resolving its own
+graph; the test runner builds and runs it by `--manifest-path`. The general shape is
+worth keeping in view. A feature opt-out is a property of a *resolution*, not of a
+manifest, so it has to be re-measured whenever the set of selected packages changes,
+and adding a crate changes that set.
 
 ## Where the code is
 
@@ -398,6 +414,7 @@ entire graph. An opt-out is only as good as the least careful crate on the path.
 | `insider_keys` / `insider_keys_upto`, `mediator_encryption_keys` + the authority rules | `src/rust/kc-archive/src/authority.rs` |
 | `source_tag`, `exculpations`, `distinct_sources_by_accused`, `anonymity_set_by_community` | `src/rust/kc-reputation/` |
 | The polity-tier feed (border artifact #6) | `ethne/src/rust/en-uplift/src/lib.rs` |
+| The tier-crossing composition, and why it is outside ethne's workspace | `ethne/src/rust/examples/recognition_handoff/Cargo.toml` |
 | Python surface | `src/python/kith_covenant/authoring.py` |
 | Worked example incl. every refusal | `src/python/examples/observer_demo.py` |
 

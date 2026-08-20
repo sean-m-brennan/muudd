@@ -58,12 +58,12 @@ detailed treatment can be read against them:
    the kind of cross-polity cooperation is a real and durable
    achievement of a different form.
 
-The document proceeds. Methodological note. Three regime analyses on
-the Christian-cases template (Founding context / Mechanism / Output /
-Decay / Lesson). Cross-regime comparison on the metrics used for the
-Christian cases. The five anti-spiral features applied to the sangha.
-Verdict on the Christian-particularist and catholic readings. Lessons
-for kith-covenant. Open questions. References.
+The document proceeds through a methodological note; three regime
+analyses on the Christian-cases template (founding context, mechanism,
+output, decay, lesson); a cross-regime comparison on the metrics used
+for the Christian cases; the five anti-spiral features applied to the
+sangha; a verdict on the Christian-particularist and catholic readings;
+lessons for kith-covenant; open questions; and references.
 
 ## Methodological note. What is being compared
 
@@ -126,7 +126,7 @@ political subjugation for several centuries. These are the
 episodes on which the sangha most directly bears on the design
 question of kith-covenant.
 
-A note on voluntariness. Some of the durability of the sangha
+One note on voluntariness is due. Some of the durability of the sangha
 has rested on royal patronage, state Buddhism, and
 state-enforced monastic regulation. Chinese state control of
 ordination certificates from Tang forward, the Tokugawa temple
@@ -803,7 +803,7 @@ those metrics.
   than the Theravada, on a par with or somewhat more voluntary
   than the East Asian.
 
-Verdict on voluntariness. All three regimes have enough voluntariness
+The verdict on voluntariness is that all three regimes have enough voluntariness
 in the cross-polity dimension to qualify under the
 noticeable_hand.md filter, though the Theravada regime is the
 cleanest instance.
@@ -844,7 +844,7 @@ peer cooperation and hierarchical authority.
   is not a subordination. The Tibetan lama retains authority within
   his own sphere even when he resides at the Mongol or Qing court.
 
-Verdict on peer-ness. All three regimes are peer-cooperation-like at
+The verdict on peer-ness is that all three regimes are peer-cooperation-like at
 the sangha level. The lay-polity cooperation they enable is mediated
 through the sangha rather than being direct sovereign-to-sovereign
 cooperation in the Westphalian sense. This is the most important
@@ -877,7 +877,7 @@ duello ~300, Peace of God ~200 as movement). The Theravada is
 longer than the Roman Catholic monastic orders combined (Benedictines
 ~1500 years).
 
-Verdict on longevity. The Buddhist regimes are the longest-running
+The verdict on longevity is that the Buddhist regimes are the longest-running
 cross-polity cooperation institutions in the comparison set. This is
 the sharpest single piece of evidence against the strong
 Christian-particularist reading.
@@ -965,8 +965,8 @@ The operative formulation from
 [justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)
 specifies that a substrate must supply five features whose combination
 blocks the purity-spiral failure mode: universal fallen-actor
-anthropology. Grace over merit. Scapegoat-revelation or functional
-equivalent. Enemy-love as operational norm. Non-ultimacy of the
+anthropology, grace over merit, scapegoat-revelation or a functional
+equivalent, enemy-love as an operational norm, and non-ultimacy of the
 political community.
 
 ### (1) Universal fallen-actor anthropology

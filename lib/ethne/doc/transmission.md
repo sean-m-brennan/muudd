@@ -45,7 +45,7 @@ tier, which places them at precisely this layer and says they carry their full
 content here.
 
 They are naming, acknowledgment, recognition, commitment, and submission. In
-full: the naming of the substrate, the acknowledgment of fallenness, the
+full, they are the naming of the substrate, the acknowledgment of fallenness, the
 recognition of others as peers, the commitment to the common virtues as
 dispositions, and the submission of the polity itself, which is not the
 ultimate.

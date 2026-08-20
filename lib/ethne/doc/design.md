@@ -250,8 +250,19 @@ Ethne emits only KC-native artifacts, so KC stays oblivious to the tier
 
 - a standard **`CommunityIdentity`** (root DID + delegation graph). The chartered
  polity as a KC-recognizable party;
-- **recognition artifacts** for the authorized envoys/machines of the polity
-  (produced by the induction rite);
+- an envoy **`SpeakerDelegation`** for whoever the polity has authorized to speak
+  for it (**D14**), and only while that authorization is in force. The one border
+  artifact an *office* produces;
+- a **`MemberRoll`**, which is what makes KC's anonymous whistleblower channel real.
+  KC models communities and their delegated speakers, so without a roll an insider
+  holding no delegation is not in the insider ring at all. This tier is what models
+  membership, so it is the feed;
+- the **rite** KC holds the polity to (**D35**): a `Reciter` delegation naming the
+  polity's `Inductor`, a witness registry naming the attendees of the polity's own
+  ceremony, and the recitation drafted from the charter, carrying the polity's own
+  commitment keys as Movement 4. KC seals it and its inter-community ceremony takes
+  the sealed record as input, so without this a polity is identifiable in KC and
+  admissible to no compact;
 - a **`Concern`** when the cohesion monitor finds *soft coherence erosion*,
   the jester pre-indictment flag KC already routes. `Concern` carries
   **early warning**, not a fission verdict (a `Concern` is about conduct,
@@ -492,7 +503,7 @@ KC cannot see on its own and AT cannot decide on its own.
   machine-participation node→guardian→standing. **Prerequisite (see Q9).** D8
   assumes AT advertises, per node, a verifiable *operator-attended* signal
   (which nodes have a human behind them). That signal does not yet exist on the
-  wire and must be built in AT first. The counterpart to the subtree-roster
+  wire and must be built in AT first. It is the counterpart to the subtree-roster
   capability that grounds D7.
 - **D9. `CommunityIdentity` is a shared `kc-core` primitive (locked
   2026-07-24).** The upward handoff (D4) requires both tiers to speak the
@@ -1285,7 +1296,7 @@ KC cannot see on its own and AT cannot decide on its own.
  corroboration and is welcome to it; what is no longer free is *claiming* one.
 
  **The honest limits.**
- - Still **accountability, not prevention**. A captured reader that signs a
+ - This is still **accountability, not prevention**. A captured reader that signs a
  gerrymandered boundary still charters one. What changes is that the lie is
  attributable to a named key forever, and that the parties it omitted can
  contradict it on the record: the D21 negligence-versus-fraud distinction taken
@@ -1872,7 +1883,8 @@ KC cannot see on its own and AT cannot decide on its own.
  *forked*. A polity archive was left permanently unreadable **with no repair path
  in the crate at all**, which is the worst state in the tier. The log is the
  evidence.
- 2. **A stale host compacting.** The silent one, and the one that decided the slice.
+ 2. **A stale host compacting.** This was the silent one, and the one that decided
+ the slice.
  Host A appended two entries and fsynced them; host B, which had never seen them,
  pruned and therefore rewrote. B's save returned `Ok(rewrote)`, the reload succeeded
  and was well-formed, `verify_all` and `check_authority` were both green, and A's
@@ -2050,7 +2062,7 @@ KC cannot see on its own and AT cannot decide on its own.
  path a demo silently stopped taking goes unnoticed for three slices. Both were caught by
  building the mirror rather than by reading the code.
 
- **Honest limits.** Legibility, not prevention. A caller who omits `ground`
+ **Honest limits.** This is legibility, not prevention. A caller who omits `ground`
  still loses the Concern, and `blind_to_concern` only lets the report be read
  for what it is. Nothing makes a hand-assembled grade complete, because
  refusing a partial one would break every legitimate comparison and buy nothing
@@ -2295,6 +2307,103 @@ KC cannot see on its own and AT cannot decide on its own.
  itself it is fresh.
 
 
+- **D35. The rite crosses the border, because a polity KC could identify could never be
+ admitted.**
+ The design had filed the envoy recognition rites as a KC-tier slice: KC holds the
+ ceremonies, ethne hands it a `CommunityIdentity`, and what was left was a handoff on
+ KC's side of the line. Measuring the composition found that reading exactly half
+ right. The identity half already worked, with no changes to either tier: a polity's
+ `CommunityIdentity`, its envoy `SpeakerDelegation` and its `MemberRoll` append to a KC
+ archive, verify, and pass `check_authority`. The rite half did not exist. KC's
+ `IntraCommunityRiteRunner::seal` requires a `Reciter` delegation and a witness
+ registry, and the border emitted one delegation scoped `Envoy` and no registries at
+ all, so no `IntraCommunityRiteRecord` could be produced, and **KC's inter-community
+ ceremony takes a sealed intra rite as its input**. A polity was therefore identifiable
+ in KC and unadmittable to any compact. The missing records were ethne's to emit, not
+ KC's to invent, because they are claims about who presided over the polity's own
+ ceremony and who was there, and no tier but this one holds that.
+
+ *The `Inductor` recites.* The office that presides over the polity's own rite is the
+ office that carries one across the border. KC's `Envoy` scope is representation and is
+ deliberately not this, so a polity that has authorized a speaker has not thereby
+ authorized a reciter. The caller names the holder and the emitter checks the standing,
+ as `envoy_delegation` does, because an office may have several holders and choosing
+ one of them inside the emitter would put an arbitrary order where an authorization
+ belongs.
+
+ *The attendees witness.* The witnesses are the members present for every movement of
+ the polity's last complete rite, which is the set `Rite::attended_throughout()` already
+ reports, so the KC record answers to the people who were actually there rather than to
+ whoever holds a key. **The reciter is struck from that set.** Ethne draws the line
+ inside each rite already, where a member's attendees are the roll minus themselves, and
+ the border keeps it: the `Inductor` may well have attended the rite whose attendees
+ these are, and an attestation to one's own recitation is worth nothing.
+
+ *A rite is not mintable from nothing.* The emission is refused unless a rite of the
+ polity's stands complete, unless the `Inductor` holds the substrate it is about to
+ recite, and unless the polity has commitments in force, since a Movement 4 that
+ recites nothing is not a Movement 4. What is deliberately **not** re-derived is the
+ content. This tier's authority pass already binds movement 1 to the charter's
+ substrate, movement 4 to exactly the in-force commitment keys, and movement 5 to the
+ charter's anchor, so in an authorized archive the charter *is* what was recited, and
+ checking it again at the border would be a second copy of somebody else's rule.
+
+ *The commitment keys travel, and nothing translates them.* Ethne's
+ `Commitment { key, description }` and KC's `Commitment { key, text }` are the same
+ shape, so a polity's in-force commitments become KC's Movement 4 verbatim. That is
+ what lets KC's recited-object reading grade a compact of polities against the object
+ each one actually holds rather than against a taxonomy the protocol fixed.
+
+ *Signatures stay with whoever holds the keys.* The two authorizations are signed under
+ the polity root, which the caller supplies; the recitation crosses **unsigned**.
+ Sealing it needs the reciter's key and every witness's, and the emitter holds neither,
+ so whoever runs the ceremony signs. That is the same division
+ `IntraCommunityRiteRunner` already draws for any KC community, and the border gets no
+ exemption from it.
+
+ **A KC defect the border surfaced.** With the reciter left in the witness set, the
+ first composition produced a rite whose only internal witness was the speaker who had
+ just recited it, and KC **sealed it and archived it clean**. KC required at least one
+ internal witness and never asked whether the witness was the speaker. The border keeps
+ the reciter out, and KC now refuses such a rite twice, in the ceremony runner and again
+ in the archive's authority arm, so it is a property of the record rather than a
+ convention of one code path. The control that keeps this from becoming a prohibition on
+ the speaker attending at all: a speaker who witnesses **alongside** another is
+ accepted, which is the ordinary case in a small community.
+
+ *Where the coupling landed.* `kc-ceremony` joins the confined set at `en-uplift`,
+ which now holds three KC-record deps rather than two. The rule the confinement protects
+ is that they stop at the uplift boundary, not how many there are, and the measured cost
+ of this one is a single crate in the closure. The composition itself, which needs
+ `kc-archive` to append and `kc-ceremony`'s runners to seal, lives in an ethne example
+ rather than a library crate. It cannot live on the KC side at all: KC must not depend
+ on ethne.
+
+ *And the example is not a workspace member, which measuring found was not optional.*
+ `kc-archive` and `kc-reputation` opt back in to `kc-core`'s default-off
+ `source-protection` feature, and Cargo unifies features across the packages selected
+ in one invocation, so as a member this example put the §8 whistleblower crypto back
+ into `en-core` for every `cargo build --workspace`: `chacha20poly1305` and the seven
+ crates reached only through it, the exact set a KC slice had removed and measured
+ (61 crates down to 53). Per-package closures never moved and no deployment path
+ regressed, because `maturin develop` selects only `en-pyo3`, which is why nothing
+ would have complained. The example carries its own workspace instead, so it resolves
+ its own graph, `run-tests.sh` builds and runs it by `--manifest-path`, and the
+ workspace-wide graph is back to holding no `chacha20poly1305` at all. This is the
+ second instance of the hazard KC's `whistleblower-crypto.md` states as a rule: an
+ opt-out is only as good as the least careful crate on the path, and a new crate is
+ the least careful one by default.
+
+ **Honest limits.** The border reads the polity's **last** complete rite, whatever its
+ kind, so a polity whose most recent ceremony was one member's renewal hands KC that
+ ceremony's attendees. That is the honest answer to "who was there", and it means the
+ registry a polity presents drifts as its rites do; republish as they do. Movements 2
+ and 3 carry nothing checkable at either tier, and the emitter invents no content for
+ them: what crosses is that they were performed. And this composes records, not
+ networks. Two polities are admitted to one compact in one process, over in-memory
+ archives, which is what the tier can be held to; nothing here has crossed a wire.
+
+
 ## Questions and resolutions (round 2)
 
 - **Q9. AT operator-attended signal (D8 prerequisite).** AT must expose, per
@@ -2391,12 +2500,12 @@ entry records the question and the decision that settled it.
  provider, and D22 does not pretend to. What it removes is anonymity. A boundary
  claiming a substrate reading must carry that reading, signed by the reader it
  names and bound to this founding, and the roll plus its exclusions must match what
- that signature shows. Identity, where D21 had only arithmetic against the report of the proposer itself. A gerrymandered boundary is therefore attributable to a
+ that signature shows. That is identity, where D21 had only arithmetic against the report of the proposer itself. A gerrymandered boundary is therefore attributable to a
  named key, permanently; `founding_legitimacy` reports which readers *agree* with
  what was ratified and which contradict it; and an eleventh entry lets the excluded
  say, unprunably and even after dissolution, that the accounting omitted them.
  The one claim the archive could never check for itself, since it holds no
- provider. Accountability, not prevention. The residue is **sockpuppet
+ provider. This is accountability, not prevention. The residue is **sockpuppet
  corroboration** (`did:key` is free), left as a stated limit on a lens rather than
  an authority rule, exactly as kith-covenant left capture move 1; independence
  attestation is the named successor.
@@ -2465,7 +2574,12 @@ Scope this design specifies that the code does not carry, together with the
 slices that follow from it, is listed in [`TODO.md`](../TODO.md). One boundary
 is worth naming here rather than there, because it is a division of labour and
 not a backlog item. The intra and inter ceremony rites for envoy recognition
-belong to KC, once KC holds the `CommunityIdentity` ethne hands it.
+belong to KC, and the records they are held to belong to this tier. KC holds the
+ceremonies, seals them, and enforces their scopes; ethne says who presided over
+the polity's own rite and who was there, because no other tier holds that. D35
+built the emission and measured the division: the identity half needed nothing
+from either tier, and the rite half needed a `Reciter` delegation, a witness
+registry and a recitation that only this tier could supply.
 
 Cross-references:
 [kith-covenant/doc/architecture/autonomous-trust-integration.md](../../kith-covenant/doc/architecture/autonomous-trust-integration.md),

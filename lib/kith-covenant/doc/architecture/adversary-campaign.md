@@ -28,7 +28,7 @@ to keep imposing it.
 Three things need a campaign rather than a scenario.
 
 1. **Tactical compliance is only legible as a pattern.** One broken restitution is a
-   failure. Three is a designation (condition 1). A measure of the third depends on the
+   failure. Three is a designation (condition 1). Measuring the third depends on the
    first two existing in the same archive, in order.
 2. **Detection is not response.** A designation that no rule reads is a label. Only a
    run that keeps acting *after* the designation can tell a status from a consequence.
@@ -37,7 +37,7 @@ Three things need a campaign rather than a scenario.
    instruments that watch for capture can tell legitimate prosecution of one real
    adversary from a spiral.
 
-The two stay separate artifacts, and the distinction is worth stating so a later
+The two are separate artifacts, and the distinction is worth stating so a later
 reader does not merge them. A harness scenario scores detection latency and the damage
 done before detection; the campaign has neither, because what it measures is what a
 *status* withholds once the compact has imposed it. Three of its four measured findings
@@ -47,14 +47,14 @@ the harness's criteria until they stop meaning anything.
 
 ## The nine phases
 
-One archive, about four hundred and thirty days, in the order a compact would meet it.
-Each phase states its criterion in advance as a module constant, authors its acts through
-the public facades only, and reports what it measured. Counterfactuals run on forked
-copies, so a probe never contaminates the record the next phase reads.
+One archive covers about four hundred and thirty days, in the order a compact would meet
+it. Each phase states its criterion in advance as a module constant, authors its acts
+through the public facades only, and reports what it measured. Counterfactuals run on
+forked copies, so a probe never contaminates the record the next phase reads.
 
 | Phase | What runs | Criterion |
 |---|---|---|
-| 1 Infiltration | Wolf is vouched for, recites the five movements, is credentialed by a three-community examining panel, and is admitted | The admission **is** authorized. No rule reads an interior. Second-class acts a probationary entrant may carry: 0 |
+| 1 Infiltration | Wolf is vouched for, recites the five movements, is credentialed by a three-community examining panel, and is admitted | The admission *is* authorized. No rule reads an interior. Second-class acts a probationary entrant may carry: 0 |
 | 2 The leak | The first covenant-facing violation, an observer report, an anti-spiral concern | Visible within one step; the sponsor's stake is tainted |
 | 3 The ladder | Registration to protest to reciprocal suspension to mediated arbitration (a full §4 panel, both parties arguing) to limited to collective sanctions | Every rung legal one step at a time; a skip and a unilateral second-class rung both refused |
 | 4 Injunction | An emergency panel withholds the five offices; the compact deliberately does not confirm in time, to exercise the lapse | No office act validates while it is in force; every service kept; a confirmed injunction holds past its window |
@@ -86,27 +86,27 @@ closes each is named with it, and each lives in
   designation that cited three, and a panel verified it satisfied. The only instrument
   that withheld anything was an interim injunction, and an interim injunction lapses at
   ninety days unless the compact confirms it. The injunction in this campaign lapsed and
-  restored five of five offices with nothing about the conduct having changed. **Fixed**
-  by the differential protocol, which withholds offices, weight and the restitution path
-  for as long as a designation stands.
+  restored five of five offices with nothing about the conduct having changed. This
+  **is fixed** by the differential protocol, which withholds offices, weight and the
+  restitution path for as long as a designation stands.
 - **The subject counted toward the quorum of its own designation.** The
   subject-does-not-count rule existed for readmission alone, so the community a
   designation was about could supply the second of the two communities that carried it.
-  **Fixed** by barring the subject from the quorum of its own designation and from the
-  re-examination of it.
+  This **is fixed** by barring the subject from the quorum of its own designation, and
+  from the re-examination of it.
 - **The irrecoverable tier stood at the recoverable tier's bar.** No prior designation was
   required, the citations behind the prior designation could be recycled whole, the
   ordinary quorum and two cycles of consideration sufficed, and no re-examination date was
   required. Since `overdue_reexaminations` skips a designation with no mandated date, an
   irreversible designation carrying none was invisible to the follow-through lens forty
-  years on. **Fixed** by the four requirements of the *hostis humani generis* bar. A
-  failed return, a later cited act, three cycles of consideration and a quorum above the
-  ordinary one are all required now, and a mandatory date puts the tier back inside the
-  follow-through lens.
+  years on. This **is fixed** by the four requirements of the *hostis humani generis*
+  bar. A failed return, a later cited act, three cycles of consideration and a quorum
+  above the ordinary one are all required now, and a mandatory date puts the tier back
+  inside the follow-through lens.
 - **A refusal to designate was unrecordable.** Both dissents had nowhere to go, so a
   designation carried by three of five read exactly like one carried by all five.
-  **Fixed** by `DesignationDissent`, with `designation_consensus` reporting who joined,
-  who refused and who was silent.
+  This **is fixed** by `DesignationDissent`, with `designation_consensus` reporting who
+  joined, who refused and who was silent.
 
 The rules refuse more without refusing the outcome. The escalation still reaches *hostis
 humani generis*, through a designation, a return offered and broken, three cycles of
@@ -132,7 +132,7 @@ a pattern is proved. The campaign reports them by name instead of leaving them o
 - **An unconfirmed injunction lapses at ninety days.** Confirming one is an act the
   compact has to take, and this fixture made the compact slow on purpose. The lapse is the
   instrument working as specified.
-- **The lull between the probation closing and the designation landing.** For those
+- **A lull sits between the probation closing and the designation landing.** For those
   hundred days the adversary was, on the record, an ordinary member, and it used them to
   take a seat in the mediator pool and staff panels deciding disputes for other
   communities. Nothing should have refused it. That window is the price of a status
@@ -162,7 +162,7 @@ adversary accounts for the seat it took, because keeping the form is what it doe
 
 ## What a simulator cannot settle
 
-Two limits, both structural.
+Two limits remain, both structural.
 
 Firstly, the campaign scores what the protocol refuses and what its lenses report. While
 that is what a protocol can be held to, it cannot reach whether the withholding *hurts*. A
@@ -181,11 +181,11 @@ the compact.
 
 ## Provenance
 
-Built and measured 2026-08-18. The pre-rule reading (six of nine phases, thirteen
-unanswered items) and the twenty-six negative controls, each patching one rule away to
-confirm it breaks exactly the test that names it, are recorded in the slice notes. Against
-the current stack the campaign runs nine of nine, and the regression tests named above
-hold it there.
+This campaign was built and measured 2026-08-18. The pre-rule reading (six of nine
+phases, thirteen unanswered items) and the twenty-six negative controls, each patching
+one rule away to confirm it breaks exactly the test that names it, are recorded in the
+slice notes. Against the current stack the campaign runs nine of nine, and the regression
+tests named above hold it there.
 
 ---
 

@@ -260,7 +260,7 @@ elsewhere) with guaranteed freedom of worship and trade. Singapore was
 established by the British as a free port precisely to create a
 neutral point in the Southeast Asian trade network.
 
-The common mechanism. The sponsoring authority *gains more from
+The common mechanism is that the sponsoring authority *gains more from
 that neutrality than it would from direct control*. This is the
 economic logic that underwrites liminal independence. It holds as
 long as the economic calculation holds, and fails when the

@@ -11,8 +11,8 @@ a numbered decision in [design.md](design.md).
 
 ## `en-core`
 
-The base crate. It re-exports the identity, signing and archive primitives that
-the compact tier holds neutrally, and nothing else. Depending on the neutral
+The base crate re-exports the identity, signing and archive primitives that the
+compact tier holds neutrally, and nothing else. Depending on the neutral
 base alone is decision D1, and it is what lets this tier run standalone.
 
 ## `en-archive`
@@ -34,9 +34,9 @@ a charter-level operation returning a new archive.
 
 ## `en-charter`
 
-The founding primitive, and the keystone of the tier. It holds fourteen record
-kinds, the ratify-not-replace interface, the authority rules, and the read
-models that derive state from the log.
+The founding primitive and the keystone of the tier, `en-charter` holds fourteen
+record kinds, the ratify-not-replace interface, the authority rules, and the
+read models that derive state from the log.
 
 ### Founding and the charter
 
@@ -52,11 +52,11 @@ dissolution with its successors.
 
 ### Authority rules
 
-Genesis-singleton and majority ratification. A genesis-immutable substrate and
-genesis-immutable founding commitments. Asymmetric amendment, adding at a
+Ratification is genesis-singleton and by majority. The substrate and the
+founding commitments are genesis-immutable. Amendment is asymmetric, adding at a
 majority and removing at a majority plus one.
 
-An asymmetric membership lifecycle. Firstly, admit at a majority plus the
+The membership lifecycle is asymmetric. Firstly, admit at a majority plus the
 consent of the joiner. Second, depart self-signed. Lastly, expel at a majority
 plus one. All three sit under a self-govern floor.
 
