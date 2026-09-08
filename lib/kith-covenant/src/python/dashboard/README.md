@@ -14,7 +14,7 @@ verdict; adjudication is the mediator pool's job. Nothing here writes to a
 commons.
 
 This prototype lives entirely inside the kith-covenant package (which is part of
-the `muudd` repo) and has **no dependency on the wider sustainable-space app**.
+the `muudd` repo) and has **no dependency on the wider continuous-space app**.
 
 ## Layout
 

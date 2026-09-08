@@ -171,8 +171,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--name",
-        default="sustainable-space-master",
-        help="name of the merged env (default: sustainable-space-master)",
+        default="continuous-space-master",
+        help="name of the merged env (default: continuous-space-master)",
     )
     args = parser.parse_args()
 

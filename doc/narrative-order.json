@@ -1,5 +1,5 @@
 {
-  "$comment": "Ordered reading chain for the MUUDD narrative. Paths are relative to the muudd repository root. Every document listed here carries a 'Previous' link at the top and a 'Next' link at the bottom, and the order below is authoritative for both. Consumed by the sustainable-space website build, which strips the navigation lines and lifts each document's lead section as its summary.",
+  "$comment": "Ordered reading chain for the MUUDD narrative. Paths are relative to the muudd repository root. Every document listed here carries a 'Previous' link at the top and a 'Next' link at the bottom, and the order below is authoritative for both. Consumed by the continuous-space website build, which strips the navigation lines and lifts each document's lead section as its summary.",
   "entry": "README.md",
   "parts": [
     {

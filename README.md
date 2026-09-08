@@ -117,7 +117,7 @@ the whole stack in a single environment, compose them:
 ```bash
 ./compose-environment.py                      # writes master-environ.yaml
 conda env create -f master-environ.yaml       # or `conda env update -f ...`
-conda activate sustainable-space-master
+conda activate continuous-space-master
 ```
 
 The composer merges channels and dependencies across the component files,
