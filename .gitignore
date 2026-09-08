@@ -12,6 +12,7 @@
 /lib/ethne/.pytest_cache/
 /lib/ethne/Cargo.lock
 /doc/MUUDD.pdf
+/doc/MUUDD-mindmap.pdf
 /**/__pycache__/
 /lib/kith-covenant/doc/**/*.pdf
 /docs/
