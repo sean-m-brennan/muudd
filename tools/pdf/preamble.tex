@@ -1,0 +1,113 @@
+%  Copyright 2026 Sean M. Brennan and contributors
+%
+%   Licensed under the Apache License, Version 2.0 (the "License");
+%   you may not use this file except in compliance with the License.
+%   You may obtain a copy of the License at
+%
+%     http://www.apache.org/licenses/LICENSE-2.0
+%
+%   Unless required by applicable law or agreed to in writing, software
+%   distributed under the License is distributed on an "AS IS" BASIS,
+%   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%   See the License for the specific language governing permissions and
+%   limitations under the License.
+
+% Passed to pandoc with --include-in-header, so this is preamble material only.
+
+% ---- page furniture -------------------------------------------------------
+\usepackage{etoolbox}
+\usepackage{fancyhdr}
+\usepackage{fvextra}
+\usepackage{newunicodechar}
+% no hyphenat/htt here on purpose. Hyphenating typewriter text inserts a
+% hyphen inside an identifier, so a file name breaks as proto-cols.md and
+% reads as though the hyphen were part of it. The punctuation breaks below
+% do the same job without inventing a character.
+\usepackage{xurl}
+
+% Paths and dotted identifiers run through the prose and through narrow table
+% cells, and TeX will not break them anywhere, so each slash and underscore is
+% given a cheap break opportunity after it. Math mode is exempt.
+\ifdefined\newXeTeXintercharclass
+  \newXeTeXintercharclass\brkclass
+  \newXeTeXintercharclass\ttbrkclass
+\else
+  \chardef\brkclass=200
+  \chardef\ttbrkclass=201
+\fi
+\XeTeXcharclass`\/=\brkclass
+\XeTeXcharclass`\_=\brkclass
+% a dot, a colon and an open bracket separate the parts of a dotted identifier,
+% but they are ordinary punctuation in prose, so these break only in typewriter
+% text, where the long identifiers and the narrow table columns both live
+\XeTeXcharclass`\.=\ttbrkclass
+\XeTeXcharclass`\:=\ttbrkclass
+\XeTeXcharclass`\(=\ttbrkclass
+\makeatletter
+\newcommand{\ttbrk}{\ifx\f@family\ttdefault\penalty200 \fi}
+\makeatother
+\XeTeXinterchartoks \brkclass 0 = {\penalty100 }
+\XeTeXinterchartoks \brkclass \ttbrkclass = {\penalty100 }
+\XeTeXinterchartoks \ttbrkclass 0 = {\ttbrk}
+\XeTeXinterchartoks \ttbrkclass \brkclass = {\ttbrk}
+\XeTeXinterchartokenstate=1
+% LaTeX's own \_ carries a discretionary that breaks with a hyphen, for the
+% same misreading; the break is kept and the hyphen dropped.
+\DeclareTextCommand{\textunderscore}{TU}{\char`\_}
+\everymath{\XeTeXinterchartokenstate=0}
+\everydisplay{\XeTeXinterchartokenstate=0}
+
+\setcounter{secnumdepth}{1}
+\setlength{\emergencystretch}{4em}
+\raggedbottom
+
+% Only the per-document \markboth below may set the running head, so the
+% header always names the source file rather than the nearest heading.
+\renewcommand{\chaptermark}[1]{}
+\renewcommand{\sectionmark}[1]{}
+\setlength{\headheight}{15pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\ttfamily\nouppercase{\leftmark}}
+\fancyhead[R]{\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyhead[L]{\footnotesize\ttfamily\nouppercase{\leftmark}}%
+  \fancyhead[R]{\footnotesize\thepage}%
+  \renewcommand{\headrulewidth}{0.4pt}%
+}
+
+% the source path repeated under each chapter title
+\definecolor{srcgray}{gray}{0.35}
+\definecolor{linkblue}{RGB}{20,60,140}
+\newcommand{\srcpathline}[1]{%
+  \nopagebreak\par\vspace{-0.4\baselineskip}%
+  {\small\ttfamily\color{srcgray}#1}\par\vspace{0.6\baselineskip}\nopagebreak%
+}
+
+% ---- code, tables ---------------------------------------------------------
+\fvset{fontsize=\small,breaklines=true,breakanywhere=true,breaksymbolleft={}}
+% pandoc emits plain verbatim for unclassified code blocks, which cannot
+% break a long line; route it through fancyvrb so those wrap as well
+\RecustomVerbatimEnvironment{verbatim}{Verbatim}{}
+\AtBeginEnvironment{longtable}{\footnotesize}
+\AtBeginEnvironment{tabular}{\footnotesize}
+
+% ---- glyph coverage -------------------------------------------------------
+% TeX Gyre Pagella carries the prose; DejaVu Sans fills in the few characters
+% it lacks. Verbatim material is set in DejaVu Sans Mono, which covers the
+% box-drawing and geometric glyphs used in the ASCII diagrams.
+\newfontfamily\fbfont{DejaVu Sans}
+\newfontfamily\hebfont{DejaVu Sans}
+\newcommand{\hebtext}[1]{{\hebfont #1}}
+\newunicodechar{₀}{\textsubscript{0}}
+\newunicodechar{₁}{\textsubscript{1}}
+\newunicodechar{₂}{\textsubscript{2}}
+\newunicodechar{ἀ}{{\fbfont ἀ}}
+\newunicodechar{ἔ}{{\fbfont ἔ}}
+\newunicodechar{ά}{{\fbfont ά}}
+\newunicodechar{ί}{{\fbfont ί}}
+\newunicodechar{►}{{\fbfont ►}}
+\newunicodechar{☆}{{\fbfont ☆}}
+\newunicodechar{⟂}{\ensuremath{\perp}}
