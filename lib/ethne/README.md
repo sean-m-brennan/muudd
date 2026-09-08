@@ -33,7 +33,7 @@ substrate provider among others.
 ## Quick start
 
 The build needs a per-component **conda** env, consistent with the rest of
-sustainable-space. `environment.yaml` pins `python==3.13.*`, `rust`, `rust-src`,
+continuous-space. `environment.yaml` pins `python==3.13.*`, `rust`, `rust-src`,
 `maturin`, and `pytest` from conda-forge, and `run-tests.sh` errors early with
 an instruction if any of them is missing.
 

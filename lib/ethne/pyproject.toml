@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Ethne polity tier: Python bindings over the Rust core"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Sustainable Space" }]
+authors = [{ name = "Continuous Space" }]
 
 [tool.maturin]
 manifest-path = "src/rust/en-pyo3/Cargo.toml"

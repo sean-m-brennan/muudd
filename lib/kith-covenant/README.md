@@ -53,7 +53,7 @@ audit commons recording conduct over time.
 ## Quick start
 
 The project builds against a per-component **conda** env, consistent with the
-rest of sustainable-space. `environment.yaml` pins `python==3.13.*`, `rust`,
+rest of continuous-space. `environment.yaml` pins `python==3.13.*`, `rust`,
 `rust-src`, `maturin`, and `pytest` from conda-forge.
 
 ```bash
