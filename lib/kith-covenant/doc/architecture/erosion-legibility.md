@@ -1,6 +1,6 @@
 *Previous: [Whistleblower cryptography](whistleblower-crypto.md)*
 
-# Erosion Legibility: the Uniform-Drift Audit
+# Erosion legibility: the uniform-drift audit
 
 *Audit date: 2026-07-28. Scope: every erosion component, reputation projection, and
 capture lens in `kith-covenant` and `ethne`.*
@@ -337,7 +337,7 @@ enforcement lands on members holding reduced standing. Both are counts of what t
 enforces rather than of how often, how promptly, or how ceremonially it does so. No record changed and no schema
 moved, because `ConductRecord` already carried the ground, the subject, the filers, and the
 ladder position. The argument for the dimension is
-[substitution.md](../background/substitution.md); this finding is the audit-side statement
+[Substitution](../background/substitution.md); this finding is the audit-side statement
 of it.
 
 Coverage is **absolute** in the sense E1 and K1 established, and by a different route from
@@ -441,7 +441,7 @@ guarantees is that a compact declining to prosecute filed evidence can no longer
 without a reading that says so, which is forensic legibility for the remnant and not
 prevention. The full measurement, the two authority defects it turned up, and the member-side
 attestation that carries the same fact are in
-[captured-prosecution.md](captured-prosecution.md).
+[The captured prosecution](captured-prosecution.md).
 
 ### Finding K8: the same capture has a second half, and it moves every instrument the right way (fixed)
 
@@ -462,7 +462,7 @@ between equals.
 Standing is not the axis a captured compact moves along. It does not need to reduce
 anybody first; it already holds the weight to run the accuser up the ladder on its own
 signature, which is the seam
-[captured-prosecution.md](captured-prosecution.md) measured.
+[The captured prosecution](captured-prosecution.md) measured.
 
 **Fixed** by a fourteenth dimension, `reporter_targeting`, whose axis is the *relation*
 between an act and a prior grievance: whether the subject of this act is the community

@@ -5,7 +5,7 @@
 
 *Previous: [The determined adversary](adversary-campaign.md)*
 
-# The Captured Prosecution: a Compact That Will Not Move
+# The captured prosecution: a compact that will not move
 
 *Scope: §5 escalation, §4 mediation and the erosion instruments of §9, measured against a
 compact whose majority is complicit with the member it should be prosecuting. The probe
@@ -207,7 +207,7 @@ Three things, and they are reported rather than fixed.
    a majority willing to prosecute its accuser is also willing to choose who signs. It
    stays that way because the alternatives, anyone in the compact or anyone enforcing
    after a grievance, are readings of enforcement rather than of retaliation. See
-   [erosion-legibility.md](erosion-legibility.md) finding K8.
+   [Erosion legibility](erosion-legibility.md) finding K8.
 
 ## Provenance
 

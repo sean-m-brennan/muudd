@@ -7,7 +7,7 @@ inventory. It says what lives where, which rule each crate enforces, and what
 measuring each slice actually found. The readable path through the same material
 is Part IV of the MUUDD narrative, beginning at [cooperation without a
 sovereign](concept.md), and the component decomposition it implements is
-[protocol-components.md](architecture/protocol-components.md).
+[Protocol components](architecture/protocol-components.md).
 
 ## `kc-core`
 
@@ -110,8 +110,7 @@ refused by that same mediator.
 
 A `ProtectingPower` is the Geneva analogue, being a non-party community standing
 for a disputant, co-signed by both, since the duty is never conscripted and a
-protector a disputant did not accept is a watcher imposed on them.
-
+protector a disputant did not accept is a watcher imposed on them. And
 `MediatorEntry.trained_by` records the apprenticeship.
 
 None of the three gates anything. The mediation decides exactly as it would
@@ -291,7 +290,7 @@ The ring spans the root key of a community, its live delegations, and its
 published member roll, which the polity tier feeds. It is computed over the log
 *preceding* each filing, so no later record can invalidate a filing or narrow
 the suspect set around its source. The construction is in
-[whistleblower-crypto.md](architecture/whistleblower-crypto.md).
+[The whistleblower source](architecture/whistleblower-crypto.md).
 
 ## `kc-constitution`
 

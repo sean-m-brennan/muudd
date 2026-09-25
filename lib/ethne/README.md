@@ -72,7 +72,7 @@ section of it, and each links to the next at its foot.
    movements, renewal, and the substrate required of whoever governs.
 5. [Watching for erosion](doc/cohesion.md): observations, pruning, the graded
    measures, the store, and the host loop.
-6. [What crosses to the compact](doc/uplift.md): the six border artifacts, and
+6. [Crossing to the compact](doc/uplift.md): the six border artifacts, and
    what deliberately does not cross.
 
 The reference corpus is appendix C of the same chain: [the

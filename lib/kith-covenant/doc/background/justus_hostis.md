@@ -1,6 +1,6 @@
 *Previous: [Build and toolchain](../../../ethne/doc/architecture/build-and-toolchain.md)*
 
-# Justus Hostis: Cooperation Derived From Bounded Conflict
+# Justus hostis: cooperation derived from bounded conflict
 
 ## Thesis
 
@@ -108,10 +108,10 @@ the work. The specific content of the authority (the God of Israel and
 his successors, *Shöñgwa'ya'di:söñ*, *Tengri*, the Dharma, *Kwoth*)
 varies across the historical cases. The strengthened version of this
 claim is developed in
-[historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern). The
+[Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern). The
 direct engagement with the further question of *whether what
 Christians call God the Father is specifically the answer* is in
-[noticeable_hand.md](noticeable_hand.md), which follows the evidence
+[The noticeable hand](noticeable_hand.md), which follows the evidence
 where it leads. The short answer
 to the second is. Kith-covenant must be built on a realistic anthropology in
 which the actors are not rational utility-maximizers and not angels,
@@ -121,14 +121,14 @@ fails at first contact. A protocol designed for rational actors fails
 slightly later. A protocol designed for sinners has a chance. (This
 anthropology is, in its developed form, a Christian doctrine. Its
 secular restatements (Niebuhr, Solzhenitsyn, Madison) are imports;
-[noticeable_hand.md](noticeable_hand.md) names the source outright,
+[The noticeable hand](noticeable_hand.md) names the source outright,
 because the original is more coherent than the imports.)
 
 ### Why a transcendent moral authority was structurally necessary
 
 "Shared cosmology" is too weak a statement of what was structurally
 necessary. The historical comparative work
-in [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)
+in [Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern)
 indicates the substrate must specifically include a
 *transcendent moral authority*, not just any sacred frame but one
 that points to a single ultimate before which oaths bind and which
@@ -308,7 +308,7 @@ combination blocks the purity spiral:
    the same revelation. Mature Sufi traditions of enemy-love and
    suspended judgment supply another version. Whether these
    partial equivalents are as structurally sound as the Christian
-   case is a live question (see [noticeable_hand.md](noticeable_hand.md)).
+   case is a live question (see [The noticeable hand](noticeable_hand.md)).
    What is clear is that *some* form of this feature is load-bearing
    and substrates that lack any form of it, that simply treat
    victim-selection as healthy communal hygiene, fail decisively.
@@ -342,7 +342,7 @@ combination blocks the purity spiral:
    this feature and is structurally vulnerable to the
    civil-religion drift that makes purity-spiraling terminal.
    The fifth movement of the recognition ceremony
-   ([recognition_protocols.md](recognition_protocols.md)) is the
+   ([Recognition protocols](recognition_protocols.md)) is the
    explicit compact protocol-level encoding of this feature. But
    the feature must also live inside the substrate of each
    member community, or the fifth movement becomes a
@@ -392,7 +392,7 @@ features were held doctrinally and the mechanism ran anyway, which is
 feature 3 defeated. The case where both are satisfied and the
 community still narrows what it enforces down to a fraction of what
 it recites is
-[substitution.md](substitution.md), and it is neither exposure nor
+[Substitution](substitution.md), and it is neither exposure nor
 renunciation that catches it.
 
 **What the five-feature formulation accomplishes that the bare
@@ -514,7 +514,7 @@ Three design commitments follow:
    believed. What fails 1690 Massachusetts is its practice
    record, on the very proxies the inter-community layer
    specifies
-   ([recognition_protocols.md](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing),
+   ([Recognition protocols](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing),
    [overview.md §5b](../concept.md)). Treatment of designated
    outsiders (four Quakers hanged on Boston Common, 1659-1661;
    banishment as the default response to dissent),
@@ -540,7 +540,7 @@ Three design commitments follow:
    Both constraints are flagged in the open questions below. The
    complementary case, a community not spiraling but in stable
    equilibrium with the mechanism, is treated in
-   [sacrificial_equilibrium.md](sacrificial_equilibrium.md). The
+   [Sacrificial equilibrium](sacrificial_equilibrium.md). The
    proxies described here are tuned to the spiral and do not
    detect it.
 
@@ -563,7 +563,7 @@ and metabolized by restoration. The strategic feigner is a capture
 problem, handled (imperfectly, and by its own admission
 probabilistically) by the continuous instruments and the
 admissions integrity of
-[capture_resistance.md](capture_resistance.md) move 7, not by the
+[Capture resistance](capture_resistance.md) move 7, not by the
 credentialing gate alone.
 
 ### What the compact requires, what it does not, and why
@@ -641,7 +641,7 @@ lack anti-spiral structure (the Jacobin case, the Maoist case, various
 revolutionary-virtue programs) are filtered out by requirement (4).
 The compact should be straightforward about these costs rather than
 minimizing them. The restricted-member and non-member-encountered
-categories ([recognition_protocols.md](recognition_protocols.md))
+categories ([Recognition protocols](recognition_protocols.md))
 provide frameworks for cooperation with excluded communities, but
 they are not full membership. The entry requirement is not a prejudice
 but a precondition. A compact whose mechanisms depend on a sacred
@@ -655,7 +655,7 @@ the substrate or the structure without hollowing its own foundations.
   characterization beyond "exists and is the source of the moral
   order." First-order theology is the business of the member
   community itself (see
-  [exit_and_succession.md](exit_and_succession.md) §"The
+  [Exit and succession](exit_and_succession.md) §"The
   futility lesson and its limits" on the first-order /
   second-order distinction).
 - **Specific observances, creeds, or liturgical forms.** The compact
@@ -698,7 +698,7 @@ ground they may regard as arbitrary, and the compact gains nothing by
 pretending the exclusion is painless or that the excluded are deficient.
 What the compact offers instead is cooperation short of full membership.
 The restricted-member and non-member-encountered categories of the
-standing taxonomy ([recognition_protocols.md](recognition_protocols.md))
+standing taxonomy ([Recognition protocols](recognition_protocols.md))
 provide structured channels for trade, mutual aid, and bounded
 cooperation with communities outside the substrate. These are genuine
 relationships, not consolation prizes. But they are not full membership,
@@ -747,13 +747,13 @@ framework at the point of formation. Kith-covenant optimizes for
 durability-across-generations, a framework that survives the
 stresses of time, power shifts, substrate erosion, and
 generational turnover. The historical evidence from the case set
-([historical_cases.md](historical_cases.md)) supports the
+([Historical cases](historical_cases.md)) supports the
 durability hypothesis. Every long-lasting cooperation regime in
 the record had a comprehensive substrate, and the regimes that
 stripped their substrates for the sake of inclusiveness (the
 late Hanse, the post-Christian European institutional order) are
-younger, and it remains to be seen whether they will prove
-durable. The evidence is not conclusive (see
+younger, and none of them has yet run long enough to say whether
+they are durable. The evidence is not conclusive (see
 [historical_cases.md §"The circularity objection, confounds, and
 provisional
 confidence"](historical_cases.md#the-circularity-objection-confounds-and-provisional-confidence)
@@ -803,7 +803,7 @@ membership. The adopted functional minimum is a *conduct* minimum.
 The least any viable order among vulnerable parties contains, and
 it is the ground of what the compact does at its own boundary,
 binding whether or not anyone has joined
-([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)).
+([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)).
 The first is addressed to candidates and the second is addressed
 to the compact itself. Neither substitutes for the other, and the
 functional minimum in particular cannot be enlarged into the
@@ -841,7 +841,7 @@ Several otherwise attractive options remain ruled out:
   acknowledge a Creator. It must not specify what the Creator is like.
   The Wars of Religion demonstrated the futility and destruction of
   fighting over first-order theology
-  ([exit_and_succession.md](exit_and_succession.md)). The compact must
+  ([Exit and succession](exit_and_succession.md)). The compact must
   not repeat the error.
 
 What the substrate *can* do:
@@ -921,7 +921,7 @@ and is not an attempt to. It states what any viable order among
 vulnerable parties contains, which is what the compact may assume
 of a party it has not met and what it holds itself to before any
 rite has been performed
-([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)).
+([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)).
 It supplies no substrate, cultivates no virtue, and produces no
 community capable of carrying either. What it covers is the
 conduct of the compact itself in the meantime, which is not
@@ -990,7 +990,7 @@ power of the sacred without the substrate that produces it. That is
 civil religion, and it corrodes faster than it ever grew.
 
 A further consideration
-([noticeable_hand.md](noticeable_hand.md)). The recognition
+([The noticeable hand](noticeable_hand.md)). The recognition
 machinery of kith-covenant protocols will likely have to
 acknowledge the transcendent moral authority explicitly, if for no
 other reason than to antidote entropy. The point is structural,
@@ -1002,7 +1002,7 @@ gamed. The transcendent reference is what allows the compact to
 recognize when it is *itself* drifting. Without it, the compact
 has no Archimedean point from which to evaluate its own decay.
 This consideration shapes
-[recognition_protocols.md](recognition_protocols.md) and is taken
+[Recognition protocols](recognition_protocols.md) and is taken
 up there.
 
 ### Substrate affords emergence. It does not dictate content
@@ -1160,7 +1160,7 @@ seriousness:
 - **Pure rule-optimizers.** Actors who follow the letter of the
   protocol while consistently violating its spirit, optimizing
   against every line that is drawn. Already addressed in
-  [bounded_conflict.md](bounded_conflict.md#gamification-and-the-letterspirit-divergence)
+  [Bounded conflict](bounded_conflict.md#gamification-and-the-letterspirit-divergence)
   as the gamification problem. The virtue frame, mediator authority
   to rule on spirit, and costly-signal architecture are partial
   responses. But the deeper point is that pure rule-optimizers are
@@ -1297,7 +1297,7 @@ Inquisition, the Terror, the gulag. Several implications:
   suspended but not abolished. Re-entry remains available through
   the full recognition process. For *hostis humani generis.* Restoration paths do not apply. In both cases, engagement is more
   guarded, and opposition is bounded by the common virtues
-  ([bounded_conflict.md](bounded_conflict.md#common-virtue-not-non-negotiable-rules)).
+  ([Bounded conflict](bounded_conflict.md#common-virtue-not-non-negotiable-rules)).
   Even against the demonic, the compact does not become demonic.
 - **Discernment requires the substrate.** This is the deepest
   consideration. Procedure alone cannot distinguish the *justus
@@ -1309,7 +1309,7 @@ Inquisition, the Terror, the gulag. Several implications:
   the compact will either over-categorize (Inquisition) or
   under-categorize (capture). This is one further structural
   argument for the substrate criterion that
-  [recognition_protocols.md](recognition_protocols.md)
+  [Recognition protocols](recognition_protocols.md)
    will operationalize.
 - **The response of the compact must not become demonic
   itself**. This is the deepest single danger. Augustine's
@@ -1404,7 +1404,7 @@ primitives that do not require shared purpose:
 | Mutual recognition of standing | Baseline sovereign respect: no annihilationist politics between habitats |
 | Symmetric rules | Protocols apply equally regardless of habitat size, ideology, wealth |
 | Spatial/temporal bracket | Compartmentalization: disputes don't spill into life-support, rescue, children |
-| Shared oath-substrate | Material floor (crypto + stake + transparency + mutual entanglement) plus transcendent moral authority within member communities (per [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern) and [noticeable_hand.md](noticeable_hand.md)). Kith-covenant affords emergence and refuses to dictate content but does not pretend the substrate is optional |
+| Shared oath-substrate | Material floor (crypto + stake + transparency + mutual entanglement) plus transcendent moral authority within member communities (per [Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern) and [The noticeable hand](noticeable_hand.md)). Kith-covenant affords emergence and refuses to dictate content but does not pretend the substrate is optional |
 | Protected envoys | Never-target channels and roles: diplomatic, medical, rescue |
 | Defined termination | Every compact has a stated scope and a stated exit: no open-ended entanglement |
 | Jus post bellum | Disputes end in settlements that preserve the standing of both parties  |
@@ -1455,27 +1455,27 @@ central open question rather than a side concern.
   months). What posture does the compact take toward a member
   community mid-spiral, given the internal-sovereignty
   principle? Is the substantive-re-engagement rung
-  ([recognition_protocols.md](recognition_protocols.md#tracking-ceremony-cost-across-re-affirmation-cycles))
+  ([Recognition protocols](recognition_protocols.md#tracking-ceremony-cost-across-re-affirmation-cycles))
   adequate, or does contagion warrant a distinct treatment?
 - Recognition protocols will likely have to
   acknowledge the transcendent moral authority explicitly. What is the minimal,
   honest, non-coercive form of such an acknowledgment that does not
   collapse into engineered civil religion (warned against in
   "Substrate affords emergence" above)? This is the central question
-  for [recognition_protocols.md](recognition_protocols.md).
+  for [Recognition protocols](recognition_protocols.md).
 
 ## Relationship to other documents
 
-- [bounded_conflict.md](bounded_conflict.md). The operational counterpart to
+- [Bounded conflict](bounded_conflict.md). The operational counterpart to
   this document, covering escalation ladders, red lines, and the non-negotiable
   core for inter-habitat disputes.
-- [historical_cases.md](historical_cases.md). Detailed case
+- [Historical cases](historical_cases.md). Detailed case
   studies of Westphalia, the Hanseatic League, *lex mercatoria*, codes
   duello, and the Iroquois Confederacy, including the decay mode of each.
-- [recognition_protocols.md](recognition_protocols.md). The
+- [Recognition protocols](recognition_protocols.md). The
   minimum viable handshake that instantiates mutual recognition of
   standing in the protocol of kith-covenant layer.
-- [../social_framework.md](../concept.md). Parent document on
+- [Cooperation without a sovereign](../concept.md). Parent document on
   social technologies for habitat sustainability. The protocols of
   kith-covenant are the inter-community layer of that framework.
 - [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md). The intra-community complement to kith-covenant. Kith-Covenant begins where
@@ -1483,7 +1483,7 @@ central open question rather than a side concern.
 
 ## References
 
-*Anchor works to be expanded.*
+*Anchor works, to be expanded:*
 
 - Schmitt, *Der Nomos der Erde* (1950) and *Der Begriff des Politischen*
   (1932).

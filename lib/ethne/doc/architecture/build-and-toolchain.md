@@ -1,4 +1,4 @@
-*Previous: [Design decisions D1 to D34](../design.md)*
+*Previous: [Design decisions D1 to D35](../design.md)*
 
 <!--
   Copyright 2026 Sean M. Brennan and contributors

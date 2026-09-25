@@ -1,12 +1,12 @@
 *Previous: [Christendom cases](christendom_cases.md)*
 
-# The Buddhist Sangha as Voluntary Cross-Community Cooperation
+# The Buddhist sangha as voluntary cross-community cooperation
 
 ## Why this document exists
 
-[noticeable_hand.md](noticeable_hand.md) applied a voluntary-peer +
+[The noticeable hand](noticeable_hand.md) applied a voluntary-peer +
 longevity filter to the case set in
-[historical_cases.md](historical_cases.md) and identified the Buddhist
+[Historical cases](historical_cases.md) and identified the Buddhist
 *sangha* as "the single sharpest challenge to the strong Christian
 reading": the longest-running voluntary cross-community network in
 the dataset, non-theistic in its philosophical core, and obviously not
@@ -35,7 +35,7 @@ detailed treatment can be read against them:
    different mechanisms. Each has a different relationship to
    political power.
 3. **The sangha supplies the five anti-spiral features
-   ([justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)),
+   ([Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)),
    substantially on (1), (2), (4), and (5), and in
    functional-but-not-identical form on (3)**. This is a genuine
    result. Buddhism is not a partial or degraded substrate on
@@ -67,7 +67,7 @@ lessons for kith-covenant; open questions; and references.
 
 ## Methodological note. What is being compared
 
-The Christian cases in [historical_cases.md](historical_cases.md) share
+The Christian cases in [Historical cases](historical_cases.md) share
 a specific structural feature. They are regimes in which *separate
 polities*, each with its own sovereign and its own institutions,
 cooperate across their boundaries on a framework they jointly
@@ -310,7 +310,7 @@ episodes deserve naming:
   identity functioned as an in-group marker against designated
   out-groups. The parallel with Christian colonial selectivity
   (discussed in
-  [noticeable_hand.md](noticeable_hand.md#counterweights)) is
+  [The noticeable hand](noticeable_hand.md#counterweights)) is
   close. The scriptural mandate of the substrate itself
   (universal compassion. The Brahmaviharas including metta to
   enemies) was explicitly violated by its nominal carriers.
@@ -336,7 +336,7 @@ recognition machinery survives operational disputes.
 
 Second, **the re-ordination pattern is a useful precedent for
 the reconstitution question of kith-covenant**
-([exit_and_succession.md](exit_and_succession.md)). When a
+([Exit and succession](exit_and_succession.md)). When a
 member community loses the local capacity to produce properly
 credentialed successors (analogue of Sri Lanka losing the
 *upasampada* lineage), a peer community across the boundary can
@@ -351,7 +351,7 @@ where the sangha recognizes them as consistent with the Vinaya.
 This is directly parallel to the constitution of categories in
 the Peace of God of inviolability by ecclesiastical authority
 against lordly violence
-([historical_cases.md](historical_cases.md#the-peace-of-god-and-truce-of-god)).
+([Historical cases](historical_cases.md#the-peace-of-god-and-truce-of-god)).
 A substrate-holder independent of the sovereign is a structural
 necessity for sovereign-transcending cooperation.
 
@@ -362,7 +362,7 @@ anti-spiral features guarantees their application. The features
 make the failure mode avoidable. They do not make it impossible.
 The compact must expect occasional betrayal and must include the
 anti-spiral-features credentialing check
-([recognition_protocols.md](recognition_protocols.md)) as an
+([Recognition protocols](recognition_protocols.md)) as an
 ongoing rather than one-time examination.
 
 ---
@@ -540,7 +540,7 @@ credentialed, is a pattern the East Asian Buddhist network
 instantiated for over a millennium. The modern parallel is the
 doctoral-degree network among universities internationally. The
 recognition protocols of Kith-Covenant
-([recognition_protocols.md](recognition_protocols.md)) already
+([Recognition protocols](recognition_protocols.md)) already
 include a credentialing layer. The East Asian Buddhist case is
 an argument for making that layer first-class and for providing
 pilgrimage-style training exchange as a mechanism by which
@@ -766,7 +766,7 @@ reincarnation-specific content does not transfer.
 
 ## Cross-regime comparison on the Christian-cases metrics
 
-The Christian cases in [historical_cases.md](historical_cases.md) are
+The Christian cases in [Historical cases](historical_cases.md) are
 evaluated on an implicit set of metrics: voluntariness, peer-ness,
 longevity, cross-sovereign scope, institutional mechanism density,
 substrate, and decay mode. Here are the three Buddhist regimes on
@@ -918,7 +918,7 @@ matches the institutional density of the Christian cases.
   feature* of the Buddhist substrate is contested relative to the
   "transcendent moral authority pointing to a single ultimate"
   formulation of
-  [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern).
+  [Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern).
   Buddhism does not have a Creator God. What it has is the Dharma
   as *the nature of reality* that the Buddha *awakened to* (not
   invented, not given by a Creator, but discovered). The Dharma is
@@ -962,7 +962,7 @@ modern disruptions is a distinctive feature.
 ## The five anti-spiral features applied to the sangha
 
 The operative formulation from
-[justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)
+[Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)
 specifies that a substrate must supply five features whose combination
 blocks the purity-spiral failure mode: universal fallen-actor
 anthropology, grace over merit, scapegoat-revelation or a functional
@@ -1203,9 +1203,8 @@ conflicts between kings and senior monks over Vinaya
 interpretation are recurring, and the sangha has generally
 preserved its independence even at cost. Tibetan resistance to
 the Qing and to PRC attempts to control tulku recognition is the
-same feature operating at a higher-stakes register.
-
-The feature is strongly supplied.
+same feature operating at a higher-stakes register, and the feature is
+strongly supplied.
 
 ### Overall verdict on the anti-spiral features
 
@@ -1232,7 +1231,7 @@ Myanmar demonstrates that the features can be *bypassed* when
 the tradition is weaponized as ethnic or political identity
 rather than received as its own scriptural mandate. This is
 parallel to the Christian colonial selectivity counterweight in
-[noticeable_hand.md](noticeable_hand.md#counterweights).
+[The noticeable hand](noticeable_hand.md#counterweights).
 Supplying the feature immunizes the nominal carriers of neither
 tradition from betraying them. The features describe what the
 substrate *makes available*. They do not describe what the
@@ -1242,7 +1241,7 @@ substrate guarantees.
 
 ## Verdict on the Christian-particularist reading
 
-[noticeable_hand.md](noticeable_hand.md) distinguished three readings
+[The noticeable hand](noticeable_hand.md) distinguished three readings
 of the cross-community cooperation evidence: Christian-particularist,
 catholic/perennialist, and naturalist. The sangha evidence bears
 directly on the choice among them.
@@ -1373,7 +1372,7 @@ sangha evidence confirms that the features can be supplied from
 multiple theological sources, and the features rather than the
 sources are what the cooperation regime requires. This is the
 formulation already operative in
-[justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient).
+[Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient).
 The present document supplies additional evidence for it.
 
 Second, **kith-covenant should recognize that it is designing a
@@ -1400,7 +1399,7 @@ in principle**. The Buddhist nationalism cases, like the
 Christian colonial selectivity cases, demonstrate that the
 features can be bypassed by nominal carriers. The credentialing
 and recognition of the compact protocols
-([recognition_protocols.md](recognition_protocols.md)) should
+([Recognition protocols](recognition_protocols.md)) should
 therefore check for ongoing operation of the features, not just
 for the in-principle supply by the substrate of them. This is
 already operative in the two-layer recognition architecture. The
@@ -1457,27 +1456,27 @@ check is load-bearing.
 
 ## Relationship to other documents
 
-- [historical_cases.md](historical_cases.md). Supplies the Christian
+- [Historical cases](historical_cases.md). Supplies the Christian
   cases template this document parallels. The brief Buddhist
   mention in the transcendent moral authority pattern section
   ("Buddhist Dharma... confirms the pattern") is now
   supplemented by the full treatment here.
-- [noticeable_hand.md](noticeable_hand.md). The open question about
+- [The noticeable hand](noticeable_hand.md). The open question about
   the sangha that motivated this document. The Buddhist-longevity
   counterweight section in noticeable_hand.md should now reference
   the present document as its underlying evidence.
-- [justus_hostis.md](justus_hostis.md). Supplies the anti-spiral
+- [Justus hostis](justus_hostis.md). Supplies the anti-spiral
   features formulation this document tests against the sangha
   evidence. The result (the sangha supplies the features) reinforces
   the justus_hostis.md position that the features rather than
   specific theology are the compact requirement.
-- [recognition_protocols.md](recognition_protocols.md). The
+- [Recognition protocols](recognition_protocols.md). The
   pilgrimage-for-credentialing pattern (East Asian) and the
   *yön-chö* cross-polity substrate authority pattern (Tibetan) are
   architectural contributions to the recognition protocols. The
   relevant sections there should cite this document as empirical
   support.
-- [exit_and_succession.md](exit_and_succession.md). The Theravada
+- [Exit and succession](exit_and_succession.md). The Theravada
   re-ordination pattern (Sri Lanka reconstituted by Burma and
   Thailand three times) is a working precedent for reconstitution
   after line loss, and should be cited there.

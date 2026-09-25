@@ -304,7 +304,7 @@ that most fully supplies them.
 When we apply a voluntary-peer filter (excluding imperial frameworks like
 *dhimma*, Pax Romana, and the Pax Mongolica, which are hierarchical and
 underwritten by sovereign power) and rank the remaining *full-compact* cases
-by longevity, the pattern is stark. Every durable voluntary cross-community
+by longevity, the pattern is unmistakable. Every durable voluntary cross-community
 full compact on record rested on a transcendent moral authority. The
 Westphalian system, the Hanseatic League, *lex mercatoria* in its full form,
 the codes duello, and the medieval Peace of God and Truce of God all operated
@@ -513,7 +513,7 @@ best single sentence we can offer catches all three:
 > designed for rational actors fails slightly later. A protocol designed
 > for sinners has a chance.*
 
-Design implications follow directly.
+Design implications follow directly:
 
 **The line between good and evil cuts through every participant**. The
 protocol plans for atrocity as a normal contingency rather than a shocking

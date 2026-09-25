@@ -1,6 +1,6 @@
 *Previous: [Liminal institutions](liminal_institutions.md)*
 
-# Commons Federation: Ostrom's Nested Enterprises Applied to Habitats
+# Commons federation: Ostrom's nested enterprises applied to habitats
 
 ## Thesis
 
@@ -66,7 +66,7 @@ Without clear boundaries, free-riding is undetectable. The commons
 must know who its appropriators are and what the resource is.
 
 **Kith-covenant mapping.** The four categories
-([recognition_protocols.md](recognition_protocols.md)) define who is
+([Recognition protocols](recognition_protocols.md)) define who is
 inside the compact (members), who is in structured conflict with it
 (*justus hostis*), who has been designated outside the cooperative
 framework (anathema), and who is encountered but not a
@@ -85,7 +85,7 @@ entitled to benefit more. Asymmetric rules (where one party bears
 costs while another captures benefits) corrode cooperation.
 
 **Kith-covenant mapping.** The symmetric-rules precondition from
-[justus_hostis.md](justus_hostis.md) reads, "Whatever is permitted to one side
+[Justus hostis](justus_hostis.md) reads, "Whatever is permitted to one side
 is permitted to the other, and whatever is forbidden is forbidden to
 both." In the commons context, this means that a habitat that consumes
 more of a shared resource (e.g., communication bandwidth) contributes
@@ -117,7 +117,7 @@ While commons without monitoring decay, monitors who are not accountable
 to the commons community become a surveillance apparatus.
 
 **Kith-covenant mapping.** The mediator pool
-([liminal_institutions.md](liminal_institutions.md)) serves the
+([Liminal institutions](liminal_institutions.md)) serves the
 monitoring function. Mediators are drawn from member communities, serve
 terms, and return home, accountable to the compact rather than to
 a permanent monitoring bureaucracy. The "open-carry" principle (from
@@ -138,7 +138,7 @@ Although binary enforcement (comply or be expelled) is simple, it is
 brittle. Graduated sanctions allow correction without destruction.
 
 **Kith-covenant mapping.** The escalation ladder in
-[bounded_conflict.md](bounded_conflict.md) is a graduated-sanctions
+[Bounded conflict](bounded_conflict.md) is a graduated-sanctions
 system. From private communication through formal mediation through
 compact-wide deliberation through anathema designation,
 each rung is more severe and more costly to invoke. Her empirical
@@ -155,7 +155,7 @@ Conflicts that cannot be resolved cheaply and quickly escalate,
 damaging the commons in the process.
 
 **Kith-covenant mapping:** the liminal institutions
-([liminal_institutions.md](liminal_institutions.md)), especially
+([Liminal institutions](liminal_institutions.md)), especially
 the pie-powder-court model for rapid, low-cost adjudication of
 specific disputes, and the interim-injunction mechanism for
 emergency cases.
@@ -231,7 +231,7 @@ equivalent to an attack.
 Electromagnetic spectrum for intra-system communication is finite and
 rivalrous. A habitat that monopolizes the available bandwidth degrades
 communication for all others. The "protection of communicative commons"
-virtue from [bounded_conflict.md](bounded_conflict.md) (no attacks on
+virtue from [Bounded conflict](bounded_conflict.md) (no attacks on
 relays, no jamming of emergency frequencies, no corruption of timing
 services, no interdiction of diplomatic traffic) is the commons-
 governance rule for this resource.
@@ -338,7 +338,7 @@ oversight avoids this risk, not perfectly but structurally.
 ## Graduated sanctions and the escalation ladder
 
 The fifth principle (graduated sanctions) maps directly onto
-the escalation ladder in [bounded_conflict.md](bounded_conflict.md).
+the escalation ladder in [Bounded conflict](bounded_conflict.md).
 The commons-governance literature strengthens the case for that
 design in several ways.
 
@@ -436,7 +436,7 @@ mediator pool adjudicating incompatible decisions.
 
 ### The shadow of the future, delayed
 
-The folk theorem from [tacit_coordination.md](tacit_coordination.md)
+The folk theorem from [Tacit coordination](tacit_coordination.md)
 shows that cooperation is sustainable when the shadow of the future is
 long, when actors expect to interact repeatedly and indefinitely. In
 the space context, the shadow of the future is very long (habitats
@@ -452,7 +452,7 @@ interplanetary scales than at terrestrial scales. The commons-
 governance response has three parts. Automated monitoring systems detect
 and report violations without human delay. Pre-committed response
 protocols activate upon detection (the interim-injunction
-mechanism from [liminal_institutions.md](liminal_institutions.md)).
+mechanism from [Liminal institutions](liminal_institutions.md)).
 Reputation consequences persist beyond the immediate
 violation, making the long-term cost of defection exceed the
 short-term benefit even after accounting for the delay advantage.
@@ -487,7 +487,7 @@ that fail to validate without inputs from the wider network**. This
 class covers new mediations begun, sanctions
 imposed, designations made (anathema, *hostis humani generis*),
 compact-level amendments, modification of the compact-incapable
-list ([justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient),
+list ([Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient),
 [capture_resistance.md "Substrate-deference test"](capture_resistance.md#2-the-substrate-deference-test-operationalizing-non-ultimacy)),
 amendment of the recognition-statement five movements (which the
 recognition protocol forbids in any case), and reclassification of
@@ -539,7 +539,7 @@ exceeds the cost of unavailability during partition.
 ## The tragedy-of-the-virtues problem
 
 While a commons governed purely by rules is gamed (the law Goodhart
-states, as developed in [bounded_conflict.md](bounded_conflict.md)), a
+states, as developed in [Bounded conflict](bounded_conflict.md)), a
 commons governed purely by virtue degrades when virtue erodes. The
 empirical finding was that *both* internalized norms and external
 monitoring are necessary for commons durability. Neither alone is
@@ -562,7 +562,7 @@ empirically (commons that decayed despite intact governance structures)
 but did not theorize the *fallen actor* as a category. The
 fallen-actor anthropology (drawn from Augustine, Niebuhr, Madison,
 and the Christian tradition developed in
-[justus_hostis.md](justus_hostis.md)) provides the theoretical
+[Justus hostis](justus_hostis.md)) provides the theoretical
 account. Humans are not merely rational calculators who defect when
 it pays. They are fallen beings who may defect out of pride,
 resentment, or appetite even when it does *not* pay.
@@ -676,7 +676,7 @@ theory) universally condemned.
 
 **Substrate:** the *jus publicum Europaeum*, the shared framework
 of European international law, itself resting on the Christendom
-substrate that [historical_cases.md](historical_cases.md)
+substrate that [Historical cases](historical_cases.md)
 develops.
 
 **Mechanism.** Naval custom, reciprocal enforcement (an attack on the
@@ -734,7 +734,7 @@ without.
   fractures**? If two successor compacts both depend on the same
   communication relay or knowledge archive, which governs it? This
   is the material dimension of the problem
-  [exit_and_succession.md](exit_and_succession.md) addresses.
+  [Exit and succession](exit_and_succession.md) addresses.
 
 - The **Balinese subak** case suggests that sacred-substrate commons
   governance outperforms secular centralized management. Is this
@@ -750,35 +750,35 @@ without.
 
 ## Relationship to other documents
 
-- [tacit_coordination.md](tacit_coordination.md). The Ostrom overlap
+- [Tacit coordination](tacit_coordination.md). The Ostrom overlap
   noted there, developed here into the empirical commons literature
   that tacit_coordination.md pointed to.
-- [bounded_conflict.md](bounded_conflict.md). The escalation ladder as
+- [Bounded conflict](bounded_conflict.md). The escalation ladder as
   graduated sanctions, and the common virtues as commons-governing
   norms.
-- [liminal_institutions.md](liminal_institutions.md). Liminal
+- [Liminal institutions](liminal_institutions.md). Liminal
   institutions as commons administrators and monitors.
-- [justus_hostis.md](justus_hostis.md). Fallen-actor anthropology as
+- [Justus hostis](justus_hostis.md). Fallen-actor anthropology as
   the deeper layer beneath the rational-actor framework.
-- [recognition_protocols.md](recognition_protocols.md). The four
+- [Recognition protocols](recognition_protocols.md). The four
   categories as boundary definition (the first principle above).
-- [historical_cases.md](historical_cases.md). Swiss alps, Hanse,
+- [Historical cases](historical_cases.md). Swiss alps, Hanse,
   maritime commons as shared case material.
-- [noticeable_hand.md](noticeable_hand.md). The theological grounding
+- [The noticeable hand](noticeable_hand.md). The theological grounding
   for treating commons as held in trust for a transcendent purpose,
   not merely for current users.
-- [reputation_bridges.md](reputation_bridges.md). Reputation as a commons-governance input.
-- [exit_and_succession.md](exit_and_succession.md). Commons governance after compact fracture.
-- [jester_and_dissent.md](jester_and_dissent.md). The
+- [Reputation bridges](reputation_bridges.md). Reputation as a commons-governance input.
+- [Exit and succession](exit_and_succession.md). Commons governance after compact fracture.
+- [Jester and dissent](jester_and_dissent.md). The
   information commons as a dissent substrate.
-- [../social_framework.md](../concept.md). Parent document.
+- [Cooperation without a sovereign](../concept.md). Parent document.
 - [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md)
   the intra-community nesting level; AT governs internal commons,
   kith-covenant governs inter-community commons.
 
 ## References
 
-*Anchor works to be expanded.*
+*Anchor works, to be expanded:*
 
 - Ostrom, *Governing the Commons* (1990) and *Understanding Institutional
   Diversity* (2005).

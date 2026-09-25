@@ -1,6 +1,6 @@
 *Previous: [Justus hostis](justus_hostis.md)*
 
-# Bounded Conflict: Escalation Ladders and the Common Virtue
+# Bounded conflict: escalation ladders and the common virtue
 
 ## Thesis
 
@@ -13,7 +13,7 @@ boundary is harder to game, because the point is not what is forbidden
 but what the community will not contemplate doing regardless of
 permission.
 
-Where [justus_hostis.md](justus_hostis.md) develops the theoretical frame
+Where [Justus hostis](justus_hostis.md) develops the theoretical frame
 (the enemy as legitimate peer, and the anthropology of fallen actors
 for whom the protocol must be built), this document develops the
 *operational* counterpart: the escalation ladders, mutual-vulnerability
@@ -361,7 +361,7 @@ Earth is the harder test for structural reasons:
   thousands of theological and political traditions in active contact.
   Founding space habitats will be much more culturally homogeneous by
   selection. The hardest case for the sacred-substrate question
-  ([justus_hostis.md](justus_hostis.md#the-sacred-substrate-and-the-fallen-actor))
+  ([Justus hostis](justus_hostis.md#the-sacred-substrate-and-the-fallen-actor))
   is on Earth.
 
 ### The two dimensions of the test
@@ -451,7 +451,7 @@ accompany every protocol decision.
   accumulates around the one act in which every party is
   simultaneously donor and beneficiary. This is the central
   candidate for sacred-equivalent status (see
-  [justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
+  [Justus hostis](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
 - **Second-order.** Adversarial adaptations predictable from historical
   precedent. Use of rescue markings for intelligence gathering.
   False-flag rescue operations to get assets into protected proximity.
@@ -483,7 +483,7 @@ accompany every protocol decision.
 - **First-order.** Archives, research data, cultural and linguistic
   records, and genealogies are protected against destruction and
   corruption. Cultural and scientific inheritance across generations is
-  preserved. The community substrate ([justus_hostis.md](justus_hostis.md#the-anthropology-the-substrate-must-assume))
+  preserved. The community substrate ([Justus hostis](justus_hostis.md#the-anthropology-the-substrate-must-assume))
   survives conflict.
 - **Second-order.** Adversarial adaptations. Contested categorization
   of what counts as "knowledge commons" (is a political archive a
@@ -619,7 +619,7 @@ Several features of the space environment change the design inputs:
   generation will climb past every rung while the forms are still
   being rebuilt. The re-affirmation itself is one of the memorial
   practices in which sacred-equivalent content can emerge (see
-  [justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
+  [Justus hostis](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
 
 ## How bounded-conflict regimes have decayed
 
@@ -670,10 +670,10 @@ whose rungs are irreversible is not a ladder. It is a cliff with
 intermediate ledges.
 
 **The Christendom thread, carefully scoped.** As discussed in
-[justus_hostis.md](justus_hostis.md#the-sacred-substrate-and-the-fallen-actor)
+[Justus hostis](justus_hostis.md#the-sacred-substrate-and-the-fallen-actor)
 and developed further in
-[historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)
-and [noticeable_hand.md](noticeable_hand.md), most of the
+[Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern)
+and [The noticeable hand](noticeable_hand.md), most of the
 full-compact regimes surveyed in the historical set here shared a
 substrate of Christian oath-binding, and their erosion has
 correlated with the secularization of the international order. The
@@ -718,7 +718,7 @@ bounded-conflict regimes that do not remain bounded. Communities
 with a shared transcendent anchor but missing anti-spiral features
 still produce the cascade. The Christian-Aristotelian- Thomistic
 synthesis is the deepest intellectual lineage of the virtue
-framework here; [noticeable_hand.md](noticeable_hand.md) names
+framework here; [The noticeable hand](noticeable_hand.md) names
 that lineage outright rather than in ecumenical dress. What is
 *not* claimed is that Christianity is the only possible substrate.
 What is claimed is that the anti-spiral features, most fully
@@ -775,7 +775,7 @@ bounded-conflict layer:
    to restitution and reintegration short of permanent exclusion. This
    follows the Christian and Iroquois traditions of penance and
    condolence (see
-   [justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
+   [Justus hostis](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
    Permanent exclusion is reserved for continuing, unrepented harm.
 6. **Termination** of any dispute is formal, ceremonial, published,
    and symmetric. Undisputes-that-fade are the leading indicator of a
@@ -847,9 +847,9 @@ The compact does not equalize material conditions. It does not
 redistribute wealth. It does not penalize success. What it does is
 create a framework in which **the absence of charity is visible
 and consequential**: visible through the jester function
-([jester_and_dissent.md](jester_and_dissent.md)), through the
+([Jester and dissent](jester_and_dissent.md)), through the
 costly-signaling architecture
-([reputation_bridges.md](reputation_bridges.md)), and through the
+([Reputation bridges](reputation_bridges.md)), and through the
 common-virtue refusals. Consequential through the escalation
 ladder and ultimately through the anathema procedure. A wealthy
 community that is charitable, that uses its surplus to strengthen
@@ -915,7 +915,7 @@ satisfied:
    reasoning, with at least two cycles of consideration separated by a
    defined waiting period (the analogue of the Iroquois back-and-forth
    between sides; see
-   [historical_cases.md](historical_cases.md#the-iroquois-confederacy-haudenosaunee-kaianerekowa)).
+   [Historical cases](historical_cases.md#the-iroquois-confederacy-haudenosaunee-kaianerekowa)).
    The procedural weight is itself the principal safeguard against
    weaponization.
 3. **Clear stated criteria.** The designation must name the specific
@@ -934,7 +934,7 @@ satisfied:
    humani generis* proper designation, by contrast, does not include
    a reversal path, but the evidentiary threshold for that
    designation is correspondingly much higher; see
-   [justus_hostis.md](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis).)
+   [Justus hostis](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis).)
 
 ### The differential protocol
 
@@ -1034,13 +1034,13 @@ procedural one. No procedure can guarantee it. The compact can
 resist becoming what it opposes only if its members are
 individually and collectively oriented toward something beyond the
 compact itself, toward the transcendent moral authority that
-[historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)
-and [noticeable_hand.md](noticeable_hand.md) identify as the
+[Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern)
+and [The noticeable hand](noticeable_hand.md) identify as the
 load-bearing substrate. A compact whose members lack that
 orientation cannot reliably handle the anathema category, let
 alone the *hostis humani generis* proper. This is one further
 structural argument for the substrate criterion that
-[recognition_protocols.md](recognition_protocols.md) will
+[Recognition protocols](recognition_protocols.md) will
 operationalize.
 
 ## Enforcement without sovereignty
@@ -1053,7 +1053,7 @@ Kith-covenant rejects the sovereign requirement. The Hobbesian
 position is a philosophical commitment, not an empirical observation.
 Ostrom's entire career demonstrates that commons governance works
 without a sovereign, and the historical case set
-([historical_cases.md](historical_cases.md)) includes multiple
+([Historical cases](historical_cases.md)) includes multiple
 cases of durable cooperation without central authority (the Iroquois
 Confederacy, the Hanseatic League, the *lex mercatoria*, the Nuer
 leopard-skin-chief system).
@@ -1068,7 +1068,7 @@ they impose real, material costs on violators:
 
 - **Reputation consequences.** A community that violates the
   common virtues loses standing in the compact reputation
-  commons ([reputation_bridges.md](reputation_bridges.md)).
+  commons ([Reputation bridges](reputation_bridges.md)).
   Reputation loss is material: it affects trade, mediation, and
   commons rights, along with the willingness of other
   communities to cooperate. This is the lex mercatoria
@@ -1162,7 +1162,7 @@ serves its captors.
 ### The historical record
 
 The historical cases
-([historical_cases.md](historical_cases.md)) confirm the
+([Historical cases](historical_cases.md)) confirm the
 vulnerability:
 
 - **The Roman Republic's** checks and balances (consuls, tribunes,
@@ -1206,7 +1206,7 @@ The compact design does not solve the collusion vulnerability. It
 detection more likely, through several structural features:
 
 - **Rotation and term limits** in the mediator pool
-  ([liminal_institutions.md](liminal_institutions.md)) make sustained
+  ([Liminal institutions](liminal_institutions.md)) make sustained
   capture harder. The faction must continuously recruit new
   mediators, not merely capture a permanent cadre.
 - **Public deliberation and published reasoning** in the anathema
@@ -1215,20 +1215,20 @@ detection more likely, through several structural features:
   produces detectable patterns.
 - **Competing observers** and **attributed reporting** in the
   information infrastructure
-  ([jester_and_dissent.md](jester_and_dissent.md)) make information
+  ([Jester and dissent](jester_and_dissent.md)) make information
   capture harder. The faction must capture *all* observer functions,
   not just one.
 - **The permanent archive** preserves the record against which
   factional rewriting can be detected, but only if the archive
   itself is not captured.
 - **The separation of power and memory** (the Onondaga principle from
-  [liminal_institutions.md](liminal_institutions.md)) ensures that
+  [Liminal institutions](liminal_institutions.md)) ensures that
   the faction must capture multiple structurally separated
   institutions, not one centralized authority.
 - **The sacred substrate** provides the deepest check. A faction
   member who has genuinely internalized the substrate faces the
   asymmetric-psychological-cost mechanism
-  ([recognition_protocols.md](recognition_protocols.md)) in every
+  ([Recognition protocols](recognition_protocols.md)) in every
   act of conspiracy. The body knows, even when the will has
   decided. This is the only check that operates at the individual
   level rather than the institutional level, and it is therefore the
@@ -1290,7 +1290,7 @@ specific conditions:
   institutional structure has not adjusted to prevent that
   concentration from translating into institutional capture. Ostrom's
   commons-governance principle of proportional equivalence
-  ([commons_federation.md](commons_federation.md)) is the structural
+  ([Commons federation](commons_federation.md)) is the structural
   response, but it is itself vulnerable to the faction that
   concentrates power first and adjusts the rules afterward.
 
@@ -1355,7 +1355,7 @@ to the individual conspirator.
   are the least-bad candidates, and what selection criteria would
   distinguish a promising first-generation counterparty from a
   poisoned one? (This is a shared open question with
-  [justus_hostis.md](justus_hostis.md#open-questions).)
+  [Justus hostis](justus_hostis.md#open-questions).)
 - The anathema designation procedure is necessarily heavy. Is it
   *too* heavy for the cases where rapid action is genuinely needed
   (an actor actively destroying knowledge commons; an actor
@@ -1373,18 +1373,18 @@ to the individual conspirator.
   cultivated in practicing communities. How does the compact ensure
   its mediators have this cultivation without producing an
   inquisitorial caste? (Shared open question with
-  [justus_hostis.md](justus_hostis.md#open-questions).)
+  [Justus hostis](justus_hostis.md#open-questions).)
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md). The theoretical frame this
+- [Justus hostis](justus_hostis.md). The theoretical frame this
   document operationalizes.
-- [recognition_protocols.md](recognition_protocols.md). The handshake layer below the ladder. Dispute procedures only function
+- [Recognition protocols](recognition_protocols.md). The handshake layer below the ladder. Dispute procedures only function
   between parties that already recognize each other.
-- [liminal_institutions.md](liminal_institutions.md). The mediator and arbitration infrastructure the ladder depends on.
-- [exit_and_succession.md](exit_and_succession.md). The expulsion and withdrawal mechanics referenced in the protocol
+- [Liminal institutions](liminal_institutions.md). The mediator and arbitration infrastructure the ladder depends on.
+- [Exit and succession](exit_and_succession.md). The expulsion and withdrawal mechanics referenced in the protocol
   sketch.
-- [../social_framework.md](../concept.md). Parent document.
+- [Cooperation without a sovereign](../concept.md). Parent document.
 - [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md). Intra-community enforcement is a precondition for a habitat to be
   a coherent party to an inter-habitat compact at all.
 

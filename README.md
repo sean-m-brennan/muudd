@@ -64,7 +64,7 @@ order.json).
 19. [Which human answers for which machine](lib/ethne/doc/guardianship.md)
 20. [The rite](lib/ethne/doc/transmission.md)
 21. [Watching for erosion](lib/ethne/doc/cohesion.md)
-22. [What crosses to the compact](lib/ethne/doc/uplift.md)
+22. [Crossing to the compact](lib/ethne/doc/uplift.md)
 
 ### Part IV: Kith-Covenant, how communities treat one another
 

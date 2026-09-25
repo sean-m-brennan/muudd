@@ -12,7 +12,7 @@ of them itself. The functional account derives a short list of forbearances from
 plus the circumstances of vulnerable parties; the compact claims that list as its own
 operative ground wherever it acts and consent has run out.
 
-Hence three things follow: a silence, a commitment, and a limit. First, the phrase
+So three things follow: a silence, a commitment, and a limit. First, the phrase
 "natural law" never appears in the voice of the compact itself, because a
 protocol that named it as its foundation would have ruled on the nature of
 the human person, which is the first-order metaphysical ruling the
@@ -616,7 +616,7 @@ interior life it would not defend, and it does so knowingly. It holds that the
 alternative, a compact confident enough to audit the souls of its members, fails
 sooner and worse. What the compact owes itself in that situation, which is
 discipline of its own conduct rather than judgment of the member's, is worked
-out in [sacrificial_equilibrium.md](sacrificial_equilibrium.md).
+out in [Sacrificial equilibrium](sacrificial_equilibrium.md).
 
 ## What kith-covenant supplies that the tradition does not
 
@@ -713,28 +713,28 @@ never had to state where its protocol fails.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md). The source of the substrate-affords-emergence
+- [Justus hostis](justus_hostis.md). The source of the substrate-affords-emergence
   principle that constitutes the central departure here, of the five anti-spiral features
   whose non-natural character is discussed above, and of the *hostis humani generis*
   category that is the second of the four sites where the compact acts on its own ground.
-- [bounded_conflict.md](bounded_conflict.md#common-virtue-not-non-negotiable-rules). The
+- [Bounded conflict](bounded_conflict.md#common-virtue-not-non-negotiable-rules). The
   common virtues, the virtue-over-rule argument, the mutual-vulnerability premise that is
   the functional account in mechanical dress, and the collusion vulnerability. The refusals
   discussed here as negative precepts are stated there.
-- [recognition_protocols.md](recognition_protocols.md#kith-covenants-recognition-statement). Movement 4 and Movement 5, the four categories including non-members encountered, and the
+- [Recognition protocols](recognition_protocols.md#kith-covenants-recognition-statement). Movement 4 and Movement 5, the four categories including non-members encountered, and the
   sincere materialist cases that separate the two frameworks most cleanly.
-- [noticeable_hand.md](noticeable_hand.md#three-readings-of-the-evidence). The three
+- [The noticeable hand](noticeable_hand.md#three-readings-of-the-evidence). The three
   readings of the evidence, which the functional ground is deliberately independent of, and
   the perennialist reading in which natural revelation appears as evidence.
-- [neighbor.md](neighbor.md). The non-codifiability of the neighbor command and
+- [The neighbor](neighbor.md). The non-codifiability of the neighbor command and
   the choice of the New Law over the treatise on law, which this document reads
   as the implicit position of this corpus on precepts.
-- [historical_cases.md](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases).
+- [Historical cases](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases).
   The convergence evidence that stands in for the universality claim of the
   tradition.
-- [capture_resistance.md](capture_resistance.md#2-the-substrate-deference-test-operationalizing-non-ultimacy). The compact-incapable list, why the compact cannot adopt a derivation, and the asymmetric
+- [Capture resistance](capture_resistance.md#2-the-substrate-deference-test-operationalizing-non-ultimacy). The compact-incapable list, why the compact cannot adopt a derivation, and the asymmetric
   bar that also protects the minimum content.
-- [objections.md](objections.md). The companion genre. While the natural-law
+- [Objections from specific intellectual traditions](objections.md). The companion genre. While the natural-law
   objection developed here is internal enough to the framework to warrant
   its own document, it belongs to the same family as the objections gathered
   there.

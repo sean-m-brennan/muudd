@@ -1,6 +1,6 @@
 *Previous: [Natural law](natural_law.md)*
 
-# Noticeable Hand: The Question of Grace in Stable Cooperation
+# The noticeable hand: the question of grace in stable cooperation
 
 ## A note on this document's posture
 
@@ -37,7 +37,7 @@ reported plainly too.
 ## A methodological refinement. Voluntary peer cooperation under longevity
 
 The first intellectual debt to repay is the case set in
-[historical_cases.md](historical_cases.md), which included
+[Historical cases](historical_cases.md), which included
 regimes that are *not* voluntary peer cooperation among equals.
 The Pax Mongolica was an imperial framework; *dhimma* was the
 legal architecture of a caliphate governing its non-Muslim
@@ -93,7 +93,7 @@ regulating the relationship between the communities that share
 them). The filter as applied correctly identifies the
 full-compact cases but silently excludes a different and equally
 real category of historical evidence, now treated explicitly in
-[historical_cases.md](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases).
+[Historical cases](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases).
 Three cases carry the point: grammar, law, and salvage. The Late
 Bronze Age treaty grammar (Kadesh and its cognates), the
 millennium-long transmission of Rhodian Sea Law across
@@ -118,7 +118,7 @@ accounting separates two questions:
   rules, envoy protection, combatant-treatment rules), convergence
   across communities that do not share substrate is historically
   common and has the preconditions enumerated in
-  [historical_cases.md](historical_cases.md#what-the-thin-domain-cases-have-in-common). Functional (not metaphysical) domain, frontier geography, prior
+  [Historical cases](historical_cases.md#what-the-thin-domain-cases-have-in-common). Functional (not metaphysical) domain, frontier geography, prior
   independent emergence of analogous local structures, each party
   justifying the shared rule in its own frame, legible cost of
   non-convergence, and a mediator class that lives across the
@@ -165,7 +165,7 @@ character that is not Abrahamic.
 **Beyond these, the voluntary peer cases that meet the longevity bar
 are sparse.** Modern secular international institutions are too young
 to count, and (per
-[historical_cases.md](historical_cases.md#brief-notes-on-the-harder-cases))
+[Historical cases](historical_cases.md#brief-notes-on-the-harder-cases))
 fit the predicted brittleness of cooperation regimes built without a
 transcendent-moral-authority substrate.
 
@@ -196,7 +196,7 @@ divine activity, not the divine activity itself.
 The hypothesis applies at the full-compact scale where the evidence
 has been filtered. It is *not* a claim about every scale of
 cross-community cooperation. The thin-functional-domain cases
-([historical_cases.md](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases))
+([Historical cases](historical_cases.md#convergence-without-shared-culture-the-thin-functional-domain-cases))
 show that cross-cultural cooperation on bounded functional matters
 converges without shared substrate when the preconditions hold.
 What the strongest form of the hypothesis claims is that *full
@@ -236,7 +236,7 @@ Several lines of evidence and argument support this reading:
   combined with realism about human fallenness.
 - **The architecture of confession, restitution, and return.** The
   protocol sketch in
-  [bounded_conflict.md](bounded_conflict.md#protocol-sketch)
+  [Bounded conflict](bounded_conflict.md#protocol-sketch)
   requires named paths back into good standing after violation, on
   the premise that the protocol is built for fallen actors. The
   developed sacramental tradition of penance and reconciliation
@@ -254,7 +254,7 @@ Several lines of evidence and argument support this reading:
   is direct. Tit-for-tat-with-forgiveness has its deepest justification
   in the Christian view that we are all undeserving of grace and yet
   receive it. This *exact* anthropology is what
-  [justus_hostis.md](justus_hostis.md#the-anthropology-the-substrate-must-assume)
+  [Justus hostis](justus_hostis.md#the-anthropology-the-substrate-must-assume)
   argued kith-covenant must assume.
 - **The sin/sinner distinction.** Hate the sin, love the sinner. This
   separation makes possible the *justus hostis* move structurally: I
@@ -275,7 +275,7 @@ Several lines of evidence and argument support this reading:
   uniquely supports particularity-within-universality at scale.
 - **The doctrine of original sin as load-bearing realism.** The
   fallen-actor anthropology that
-  [justus_hostis.md](justus_hostis.md#the-anthropology-the-substrate-must-assume)
+  [Justus hostis](justus_hostis.md#the-anthropology-the-substrate-must-assume)
   centers (humans as sinners, capable of evil, requiring containment
   and grace) is in its developed form a Christian doctrine
   (Augustine, Niebuhr, the entire Western tradition of Christian
@@ -443,7 +443,7 @@ shows is that the European substrate was *operating
 selectively*, treating Christians as peers and non-Christians as
 outside the moral universe. This is the colonial blind spot of
 the *jus publicum* discussed in
-[justus_hostis.md](justus_hostis.md#how-the-jus-publicum-fell-apart).
+[Justus hostis](justus_hostis.md#how-the-jus-publicum-fell-apart).
 Whatever theological framework one adopts, it must reckon with
 the fact that grace in the Christian regimes operated within a
 tightly drawn boundary that excluded most of humanity for most
@@ -519,7 +519,7 @@ constituted by the friend/enemy distinction. That politics
 exists where there is an us-and-them serious enough to
 potentially involve killing. The distinction is real and
 kith-covenant acknowledges it (the anathema category in
-[justus_hostis.md](justus_hostis.md#hostis-humani-generis-limits-of-the-justus-hostis-frame)
+[Justus hostis](justus_hostis.md#hostis-humani-generis-limits-of-the-justus-hostis-frame)
 is the kith-covenant analogue). But the friend/enemy distinction
 *does not exhaust the categories of moral relation*. There is
 also the neighbor. The human being actually encountered, to whom
@@ -545,9 +545,9 @@ well-suited to long-running voluntary cross-community
 cooperation, the Buddhist *sangha* is a problem. It has lasted
 longer. It has spread further. It has been more consistently
 voluntary. The counterweight is real and is treated at length in
-[buddhist_sangha.md](buddhist_sangha.md), which analyzes the
+[The Buddhist sangha](buddhist_sangha.md), which analyzes the
 sangha on the same metrics the Christian cases are evaluated on
-in [historical_cases.md](historical_cases.md). Those findings
+in [Historical cases](historical_cases.md). Those findings
 sharpen rather than dissolve the counterweight and also narrow
 its force in a specific direction.
 
@@ -627,14 +627,14 @@ Across all three readings:
 
 - Compact members must have internal cosmologies with
   transcendent-moral-authority structure (the conclusion of
-  [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)).
+  [Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern)).
   This holds whether the transcendent moral authority is the
   Christian God specifically, participates in a single
   transcendent reality, or is merely psychologically convenient.
 - Kith-Covenant cannot dictate the *nature* of the Creator
   (first-order theology stays internal) but does require
   acknowledgment of a Creator and a pro-human, pro-cooperation
-  orientation (see [justus_hostis.md](justus_hostis.md) §"What
+  orientation (see [Justus hostis](justus_hostis.md) §"What
   the compact requires, what it does not, and why").
 - Kith-Covenant must include the architecture of confession, restitution,
   and return, built for fallen actors who will fail and need paths
@@ -645,7 +645,7 @@ Across all three readings:
   community of origin.
 - Kith-Covenant may ground its own conduct toward parties that have not
   joined it on the thin functional minimum it has adopted
-  ([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)), because
+  ([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)), because
   that minimum is reading-independent. It follows from survival as an aim
   plus truisms about vulnerability, and all three readings grant those
   premises. The Christian-particularist and perennialist readings hold that
@@ -661,7 +661,7 @@ One nuance follows. **The documentation should say outright that
 the historical evidence weighs in particular directions.** It
 should not pretend to a neutrality the evidence does not
 support. The ecumenical-secular framing in
-[justus_hostis.md](justus_hostis.md) and other documents serves
+[Justus hostis](justus_hostis.md) and other documents serves
 *design* purposes (kith-covenant must work for members across
 traditions) but should be supplemented with plain reportage of
 what the historical pattern shows, and with explicit
@@ -737,7 +737,7 @@ substrates.
 - The Buddhist longevity case was the single sharpest challenge
   to the strong Christian reading. A direct analysis of the
   sangha on the same metrics the Christian cases are evaluated
-  on now exists in [buddhist_sangha.md](buddhist_sangha.md). The
+  on now exists in [The Buddhist sangha](buddhist_sangha.md). The
   result. The strong Christian-particularist reading ("only
   Christianity can do the load-bearing work") is weakened. The
   moderate version ("most complete combination of the features.
@@ -761,7 +761,7 @@ substrates.
   Hindu ideas of multiple paths to the same ultimate). What
   would a substantive synthesis look like that honored both?
 - Should the recognition protocols
-  ([recognition_protocols.md](recognition_protocols.md))
+  ([Recognition protocols](recognition_protocols.md))
   include explicit acknowledgment of the transcendent moral
   authority substrate criterion at compact-formation? Does this
   risk being a soft religious test that excludes secular
@@ -777,40 +777,40 @@ substrates.
 
 ## Relationship to other documents
 
-- [historical_cases.md](historical_cases.md). Supplies the
+- [Historical cases](historical_cases.md). Supplies the
   empirical evidence this document analyzes. The realpolitik
   filter and longevity reweighting applied here should probably
   be back-ported into its open-questions section.
-- [buddhist_sangha.md](buddhist_sangha.md). Full treatment of the
+- [The Buddhist sangha](buddhist_sangha.md). Full treatment of the
   Buddhist-longevity counterweight on the same metrics the Christian
   cases are evaluated on in historical_cases.md. Directly addresses
   what was previously the sharpest open question in this document.
-- [justus_hostis.md](justus_hostis.md). The sacred-substrate section
+- [Justus hostis](justus_hostis.md). The sacred-substrate section
   there carries the weaker formulation ("any sacred frame that makes
   oaths mean something"). The strengthened claim developed in
-  [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern)
+  [Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern)
   and the still-stronger possibility taken seriously here (that
   Christianity may be specifically correct) both warrant updates to
   that document, in proportion to whatever conclusions the project
   commits to.
-- [bounded_conflict.md](bounded_conflict.md). The common-virtue
+- [Bounded conflict](bounded_conflict.md). The common-virtue
   section there appeals to virtue-ethics traditions that have
   their deepest grounding in the Christian and
   Aristotelian-Thomistic synthesis. This is implicit. Making it
   explicit would clarify the intellectual lineage.
-- [recognition_protocols.md](recognition_protocols.md). The transcendent moral authority substrate criterion for membership is a substantial
+- [Recognition protocols](recognition_protocols.md). The transcendent moral authority substrate criterion for membership is a substantial
   design implication of this document and should be addressed there
   directly.
-- [tacit_coordination.md](tacit_coordination.md). The costly
+- [Tacit coordination](tacit_coordination.md). The costly
   signaling and common-knowledge analyses there are formal-theoretic
   framings of mechanisms whose deepest substantive grounding (per
   this document) may be theological. The two analyses are
   complementary rather than competing.
-- [../social_framework.md](../concept.md). Parent document.
+- [Cooperation without a sovereign](../concept.md). Parent document.
 
 ## References
 
-*Anchor works to be expanded.*
+*Anchor works, to be expanded:*
 
 - Augustine, *De Civitate Dei* (5th c.) and *Confessions* (c. 397).
 - Aquinas, *Summa Theologiae* (1265-1274), particularly the treatise on

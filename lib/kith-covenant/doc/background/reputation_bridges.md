@@ -1,6 +1,6 @@
 *Previous: [Machine-to-machine interaction](m2m_interaction.md)*
 
-# Reputation Bridges: Interface Between Autonomous Trust and Kith-Covenant
+# Reputation bridges: the interface between AutonomousTrust and Kith-Covenant
 
 ## Thesis
 
@@ -44,7 +44,7 @@ autonomy that autonomous_trust exists to protect?"**
 
 ### What made it work
 
-The medieval law merchant ([historical_cases.md](historical_cases.md)
+The medieval law merchant ([Historical cases](historical_cases.md)
 §"Lex mercatoria") succeeded because four structural features
 coincided:
 
@@ -90,9 +90,8 @@ non-state character of their reputation infrastructure.
 ### The modern analogue question
 
 The historical question from
-[historical_cases.md](historical_cases.md): "In a world where most
-infrastructure is captured by state actors, what is reputation
-portable on?"
+[Historical cases](historical_cases.md): "When most infrastructure is
+captured by state actors, what is reputation portable on?"
 
 The reputation of the lex mercatoria was portable on a *network*, the
 network of merchants, fairs, and Kontore. When the network was
@@ -181,7 +180,7 @@ the compact's mediation mechanisms.
 The whistleblower case (an individual within a community reporting
 conduct that community leadership has not acknowledged) is the
 hardest case. This is developed in
-[jester_and_dissent.md](jester_and_dissent.md). The reputation-bridge
+[Jester and dissent](jester_and_dissent.md). The reputation-bridge
 implication is that the cryptographic mechanisms for anonymous
 attestation (see §"Cryptographic mechanisms" below) must be available
 for this purpose.
@@ -201,7 +200,7 @@ undermine that protection.
 ## Costly signaling across cultural differences
 
 The open question comes from
-[tacit_coordination.md](tacit_coordination.md). "Costly signaling
+[Tacit coordination](tacit_coordination.md). "Costly signaling
 assumes that costliness is *legible to all parties*. Across deeply
 different cultures, what is costly to one party may be cheap to
 another. How does kith-covenant design costly signals that are
@@ -310,14 +309,14 @@ An individual within a community can make an attestation that is
 verifiably from *some* member of the community without revealing
 *which* member. This is the cryptographic substrate for the
 whistleblower function developed in
-[jester_and_dissent.md](jester_and_dissent.md).
+[Jester and dissent](jester_and_dissent.md).
 
 **Application to reputation bridges.** Whistleblower reports (claims
 that the internal conduct of a community violates common virtues) can be
 cryptographically attributed to the community (verifying that the
 report comes from an insider) without identifying the reporter. The
 liminal institution that receives the report
-([liminal_institutions.md](liminal_institutions.md)) can assess its
+([Liminal institutions](liminal_institutions.md)) can assess its
 credibility without exposing the reporter to retaliation.
 
 ---
@@ -326,7 +325,7 @@ credibility without exposing the reporter to retaliation.
 
 At AU distances, reputation data is always stale at any non-local
 point. The distributed-monitoring model from
-[commons_federation.md](commons_federation.md) applies, so that reputation
+[Commons federation](commons_federation.md) applies, so that reputation
 propagates through the compact communication network on a delayed
 basis, achieving eventual consistency rather than real-time
 consistency.
@@ -355,7 +354,7 @@ The half-life concept serves two purposes.
    reputation reserve than one that has signaled for months. This
    creates a structural incentive for long-term commitment, exactly
    the "shadow of the future" that
-   [tacit_coordination.md](tacit_coordination.md) identifies as the
+   [Tacit coordination](tacit_coordination.md) identifies as the
    cooperation-sustaining mechanism.
 
 ### Stale-data scenarios
@@ -370,7 +369,7 @@ collective response of the compact.
 
 The mitigation is that designation decisions are propagated with highest
 priority on the compact communication network, and the interim-
-injunction mechanism ([liminal_institutions.md](liminal_institutions.md))
+injunction mechanism ([Liminal institutions](liminal_institutions.md))
 provides rapid local response while the full decision propagates.
 
 ---
@@ -378,7 +377,7 @@ provides rapid local response while the full decision propagates.
 ## The portability problem
 
 When a community exits a compact
-([exit_and_succession.md](exit_and_succession.md)), what reputation
+([Exit and succession](exit_and_succession.md)), what reputation
 comes with it? When a community joins a new compact, what reputation
 precedes it?
 
@@ -403,7 +402,7 @@ review is itself a signal.
 
 A new community seeking admission to a compact has no compact-facing
 record. The recognition ceremony
-([recognition_protocols.md](recognition_protocols.md)) is the
+([Recognition protocols](recognition_protocols.md)) is the
 initial reputation event. The community stakes its reputation on the
 five-movement commitment, and the witnesses assess sincerity. Beyond
 the ceremony, the new community enters a **probationary period**
@@ -445,7 +444,7 @@ reputation-poisoning, or slander.
 reputation of a community through fabricated reports, strategic
 misrepresentation, or coordinated smear campaigns, is the
 pollution threat. The commons-governance framework from
-[commons_federation.md](commons_federation.md) applies, through monitoring
+[Commons federation](commons_federation.md) applies, through monitoring
 (the mediator pool detects reputation fraud), graduated sanctions
 (false reputation is a virtue violation subject to the escalation
 ladder), and conflict resolution (reputation disputes are adjudicated
@@ -535,33 +534,33 @@ must instantiate.
 
 ## Relationship to other documents
 
-- [historical_cases.md](historical_cases.md): the lex mercatoria as
+- [Historical cases](historical_cases.md): the lex mercatoria as
   the primary historical model for non-state cross-jurisdictional
   reputation.
-- [tacit_coordination.md](tacit_coordination.md): costly signaling
+- [Tacit coordination](tacit_coordination.md): costly signaling
   across cultures, and reputation as a costly signal that travels across
   community boundaries.
-- [recognition_protocols.md](recognition_protocols.md): the
+- [Recognition protocols](recognition_protocols.md): the
   recognition statement as the foundational reputation event, and the
   four categories as reputation boundaries.
-- [liminal_institutions.md](liminal_institutions.md): liminal
+- [Liminal institutions](liminal_institutions.md): liminal
   institutions as reputation arbiters and custodians of the reputation
   commons.
-- [commons_federation.md](commons_federation.md): reputation data
+- [Commons federation](commons_federation.md): reputation data
   as a commons, and commons-governance mechanisms applied to reputation
   fraud.
-- [bounded_conflict.md](bounded_conflict.md): the escalation ladder
+- [Bounded conflict](bounded_conflict.md): the escalation ladder
   as the enforcement mechanism for reputation violations.
-- [justus_hostis.md](justus_hostis.md): the fallen-actor anthropology,
+- [Justus hostis](justus_hostis.md): the fallen-actor anthropology,
   under which reputation fraud is a predictable behavior of fallen
   actors rather than an edge case.
-- [noticeable_hand.md](noticeable_hand.md): the sacred substrate as
+- [The noticeable hand](noticeable_hand.md): the sacred substrate as
   the oath-framework that makes reputation commitments binding.
-- [exit_and_succession.md](exit_and_succession.md):
+- [Exit and succession](exit_and_succession.md):
   reputation portability upon exit.
-- [jester_and_dissent.md](jester_and_dissent.md): the
+- [Jester and dissent](jester_and_dissent.md): the
   whistleblower function and anonymous attestation.
-- [../social_framework.md](../concept.md): parent document.
+- [Cooperation without a sovereign](../concept.md): parent document.
 - [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md):
   the AT architecture that the reputation bridge interfaces with.
 

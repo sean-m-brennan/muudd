@@ -7,7 +7,7 @@
 
 # The whistleblower source: anonymity and threshold custody
 
-§8 of [protocol-components.md](protocol-components.md) asks for two things the v1
+§8 of [Protocol components](protocol-components.md) asks for two things the v1
 observer slice did not build:
 
 > **Threshold-held source records**: whistleblower identity recoverable only with

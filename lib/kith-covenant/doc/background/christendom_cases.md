@@ -1,11 +1,11 @@
 *Previous: [Historical cases](historical_cases.md)*
 
-# Christendom Cases: Voluntary Cross-Polity Cooperation Frameworks
+# Christendom cases: voluntary cross-polity cooperation frameworks
 
 ## Why this document exists
 
 The Christian cases in
-[historical_cases.md](historical_cases.md) (Westphalia and the
+[Historical cases](historical_cases.md) (Westphalia and the
 *jus publicum Europaeum*, the Peace of God and Truce of God, the
 Hanseatic League, the *lex mercatoria*, and the codes duello)
 are the most directly relevant historical precedents for
@@ -22,18 +22,18 @@ form kith-covenant aspires to.
 
 This document supplies that increased detail. It covers the same
 five Christendom cases that appear in
-[historical_cases.md](historical_cases.md), but with
+[Historical cases](historical_cases.md), but with
 substantially fuller treatment of the founding negotiations, the
 institutional mechanisms, and the actual texts with their
 specific provisions, the decay vectors and how they actually
 played out, and the anti-spiral features
-([justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
+([Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
 in their specifically Christendom-produced forms. It complements
-[buddhist_sangha.md](buddhist_sangha.md), which provides
+[The Buddhist sangha](buddhist_sangha.md), which provides
 comparable depth on the sangha evidence. The two documents
 should be read as a pair, since the Christian-particularist
 verdict in
-[noticeable_hand.md](noticeable_hand.md#counterweights) rests on
+[The noticeable hand](noticeable_hand.md#counterweights) rests on
 the comparison between them.
 
 Two framing points structure the treatment.
@@ -240,7 +240,7 @@ any other for acts committed during the war, and territories that
 had changed confession or political allegiance under duress were to
 be restored to the 1624 baseline without punishment. This
 encoded at the text level the architecture of confession-and-return
-([bounded_conflict.md](bounded_conflict.md#protocol-sketch)). A
+([Bounded conflict](bounded_conflict.md#protocol-sketch)). A
 named path back to standing after violation, structurally rather
 than discretionarily granted.
 
@@ -355,7 +355,7 @@ termination) even when their causes were dubious. Because it did
 not depend on anyone agreeing about the cause, the procedure
 could be preserved across cause-shifts. This is the *justus
 hostis* move at institutional scale
-([justus_hostis.md](justus_hostis.md)). The opponent in a lawful
+([Justus hostis](justus_hostis.md)). The opponent in a lawful
 war is a legitimate peer in combat, whose rights to surrender,
 to ransom, to return of captured officers under parole, to
 protected status for medical personnel, and (eventually) to
@@ -432,7 +432,7 @@ non-European political communities as subjects, territories, or
 sources of extraction, with occasional exceptions for polities
 recognized as sufficiently "civilized" (the Ottoman Empire,
 Japan after Meiji). This is the failure mode treated at length
-in [noticeable_hand.md](noticeable_hand.md#counterweights). The
+in [The noticeable hand](noticeable_hand.md#counterweights). The
 scriptural mandate of the Christian substrate, universal
 neighbor-love (Luke 10), was not operationally applied to
 non-European neighbors encountered face-to-face. The Westphalian
@@ -528,7 +528,7 @@ distinction collapsed (after 1914, and again in the post-1945
 humanitarian-intervention framework), the ability of the regime
 to terminate conflict in settlements among continuing peers
 substantially degraded. The anathema procedure of Kith-Covenant
-([justus_hostis.md](justus_hostis.md#hostis-humani-generis-limits-of-the-justus-hostis-frame))
+([Justus hostis](justus_hostis.md#hostis-humani-generis-limits-of-the-justus-hostis-frame))
 reserves criminal-status treatment for specific categories of
 violation. The default for disputes between members and between
 members and neighbors is peer-recognition, and the anathema
@@ -565,7 +565,7 @@ recognition machinery applies symmetrically to all encountered
 parties, with the member/neighbor/anathema/non-member distinctions
 operating on conduct rather than on community origin. This is
 already operative in
-[recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories);
+[Recognition protocols](recognition_protocols.md#members-neighbors-enemies-the-four-categories);
 the historical record is why.
 
 ---
@@ -595,7 +595,7 @@ attended by 5 bishops of the southwest, is the conventional
 starting point of the movement. The Synod declared three
 anathemas: against those who broke into churches, those who
 violently took the property of the poor, and those who struck
-clerics. This was a remarkable institutional move. A regional
+clerics. This was an unusual institutional move. A regional
 ecclesiastical assembly declaring universal moral law against
 specific categories of violent predation, enforceable not by the
 royal power (which was absent or ineffective) but by the sacred
@@ -733,7 +733,7 @@ stronger institutions that performed overlapping functions:
 
 ### Lesson for kith-covenant
 
-Three sharp lessons follow.
+Three sharp lessons follow:
 
 First, **a substrate-only enforcement regime can work at scale
 across polities that share no common government, provided the
@@ -758,8 +758,8 @@ mode. The success of the compact at bounding violence among
 members must not produce a legitimated externalization path
 against non-members that replicates at the frontier what it
 prevents internally. The Samaritan-parable correction in
-[noticeable_hand.md](noticeable_hand.md#counterweights) and
-[recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
+[The noticeable hand](noticeable_hand.md#counterweights) and
+[Recognition protocols](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
 is the substrate-level answer. The compact-level answer is
 explicit recognition that the moral obligations of the compact
 operate in every actual encounter with a non-member, not only in
@@ -771,7 +771,7 @@ the pilgrimage-as-penalty, the formal reconciliation with the
 offended party, the restoration of plundered property as a
 condition of re-entry to sacramental standing. The protocol
 sketch of Kith-Covenant in
-[bounded_conflict.md](bounded_conflict.md#protocol-sketch) is
+[Bounded conflict](bounded_conflict.md#protocol-sketch) is
 consistent with this tradition, and the penitential apparatus
 developed specifically in the Peace of God (medieval *libri
 paenitentiales*; mature sacramental theology of penance from the
@@ -908,7 +908,7 @@ was severe. Because Hanseatic reputation traveled
 (merchant-to-merchant at every *Kontor* and every fair), the
 sanction applied almost immediately across the whole network.
 This is the mechanism
-[reputation_bridges.md](reputation_bridges.md) builds out for
+[Reputation bridges](reputation_bridges.md) builds out for
 kith- inter-community layer of the covenant.
 
 **Predictable adjudication.** Disputes among Hanseatic merchants
@@ -927,7 +927,7 @@ warehouses, shared translators, shared legal counsel, and (in
 some cases) shared fortification. These were capital-intensive
 investments whose value depended on the collective maintenance
 of the League and whose commons-character locked in cooperative
-behavior (see [commons_federation.md](commons_federation.md)).
+behavior (see [Commons federation](commons_federation.md)).
 
 ### The decay in detail
 
@@ -971,7 +971,7 @@ constrained civic autonomy. Confessional alliance politics (the
 Schmalkaldic League, the Catholic League) overrode League
 loyalty. Inter-city trust attrited at the first-order
 theological layer. But (as treated in
-[historical_cases.md](historical_cases.md) and in the Hanse
+[Historical cases](historical_cases.md) and in the Hanse
 section there) the substrate was *not* fractured by the
 Reformation. Both Lutheran and Catholic cities continued to
 swear before the God of the same scripture. The Hansetag
@@ -1045,7 +1045,7 @@ disagreement. The member communities of kith-covenant will
 disagree on first-order matters. The compact will survive the
 disagreement if its substrate (the anti-spiral features as
 specified in
-[justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
+[Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
 persists across the member communities.
 
 Third, ***Verhansung* is a working precedent for collective
@@ -1055,7 +1055,7 @@ exclusion from real commons.** The sanction had bite because the
 were genuine commons whose loss was operationally severe. Kith-
 Covenant sanction analogous to it (exclusion from compact
 commons, as named in
-[commons_federation.md](commons_federation.md)) has comparable
+[Commons federation](commons_federation.md)) has comparable
 bite only to the extent that the compact commons are
 operationally real: life support, navigation, rescue,
 communications. This is why the commons federation work is the
@@ -1259,9 +1259,9 @@ reputation can travel on**. The medieval merchant network was
 the substrate on which reputation traveled. Once states
 centralized communication, banking, and adjudication, the
 substrate was undercut and the regime was absorbed.
-Kith-Covenant must answer. In a world where most infrastructure
-is captured by state actors, what is reputation portable on? The
-[reputation_bridges.md](reputation_bridges.md) treatment
+Kith-Covenant must answer. When most infrastructure is
+captured by state actors, what is reputation portable on? The
+[Reputation bridges](reputation_bridges.md) treatment
 addresses this directly. The lex mercatoria case is the
 principal historical reference.
 
@@ -1494,7 +1494,7 @@ precedent for mediator architecture of kith-covenant **. Seconds
 were not mere witnesses. They were active de-escalators whose
 procedural duty was to resolve the dispute without a meeting
 wherever possible. The mediator pool of Kith-Covenant (described
-in [liminal_institutions.md](liminal_institutions.md)) should be
+in [Liminal institutions](liminal_institutions.md)) should be
 designed as active mediators on the seconds model, not passive
 witnesses on the later arbitrator model.
 
@@ -1505,7 +1505,7 @@ meeting-conditions negotiation, the meeting itself, deloping, and
 acknowledged outcome) each provided an exit at which honor could
 be satisfied short of escalation to the next rung. The
 escalation protocols of Kith-Covenant
-([bounded_conflict.md](bounded_conflict.md#escalation-ladders))
+([Bounded conflict](bounded_conflict.md#escalation-ladders))
 should be designed with explicit exits at every rung, not merely
 at the top and bottom.
 
@@ -1524,7 +1524,7 @@ class as its operative carrier.
 
 Six patterns recur across the Christendom cases, beyond those
 already summarized in
-[historical_cases.md](historical_cases.md#patterns-across-the-cases).
+[Historical cases](historical_cases.md#patterns-across-the-cases).
 
 **First, each case institutionalizes a substrate-level moral
 commitment**. Westphalia institutionalizes *justus hostis* at
@@ -1580,7 +1580,7 @@ incorporated into national commercial law). No Christendom case
 decayed primarily by substrate failure. Each decayed by external
 institutional pressure on a still-functional internal mechanism.
 This is structurally distinct from the Buddhist nationalism
-failure mode ([buddhist_sangha.md](buddhist_sangha.md#decay)),
+failure mode ([The Buddhist sangha](buddhist_sangha.md#decay)),
 where a functional institution was subverted by a specific
 anti-spiral- feature betrayal internal to the tradition. The
 Christendom failure modes are mostly external pressure. The
@@ -1603,7 +1603,7 @@ can leave durable contributions to successor institutions.
 ## The five anti-spiral features in Christendom form
 
 The operative formulation from
-[justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)
+[Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)
 identifies five features whose combination blocks the
 purity-spiral failure mode. While the features are what the
 compact credentials, the specifically Christian form each
@@ -1748,7 +1748,7 @@ non-Christian, the colonial frontier, the intra-confessional
 persecutions) are, as above, betrayals of the scriptural mandate
 of the feature rather than absence of the feature. The
 Samaritan-parable correction
-([noticeable_hand.md](noticeable_hand.md#counterweights)) is the
+([The noticeable hand](noticeable_hand.md#counterweights)) is the
 explicit scriptural basis for the corrective to these betrayals.
 
 ### (5) Non-ultimacy of the political community
@@ -1813,7 +1813,7 @@ The failure modes visible across the cases are betrayals of the
 features by their nominal carriers, not absences of the
 features. This is operationally important for kith-covenant. The
 ongoing anti-spiral-features check
-([recognition_protocols.md](recognition_protocols.md#two-layers-intra-community-authorization-and-inter-community-grammar))
+([Recognition protocols](recognition_protocols.md#two-layers-intra-community-authorization-and-inter-community-grammar))
 must examine current operation of the features, not merely their
 in-principle supply by the substrate. A Christian community that
 has betrayed the features is a failed-features community for
@@ -1825,8 +1825,8 @@ compact purposes, regardless of its nominal Christianity.
 
 The detailed Christendom treatment here confirms three propositions
 that the earlier compact treatment in
-[historical_cases.md](historical_cases.md) stated and that
-[noticeable_hand.md](noticeable_hand.md) developed:
+[Historical cases](historical_cases.md) stated and that
+[The noticeable hand](noticeable_hand.md) developed:
 
 **First, Christendom produced the greatest density of voluntary
 cross-polity cooperation frameworks among separate sovereigns in
@@ -1839,7 +1839,7 @@ roughly 270 years in its mature form. The four other cases
 centuries of parallel and complementary cooperation at different
 scales. Against the Buddhist longer duration of the sangha but
 different-kind (trans-polity community) achievement
-([buddhist_sangha.md](buddhist_sangha.md)), the claim of
+([The Buddhist sangha](buddhist_sangha.md)), the claim of
 Christendom is specifically about *cross-polity cooperation
 frameworks among separate sovereigns*, which is what
 kith-covenant needs.
@@ -1925,7 +1925,7 @@ than depending on ad-hoc mobilization.
 and its durability depends on what reputation travels on. In a
 state-captured-infrastructure world, the compact must build
 reputation-portable infrastructure
-([reputation_bridges.md](reputation_bridges.md)) that does not
+([Reputation bridges](reputation_bridges.md)) that does not
 require state permission to function.
 
 **From codes duello.** Active mediator de-escalation (the
@@ -1998,40 +1998,40 @@ application of recognition machinery to all encountered parties.
 
 ## Relationship to other documents
 
-- [historical_cases.md](historical_cases.md). Supplies the
+- [Historical cases](historical_cases.md). Supplies the
   compact treatment of these cases that this document expands.
   The expanded treatment here should not duplicate but should
   deepen. The shorter treatments in historical_cases.md remain
   the reading first pass of the order.
-- [buddhist_sangha.md](buddhist_sangha.md). Companion document
+- [The Buddhist sangha](buddhist_sangha.md). Companion document
   providing comparable depth on the Buddhist regimes. The two
   documents together constitute the empirical base for the
   Christian-particularist-vs-catholic verdict in
-  [noticeable_hand.md](noticeable_hand.md).
-- [noticeable_hand.md](noticeable_hand.md). The theological-
+  [The noticeable hand](noticeable_hand.md).
+- [The noticeable hand](noticeable_hand.md). The theological-
   evidentiary analysis the empirical work of this document
   supports. The verdict section here is consistent with and
   sharpens the noticeable_hand.md verdict.
-- [justus_hostis.md](justus_hostis.md). Supplies the anti-spiral
+- [Justus hostis](justus_hostis.md). Supplies the anti-spiral
   features formulation this document applies to the Christendom
   cases. The result (Christendom supplies the most developed
   single combination of the features) is empirical support for
   the justus_hostis.md position.
-- [bounded_conflict.md](bounded_conflict.md). The escalation
+- [Bounded conflict](bounded_conflict.md). The escalation
   ladder and mediator architecture in that document draw directly
   on the codes-duello case elaborated here.
-- [recognition_protocols.md](recognition_protocols.md). The two-
+- [Recognition protocols](recognition_protocols.md). The two-
   layer recognition architecture draws on the Kadesh-pattern
   thin-grammar cases. The Westphalian detail of this document
   supplies additional specification for the inter-community
   layer.
-- [liminal_institutions.md](liminal_institutions.md). The Hanseatic
+- [Liminal institutions](liminal_institutions.md). The Hanseatic
   *Kontore* and pie-powder-court cases elaborated here are core
   precedents for the liminal institutions treatment.
-- [reputation_bridges.md](reputation_bridges.md). The lex
+- [Reputation bridges](reputation_bridges.md). The lex
   mercatoria treatment here is the principal historical reference
   for the reputation-bridges argument.
-- [exit_and_succession.md](exit_and_succession.md). The
+- [Exit and succession](exit_and_succession.md). The
   Westphalian amnesty-and-return architecture is a direct
   precedent for the exit of the compact and re-entry provisions.
 

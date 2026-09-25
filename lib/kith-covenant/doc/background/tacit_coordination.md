@@ -1,6 +1,6 @@
 *Previous: [The Buddhist sangha](buddhist_sangha.md)*
 
-# Tacit Coordination: Cooperation Without Communication
+# Tacit coordination: cooperation without communication
 
 ## Thesis
 
@@ -29,8 +29,8 @@ The cardinal lesson is that tacit coordination is *real but narrow*. The
 fallback layer is real, narrow, and prior.
 It can carry load when explicit protocol cannot, but it cannot
 substitute for the virtue substrate
-([justus_hostis.md](justus_hostis.md#the-anthropology-the-substrate-must-assume),
-[bounded_conflict.md](bounded_conflict.md#common-virtue-not-non-negotiable-rules))
+([Justus hostis](justus_hostis.md#the-anthropology-the-substrate-must-assume),
+[Bounded conflict](bounded_conflict.md#common-virtue-not-non-negotiable-rules))
 that the main design of kith-covenant rests on. A kith-covenant that treats the tacit
 layer as primary will fail in exactly the situations the explicit
 substrate was designed to address.
@@ -119,7 +119,7 @@ other. The result that became famous is that the *tit-for-tat*
 strategy of Anatol Rapoport won both tournaments, despite being one of the
 simplest strategies submitted.
 
-Tit-for-tat has two rules.
+Tit-for-tat has two rules:
 
 1. On the first move, *cooperate*.
 2. On every subsequent move, *do whatever the other player did on the
@@ -179,7 +179,7 @@ public-record requirement is clarity-by-design) and provide a
 fallback heuristic for participants when the explicit ladder is
 unavailable.
 
-The limits are again sharp.
+The limits are again sharp:
 
 - The *iterated Prisoner's Dilemma* assumes a *binary cooperate/defect
   choice* and *paired interaction*. Real inter-community conflict has
@@ -211,7 +211,7 @@ throughout the rest of the documentation, that *exit costs and continued
 interaction are the deepest material support for cooperation*. Where
 exit is cheap and future interaction is rare, defection pays.
 
-Three concrete implications follow.
+Three concrete implications follow:
 
 - **Space habitats have an exceptionally long shadow.** They cannot
   cheaply move, they will be neighbors for centuries, and the discount
@@ -221,7 +221,7 @@ Three concrete implications follow.
   state and corporate actors come and go, and cultural turnover happens on
   decade scales. The folk-theorem argument for cooperation is
   correspondingly weaker on Earth, which is one more reason
-  ([bounded_conflict.md](bounded_conflict.md#earth-first-the-harder-test))
+  ([Bounded conflict](bounded_conflict.md#earth-first-the-harder-test))
   Earth is the harder test.
 - **The folk theorem is a permission, not a prediction.** It says
   cooperation *can* be sustained, not that it *will* be. The space of
@@ -236,7 +236,7 @@ knows the other knows, recursively. This is the
 **common-knowledge** condition, formalized by Robert Aumann (1976) and
 explored in *Convention* (1969) by David Lewis.
 
-Three observations matter for kith-covenant.
+Three observations matter for kith-covenant:
 
 1. **Salience is culture-relative.** The New Yorkers Schelling asked
    converged on Grand Central, while people from other cultures converge on
@@ -299,7 +299,7 @@ optimizing against the letter of the protocol while violating its
 spirit.
 
 The connection to the gamification problem
-([bounded_conflict.md](bounded_conflict.md#gamification-and-the-letterspirit-divergence))
+([Bounded conflict](bounded_conflict.md#gamification-and-the-letterspirit-divergence))
 is direct. A community that games the letter has to fake its costly
 signals as well as fake its formal compliance, and the costly signals
 are by construction harder to fake. The deepest anti-gamification
@@ -321,7 +321,7 @@ lock-in.
   obvious now. Tacit coordination across generations is therefore
   systematically harder than tacit coordination within a generation,
   and the generational-cadence re-affirmation of kith-covenant
-  ([bounded_conflict.md](bounded_conflict.md#protocol-sketch))
+  ([Bounded conflict](bounded_conflict.md#protocol-sketch))
   partially addresses this by re-establishing common knowledge.
 - **Noise-induced retaliation cascades.** Tit-for-tat and its
   relatives are catastrophically vulnerable to mis-attributed
@@ -402,8 +402,8 @@ Where it cannot:
   literature is largely silent on what happens *after* a major
   defection that cannot be simply retaliated against and forgotten.
   The restitution-and-return architecture
-  ([bounded_conflict.md](bounded_conflict.md#protocol-sketch),
-  [historical_cases.md](historical_cases.md#the-iroquois-confederacy-haudenosaunee-kaianerekowa))
+  ([Bounded conflict](bounded_conflict.md#protocol-sketch),
+  [Historical cases](historical_cases.md#the-iroquois-confederacy-haudenosaunee-kaianerekowa))
   is irreducibly explicit work.
 
 ## Open questions
@@ -425,40 +425,40 @@ Where it cannot:
   signals that are credibly costly across the cultural diversity of
   its membership?
 - The Ostrom design principles for commons (see
-  [commons_federation.md](commons_federation.md))
+  [Commons federation](commons_federation.md))
   overlap substantially with the conclusions here. What does the
   empirical commons literature add that the formal coordination
   literature does not?
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md): the virtue substrate that
+- [Justus hostis](justus_hostis.md): the virtue substrate that
   this document treats as primary; tacit coordination is the fallback
   when virtue-substrate communication fails. The transcendent-moral-authority
-  finding ([historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern),
-  [noticeable_hand.md](noticeable_hand.md)) deepens the substrate
+  finding ([Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern),
+  [The noticeable hand](noticeable_hand.md)) deepens the substrate
   question: costly signals work because there is something at stake
   beyond reputation, and the historical pattern suggests the something
   is transcendent. Tacit coordination operates well over a substrate
   that supplies that beyond-reputation stake; less well when it does
   not.
-- [bounded_conflict.md](bounded_conflict.md): the explicit protocol
+- [Bounded conflict](bounded_conflict.md): the explicit protocol
   whose tacit-layer fallback is treated here. Several mechanisms (the
   ladder's retaliatory/forgiving properties, the mediator's
   attribution role, periodic re-affirmation) are direct applications
   of tacit-coordination theory.
-- [historical_cases.md](historical_cases.md): the historical cases
+- [Historical cases](historical_cases.md): the historical cases
   are real-world instances of the dynamics formalized here; the
   Hanseatic boycott is a costly signal, the codes duello procedure
   is a focal-point convention, the Iroquois Council Fire is a
   common-knowledge institution.
-- [commons_federation.md](commons_federation.md):
+- [Commons federation](commons_federation.md):
   Ostrom's empirical work on commons governance overlaps substantially
   with the conclusions here.
-- [reputation_bridges.md](reputation_bridges.md):
+- [Reputation bridges](reputation_bridges.md):
   reputation as a costly signal that travels across community
   boundaries.
-- [../social_framework.md](../concept.md): parent document.
+- [Cooperation without a sovereign](../concept.md): parent document.
 
 ## References
 
