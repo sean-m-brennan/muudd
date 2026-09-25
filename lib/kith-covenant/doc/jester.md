@@ -11,17 +11,14 @@ becoming when the institutions themselves cannot.
 
 The tradition is long and cross-cultural. It runs from the medieval fool who
 could say to the king what no courtier could, through the prophets of the Hebrew
-Bible whose entire office was telling Israel what Israel did not want to hear, to
-the satyagrahi and the modern investigative journalist. In each case there is a
-licensed truth-teller, protected by convention, whose protection exists precisely
-because what they say is unwelcome.
+Bible whose entire office was telling Israel what Israel did not want to hear,
+to the satyagrahi and the modern investigative journalist. In each case there is
+a licensed truth-teller, protected by convention, whose protection exists
+precisely because what they say is unwelcome.
 
-This compact promotes the jester from a cultural affordance to a substrate-level
-capture detector, which means giving the role structural protection,
-institutional insulation, and technical channels rather than hoping the
-convention holds.
-
-Three properties define it.
+We promote the jester from a cultural affordance to a substrate-level capture
+detector, which means giving the role structural protection, institutional
+insulation, and technical channels rather than hoping the convention holds. Three properties define the role.
 
 *Institutionally protected.* Interference with an observer is itself a virtue
 violation, which puts it inside the escalation machinery rather than outside it.
@@ -40,8 +37,8 @@ Observers travel between member communities, observe conditions, and report.
 
 The reports are *attributed* rather than anonymous, and that is deliberate. An
 observer is not pretending to neutrality. Naming who saw what lets a reader
-weight the report against everything else known about that observer, which is
-more information than an unsigned claim carries, not less.
+weigh the report against everything else known about that observer, and an
+unsigned claim gives a reader nothing to weigh it with.
 
 Every report carries an *irrevocable right of response* for the community it
 concerns. Irrevocable is the operative word. A right of response that the
@@ -53,22 +50,21 @@ holds the machinery.
 The corps owes an account of each window it holds seats for, *including an
 account of having seen nothing*.
 
-That requirement looks like paperwork and closes a real hole. Without it, a corps
-that stopped looking is indistinguishable from a corps with nothing to see. Both
-produce no reports. The attested null makes silence into either evidence or a
-fact about the compact, where before it was missing data.
+That requirement looks like paperwork and closes a real hole. Without it, a
+corps that stopped looking is indistinguishable from a corps with nothing to
+see. Both produce no reports. The attested null makes silence into either
+evidence or a fact about the compact, where before it was missing data.
 
-This is one instance of a rule that runs through the whole design and is stated
-plainly in the erosion analysis: a measure that can only fire when somebody acts
-cannot see a compact that has stopped acting. Only absolute measures see sincere
+This is one instance of a rule running through the whole design, stated plainly
+in the erosion analysis. A measure that can only fire when somebody acts cannot
+see a compact that has stopped acting, and only absolute measures see sincere
 drift.
 
 ## The whistleblower channel
 
 The hardest case is a member of a community reporting on that community. The
-source needs to prove they are an insider, since otherwise any stranger can
-allege anything, and needs to not be identified, since otherwise nobody will
-speak.
+source has to prove he is an insider, since otherwise any stranger can allege
+anything, and has to stay unidentified, since otherwise nobody will speak.
 
 A ring signature does both. The source proves membership in a defined key set
 without revealing which member signed.
@@ -86,8 +82,8 @@ current archive tip. That distinction is the whole security of the mechanism.
 Computing it at verification time against the tip let the accused community, the
 one party with a motive, append one backdated delegation and invalidate every
 filing against it, or backdate a revocation and narrow the suspect set around a
-source after the fact. Both were measured, and both worked. Authority must be a
-property of the log rather than of when you looked.
+source after the fact. We measured both, and both worked. Authority must be a
+property of the log rather than of the moment you looked.
 
 *Rolls are unioned and never superseded.* Once named an insider, always an
 insider, because the alternative hands a community a way to shrink the suspect
@@ -104,8 +100,8 @@ The recipient key is now resolved rather than supplied.
 
 The panel that receives whistleblower reports operates under three rules.
 
-The investigation threshold is *low*, because a channel that demands proof before
-it will look is a channel that discovers nothing.
+The investigation threshold is *low*, because a channel that demands proof
+before it will look is a channel that discovers nothing.
 
 The source is *never revealed*, including the source of a report that turns out
 to be false. That is the harder half of the commitment and the one that decides
@@ -128,8 +124,8 @@ understanding itself is mistaken.
 The first two are ordinary and the machinery of the previous chapters handles
 them. The third is what the jester is for. The fourth is the most dangerous to
 protect and the most dangerous not to, because a compact that cannot hear it
-cannot correct a foundational error, and a compact that hears nothing else has no
-foundation left.
+cannot correct a foundational error, and a compact that hears nothing else has
+no foundation left.
 
 ## The problem from the other direction
 
@@ -138,7 +134,7 @@ the inquisitorial caste arriving by a different door.
 
 An observer corps with standing, protection, and a mandate to find problems will
 find problems, because that is what it is for and what its members are rewarded
-for. The safeguards are the same ones applied everywhere else: rotation, term
+for. The safeguards are the ones we apply everywhere else, being rotation, term
 limits, pool-share caps enforced by the same roster machinery the mediators and
 the examiners use, and the refusal to let observation become a career.
 
@@ -148,10 +144,9 @@ None of that is sufficient, and the chapter on limits says so.
 
 The jester exists because every other safeguard here can be captured by
 sufficient coordination, and because the jester sees precisely by being rooted
-somewhere outside what is being captured.
-
-It is the one role in the design that does not depend on the institutions being
-sound, which is exactly why it is the one role that can say when they are not.
+somewhere outside what is being captured. It is the one role in the design that
+does not depend on the institutions being sound, and that is exactly why it is
+the one role that can say when they are not.
 
 ## Further reading
 

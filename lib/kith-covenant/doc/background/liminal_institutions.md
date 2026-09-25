@@ -1,6 +1,6 @@
 *Previous: [Recognition protocols](recognition_protocols.md)*
 
-# Liminal Institutions: Free Ports, Neutral Arbitration, and the Third Place Between Communities
+# Liminal institutions: free ports, neutral arbitration, and the third place between communities
 
 ## Thesis
 
@@ -21,14 +21,14 @@ These institutions carry three loads that no member community can carry alone:
 
 1. **Neutral ground for disputes** that have escalated past
    bilateral resolution. The escalation ladder described in
-   [bounded_conflict.md](bounded_conflict.md) requires mediators
+   [Bounded conflict](bounded_conflict.md) requires mediators
    and arbiters who are not parties to the dispute. The liminal
    institution provides venue, personnel, and legitimacy for
    that mediation.
 
 2. **Witness infrastructure** for the compact's constitutive
    ceremonies. The recognition ceremony described in
-   [recognition_protocols.md](recognition_protocols.md) requires
+   [Recognition protocols](recognition_protocols.md) requires
    witnesses who hear, judge, and remember, detecting
    inauthenticity and maintaining continuity across generations.
    Liminal institutions are the natural custodians of the
@@ -336,7 +336,7 @@ authority for spiritual authority, and who use their position to
 enforce orthodoxy rather than to detect inauthenticity. The
 antidote is structural: rotation, accountability to the compact
 rather than to the institution, and the presence of the jester
-function (see [jester_and_dissent.md](jester_and_dissent.md)) as
+function (see [Jester and dissent](jester_and_dissent.md)) as
 a check on mediator power.
 
 ---
@@ -346,7 +346,7 @@ a check on mediator power.
 ### Minimum viable size
 
 The bounded-conflict escalation ladder
-([bounded_conflict.md](bounded_conflict.md)) requires mediators
+([Bounded conflict](bounded_conflict.md)) requires mediators
 at several rungs. Envoys, panels, and assemblies: private envoys
 for early-stage disputes, arbitration panels for mid-stage
 disputes, and a compact-wide deliberative body for the anathema
@@ -435,7 +435,7 @@ caste.
 ## Witness infrastructure for the recognition ceremony
 
 The recognition ceremony described in
-[recognition_protocols.md](recognition_protocols.md) requires
+[Recognition protocols](recognition_protocols.md) requires
 witnesses who hear, discern, record, and carry the memory
 forward.
 
@@ -491,7 +491,7 @@ redundancy and diversity of perspective.
 ## The emergency anathema procedure
 
 The anathema designation procedure in
-[bounded_conflict.md](bounded_conflict.md) is deliberately heavy. Four
+[Bounded conflict](bounded_conflict.md) is deliberately heavy. Four
 conditions must be met, multiple communities must concur, and the
 designation carries severe consequences. This weight is a feature, not
 a bug. It prevents weaponization.
@@ -543,7 +543,7 @@ emergency power. Three safeguards:
 3. **The injunction itself is published to the entire compact
    immediately upon issuance.** There are no secret injunctions.
    The compact information commons (see
-   [jester_and_dissent.md](jester_and_dissent.md)) ensures
+   [Jester and dissent](jester_and_dissent.md)) ensures
    transparency.
 
 ### Historical precedent
@@ -900,7 +900,7 @@ between genuine and pretextual invocation).
   a catastrophic disruption. War, plague, infrastructure failure, the
   kind of fire-extinguishing event the Iroquois experienced? The
   reconstitution question is shared with
-  [exit_and_succession.md](exit_and_succession.md).
+  [Exit and succession](exit_and_succession.md).
 
 - What is the relationship between the compact's liminal institutions
   and each **member community's internal sacred spaces**? Is the
@@ -911,7 +911,7 @@ between genuine and pretextual invocation).
   were commercial, not sacred, institutions).
 
 - The **collusion vulnerability**
-  ([bounded_conflict.md](bounded_conflict.md) §"The collusion
+  ([Bounded conflict](bounded_conflict.md) §"The collusion
   vulnerability") applies with particular force to liminal
   institutions. A coordinated faction that captures the mediator
   pool captures the primary checking mechanism. The rotation and
@@ -919,7 +919,7 @@ between genuine and pretextual invocation).
   the vulnerability. Is there a liminal-institution-specific
   defense beyond what the general collusion analysis provides?
 
-- The **jester function** ([jester_and_dissent.md](jester_and_dissent.md))
+- The **jester function** ([Jester and dissent](jester_and_dissent.md))
   is a check on the mediator pool. But who checks the jester? Is there
   a recursive problem here (each checking institution needs a
   further checking institution) or does the sacred substrate provide
@@ -933,38 +933,38 @@ between genuine and pretextual invocation).
 
 ## Relationship to other documents
 
-- [bounded_conflict.md](bounded_conflict.md). The escalation
+- [Bounded conflict](bounded_conflict.md). The escalation
   ladder that the mediator pool and interim-injunction procedure
   operationalize.
-- [recognition_protocols.md](recognition_protocols.md). The
+- [Recognition protocols](recognition_protocols.md). The
   recognition ceremony whose witness infrastructure this document
   develops.
-- [justus_hostis.md](justus_hostis.md). The theoretical frame,
+- [Justus hostis](justus_hostis.md). The theoretical frame,
   especially the inquisitorial-caste problem and the discernment
   question.
-- [historical_cases.md](historical_cases.md). The case material this
+- [Historical cases](historical_cases.md). The case material this
   document extends (Kontore, Council Fire, lex mercatoria fair courts).
-- [tacit_coordination.md](tacit_coordination.md). The tacit
+- [Tacit coordination](tacit_coordination.md). The tacit
   coordination layer. Liminal institutions provide the *explicit*
   coordination infrastructure that the tacit layer backs up.
-- [noticeable_hand.md](noticeable_hand.md). The theological grounding
+- [The noticeable hand](noticeable_hand.md). The theological grounding
   for the sacred character of liminal space.
-- [commons_federation.md](commons_federation.md). Shared
+- [Commons federation](commons_federation.md). Shared
   resource governance intersects with liminal-institution funding and
   custodianship.
-- [reputation_bridges.md](reputation_bridges.md). The
+- [Reputation bridges](reputation_bridges.md). The
   liminal institution is the arbiter of reputation disputes.
-- [exit_and_succession.md](exit_and_succession.md). What
+- [Exit and succession](exit_and_succession.md). What
   happens to liminal institutions when a compact splits or dissolves.
-- [jester_and_dissent.md](jester_and_dissent.md). The
+- [Jester and dissent](jester_and_dissent.md). The
   jester function as a check on the mediator pool.
-- [../social_framework.md](../concept.md). Parent document.
+- [Cooperation without a sovereign](../concept.md). Parent document.
 - [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md). The intra-community complement. Liminal institutions operate at the
   inter-community layer.
 
 ## References
 
-*Anchor works to be expanded.*
+*Anchor works, to be expanded:*
 
 - Turner, *The Ritual Process* (1969) and van Gennep, *The Rites of
   Passage* (1909), both on liminality as a structural category.

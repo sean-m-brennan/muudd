@@ -23,8 +23,8 @@ constraint bites hardest, not least.
 
 The objection has to be answered before the rest is worth writing. The substrate of the
 compact requires enemy-love as an operational norm, the fourth anti-spiral
-feature (see [neighbor.md](neighbor.md) and
-[justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)).
+feature (see [The neighbor](neighbor.md) and
+[Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)).
 "Resist not evil" and "turn the other cheek" sit near the center of the
 tradition that most fully supplies the anti-spiral features. If that teaching
 forbids force outright, then a righteous-war doctrine is a contradiction, and
@@ -80,7 +80,7 @@ remains a neighbor within the encounter of conflict. Even if it never fires
 a shot, a community whose substrate lets it hate has failed feature four. A
 community whose war is bounded by the standing of the one it fights passes
 feature four even in war. The compact credentials the disposition, not the
-doctrine, which is the same finding [neighbor.md](neighbor.md) reaches for
+doctrine, which is the same finding [The neighbor](neighbor.md) reaches for
 peace, namely practice over creed.
 
 So the compact can wage war, under one governing condition. The war must be
@@ -93,7 +93,7 @@ it meaning.
 ## Jus ad bellum: when escalation to war is permitted
 
 War is the top of the escalation ladder, not a separate track beside it. The
-ladder in [bounded_conflict.md](bounded_conflict.md#escalation-ladders) runs from
+ladder in [Bounded conflict](bounded_conflict.md#escalation-ladders) runs from
 dispute registration through formal protest, reciprocal suspension, mediated
 arbitration, and limited and collective sanctions, up to the rung where force
 enters. The virtue overlay of the compact adds conditions to that last step. They
@@ -104,13 +104,13 @@ the compact already has.
   what the virtues protect, meaning life, the sanctuary of rescue, the
   communicative commons, safe passage, the non-combatant, the knowledge commons,
   and the memory of the dead (see the list in
-  [bounded_conflict.md](bounded_conflict.md#common-virtue-not-non-negotiable-rules)).
+  [Bounded conflict](bounded_conflict.md#common-virtue-not-non-negotiable-rules)).
   Not gain, not offense, not the spread of a creed.
 - **Right authority, held by the liminal institutions.** A compact of unconnected
   communities cannot be adjudicated by any one of them, so escalation to force
   runs through the mediator pool and the compact-wide process, never by the unilateral
   declaration of a single community (see
-  [liminal_institutions.md](liminal_institutions.md) and §5d of the overview).
+  [Liminal institutions](liminal_institutions.md) and §5d of the overview).
   This is also the central anti-capture guard, because the most dangerous moment
   in the life of the compact is exactly when one party wants to name its opponent
   an enemy of all.
@@ -129,7 +129,7 @@ the compact already has.
   is not righteous. It is expressive violence, which the virtues do not license.
 
 The four categories of other (see
-[recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
+[Recognition protocols](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
 and §5c of the overview) fix who a war is against and what remains available
 throughout it. Against a *justus hostis*, war is bounded conflict at its most
 intense. The adversary stays a legitimate peer, restoration to non-conflict
@@ -144,7 +144,7 @@ final section takes that case on directly.
 Conduct in war is where the substrate is tested hardest, because the enemy is now
 in front of you and armed. The jus in bello of the compact is already written, as the
 common-virtue list in
-[bounded_conflict.md](bounded_conflict.md#common-virtue-not-non-negotiable-rules).
+[Bounded conflict](bounded_conflict.md#common-virtue-not-non-negotiable-rules).
 This document does not restate that list. It names how the list maps onto the
 classical in-bello principles and why it is framed as virtue rather than rule.
 Those principles are discrimination, proportion, and good faith.
@@ -190,7 +190,7 @@ its own, and they are readmission, restitution, and memory.
 - **The peace must readmit rather than annihilate.** For a *justus hostis*, that
   is restoration to peer standing. For an anathema, it is the re-entry path
   through fresh recitation under heightened scrutiny (see
-  [recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories)).
+  [Recognition protocols](recognition_protocols.md#members-neighbors-enemies-the-four-categories)).
   The war is fought toward the return of the adversary, not toward its erasure.
 - **Restitution runs both ways.** The confession virtue binds the victor as much
   as the vanquished. A compact that harmed in war and then refuses to make it
@@ -201,7 +201,7 @@ its own, and they are readmission, restitution, and memory.
   the thing the commitments of its members are for, so winning does not license
   it to remake the adversary in its own image.
 - **Memory without the spiral.** The Salem finding in
-  [justus_hostis.md](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated)
+  [Justus hostis](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated)
   is that the work of the substrate is termination and repair rather than
   prevention.
   The post-war task is to metabolize the conflict into memory and restitution
@@ -218,7 +218,7 @@ because the pirate had placed himself outside every cooperative framework at
 once, attacking all and protected by none. The full two-tier treatment, and the
 detection problem that the demonic mimics the legitimate until examined closely,
 is in
-[justus_hostis.md](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis).
+[Justus hostis](justus_hostis.md#two-tiers-anathema-and-hostis-humani-generis).
 Against such an actor, restoration does not apply and permanent opposition is
 permitted.
 
@@ -231,7 +231,7 @@ be hard.
   anathema, formally cut off but able in principle to return. Mislabeling an
   anathema forecloses a return that was available, and that error is both more
   common and more dangerous than the reverse (see
-  [justus_hostis.md](justus_hostis.md#design-implications)).
+  [Justus hostis](justus_hostis.md#design-implications)).
 - **The virtues still bind, with no exception for the incorrigible.** Even against
   the demonic, the compact does not become demonic. The category change permits a
   stronger response within the virtue frame, and it does not suspend the frame.
@@ -242,7 +242,7 @@ be hard.
   standing is owed on a ground the designated actor has never accepted and does
   not share, which is the thin functional minimum the compact has adopted rather
   than the authority of the compact itself
-  ([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). The ground cuts
+  ([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)). The ground cuts
   both ways, and this is the practical importance of adopting it. The same
   minimum that makes the designation available at all is what forbids the compact
   to fight without limit under it.
@@ -271,23 +271,23 @@ compact loses that order, it has not won its war. It has changed sides.
 
 ## Relationship to other documents
 
-- [bounded_conflict.md](bounded_conflict.md): the escalation ladder, the
+- [Bounded conflict](bounded_conflict.md): the escalation ladder, the
   common-virtue list that is the operational jus in bello, and the anathema
   handling. This document is the virtue-and-theology frame standing above that
   operational core.
-- [justus_hostis.md](justus_hostis.md): the enemy as legitimate peer, the
+- [Justus hostis](justus_hostis.md): the enemy as legitimate peer, the
   categories within the gap, and the two-tier anathema and *hostis humani
   generis* treatment that this document carries into war.
-- [neighbor.md](neighbor.md): enemy-love as enacted nearness, the fourth
+- [The neighbor](neighbor.md): enemy-love as enacted nearness, the fourth
   anti-spiral feature, which this document extends to the hard case of armed
   conflict.
-- [recognition_protocols.md](recognition_protocols.md): the four categories and
+- [Recognition protocols](recognition_protocols.md): the four categories and
   the re-entry path through fresh recitation, which set the terms of return after
   a war ends.
-- [liminal_institutions.md](liminal_institutions.md): the mediator pool and
+- [Liminal institutions](liminal_institutions.md): the mediator pool and
   observer corps that hold the right authority to escalate, since no single
   community may declare a war for the compact.
-- [natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself): the thin
+- [Natural law](natural_law.md#the-ground-the-compact-claims-for-itself): the thin
   functional minimum grounding conduct by the compact toward parties that have
   not joined it, which is what the *hostis humani generis* case in this document
   stands on, in both directions.

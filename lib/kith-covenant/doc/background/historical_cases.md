@@ -1,11 +1,11 @@
 *Previous: [The control system hypothesis](control_system_hypothesis.md)*
 
-# Historical Cases of Bounded Cooperation Among Strangers
+# Historical cases of bounded cooperation among strangers
 
 ## Thesis
 
 the kith-covenant design is grounded in the inverse argument
-([justus_hostis.md](justus_hostis.md)). The structural features that
+([Justus hostis](justus_hostis.md)). The structural features that
 historically allowed strangers to *bound their conflicts* yield, when
 inverted, the primitives by which strangers can cooperate. This document
 catalogues the cases that argument depends on. For each case it reports
@@ -17,7 +17,7 @@ The case selection is deliberately weighted toward systems that worked
 *without* a single overarching sovereign and *across* communities that
 did not share purpose, identity, or governance. Geneva-tradition cases
 are referenced only briefly here because they receive operational
-treatment in [bounded_conflict.md](bounded_conflict.md). The Iroquois
+treatment in [Bounded conflict](bounded_conflict.md). The Iroquois
 Confederacy receives extended treatment as the most important
 non-Christian case in the comparison set. Its weight in the argument is
 disproportionate to its size precisely because it shows that the
@@ -91,7 +91,7 @@ differently from extra-system warfare and from the post-1914 era.
 ### Decay
 
 The decay vectors are largely those discussed in
-[justus_hostis.md](justus_hostis.md#how-the-jus-publicum-fell-apart),
+[Justus hostis](justus_hostis.md#how-the-jus-publicum-fell-apart),
 recapped briefly:
 
 - The *partitions of Poland* (1772, 1793, 1795) showed that great
@@ -191,7 +191,7 @@ reality. Although the closest contemporary analogue available to
 kith-covenant is *exclusion from the compact*, exclusion only
 carries comparable weight if the compact itself is
 sacred-equivalent, which (per
-[justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content))
+[Justus hostis](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content))
 kith-covenant cannot dictate but only afford. The Peace of God
 also illustrates the redirection failure mode. A peace regime
 that gives its adherents a sanctioned external object (Crusade)
@@ -299,7 +299,7 @@ states arise that have all three. Kith-Covenant must answer what its
 was a feature) but some durable institutional mass that cannot be
 casually overwhelmed. Second, the Hanse is informative for the
 substrate/first-order distinction
-([justus_hostis.md](justus_hostis.md#the-sacred-substrate-and-the-fallen-actor)).
+([Justus hostis](justus_hostis.md#the-sacred-substrate-and-the-fallen-actor)).
 Its ~150 years of continued operation across the Reformation
 confessional divide shows that cooperation survives first-order
 theological disagreement provided the underlying substrate (shared
@@ -382,9 +382,9 @@ regime depends on what reputation can travel on. The medieval
 merchant network was the substrate. Once states centralized
 communication, banking, and adjudication, the older substrate was
 undercut and the regime was absorbed. Kith-Covenant must answer.
-In a world where most infrastructure is captured by state actors,
-what is reputation portable on? This is the central question for
-[reputation_bridges.md](reputation_bridges.md).
+When most infrastructure is captured by state actors, what is
+reputation portable on? This is the central question for
+[Reputation bridges](reputation_bridges.md).
 
 ---
 
@@ -462,7 +462,7 @@ The institution had effectively ceased by the mid-20th century.
 
 Codes duello are the cleanest historical example of a *graduated
 escalation ladder with face-saving exits at every rung* (see
-[bounded_conflict.md](bounded_conflict.md#escalation-ladders)) working
+[Bounded conflict](bounded_conflict.md#escalation-ladders)) working
 as designed. The third-party seconds-as-de-escalators role is the
 direct precedent for the kith-covenant mediator architecture. The decay mode is
 also instructive. A bounded-conflict regime that depends on the
@@ -635,7 +635,7 @@ section below, is that the Iroquois case shares with Christianity the
 specific structural feature of pointing to *a single ultimate* at the
 apex of its cosmology. This is consistent with the substrate-affords-
 emergence position
-([justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)),
+([Justus hostis](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)),
 kith-covenant cannot dictate content, but it sharpens the constraint.
 The substrate that emerges must have *transcendent moral authority / one-ultimate
 structure*, even when the content of that ultimate differs across
@@ -648,7 +648,7 @@ party cannot deliberate well, and the institutional response of
 no European-tradition parallel and is exactly the kind of practice
 that would address several of the kith-covenant hardest problems.
 Post-violation reintegration (see protocol sketch in
-[bounded_conflict.md](bounded_conflict.md#protocol-sketch)),
+[Bounded conflict](bounded_conflict.md#protocol-sketch)),
 de-escalation when one party is in the grip of grief or rage,
 restitution-and-return paths.
 
@@ -841,8 +841,8 @@ probative, each in compressed form:
   Theravada, East Asian, Tibetan Vajrayana, on the same metrics the
   Christian cases above are evaluated on, and applying the five
   anti-spiral features test,
-  [justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
-  is in [buddhist_sangha.md](buddhist_sangha.md). Its principal
+  [Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient))
+  is in [The Buddhist sangha](buddhist_sangha.md). Its principal
   finding is that the sangha is a real case of long-running voluntary
   cross-community cooperation that supplies the anti-spiral features
   through non-Christian theoretical apparatus, but is structurally a
@@ -851,7 +851,7 @@ probative, each in compressed form:
   cooperation framework among separate sovereigns*. This distinction
   matters for what the sangha counterweight does to the
   Christian-particularist reading. See
-  [noticeable_hand.md](noticeable_hand.md#counterweights) for
+  [The noticeable hand](noticeable_hand.md#counterweights) for
   the updated verdict.
 
 - **Classical Greek amphictyonic leagues and Roman federations.**
@@ -1050,7 +1050,7 @@ tribute.
 imperial framework (converting voluntary reciprocity into tributary
 obligation). The Spanish colonial *reducción* system disrupted the
 vertical-archipelago pattern. But ayllu cooperation has shown
-remarkable persistence: elements survive to the present day in
+unusual persistence, with elements surviving to the present day in
 Bolivian and Peruvian highland communities.
 
 **Assessment.** Extraordinarily durable cooperation with a
@@ -1224,7 +1224,7 @@ Confucian emphasis on hierarchical order, the centralized-state model,
 and the tributary-system framework all work against it. This is not
 selection bias. It is a genuine structural feature of East Asian
 political culture. The Japanese village *iriai* commons (already in
-[commons_federation.md](commons_federation.md)) is local, not
+[Commons federation](commons_federation.md)) is local, not
 inter-polity.
 
 ---
@@ -1376,7 +1376,7 @@ The commons compact would support:
   demonstrate.
 - **Commons governance.** Shared management of resources using
   Ostrom's design principles
-  ([commons_federation.md](commons_federation.md)), which do not
+  ([Commons federation](commons_federation.md)), which do not
   require a transcendent moral authority substrate.
 - **Passage and hospitality.** Safe transit, emergency aid, the
   "passage for the traveler" virtue operating at a lighter
@@ -1423,7 +1423,7 @@ mercatoria (commons compact) without being part of Christendom
 (full compact).
 
 The Noahide analogy from
-[justus_hostis.md](justus_hostis.md) §"The Rawlsian objection and
+[Justus hostis](justus_hostis.md) §"The Rawlsian objection and
 the durability hypothesis" applies at the compact level. The commons
 compact is the Noahide tier. Less is required, less is provided,
 but the cooperation is real and the relationship is genuine. The full
@@ -1444,7 +1444,7 @@ nothing.
 
 The preceding case-set was assembled under the
 voluntary-peer-longevity filter (established in
-[noticeable_hand.md](noticeable_hand.md#a-methodological-refinement-voluntary-peer-cooperation-under-longevity))
+[The noticeable hand](noticeable_hand.md#a-methodological-refinement-voluntary-peer-cooperation-under-longevity))
 and consists of *full cooperation regimes*, regimes that govern
 a broad envelope of the interactions of a community with other
 communities. That filter is methodologically defensible but it
@@ -1653,7 +1653,7 @@ round of this document stated it. Three corrections follow:
   operated a shared procedural grammar. This pattern has direct
   consequences for the kith-covenant recognition-ceremony design,
   taken up in
-  [recognition_protocols.md](recognition_protocols.md).
+  [Recognition protocols](recognition_protocols.md).
 
 The thesis survives, narrowed: **each compact member community
 must anchor itself to something above itself, and the compact must
@@ -1685,7 +1685,7 @@ The hypothesis stated as design implication for kith-covenant:
 
 This is a stronger claim than "a shared sacred/cosmological frame
 that makes oaths mean something"
-([justus_hostis.md](justus_hostis.md#why-a-transcendent-moral-authority-was-structurally-necessary)):
+([Justus hostis](justus_hostis.md#why-a-transcendent-moral-authority-was-structurally-necessary)):
 *not just any sacred frame,
 but one with transcendent moral authority / one-ultimate structure*. The historical
 evidence assembled here is the basis for the stronger form.
@@ -1696,7 +1696,7 @@ Several careful consequences follow:
   Creator's nature**. The compact requires acknowledgment of a
   Creator, a pro-human orientation, and a pro-cooperation
   orientation
-  ([justus_hostis.md](justus_hostis.md#what-the-compact-requires-what-it-does-not-and-why)).
+  ([Justus hostis](justus_hostis.md#what-the-compact-requires-what-it-does-not-and-why)).
   It cannot specify whose ultimate is right, or whether the
   ultimates are really one or really many, or what the ultimate
   is called. First-order theology is the business of each
@@ -1725,7 +1725,7 @@ Several careful consequences follow:
   high gods of other communities were in some sense the same as
   their own, and built cooperation on that recognition. The
   kith-covenant recognition protocols
-  ([recognition_protocols.md](recognition_protocols.md)) should
+  ([Recognition protocols](recognition_protocols.md)) should
   learn directly from these cases.
 
 The hypothesis is open to refutation. A clear case of sustained
@@ -1736,7 +1736,7 @@ leagues, modern secular institutions); each on examination either
 confirms the pattern or fits the predicted failure mode. The
 Buddhist *sangha* case, which at first presents as a counterexample
 because of Buddhism's non-theistic philosophical core, on detailed
-examination in [buddhist_sangha.md](buddhist_sangha.md) confirms the
+examination in [The Buddhist sangha](buddhist_sangha.md) confirms the
 pattern through the Dharma as structural single-ultimate, and adds a
 refinement. The sangha is a *trans-polity religious community*
 rather than a *cross-polity cooperation framework among separate
@@ -1813,7 +1813,7 @@ today "may simply be young" cuts both ways. The pattern cannot
 prove they will fail, and the objection cannot prove they will
 last. The defensible position is that the evidence is suggestive,
 not conclusive, and the three-reading structure of
-[noticeable_hand.md](noticeable_hand.md) holds exactly that
+[The noticeable hand](noticeable_hand.md) holds exactly that
 degree of confidence.
 
 **Confounds.** The durable cases also tend to share literacy, dense
@@ -1830,9 +1830,9 @@ one.
 **Confidence.** The residual issue is neither the thesis nor its
 falsifiability but the *confidence* with which it is stated. The
 finding is held provisionally here, and the documents that build on it
-([justus_hostis.md](justus_hostis.md#why-a-transcendent-moral-authority-was-structurally-necessary),
-[recognition_protocols.md](recognition_protocols.md),
-[bounded_conflict.md](bounded_conflict.md)) state it with the same
+([Justus hostis](justus_hostis.md#why-a-transcendent-moral-authority-was-structurally-necessary),
+[Recognition protocols](recognition_protocols.md),
+[Bounded conflict](bounded_conflict.md)) state it with the same
 provisional confidence rather than as settled fact. They adopt the
 one-ultimate structure as a *design requirement* independently of how
 the empirical question ultimately resolves.
@@ -1855,7 +1855,7 @@ patterns most directly relevant to the kith-covenant design.
    transcendent moral authority structure rather than merely being "shared cosmology," is
    developed in "The transcendent moral authority pattern" section above and is consistent
    with the substrate-affords-emergence position
-   ([justus_hostis.md](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
+   ([Justus hostis](justus_hostis.md#substrate-affords-emergence-it-does-not-dictate-content)).
 
 2. **The third-party role (second, mediator, fire-keeper) was
    institutionally central in all of them**. Cooperation among two
@@ -1886,7 +1886,7 @@ patterns most directly relevant to the kith-covenant design.
    ecclesiastical reconciliation) outlasted those that did not.**
    A regime built for fallen actors must include named paths back
    into good standing. This is incorporated in
-   [bounded_conflict.md](bounded_conflict.md#protocol-sketch) as the
+   [Bounded conflict](bounded_conflict.md#protocol-sketch) as the
    restitution-and-return rung.
 
 ## Open questions
@@ -1906,7 +1906,7 @@ patterns most directly relevant to the kith-covenant design.
   the Nuer), pre-Inca Andean ayllu networks, and Pacific voyaging
   exchange systems.
 - The realpolitik / voluntary-peer / longevity reweighting performed
-  in [noticeable_hand.md](noticeable_hand.md) substantially changes
+  in [The noticeable hand](noticeable_hand.md) substantially changes
   which cases bear most directly on the kith-covenant design (filtering out
   Pax Mongolica, *dhimma*, and other imperial frameworks as not
   voluntary peer cooperation). The case treatments above should
@@ -1927,20 +1927,20 @@ patterns most directly relevant to the kith-covenant design.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md). Theoretical anchor. This
+- [Justus hostis](justus_hostis.md). Theoretical anchor. This
   document supplies the case material the theoretical argument depends on.
-- [bounded_conflict.md](bounded_conflict.md). The protocol sketch
+- [Bounded conflict](bounded_conflict.md). The protocol sketch
   draws directly on the codes duello (escalation), Geneva tradition
   (red-line architecture, discussed there), and the Condolence
   ceremony (restitution-and-return).
-- [tacit_coordination.md](tacit_coordination.md). Game-theoretic
+- [Tacit coordination](tacit_coordination.md). Game-theoretic
   treatment of the underlying cooperation dynamics that the
   historical cases instantiate.
-- [reputation_bridges.md](reputation_bridges.md). Inherits the lex mercatoria question of what reputation is
+- [Reputation bridges](reputation_bridges.md). Inherits the lex mercatoria question of what reputation is
   portable on.
-- [exit_and_succession.md](exit_and_succession.md). Inherits the Hanseatic *Verhansung* precedent and the Iroquois
+- [Exit and succession](exit_and_succession.md). Inherits the Hanseatic *Verhansung* precedent and the Iroquois
   question of whether a fractured compact can be reconstituted.
-- [../social_framework.md](../concept.md). Parent document.
+- [Cooperation without a sovereign](../concept.md). Parent document.
 
 ## References
 

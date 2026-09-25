@@ -7,9 +7,9 @@ meld. It supersedes the AT-repo notes `AT_KC_MELD.md` (disconnects and meld
 proposals) and `kc_support.md` (the five concrete first couplings), and it inverts
 their ownership, so that the meld is **hosted in kith-covenant (KC), which imports the
 `autonomous_trust` (AT) package**, rather than in AT. Companion to
-[machine-participation.md](machine-participation.md),
-[protocol-components.md](protocol-components.md), and
-[policy-evaluation.md](policy-evaluation.md).*
+[Machine participation](machine-participation.md),
+[Protocol components](protocol-components.md), and
+[Policy evaluation architecture](policy-evaluation.md).*
 
 ## Purpose
 
@@ -19,7 +19,7 @@ known-identity governance *between* communities, among a mix of humans, machines
 and guardians. The framing KC uses states the seam plainly. "AT exposes upward
 community-key identity, delegated speakers, health indicators, and witness
 availability. Kith-covenant never reaches inward"
-([protocol-components.md](protocol-components.md), decision 5).
+([Protocol components](protocol-components.md), decision 5).
 
 The intended layering is heavily *documented*, and a handful of the joints are
 conceptually unresolved rather than merely unimplemented. The
@@ -48,7 +48,7 @@ the observer, the bidirectional adapter, and the enforcement writer. AT is a
 dependency of the integration layer in KC, not the other way around.
 
 This is a refinement of the split already recorded in
-[policy-evaluation.md](policy-evaluation.md), where the KC *library* owns the
+[Policy evaluation architecture](policy-evaluation.md), where the KC *library* owns the
 policy schema and event types and the AT simulator imported them (AT→KC). The
 schema stays exactly where it is, and what moves is the **runtime**, so the
 dependency for the live integration now runs KC→AT. Concretely, the Python package
@@ -61,7 +61,7 @@ of KC splits into two layers with a one-way dependency between them:
 
 The core library stays AT-free, so the policy schema remains stable and reusable
 (hand-crafted and future ML-generated policies still target the same types, see
-[policy-evaluation.md](policy-evaluation.md) on why that loop does not violate the
+[Policy evaluation architecture](policy-evaluation.md) on why that loop does not violate the
 non-emergence claim). Everything that must touch AT lives in
 `kith_covenant.integration`, which `import autonomous_trust`. AT already exists
 and is imported. If a joint genuinely requires a new AT-side field or hook
@@ -168,7 +168,7 @@ call.
 ### D. The human / guardian axis (the heart of "human+machine" vs "m2m only")
 
 **D1. The whole answer KC gives to machine participation has no AT anchor.**
-[machine-participation.md](machine-participation.md) is unambiguous that a machine
+[Machine participation](machine-participation.md) is unambiguous that a machine
 participates only in a *derived* form, "irrevocably tied to one specific named
 human" (the **guardian**) whose community standing is at stake in the machine's
 conduct. The binding rests on four layered mechanisms (constitutive objective,
@@ -176,7 +176,7 @@ cryptographic self-binding, continuous attestation, principal-referential
 identity + audit commons). Yet:
 - KC has **no guardian type in code**, the guardianship relation, the fan-out
   cap, attestation, and weight-integrity are all doc-only
-  ([machine-participation.md](machine-participation.md) Facets 1-3), not types.
+  ([Machine participation](machine-participation.md) Facets 1-3), not types.
 - AT has **no place to record the guardian of a node.** The AT Operator
   (`operator/activate.py`, "the single human touchpoint") is a *requesting* human
   (a request-only node that consumes capabilities), not a *guardian who owns the
@@ -293,7 +293,7 @@ Promote the AT Operator from *requester* to *guardian*. The Operator is already 
 authenticated human touchpoint (PIV + MFA, `operator/activate.py`). Let an
 operator credential **vouch for and own the standing of** one or more machine
 nodes, with the fan-out cap and standing-weight decay from
-[machine-participation.md](machine-participation.md) Facet 2. This needs one
+[Machine participation](machine-participation.md) Facet 2. This needs one
 minimal AT-side field (an optional `guardian` reference on AT `Identity` (a
 KC-facing human key/DID)) exposed for the integration layer to read. The
 directory, the fan-out cap, and the weight-decay policy live KC-side. This is the
@@ -380,7 +380,7 @@ intra-community nodes keep the current emergent AT admission unchanged. The gate
 decision is a KC call (`has_capability` / `RecognitionStanding` over the archive)
 invoked from an AT admission hook, so the *policy* lives KC-side while the *hook* is a
 minimal AT extension. This is backward-compatible and it honors the
-boundary drawn in [machine-participation.md](machine-participation.md): "internal
+boundary drawn in [Machine participation](machine-participation.md): "internal
 fleet operation is the community's own affair; compact-facing participation is
 guardian-bound and fan-out-capped."
 
@@ -391,7 +391,7 @@ whose *failure* emits a KC `Concern` and triggers the "earlier-acting revocation
 profile" from Facet 3, a **narrowed AT operating envelope** (tighter capability
 gating, fresh attestation required for non-routine actions) rather than a full
 revocation, so false positives are recoverable. This wires
-Move 2/3 of [machine-participation.md](machine-participation.md) (weight integrity →
+Move 2/3 of [Machine participation](machine-participation.md) (weight integrity →
 capability-gating) to a concrete AT signal, evaluated in `kith_covenant.integration`.
 
 ## The five concrete first couplings
@@ -469,7 +469,7 @@ the fields and events below are additions.
   from ≥N sources before the anomaly cascades into reputation. Most invasive
   (touches core reputation weighting), so ship the observer metric first and put the
   hook behind the flag. This is the manufactured-event resistance of KC
-  ([capture_resistance.md](../background/capture_resistance.md) move 4, structured
+  ([Capture resistance](../background/capture_resistance.md) move 4, structured
   skepticism) pushed down into AT.
 
 ### Feature 5: appeal-above channel (moderate)
@@ -511,7 +511,7 @@ feature list before implementing.
 - **The KC policy/event schema already in the core library.** `policy.py` and
   `interface.py` exist in `src/python/kith_covenant/`. The runtime just moves to a
   KC integration package that imports AT.
-- **The observer + [policy-evaluation.md](policy-evaluation.md).** The AT→KC
+- **The observer + [Policy evaluation architecture](policy-evaluation.md).** The AT→KC
   direction already exists. It needs relocating to KC, widening, and a return path,
   not replacement.
 - **The five features.** The never-withhold floor, restoration-path completeness,
@@ -546,7 +546,7 @@ feature list before implementing.
   a KC `Concern`, and what deliberative threshold in KC is needed before a verdict
   latches back into AT? The category change (B1) forbids a numeric formula. It wants
   a designed policy.
-- **Q2. Fan-out / fleet seam.** [machine-participation.md](machine-participation.md)
+- **Q2. Fan-out / fleet seam.** [Machine participation](machine-participation.md)
   admits this is "asserted rather than designed": a community may run thousands of
   AT nodes behind its boundary, but compact-facing participation is fan-out-capped.
   Where exactly is the boundary drawn in AT terms (per capability? per gateway?),
@@ -557,7 +557,7 @@ feature list before implementing.
   (ZTA issuer)? What stops a captured community from writing self-serving enforcement
   into its own subtree?
 - **Q4. Attestation trust roots.** TPM/enclave/ZK each rest on assumptions
-  ([machine-participation.md](machine-participation.md) Facet 1). Which does AT
+  ([Machine participation](machine-participation.md) Facet 1). Which does AT
   adopt, and how is the compact designed so the failure of a single root does not
   dissolve binding across the federation?
 - **Q5. Archive over an AT mesh.** How do the append-only, content-addressed
@@ -566,12 +566,12 @@ feature list before implementing.
 ---
 
 *This document supersedes the AT-repo notes `AT_KC_MELD.md` and `kc_support.md`.
-Cross-references: [machine-participation.md](machine-participation.md),
-[protocol-components.md](protocol-components.md),
-[policy-evaluation.md](policy-evaluation.md), and background
-[m2m_interaction.md](../background/m2m_interaction.md),
-[capture_resistance.md](../background/capture_resistance.md),
-[jester_and_dissent.md](../background/jester_and_dissent.md).*
+Cross-references: [Machine participation](machine-participation.md),
+[Protocol components](protocol-components.md),
+[Policy evaluation architecture](policy-evaluation.md), and background
+[Machine-to-machine interaction](../background/m2m_interaction.md),
+[Capture resistance](../background/capture_resistance.md),
+[Jester and dissent](../background/jester_and_dissent.md).*
 
 ---
 

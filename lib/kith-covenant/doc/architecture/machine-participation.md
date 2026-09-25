@@ -1,6 +1,6 @@
 *Previous: [Protocol components](protocol-components.md)*
 
-# Machine Participation in Kith-Covenant
+# Machine participation in Kith-Covenant
 
 ## The problem
 
@@ -307,7 +307,7 @@ commons). The strength question at this facet is largely
 engineering, with mostly-answered sub-questions and a few
 explicitly open ones.
 
-Three sub-questions are mostly answered.
+Three sub-questions are mostly answered:
 
 - **Capability-gating keyed to attestation.** Oath-inconsistent
   states automatically revoke operational capabilities. Mature
@@ -319,7 +319,7 @@ Three sub-questions are mostly answered.
   straightforward once the identity-coupling ceremony specifies who
   the principal is.
 
-Three implementation questions stay open.
+Three implementation questions stay open:
 
 - **Weight-drift detection latency.** If policy drifts silently
   between re-attestation events, the window size bounds the
@@ -419,7 +419,7 @@ genuinely at stake in machine conduct. Implementation is a
 community-visible audit commons, where commendations and censures of
 *guardians* (not only machines) are part of the permanent record.
 
-**Where KC exceeds ordinary guardianship.**
+**Where KC exceeds ordinary guardianship:**
 
 1. **Oath-weight, not just contract.** Acceptance of responsibility
    by the guardian is witnessed as an oath that is substrate-referent,
@@ -528,7 +528,7 @@ The corrupt-lineage limit applies to this layer as well. If the
 cross-community witnesses are themselves captured by the same
 adversary, their attestations collude. This is the case the
 substrate-level capture-resistance machinery
-([capture_resistance.md](../background/capture_resistance.md)) is
+([Capture resistance](../background/capture_resistance.md)) is
 ultimately responsible for; no single layer is sufficient against
 the most sophisticated adversaries, and the architecture states
 this limit rather than claiming a guarantee it cannot supply.
@@ -682,13 +682,13 @@ explicit, non-equal, derived terms.
 
 ## Relationship to other documents
 
-- [protocol-components.md](protocol-components.md). Software
+- [Protocol components](protocol-components.md). Software
   decomposition of kith-covenant for the human-community case. Most
   components (archive, mediation, reputation, commons, and observer
   function) extend to machine participation without major redesign,
   and the identity, recognition, and enforcement components need the
   machine-specific extensions developed here.
-- [policy-evaluation.md](policy-evaluation.md). The existing
+- [Policy evaluation architecture](policy-evaluation.md). The existing
   AT-kith-covenant policy evaluation framework is a concrete early
   instance of the machine-participation architecture, where
   observation, scoring, and evaluation are already typed and

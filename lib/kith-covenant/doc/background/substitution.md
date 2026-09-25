@@ -14,7 +14,7 @@ enforces quietly narrows to a fraction of what it recites.
 This is substitution, and it can be entirely sincere. Nobody need lie, coordinate, or
 benefit. It belongs beside decay rather than inside the capture harness for that reason, and
 it is the second finding of its kind in
-[erosion-legibility.md](../architecture/erosion-legibility.md), whose first was that the
+[Erosion legibility](../architecture/erosion-legibility.md), whose first was that the
 erosion alert cannot see omission. This is the sibling failure. **The erosion alert could
 not see intensification either**, and for the mirror-image reason: every dimension it
 carried was satisfied by a polity performing each form harder every year.
@@ -263,22 +263,22 @@ only thing the architecture has ever claimed.
 
 ## Relationship to other documents
 
-- [erosion-legibility.md](../architecture/erosion-legibility.md): the uniform-drift audit,
+- [Erosion legibility](../architecture/erosion-legibility.md): the uniform-drift audit,
   which owns adversary-free failure, and whose finding that only absolute measures see
   sincere drift is the ground this document stands on. Findings K5 and K6 there are the
   audit-side statement of what is argued here.
-- [sacrificial_equilibrium.md](sacrificial_equilibrium.md): the same mechanism running as a
+- [Sacrificial equilibrium](sacrificial_equilibrium.md): the same mechanism running as a
   settled arrangement inside a member rather than as a crisis, and the treatment this
   document extends. Substitution is that mechanism at the level of the compact.
-- [capture_resistance.md](capture_resistance.md): the seven capture moves and the harness
+- [Capture resistance](capture_resistance.md): the seven capture moves and the harness
   that scores them. Substitution is scored beside them and is deliberately not numbered as an
   eighth move, since it has no adversary.
-- [justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient):
+- [Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient):
   the five anti-spiral features, including the two countermeasures this document argues are
   aimed at two different accounts of the same failure.
-- [jester_and_dissent.md](jester_and_dissent.md): the observer corps that reads these
+- [Jester and dissent](jester_and_dissent.md): the observer corps that reads these
   dimensions, and the reason they report rather than refuse.
-- [protocol-components.md](../architecture/protocol-components.md): the conduct record, the
+- [Protocol components](../architecture/protocol-components.md): the conduct record, the
   escalation ladder, and the erosion alert this reading is a dimension of.
 
 ## References

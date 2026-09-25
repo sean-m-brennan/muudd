@@ -1,6 +1,6 @@
 *Previous: [The crates, and what each one holds](../crates.md)*
 
-# Protocol Components and Operational Gaps
+# Protocol components and operational gaps
 
 This document decomposes the software scope of kith-covenant.
 What must be built to make the social structures described in
@@ -25,7 +25,7 @@ Capture resistance is a cross-cutting architectural concern, not a component.
 Each component below carries capture-resistance responsibilities as part of its
 ordinary specification, and §11 catalogues the unified concern, routes the seven
 strengthening moves of
-[capture_resistance.md](../background/capture_resistance.md) to their component
+[Capture resistance](../background/capture_resistance.md) to their component
 homes, and names the implementation work that follows.
 
 ## Purpose and scope
@@ -66,7 +66,7 @@ around those commitments.
 
 The framework protects preconditions it cannot itself generate. The recognition
 ceremony requires communities that *already* hold the substrate. This is
-developed in [justus_hostis.md](../background/justus_hostis.md) §"The
+developed in [Justus hostis](../background/justus_hostis.md) §"The
 bootstrapping problem", where the compact is cast as a protector and connector
 of communities that already meet the preconditions rather than a generator of
 them. The problem is shared by every cooperation framework that requires
@@ -220,7 +220,7 @@ support both layers and must not conflate them.
   is no longer opaque: it carries an ordered list of keyed
   commitments, so a measure can cite one from a recited list and
   the compact has an object with a denominator
-  ([substitution.md](../background/substitution.md)). What that
+  ([Substitution](../background/substitution.md)). What that
   did not change is the identity of a rite, which is still the
   content address of the sealed record and not a version of its
   text.
@@ -563,7 +563,7 @@ prevention.
   wrong one from a right one. Two structural facts are reported
   instead: that a grievance stands with no proceeding against it, and
   how many mediator seats sat on more than one of the dismissals that
-  closed it. See [captured-prosecution.md](captured-prosecution.md).
+  closed it. See [The captured prosecution](captured-prosecution.md).
 - **Enforcement landing on the compact's own complainants.**
   `kc_reputation::reporter_targeting` is the other half of the same
   capture, and the fourteenth dimension of the erosion alert. Where
@@ -659,7 +659,7 @@ prevention.
   panel. A designation whose re-examination has lapsed may not be
   **cited** by a further escalation act, which is the one refusal the
   remediation of the erosion audit carries (see
-  [erosion-legibility.md](erosion-legibility.md)). A third outcome,
+  [Erosion legibility](erosion-legibility.md)). A third outcome,
   `Vacated`, is the compact saying the designation was its own error,
   and it is the only conclusion available to a panel re-examining the
   irrecoverable tier. `Reversed` reports a reversal that some other
@@ -988,7 +988,7 @@ candidate mechanisms, layerable:
   Every one of them answers to conduct at the boundary. Holding a
   community out of office for what it does at home would be a verdict
   on the interior of a member, which
-  [natural_law.md](../background/natural_law.md#the-interior-of-a-member-community)
+  [Natural law](../background/natural_law.md#the-interior-of-a-member-community)
   forbids the compact to form. Note what deliberately does not
   withhold: `derive_standing` reports `Anathema` both for a structured
   §5 designation and for the coarse `ConductKind::DesignationAnathema`
@@ -1033,7 +1033,7 @@ external force:
 - **The adopted minimum content as a protected artifact.** The thin
   functional minimum the compact has adopted as the ground of its own
   conduct where consent has run out
-  ([natural_law.md](../background/natural_law.md#the-ground-the-compact-claims-for-itself))
+  ([Natural law](../background/natural_law.md#the-ground-the-compact-claims-for-itself))
   is a second constitutional artifact, adopted once by quorum and
   amendable only by second-class procedure. It is **not** a row on the
   compact-incapable list and may not be filed as one. That list names
@@ -1088,7 +1088,7 @@ test"](../background/capture_resistance.md#2-the-substrate-deference-test-operat
   generalized to space only after Earth has been the harder first test.
 - **Integration harness** against `autonomous_trust` for live-AT
   message traffic observation, per
-  [policy-evaluation.md](policy-evaluation.md).
+  [Policy evaluation architecture](policy-evaluation.md).
 - **Capture-resistance scenario simulation.** Adversarial test categories
   specifically target the seven strengthening moves:
   - faction-monopolizing-interpretation within a member community (move 1)
@@ -1191,7 +1191,7 @@ Per-component criteria:
 Although it is catalogued here as §11, this is not a separate
 component but a unified architectural concern that runs through
 §§1-10. The full statement is in
-[capture_resistance.md](../background/capture_resistance.md).
+[Capture resistance](../background/capture_resistance.md).
 The specifications for its individual moves live in their host
 research documents. The role of this section is to give the
 concern explicit constitutional standing in the software
@@ -1251,7 +1251,7 @@ capture-resistance test harness. Each is carried by the code named beside it:
 | Sealed decisions with threshold-reveal | §4 | `SealedReasoning` + `DecisionUnsealed` over `kc_core::ThresholdCustody`, the §8 primitive at its second use. Although the mediators are the parties who decide, custodians are **communities**, because the §4 two-year mediator term cannot carry a twenty-five-year seal. No party holds a share and no quorum sits with the communities of the panel itself |
 | Mediator-pool rotation and share cap | §4 | `MediatorRegistry` + `MediatorCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share, the same `check_roster_caps` the §2 examiner and §8 observer caps read. Until it existed the mediator pool was the third roster and the one wired to nothing, so one community could hold nine of ten seats and every mediator could be seated with no end date at all. The *draw* stays social: one panel may still be composed entirely of mediators from a single non-party community whose share of the pool is legal, as with drawing examiners by lot |
 | Recusal requested and answered | §4 | `RecusalRequest` + `RecusalDecision`. Grounds are required and never weighed for content, since a rule can record that a ground was stated, not judge it. Granted only by the mediator stepping down. A refusal belongs to the panel, never to that mediator. A declined request must state reasoning. It gates nothing: the mediation decides as it would have |
-| Protecting powers | §4 | `ProtectingPower`, the Geneva analogue from [liminal_institutions.md](../background/liminal_institutions.md). A non-party community standing for a disputant, co-signed by both, barred from seating mediators in the same dispute. "It is not an arbitrator. It is a witness with standing", so it gates nothing |
+| Protecting powers | §4 | `ProtectingPower`, the Geneva analogue from [Liminal institutions](../background/liminal_institutions.md). A non-party community standing for a disputant, co-signed by both, barred from seating mediators in the same dispute. "It is not an arbitrator. It is a witness with standing", so it gates nothing |
 | Mediator training lineage | §4 | `MediatorEntry.trained_by` plus the lineage half of `mediator_pool_concentration`: per-trainer counts against the *recorded* denominator, so a pool that records nothing reads as unknown rather than healthy. Read by no rule, because the same doctrine warns against a certification barrier becoming a gatekeeping mechanism |
 | Substrate-deference dashboard maintained by observer corps | §8 | `substrate_deference` + `erosion_alert`, bundled on `observer_dashboard` |
 | Attested nulls for the standing functions | §4, §8 | `kc-conduct::ActivityAttestation`: a signed account of one window, whose **empty** act list is the purpose of the record. Silence becomes either evidence or a fact about the compact rather than missing data. Signed by the community that holds the seats, since the obligation is theirs for as long as it does |
@@ -1270,8 +1270,8 @@ capture-resistance test harness. Each is carried by the code named beside it:
 | Recorded non-pursuit | §5 | `kc-escalation::NonPursuitAttestation` plus the `unanswered_grievances` reading, the erosion alert's thirteenth dimension and the first there with a *named beneficiary*: every other dimension is a thing the compact stopped doing, and this is a thing it declines to do to one member. Absolute against a clock, with two grounds (never pursued, closed unresolved), gated first on whether the compact is moving against the member at all (a live dispute naming it, a restitution on it, a designation of it), since a prosecuting compact escalates once on a course of conduct rather than filing a dispute per record. Beside the count sit the seats that sat on more than one dismissal of the same evidence. The claim is checked rather than taken, so the record is not an accusation a faction can mint. Measured before it: a compact dismissing the same evidence four times through panels seated by three complicit communities graded identically to one prosecuting it to collective sanctions and to one with nothing to prosecute at all, since burial produces observances |
 | A de-escalation is the complainant's concession | §5 | The dispute's complainant must be among the initiators of any move down, and the decision-class check reads the rung being *left* rather than entered, so what a quorum imposed only that quorum lifts. Measured before both: two of two attempts by a non-party moved another's dispute back to registration, unilaterally and first class, and collective sanctions took two communities to impose and one to remove |
 | A closing decision does not reach backwards | §5 | `dispute_is_closed` is bounded to the transition's own instant. Measured before the bound: a dismissal dated day sixty retroactively unauthorized three transitions dated days twenty-two to thirty, each authorized when made and none of them changed. The cooperative campaign never met it, having decided `Referred`, which is not in the closing set |
-| Whole-compact capture simulation | §10 | The captured-prosecution probe: the same fixture and evidence as the adversary campaign, with a complicit majority and a panel seated by it. Measures where escalation stops (limited sanctions, the seam at which the ladder turns from a party's instrument into the compact's) and whether declining to prosecute leaves a mark. See [captured-prosecution.md](captured-prosecution.md) |
-| Whole-campaign adversary simulation | §10 | `adversary.py`: nine phases over one archive, an adversary that joins by deceit, surrenders tactically three times, re-enters in bad faith and is designated *hostis humani generis*. Scores what a status *withholds* rather than whether a signal is detected, which is the axis the twelve single-signal harness scenarios cannot reach. See [adversary-campaign.md](adversary-campaign.md) |
+| Whole-compact capture simulation | §10 | The captured-prosecution probe: the same fixture and evidence as the adversary campaign, with a complicit majority and a panel seated by it. Measures where escalation stops (limited sanctions, the seam at which the ladder turns from a party's instrument into the compact's) and whether declining to prosecute leaves a mark. See [The captured prosecution](captured-prosecution.md) |
+| Whole-campaign adversary simulation | §10 | `adversary.py`: nine phases over one archive, an adversary that joins by deceit, surrenders tactically three times, re-enters in bad faith and is designated *hostis humani generis*. Scores what a status *withholds* rather than whether a signal is detected, which is the axis the twelve single-signal harness scenarios cannot reach. See [The determined adversary](adversary-campaign.md) |
 | Composition-drift dashboard maintained by observer corps | §8 | `composition_graph` + `rejection_pattern` + `observer_pool_concentration`, bundled on `observer_dashboard` |
 | Capture-resistance scenario simulation in test harness | §10 | `harness.py`: fourteen scenarios scored against criteria stated in advance, run continuously over a parameterized space. Six of the fourteen have no adversary in the §10 sense (the quiet polity, the abandoned office, the substituted object, the buried grievance, the answered accuser, the narrowed object), which is what the omission and intensification signals need |
 | Sponsor-stake tracking | §2 | `SponsorshipRecord` + sponsor concentration in `composition_graph` |
@@ -1284,7 +1284,7 @@ The last two items come from `capture_resistance.md` §7 rather than from the
 per-component notes above, and they are what make the two probation rows bite. A
 probationary community that carries no weight in admissions needs an admissions
 quorum to be excluded from, and a probation window has to be opened by somebody
-before there is anything to withhold. Hence the standing hazard in deriving such
+before there is anything to withhold. So there is a standing hazard in deriving such
 a list from other status lists: it reproduces their omissions. The one element
 here the protocol specifies and the code does not carry is drawing examiners *by
 lot*.
@@ -1320,14 +1320,14 @@ Scope this document specifies that the code does not yet carry is listed in
    Community-key identity, delegated speakers, honest health
    indicators at the configured disclosure level, witness availability.
    Kith-covenant never reaches inward. See
-   [policy-evaluation.md](policy-evaluation.md) for the current seam.
+   [Policy evaluation architecture](policy-evaluation.md) for the current seam.
 6. **Substrate-check at recognition, not enforcement.** The compact
    does not programmatically verify substrate claims. It verifies
    *recitation*. Substrate authenticity is surfaced over time through
    the asymmetric-psychological-cost mechanism (per
    `recognition_protocols.md`), not by code audit.
 7. **Capture resistance is layered and cross-cutting.** Per
-   [capture_resistance.md](../background/capture_resistance.md),
+   [Capture resistance](../background/capture_resistance.md),
    capture resistance operates at the substrate layer (member the
    practices of the communities themselves), the protocol layer
    (the mechanisms of kith-covenant), and the implementation layer
@@ -1425,7 +1425,7 @@ in subsystem docs:
 
 ## Relationship to other documents
 
-- [policy-evaluation.md](policy-evaluation.md). Existing architecture
+- [Policy evaluation architecture](policy-evaluation.md). Existing architecture
   doc covering the AT/kith-covenant evaluation seam. The integration
   point for §5 above.
 - [../background/](../background/). The research set this

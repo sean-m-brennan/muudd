@@ -14,6 +14,7 @@
 /doc/MUUDD.pdf
 /doc/MUUDD-mindmap.pdf
 /**/__pycache__/
+/**/.claude/
 /lib/kith-covenant/doc/**/*.pdf
 /docs/
 /lib/kith-covenant/doc/research/kith-covenant.bib

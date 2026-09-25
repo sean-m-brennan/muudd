@@ -11,7 +11,7 @@
 are deliberate and why, what breaks when they are ignored, and the verification
 discipline the slices are held to. Build, toolchain, and verification are taken
 together because a change in one reaches the others. For the protocol itself
-see [protocol-components.md](protocol-components.md); for outstanding scope see
+see [Protocol components](protocol-components.md); for outstanding scope see
 [`TODO.md`](../../TODO.md).
 
 Kith-covenant and the
@@ -207,7 +207,7 @@ among them would have failed to compile, `is_none_or` being `Option`-only.
 never calls. The rationale, the measured effect (the `en-core` closure in ethne
 dropping from 61 crates to 53), and the honest limit (`curve25519-dalek` stays,
 reached through `ed25519-dalek`, which `kc-core` needs unconditionally) are in
-[whistleblower-crypto.md](whistleblower-crypto.md).
+[The whistleblower source](whistleblower-crypto.md).
 
 The build mechanics belong here, because they generalize past this one feature:
 **`default-features = false` written on a member crate is silently ignored**

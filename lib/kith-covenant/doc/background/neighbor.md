@@ -16,7 +16,7 @@ is old, textual, and load-bearing. It is why kith-covenant
 credentials what a community does rather than what it professes, why
 enemy-love is written into the protocol as an operational norm rather than a
 sentiment, and why the four standing categories in
-[recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
+[Recognition protocols](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
 are built around the encounter rather than around a roster.
 
 ## The word behind the command
@@ -151,7 +151,7 @@ where the lesson drawn is that credentialing examines practice and not confessed
 doctrine (see
 [justus_hostis.md "The Salem witch trials"](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated)).
 The five anti-spiral features the compact checks at recognition (see
-[recognition_protocols.md](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing))
+[Recognition protocols](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing))
 are demanded as demonstrated behavior for exactly this reason. A creed can be
 recited hollow. A refusal has to be paid for. What the compact reads is conduct,
 refusal, and cost.
@@ -160,7 +160,7 @@ Second, it explains why the fourth anti-spiral feature, enemy-love, is written
 as an *operational* norm rather than a disposition. Feature four asks a
 community to owe moral seriousness to the person actually before it, regardless
 of which side designated whom as enemy (see the treatment in
-[justus_hostis.md](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)).
+[Justus hostis](justus_hostis.md#the-anti-spiral-features-why-anchor-above-self-is-necessary-but-not-sufficient)).
 That is the Samaritan structure stated as a protocol requirement. It has to be
 operational, because the whole point of the parable is that neighboring is
 enacted in the encounter and cannot be certified in the abstract. A community
@@ -169,7 +169,7 @@ feature four no matter how warm the profession.
 
 Third, it grounds the neighbor concept the four standing categories already
 rest on. The operational scheme in
-[recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
+[Recognition protocols](recognition_protocols.md#members-neighbors-enemies-the-four-categories)
 turns on three claims that the parable supplies and this document has now traced
 to their source. The neighbor is actualized by encounter and not by theoretical
 inclusion, discernment operates within the encounter, and contact is the
@@ -197,7 +197,7 @@ on compact standing. Making neighbor-status prior to compact-status means the
 compact owes something to a party that has signed nothing, and the compact
 grounds what it owes on the thin functional minimum it has adopted rather than on
 its own authority or on the substrate of any member
-([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)). The parable
+([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)). The parable
 supplies the shape of the duty, that it is actualized by encounter and discerned
 within it, and the minimum content supplies why the duty is not for the compact to
 waive at the frontier when reciprocity is absent. The two work at different
@@ -207,17 +207,17 @@ community rather than a standard the compact may assert on its own account.
 
 ## Relationship to other documents
 
-- [recognition_protocols.md](recognition_protocols.md): the operational home of
+- [Recognition protocols](recognition_protocols.md): the operational home of
   the neighbor concept. Its four categories (members, *justus hostis*, anathema,
   non-members encountered) and its credentialing-by-practice layer are what this
   document grounds philologically and theologically.
-- [justus_hostis.md](justus_hostis.md): develops enemy-love as the fourth
+- [Justus hostis](justus_hostis.md): develops enemy-love as the fourth
   anti-spiral feature and bounds it in the *hostis humani generis* discussion.
   This document supplies the scriptural and lexical basis for both.
-- [noticeable_hand.md](noticeable_hand.md): the colonial-frontier failure, where
+- [The noticeable hand](noticeable_hand.md): the colonial-frontier failure, where
   neighbor status was withheld from those encountered across religious and
   ethnic lines. The negative case for the finding here.
-- [bounded_conflict.md](bounded_conflict.md): the escalation ladders and red
+- [Bounded conflict](bounded_conflict.md): the escalation ladders and red
   lines within which a *justus hostis* is fought as a neighbor rather than
   destroyed as vermin.
 

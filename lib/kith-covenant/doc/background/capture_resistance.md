@@ -6,7 +6,7 @@
 
 This document treats capture resistance as a **unified
 architectural concern** of kith-covenant. The motivation is
-[control_system_hypothesis.md](control_system_hypothesis.md)'s
+[The control system hypothesis](control_system_hypothesis.md)'s
 Component 3: the observation, originating in *Messengers of
 Deception* (1979) but generalized to any anchor-above-self
 substrate, that the same machinery enabling long-running
@@ -65,7 +65,7 @@ every other combination. The architecture below is layered.
 ## The seven strengthening moves
 
 The first six moves emerge from
-[control_system_hypothesis.md](control_system_hypothesis.md)'s
+[The control system hypothesis](control_system_hypothesis.md)'s
 analysis of Component 3 and from the historical pattern of capture
 in long-running cooperation regimes. The seventh emerges from the
 observation that the six defend everything except the gate through
@@ -107,7 +107,7 @@ single closed body whose deliberations are not visible to peers
 within the community.
 
 The tolerance of multiple lineages in the Buddhist sangha
-([buddhist_sangha.md](buddhist_sangha.md)) and the Christian
+([The Buddhist sangha](buddhist_sangha.md)) and the Christian
 conciliar tradition both demonstrate that interpretive plurality is
 achievable without dissolving substrate coherence. Centralized
 clerical hierarchies are the harder cases. The compact engages them
@@ -115,12 +115,12 @@ through requirement that internal conciliar processes be
 substantive, not nominal.
 
 **Routing.** Specified in
-[recognition_protocols.md](recognition_protocols.md). Anti-spiral feature
+[Recognition protocols](recognition_protocols.md). Anti-spiral feature
 examination at recognition-formation must include evidence of interpretive
 plurality. Audit commons (per
 [m2m_interaction.md "Audit commons for M2M"](m2m_interaction.md#audit-commons-for-m2m)
 and the human-side analogue in
-[reputation_bridges.md](reputation_bridges.md)) records evidence of
+[Reputation bridges](reputation_bridges.md)) records evidence of
 plurality over time.
 
 ### 2. The substrate-deference test. Operationalizing non-ultimacy
@@ -210,7 +210,7 @@ One item that is *not* compact-incapable, and that must not be
 filed there by analogy, is the thin functional minimum the compact
 has adopted as the ground of its conduct toward parties that have
 not joined it
-([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)).
+([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)).
 The compact-incapable list names matters belonging to members that
 the compact will not decide. The minimum content decides nothing
 belonging to a member. It binds compact conduct, which is the one
@@ -262,7 +262,7 @@ and periods begin to erode. Exceptions multiply, periods shrink, the
 compact-incapable list contracts under pressure of pragmatic argument. The
 contraction is observable. Members and observers can track it. The audit
 commons can record it. The jester function can name it
-([jester_and_dissent.md](jester_and_dissent.md)). A compact whose
+([Jester and dissent](jester_and_dissent.md)). A compact whose
 substrate-deference test is shrinking is a compact in early-stage capture,
 even if no individual decision in the contraction is obviously illegitimate.
 
@@ -335,7 +335,7 @@ ordinary practice.
 The proxy-tracking mechanism is part of the audit commons
 ([m2m_interaction.md "Audit commons for M2M"](m2m_interaction.md#audit-commons-for-m2m)
 and the human-layer analogue in
-[reputation_bridges.md](reputation_bridges.md)). Substantive re-engagement
+[Reputation bridges](reputation_bridges.md)). Substantive re-engagement
 is a designated rung between ordinary re-affirmation and anathema
 designation.
 
@@ -438,7 +438,7 @@ Salem witch
 trials"](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated).)
 
 **Routing.** Specified in
-[liminal_institutions.md](liminal_institutions.md) as part of the
+[Liminal institutions](liminal_institutions.md) as part of the
 mediator pool's standing competency. The structured-skepticism protocol
 is invoked by the mediator pool on its own initiative when qualifying
 criteria are met, with mediator-pool-internal review checking that the
@@ -500,7 +500,7 @@ eventually-consistent
 commons"](commons_federation.md#light-lag-and-eventually-consistent-commons)
 as a refinement of the existing eventual-consistency treatment.
 Implemented in the signature-and-quorum mechanism per
-[protocol-components.md](../architecture/protocol-components.md).
+[Protocol components](../architecture/protocol-components.md).
 
 ### 6. Adversarial-principal validation for machine participation
 
@@ -581,10 +581,10 @@ teaching authority requires multi-bishop agreement.
 **Routing.** Specified in
 [m2m_interaction.md "Demonic detection under light-lag"](m2m_interaction.md#demonic-detection-under-light-lag-opacity-perfected-mimicry)
 and
-[machine-participation.md](../architecture/machine-participation.md)'s
+[Machine participation](../architecture/machine-participation.md)'s
 Facet 2 (guardianship) and Facet 3 (succession). The cross-community
 witness is a new attestation channel in
-[protocol-components.md](../architecture/protocol-components.md)'s
+[Protocol components](../architecture/protocol-components.md)'s
 identity-and-standing component.
 
 ### 7. Admissions integrity. The gate as capture surface
@@ -673,7 +673,7 @@ opponents.
 [recognition_protocols.md "Inter-community
 layer"](recognition_protocols.md#the-inter-community-layer-thin-grammar-and-credentialing).
 The panel-rotation and quorum requirements route to
-[protocol-components.md](../architecture/protocol-components.md)'s
+[Protocol components](../architecture/protocol-components.md)'s
 recognition component (§2) and its capture-resistance test harness
 (§10). The composition-drift dashboard routes to the observer corps
 (§8). The probationary period is specified in the reputation-bridge
@@ -691,7 +691,7 @@ The commitment has implications for how the existing components are
 understood:
 
 - The **jester function**
-  ([jester_and_dissent.md](jester_and_dissent.md)) is not a
+  ([Jester and dissent](jester_and_dissent.md)) is not a
   cultural affordance for protected dissent. It is a
   **substrate-level capture detector**. The permission the jester
   holds to name what others cannot is what makes early-stage
@@ -746,7 +746,7 @@ substrate relies on.
 ## Where capture resistance lives in the protocol stack
 
 In the protocol-components decomposition
-([protocol-components.md](../architecture/protocol-components.md)),
+([Protocol components](../architecture/protocol-components.md)),
 capture resistance is a
 **cross-cutting architectural concern**, not a single component. Each
 component carries explicit capture-resistance responsibilities:
@@ -902,35 +902,35 @@ have.
 
 ## Relationship to other documents
 
-- [control_system_hypothesis.md](control_system_hypothesis.md). The
+- [The control system hypothesis](control_system_hypothesis.md). The
   parent analysis. Component 3 is the specific claim this document
   operationalizes. The seven strengthening moves are the unified
   architectural response to "manipulation vulnerabilities are a
   first-order design constraint."
-- [justus_hostis.md](justus_hostis.md). The anti-spiral features
+- [Justus hostis](justus_hostis.md). The anti-spiral features
   (especially non-ultimacy of the political community) that this
   document operationalizes through the substrate-deference test.
-- [recognition_protocols.md](recognition_protocols.md). The
+- [Recognition protocols](recognition_protocols.md). The
   intra-community ceremony and cross-community grammar that move 3
   (ceremony cost) and move 1 (interpretive plurality) extend.
-- [liminal_institutions.md](liminal_institutions.md). The
+- [Liminal institutions](liminal_institutions.md). The
   capture-resistance design principles and emergency anathema procedure
   that the present unification builds on. Move 4
   (manufactured-event resistance) lives operationally here.
-- [commons_federation.md](commons_federation.md). The
+- [Commons federation](commons_federation.md). The
   light-lag and eventually-consistent commons treatment that move 5
   (decision classes) extends with cryptographic enforcement.
-- [m2m_interaction.md](m2m_interaction.md). The audit commons,
+- [Machine-to-machine interaction](m2m_interaction.md). The audit commons,
   demonic-detection-under-light-lag treatment, and machine-layer
   reputation flows that move 6 (adversarial-principal validation) extends.
-- [jester_and_dissent.md](jester_and_dissent.md). The licensed
+- [Jester and dissent](jester_and_dissent.md). The licensed
   truth-teller role that the present unification promotes from
   cultural-dissent affordance to substrate-level capture detector.
-- [exit_and_succession.md](exit_and_succession.md). Exit modes
+- [Exit and succession](exit_and_succession.md). Exit modes
   including capture-driven exit. The failure modes of the present
   unification connect here when capture-resistance proves
   insufficient.
-- [reputation_bridges.md](reputation_bridges.md). Reputation flows
+- [Reputation bridges](reputation_bridges.md). Reputation flows
   that carry ceremony-cost-decay signals and triangulation data
   between member communities.
 - [../architecture/protocol-components.md](../architecture/protocol-components.md). The software-component decomposition that this document amends with
@@ -940,7 +940,7 @@ have.
 
 ## References
 
-*Anchor works to be expanded.*
+*Anchor works, to be expanded:*
 
 The substrate-deference test draws structurally on:
 - The Catholic understanding of magisterial competence and

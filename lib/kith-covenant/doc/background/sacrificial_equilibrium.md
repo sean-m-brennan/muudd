@@ -9,7 +9,7 @@ membership in a kith-covenant compact. It satisfies the substrate requirement, i
 present all five anti-spiral features in good faith, and every continuous instrument the
 compact owns reads it as healthy, because the mechanism works. The compact forms no verdict
 on that interior, for the reasons
-[natural_law.md](natural_law.md#the-interior-of-a-member-community) sets out, and this
+[Natural law](natural_law.md#the-interior-of-a-member-community) sets out, and this
 document is not an argument for revisiting them.
 
 What the compact owes itself in that situation is discipline of its own conduct. Sacrifice
@@ -37,7 +37,7 @@ that never reaches a terminating event, and it is invisible to every instrument 
 on termination. An instrument that waits for the expulsion is waiting for an act, and this
 form produces none. The compact-level version of that failure, where what narrows is the
 ground the compact enforces rather than the party it selects, is
-[substitution.md](substitution.md), and the reason it needed an instrument of its own is
+[Substitution](substitution.md), and the reason it needed an instrument of its own is
 that the rite arriving on schedule was the only shape the earlier measures were built to
 find.
 
@@ -81,7 +81,7 @@ a member reads healthier than an honest member with live internal dissent.
 The durability argument compounds this rather than correcting it. Sacrifice is among the
 most transmission-proven institutions in the human record, so a filter that selects for
 what lasts ranks it high. That is the survivorship objection in its sharpest form, and the
-answer to it is in [natural_law.md](natural_law.md#the-interior-of-a-member-community)
+answer to it is in [Natural law](natural_law.md#the-interior-of-a-member-community)
 rather than here.
 
 ## How sacrifice reaches the rest of the compact
@@ -119,7 +119,7 @@ No compact channel supplies a victim to a member that asks for one. A person or 
 that arrived through a compact channel is within the order by that arrival, and the
 forbearance owed is the same forbearance owed to any party the compact touches. This is
 already the ground the compact stands on rather than a measure adopted for this case
-([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself), site 4), and it
+([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself), site 4), and it
 is the one commitment on which membership here is genuinely conditional. The condition is
 on the boundary and not on the practice.
 
@@ -163,7 +163,7 @@ pattern, and the covenant-facing floor holds that it may not thereby rest on not
 expedited designation must cite an attested adverse act by the subject, so the shortened
 route still begins from conduct that reached the covenant rather than from an account of
 what a community does at home. The specification is in
-[protocol-components.md](../architecture/protocol-components.md) §5. That floor and these
+[Protocol components](../architecture/protocol-components.md) §5. That floor and these
 two amendments are the same commitment approached from opposite ends, one bounding what a
 designation may rest on and the other bounding how the compact may agree about it.
 
@@ -235,27 +235,27 @@ it should not be softened here because the case is vivid.
 
 ## Relationship to other documents
 
-- [natural_law.md](natural_law.md#the-interior-of-a-member-community): the rule that the
+- [Natural law](natural_law.md#the-interior-of-a-member-community): the rule that the
   compact forms no verdict on the internal morality of a member until it touches the
   covenant, the capacity distinction that licenses its inward instruments, and the ground
   whose fourth site closes the boundary. This document presupposes all of it.
-- [justus_hostis.md](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated):
+- [Justus hostis](justus_hostis.md#the-salem-witch-trials-the-features-can-be-held-and-still-defeated):
   the Salem treatment, the practice-record examination that catches a sincere spiral, and
   the open question about the posture of the compact toward a member mid-spiral. The
   equilibrium case is the complement, not a spiral, and therefore not what those proxies
   detect.
-- [bounded_conflict.md](bounded_conflict.md#designation-procedure): the four-condition
+- [Bounded conflict](bounded_conflict.md#designation-procedure): the four-condition
   designation test, which the unanimity amendments modify, and the anti-weaponization
   safeguards they join.
-- [recognition_protocols.md](recognition_protocols.md#members-neighbors-enemies-the-four-categories):
+- [Recognition protocols](recognition_protocols.md#members-neighbors-enemies-the-four-categories):
   the four categories, the non-member-encountered duties, and the anti-spiral feature
   claims recorded at recognition.
-- [jester_and_dissent.md](jester_and_dissent.md): protected dissent, which the advocate
+- [Jester and dissent](jester_and_dissent.md): protected dissent, which the advocate
   drawn by lot resembles in function and does not inherit in protection.
-- [substitution.md](substitution.md): the same mechanism at the level of the compact rather
+- [Substitution](substitution.md): the same mechanism at the level of the compact rather
   than of a member, where the object being enforced narrows while every form is kept and
   intensified. That document extends this argument and takes its measure.
-- [capture_resistance.md](capture_resistance.md): capture as continuous structural
+- [Capture resistance](capture_resistance.md): capture as continuous structural
   pressure. Apparatus capture as described here is that analysis applied to a member whose
   interest in the machinery is not factional advantage but a victim.
 
@@ -273,7 +273,7 @@ it should not be softened here because the case is vivid.
   what a community expels
 - *Sanhedrin* 17a, for the rule that a unanimous capital verdict acquits
 
-The Salem sources are in [justus_hostis.md](justus_hostis.md).
+The Salem sources are in [Justus hostis](justus_hostis.md).
 
 ---
 

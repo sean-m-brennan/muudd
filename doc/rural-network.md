@@ -1,29 +1,29 @@
 *Previous: [What only humans can do](../lib/kith-covenant/doc/limits.md)*
 
-# Decentralized Mesh Network for Rural Appalachian Connectivity
+# Decentralized mesh network for rural Appalachian connectivity
 
 A technical framework for deploying community-owned mesh radio networks in
-mountainous, low-density terrain where traditional broadband economics fail. It
-is designed as the physical layer complement to the MUUDD software stack and
-AutonomousTrust protocol.
+mountainous, low-density terrain where the ordinary broadband economics do not
+work. We designed it as the physical-layer complement to the MUUDD software
+stack and the AutonomousTrust protocol.
 
 ## Overview
 
-Conventional broadband deployment is an economic impossibility in much of rural
-Appalachia. The Braxton County, West Virginia Digital Equity Plan [1]
-illustrates the problem starkly: 12,505 people spread across 516 square miles
-(population density of 24/sq mi), with 23.6% of households lacking broadband
-access and 3,465 un- or underserved locations. The estimated cost to build fiber
+Conventional broadband deployment is an economic impossibility across much of
+rural Appalachia. The Braxton County, West Virginia Digital Equity Plan [1] puts
+numbers on it. 12,505 people spread across 516 square miles, a density of 24 to
+the square mile, with 23.6% of households lacking broadband access and 3,465
+locations un- or underserved. The estimated cost to build fiber
 to these locations is **\$38.2 million** for 477 route-miles, working out to
 **\$46,000-\$78,000 per demand point**. Per capita income is $21,948, and 34.4%
 of the population lives below 150% of the federal poverty line.
 
-The revenue arithmetic is fatal. Consider a representative 13-mile fiber route
-serving 6 households: at \$70/month with a 30% take rate (industry average for
-rural), annual revenue is \$5,040. Against construction costs exceeding
-\$500,000, payback never arrives. Even with BEAD subsidies covering
-construction, the ongoing maintenance cost of fiber plant in terrain subject to
-ice storms, landslides, and flooding undermines sustainability.
+The revenue arithmetic is fatal. Take a representative 13-mile fiber route
+serving 6 households. At \$70/month with a 30% take rate, which is the rural
+industry average, annual revenue is \$5,040. Against construction costs over
+\$500,000, payback never arrives. Even with BEAD subsidies covering the build,
+maintaining fiber plant in terrain that sees ice storms, landslides and flooding
+costs more than the route brings in.
 
 **Community mesh networking** offers a fundamentally different economic model:
 
@@ -33,15 +33,15 @@ ice storms, landslides, and flooding undermines sustainability.
 - **Incremental deployment**: each new node extends coverage without central planning
 - **Resilient topology**: no single point of failure, unlike fiber trunk lines
 
-This document specifies the radio hardware, network topology, and deployment
+We specify here the radio hardware, the network topology and the deployment
 economics for connecting communities across the ridge-and-valley terrain of
-central Appalachia. It is designed to integrate with the MUUDD trust-based
-communications stack: AutonomousTrust provides the identity, encryption, and
-reputation layer; this document provides the physical transport beneath it.
+central Appalachia. It is built to sit under the MUUDD trust-based
+communications stack. AutonomousTrust carries identity, encryption and
+reputation; what follows carries the physical transport beneath it.
 
-## Terrain Analysis: Central Appalachian Geography
+## Terrain analysis: central Appalachian geography
 
-### Ridge-and-Valley Topology
+### Ridge-and-valley topology
 
 Braxton County sits in the Allegheny Plateau subregion of the central
 Appalachian Mountains, characterized by deeply dissected terrain with narrow
@@ -57,7 +57,7 @@ The terrain creates a distinctive connectivity challenge:
 - **Ridgetops provide extraordinary vantage points.** A single relay at 2,400 ft elevation can achieve line-of-sight to multiple valley communities 5-15 miles distant.
 - **Saddles and gaps** (low points in ridgelines) are natural relay sites connecting adjacent drainage basins with minimal tower height requirements.
 
-### Foliage and Seasonal Variation
+### Foliage and seasonal variation
 
 Central West Virginia is approximately 80% forested [3], predominantly mixed
 mesophytic hardwood (oak, hickory, maple, tulip poplar) with some evergreen
@@ -70,7 +70,7 @@ propagation regimes:
 Network design must accommodate the **worst-case leaf-on scenario** while
 benefiting from improved winter propagation as margin.
 
-### Weather and Environmental Factors
+### Weather and environmental factors
 
 Braxton County receives approximately 44 inches (1,120 mm) of precipitation
 annually, distributed relatively evenly across seasons. Key environmental
@@ -81,7 +81,7 @@ challenges for radio infrastructure:
 - **Lightning** exposure is elevated on ridgetop sites. All hilltop installations require proper grounding, surge suppression on all cable entries, and galvanic isolation of antenna feeds.
 - **Temperature range:** -15°F to 100°F (-26°C to 38°C). Electronics enclosures require ventilation for summer heat and battery chemistry must tolerate winter cold.
 
-### Current Broadband Infrastructure (FCC BDC, June 2025)
+### Current broadband infrastructure (FCC BDC, June 2025)
 
 FCC Broadband Data Collection filings as of June 2025 show the following wired
 broadband availability in Braxton County:
@@ -106,9 +106,9 @@ Deployment) program funding in 2025. Frontier was awarded $6.3 million for 2,531
 WV fiber locations and Shentel $1.1 million for 809 locations; county-level
 allocations have not been published.
 
-## RF Propagation in Mountainous Terrain
+## RF propagation in mountainous terrain
 
-### Fresnel Zone Clearance
+### Fresnel zone clearance
 
 Radio links require not just geometric line-of-sight but clearance of the
 **first Fresnel zone**, the ellipsoidal region around the direct path where
@@ -132,7 +132,7 @@ floors. This is precisely why hilltop relay placement is essential: links that
 merely graze a ridgeline suffer severe diffraction loss even without direct
 obstruction.
 
-### Knife-Edge Diffraction
+### Knife-edge diffraction
 
 When a radio path is partially obstructed by a ridge that can be approximated as
 a sharp edge, the signal diffracts over the obstacle with calculable loss. The
@@ -161,7 +161,7 @@ link loses 16.5 dB over a 50 m ridge obstruction versus 24.8 dB at 5.8 GHz, an
 8.3 dB advantage that can mean the difference between a functional link and no
 link at all.
 
-### Foliage Attenuation
+### Foliage attenuation
 
 ITU-R P.833 [4] provides models for attenuation through vegetation. For a signal
 passing through 100 m of dense deciduous forest canopy (leaf-on conditions):
@@ -176,7 +176,7 @@ These figures reinforce two design principles: (1) **elevate antennas above the
 tree canopy** wherever possible, and (2) **use sub-GHz frequencies** for
 non-line-of-sight (NLOS) paths through forested terrain.
 
-### Rain Fade
+### Rain fade
 
 At frequencies below 10 GHz, rain fade is modest and rarely a limiting factor.
 At 5.8 GHz in heavy rain (50 mm/hr, a severe thunderstorm), specific attenuation
@@ -184,7 +184,7 @@ is approximately 0.06 dB/km [8], producing only 0.6 dB of loss over a 10 km
 path. Rain fade is not a significant design constraint for the frequency bands
 considered here.
 
-### Worked Example: Sutton to Burnsville Link
+### Worked example: Sutton to Burnsville link
 
 Consider a backbone link from a hilltop relay above **Sutton** (38.66°N,
 80.71°W, ridgetop elevation ~2,200 ft) to a relay above **Burnsville** (38.85°N,
@@ -213,9 +213,9 @@ At this margin, the link supports **450+ Mbps aggregate throughput** using
 modern 802.11ac PtP equipment, sufficient to serve as a backbone segment for
 hundreds of households.
 
-## Radio Technologies for Ridge-and-Valley Terrain
+## Radio technologies for ridge-and-valley terrain
 
-### Technology Comparison
+### Technology comparison
 
 | Technology | Frequency | Range (LOS) | Range (NLOS) | Throughput | Cost/Unit | License | NLOS Rating |
 |------------|-----------|-------------|--------------|------------|-----------|---------|-------------|
@@ -248,7 +248,7 @@ factor). This is unsuitable for broadband internet but useful for:
 - Text messaging when higher-bandwidth links fail
 - Sensor telemetry (weather stations, solar system monitoring)
 
-### TV White Space (TVWS) 470-698 MHz
+### TV white space (TVWS) 470-698 MHz
 
 TVWS exploits unused television broadcast channels in the VHF/UHF band,
 combining the excellent propagation characteristics of sub-GHz frequencies with
@@ -271,7 +271,7 @@ broadcasts.
 TVWS is the **strongest candidate for valley-to-ridgetop access links** where
 direct line-of-sight is unavailable and WiFi frequencies cannot penetrate.
 
-### 2.4/5 GHz WiFi Mesh
+### 2.4/5 GHz WiFi mesh
 
 Commodity WiFi equipment (Ubiquiti, MikroTik, GL.iNet, TP-Link) provides the
 highest throughput-per-dollar for line-of-sight and near-line-of-sight links.
@@ -288,7 +288,7 @@ for wider-area client access.
 - Household distribution from a local relay
 - Intra-community mesh where nodes have reasonable line-of-sight
 
-### 5 GHz Point-to-Point Backhaul
+### 5 GHz point-to-point backhaul
 
 For ridgetop-to-ridgetop backbone links with clear line-of-sight, dedicated PtP
 equipment delivers the highest throughput:
@@ -323,7 +323,7 @@ registration, making it accessible to community networks [11].
 CBRS is best suited as a **mid-range access technology** for serving clusters of
 households from a valley relay with partial line-of-sight.
 
-### HF/VHF Amateur Radio Data (AREDN)
+### HF/VHF amateur radio data (AREDN)
 
 The **Amateur Radio Emergency Data Network (AREDN)** [12] repurposes Part 97
 amateur radio spectrum for TCP/IP mesh networking using modified commodity WiFi
@@ -341,9 +341,9 @@ AREDN nodes may still be deployed alongside the mesh network for:
 - Community coordination and public information
 - Network monitoring and diagnostics (non-sensitive data)
 
-## Spectrum and Regulatory Framework
+## Spectrum and regulatory framework
 
-### FCC Part 15 Power Limits
+### FCC Part 15 power limits
 
 All unlicensed radio operations in the US are governed by FCC Part 15 rules. Key
 limits for community mesh deployment [13]:
@@ -363,7 +363,7 @@ allows higher EIRP by reducing the power-reduction ratio, enabling high-gain
 directional antennas with up to **53 dBm EIRP** for long-distance backbone
 links. This is the regulatory basis for 20-50 km ridgetop backbone connections.
 
-### TVWS Database Requirement
+### TVWS database requirement
 
 TVWS devices must query an FCC-approved geo-location database before
 transmitting, to verify that the selected channel is not in use by licensed TV
@@ -375,7 +375,7 @@ channels and maximum permitted power levels.
 For rural West Virginia, TVWS availability is excellent: most areas have 5-10
 vacant TV channels because of low broadcaster density.
 
-### CBRS Spectrum Access System
+### CBRS spectrum access system
 
 CBRS GAA operation requires registration with a Spectrum Access System (SAS)
 operated by approved administrators (Google, Federated Wireless, CommScope,
@@ -387,7 +387,7 @@ In inland West Virginia, incumbent military radar interference is minimal, and
 PAL auction prices in rural counties are typically low or uncontested. GAA
 access is effectively unrestricted.
 
-### Part 97 Amateur Radio Constraints
+### Part 97 amateur radio constraints
 
 As noted above, amateur radio frequencies cannot carry encrypted traffic.
 Additionally, Part 97 prohibits communication "in which the station licensee or
@@ -395,7 +395,7 @@ control operator has a pecuniary interest" (47 CFR §97.113(a)(3)), which would
 preclude any paid-service model. Amateur radio mesh (AREDN) is useful for
 emergency backup but is **not suitable as the primary MUUDD transport**.
 
-### Experimental License Options
+### Experimental license options
 
 For novel deployments or higher power levels, the FCC offers experimental
 licenses (Part 5) with processing times of 30-60 days. A community network could
@@ -404,9 +404,9 @@ obtain an experimental license for:
 - Testing novel modulation or frequency-sharing schemes
 - Demonstrating viability for a future rulemaking petition
 
-## Node Architecture
+## Node architecture
 
-### Tier 1: Hilltop Relay Node
+### Tier 1: Hilltop relay node
 
 Hilltop relays form the high-capacity backbone of the network. Placed on
 ridgetops or summited peaks with clear line-of-sight to multiple valleys and
@@ -460,7 +460,7 @@ A 200 Ah LiFePO4 battery at 24V (= 400 Ah equivalent at 12V) provides
 approximately 2.8 days of autonomy with 80% depth of discharge, acceptable with
 the conservative panel sizing providing daily recharge margin.
 
-### Tier 2: Valley Relay Node
+### Tier 2: Valley relay node
 
 Valley relays extend coverage from ridgetop nodes down into hollows and along
 river valleys where populations concentrate. They receive backhaul from a
@@ -489,7 +489,7 @@ single 200 W panel at 3.0 peak sun hours yields 480 Wh (with losses),
 supplementing the 100 Ah battery for approximately 1.7 days autonomy. Grid power
 (if available at the relay site) can replace or supplement solar.
 
-### Tier 3: Household Endpoint
+### Tier 3: Household endpoint
 
 The household endpoint connects a home to the mesh network. It consists of an
 outdoor radio unit aimed at the nearest relay and an indoor WiFi access point or
@@ -511,12 +511,12 @@ provides 100+ Mbps connectivity. For NLOS situations requiring TVWS, the cost
 rises to \$400-640 but remains two orders of magnitude below fiber construction
 cost.
 
-### Tier 4: Gateway Node
+### Tier 4: Gateway node
 
 Gateway nodes provide the mesh network's connection to the broader internet. Two
 gateway variants serve different deployment contexts.
 
-#### Variant A: Fiber Gateway
+#### Variant A: Fiber gateway
 
 Located where fiber, cable, or high-capacity cellular service is available. Per
 FCC BDC data, this means Sutton, Gassaway, and Burnsville (Frontier fiber), and
@@ -535,7 +535,7 @@ location.
 Fiber gateways provide the highest bandwidth (100-1,000 Mbps symmetrical) but
 are constrained to locations with existing terrestrial broadband infrastructure.
 
-#### Variant B: LEO Satellite Gateway (Starlink)
+#### Variant B: LEO satellite gateway (Starlink)
 
 LEO satellite service, particularly Starlink, enables **any hilltop relay to
 double as its own internet gateway**, eliminating the requirement to route all
@@ -599,9 +599,9 @@ gateways at remote hilltops provide distributed redundancy. Multiple gateways of
 either type ensure that if one uplink fails, traffic reroutes through
 alternative gateways.
 
-## Network Topology for Ridge-and-Valley Terrain
+## Network topology for ridge-and-valley terrain
 
-### Ridgetop Backbone Chain
+### Ridgetop backbone chain
 
 The primary network architecture exploits the ridge system as a natural backbone
 corridor. Hilltop relays placed along major ridgelines form a **chain topology**
@@ -631,7 +631,7 @@ chain), improves aggregate bandwidth (each Starlink dish adds 50-200 Mbps of
 independent uplink capacity), and eliminates the fiber gateway as a single point
 of failure for entire regions of the network.
 
-### Valley Finger Extensions
+### Valley finger extensions
 
 From each hilltop relay, **valley relays extend coverage down into hollows**
 along a tree topology:
@@ -646,7 +646,7 @@ and throughput. Each hop adds 2-5 ms latency and reduces aggregate throughput by
 approximately 50% (in half-duplex mesh mode) or minimally (with dedicated
 backhaul radio).
 
-### Saddle and Gap Relay Placement
+### Saddle and gap relay placement
 
 **Saddles** (low points in ridgelines) are high-value relay sites because they:
 - Provide line-of-sight into valleys on **both** sides of the ridge
@@ -654,7 +654,7 @@ backhaul radio).
 - Often have road access (roads frequently cross ridges at saddle points)
 - Can serve as junction nodes connecting valley communities on opposite sides of a ridge
 
-### Minimum Node Density
+### Minimum node density
 
 For the Braxton County service area (516 sq mi, ~3,465 underserved locations):
 
@@ -663,7 +663,7 @@ For the Braxton County service area (516 sq mi, ~3,465 underserved locations):
 - **Gateways:** 3-4 gateway nodes at broadband-connected valley locations. Per FCC BDC (June 2025): Sutton, Gassaway, and Burnsville have Frontier fiber; Flatwoods has Shentel cable. Gateway nodes are valley relays with wired uplinks, not hilltop relays.
 - **Household endpoints:** One per connected household. At 70% deployment of 3,465 underserved locations: **~2,425 endpoints**.
 
-### Worked Example: Sutton-Burnsville-Flatwoods Triangle
+### Worked example: the Sutton-Burnsville-Flatwoods triangle
 
 The three largest population centers in Braxton County form a triangle
 approximately 15-20 km per side:
@@ -698,16 +698,16 @@ Starlink model costs slightly more in hardware but eliminates the dependency on
 fiber POPs in towns and provides 3 independent internet gateways with
 distributed load. The cost advantage over fiber remains **88:1 to 150:1**.
 
-## Equipment and Cost Analysis
+## Equipment and cost analysis
 
-### Full County Deployment Estimate
+### Full county deployment estimate
 
 Scaling from the triangle example to the full Braxton County service area. Two
 models are presented: fiber-only gateways (requiring proximity to existing
 broadband infrastructure) and a hybrid model using Starlink at select hilltop
 relays for distributed internet access.
 
-**Model A: Fiber Gateway**
+**Model A, fiber gateway:**
 
 | Component | Quantity | Unit Cost | Total |
 |-----------|----------|-----------|-------|
@@ -722,7 +722,7 @@ relays for distributed internet access.
 | Training program (community maintainers) | N/A | N/A | \$15,000 |
 | **Total infrastructure** | | | **\$1,278,607** |
 
-**Model B: Hybrid Fiber + Starlink Gateway**
+**Model B, hybrid fiber and Starlink gateway:**
 
 | Component | Quantity | Unit Cost | Total |
 |-----------|----------|-----------|-------|
@@ -745,7 +745,7 @@ aggregate uplink bandwidth. With 8 Starlink dishes each providing 50-200 Mbps,
 the network has 400-1,600 Mbps of aggregate internet capacity distributed across
 the ridgetop backbone.
 
-### Cost Comparison: Fiber vs Mesh
+### Cost comparison: fiber vs mesh
 
 | Metric | Fiber (from DEP [1]) | Mesh (Fiber GW) | Mesh (Hybrid GW) |
 |--------|----------------------|------------------|-------------------|
@@ -765,12 +765,12 @@ telehealth, remote education, and general internet use. The hybrid Starlink
 model provides significantly higher aggregate uplink bandwidth and gateway
 redundancy for a negligible increase in capital cost.
 
-### Monthly Operating Costs
+### Monthly operating costs
 
 Shared infrastructure costs (hilltop relays, gateways, management) distributed
 across connected households:
 
-**Model A: Fiber Gateway Only**
+**Model A, fiber gateway only:**
 
 | Expense | Monthly Cost |
 |---------|-------------|
@@ -781,7 +781,7 @@ across connected households:
 | **Total monthly shared cost** | **\$5,148** |
 | **Per household (2,425 connected)** | **\$2.12/mo** |
 
-**Model B: Hybrid Fiber + Starlink Gateway**
+**Model B, hybrid fiber and Starlink gateway:**
 
 | Expense | Monthly Cost |
 |---------|-------------|
@@ -805,9 +805,9 @@ major repairs, expansion, and community maintainer stipends), the cost is
 **80-90% below commercial ISP pricing**, important for a community where per
 capita income is \$21,948.
 
-## Community Ownership Model
+## Community ownership model
 
-### Ownership Structure
+### Ownership structure
 
 The mesh network operates on a **hybrid ownership model**:
 
@@ -817,9 +817,9 @@ The mesh network operates on a **hybrid ownership model**:
 
 3. **Distributed maintenance:** Trained community members perform routine maintenance (equipment checks, antenna alignment, firmware updates) on local infrastructure. The cooperative coordinates training and provides replacement equipment.
 
-### Precedent Networks
+### Precedent networks
 
-Several community mesh networks demonstrate the viability of this model:
+Several community mesh networks have already shown the model works:
 
 **Guifi.net** (Catalonia, Spain) [15]: The world's largest community network
 with over 40,000 active nodes. Operates as a commons: the network infrastructure
@@ -848,7 +848,7 @@ suit all communities, Althea's technical architecture (automatic payment
 channels between mesh nodes based on bandwidth forwarded) demonstrates a
 self-sustaining economic model for mesh infrastructure.
 
-### Funding Sources
+### Funding sources
 
 Initial deployment can draw on multiple funding streams:
 
@@ -859,13 +859,12 @@ Initial deployment can draw on multiple funding streams:
 - **State of WV broadband office** funding and technical assistance
 - **Foundation grants** (e.g., Internet Society, Mozilla Foundation, Ford Foundation community technology programs)
 
-## Integration with MUUDD Software Stack
+## Integration with MUUDD software stack
 
-### Physical-to-Logical Layer Mapping
+### Physical-to-logical layer mapping
 
-The mesh network provides the physical transport layer over which the MUUDD
-software stack operates. The mapping between network tiers and AutonomousTrust's
-hierarchy is natural:
+The mesh carries the physical transport the MUUDD software stack runs over, and
+the network tiers map onto the AutonomousTrust hierarchy without forcing:
 
 | Network Tier | AutonomousTrust Role | Function |
 |--------------|---------------------|----------|
@@ -874,16 +873,16 @@ hierarchy is natural:
 | Valley relay | **Local authority** | Manages trust for a valley community; relays identity assertions |
 | Household endpoint | **Peer node** | End-user identity; participates in local trust web |
 
-In the hybrid gateway model, Starlink-equipped hilltop relays act as both domain
-authority and root trust anchor. This dual role fits naturally: the node already
-aggregates traffic for its region, so adding trust anchoring at the same point
-minimizes protocol overhead.
+In the hybrid gateway model a Starlink-equipped hilltop relay is both domain
+authority and root trust anchor. The double role costs nothing, because the node
+already aggregates traffic for its region, so anchoring trust at the same point
+adds no protocol overhead worth counting.
 
-### Trust-Based Network Admission
+### Trust-based network admission
 
-AutonomousTrust's identity and reputation protocol provides a core security
-function for the mesh network: **preventing rogue nodes from joining the network
-or intercepting traffic**.
+AutonomousTrust's identity and reputation protocol does one thing for the mesh
+that nothing else in the stack does. It **keeps a rogue node from joining the
+network or intercepting traffic**.
 
 When a new node joins the network:
 1. The node generates a cryptographic identity (public/private key pair) through AutonomousTrust
@@ -892,10 +891,11 @@ When a new node joins the network:
 4. Mesh routing protocols only forward traffic through nodes with valid trust credentials
 5. Misbehaving nodes (e.g., traffic manipulation, excessive resource consumption) accumulate negative reputation scores and can be automatically isolated
 
-This model eliminates the need for a centralized authentication server: trust is
-distributed across the network, matching the physical architecture.
+No centralized authentication server is needed anywhere in that, because trust
+is distributed across the network in the same shape the physical architecture
+already has.
 
-### Encrypted Communications
+### Encrypted communications
 
 All MUUDD traffic is end-to-end encrypted via AutonomousTrust's channel
 protocol. This means:
@@ -903,7 +903,7 @@ protocol. This means:
 - **Network operators cannot surveil users** (a core property for community trust)
 - **Part 97 amateur spectrum cannot be used** (encryption prohibition), reinforcing the design choice to use Part 15 unlicensed spectrum
 
-### Resilience and Partition Tolerance
+### Resilience and partition tolerance
 
 The mesh topology combined with AutonomousTrust's store-and-forward capability
 provides resilience against network partitions:
@@ -911,9 +911,9 @@ provides resilience against network partitions:
 - The LoRa/Meshtastic layer provides a low-bandwidth emergency channel that can relay critical messages even when the primary 5 GHz backbone is down
 - Local trust relationships (within a valley community) continue to function even if the community is temporarily isolated from the broader network
 
-## Deployment Strategy
+## Deployment strategy
 
-### Phase 1: Ridgetop Backbone and Gateway (Months 1-3)
+### Phase 1: ridgetop backbone and gateway (months 1-3)
 
 **Objective:** Establish the high-capacity backbone connecting 3-4 ridgetop
 sites with internet gateway access.
@@ -929,7 +929,7 @@ sites with internet gateway access.
 **Milestone:** End-to-end internet connectivity verified from all hilltop sites
 via both fiber and Starlink gateways. Backbone throughput > 200 Mbps per link.
 
-### Phase 2: Valley Relays to Population Clusters (Months 3-6)
+### Phase 2: valley relays to population clusters (months 3-6)
 
 **Objective:** Extend coverage from ridgetop backbone down into the three
 primary valley communities.
@@ -944,7 +944,7 @@ primary valley communities.
 **Milestone:** Coverage available to 200+ households across three communities.
 Community cooperative formally organized.
 
-### Phase 3: Household Endpoints and Training (Months 6-12)
+### Phase 3: household endpoints and training (months 6-12)
 
 **Objective:** Connect individual households and build community capacity for
 self-sustaining operation.
@@ -960,7 +960,7 @@ self-sustaining operation.
 **Milestone:** 400+ households connected. Cooperative self-managing with trained
 community maintainers. Monthly operating costs covered by membership fees.
 
-### Phase 4: Expansion and Optimization (Year 2+)
+### Phase 4: expansion and optimization (year 2+)
 
 **Ongoing activities:**
 - Extend network to additional communities within and beyond Braxton County

@@ -1,13 +1,13 @@
 *Previous: [The noticeable hand](noticeable_hand.md)*
 
-# The Control System Hypothesis: Vallée's Sociological Mechanics of Substrate
+# The control system hypothesis: Vallée's sociological mechanics of substrate
 
 ## A note on this document's posture
 
 This document examines the "control system hypothesis" of Jacques Vallée as it
 bears on the kith-covenant substrate question. The hypothesis is not adopted as kith-covenant
 doctrine. The framework is treated as an analytical lens that can be combined with
-each of the three readings developed in [noticeable_hand.md](noticeable_hand.md)
+each of the three readings developed in [The noticeable hand](noticeable_hand.md)
 (Christian-particularist, catholic / perennialist, and naturalist) to clarify *how*
 a transcendent-moral-authority substrate functions sociologically, without prejudging
 its ontological status.
@@ -21,13 +21,13 @@ substrate. They are not, except as one historical instance of the cross-cultural
 pattern of encounter with transcendent ambiguity. The relevance is that his analysis
 of how such phenomena function as social regulators is a sophisticated treatment of
 substrate *mechanism*. The existing kith-covenant literature has identified that
-mechanism in substance, across [justus_hostis.md](justus_hostis.md),
-[historical_cases.md](historical_cases.md), and
-[noticeable_hand.md](noticeable_hand.md), without naming it as a generic
+mechanism in substance, across [Justus hostis](justus_hostis.md),
+[Historical cases](historical_cases.md), and
+[The noticeable hand](noticeable_hand.md), without naming it as a generic
 methodological position. Naming it both clarifies what kith-covenant is doing and
 connects the project to a thoughtful adjacent tradition.
 
-The posture, as in [noticeable_hand.md](noticeable_hand.md), is open inquiry. Where
+The posture, as in [The noticeable hand](noticeable_hand.md), is open inquiry. Where
 his framework illuminates the design problem here, that is reported
 plainly. Where it does not, or where it diverges, that is reported plainly too. The
 goal is not adoption of his specific theological or sociological commitments
@@ -75,7 +75,7 @@ anchor-above-self for human societies because they exhibit four properties toget
   authorities, distributing that authority across many parties.
 
 This is structurally identical to the pattern that
-[noticeable_hand.md](noticeable_hand.md#the-hypothesis-stated-in-its-strongest-form)
+[The noticeable hand](noticeable_hand.md#the-hypothesis-stated-in-its-strongest-form)
 identifies as load-bearing in long-running voluntary cooperation regimes, namely
 anchor above self, costly recognition, distributed propagation, and resistance to
 capture. Vallée arrives at the structure from the UFO side, and kith-covenant
@@ -125,15 +125,15 @@ ontological interpretations and the social-cultural effects of those reports are
 substantial regardless of which interpretation is correct.
 
 For kith-covenant, the translation runs as follows. The three readings in
-[noticeable_hand.md](noticeable_hand.md) disagree on the **physical / metalogical**
+[The noticeable hand](noticeable_hand.md) disagree on the **physical / metalogical**
 layer (is something genuinely transcendent at work?). The **social and
 cultural layer** observations are common across the readings, since
 transcendent-moral-authority substrates produce long-running cooperation, and
 without them cooperation reverts to predation, faction, and war. The 6-layer
 separation makes it explicit that the design problem here operates at the social and
 cultural layers and does not require resolution of the metalogical-layer question.
-That is a methodological move [justus_hostis.md](justus_hostis.md) and
-[noticeable_hand.md](noticeable_hand.md) make in substance but do not name as a
+That is a methodological move [Justus hostis](justus_hostis.md) and
+[The noticeable hand](noticeable_hand.md) make in substance but do not name as a
 generic principle. Naming it gives kith-covenant a defensible methodological
 vocabulary it currently improvises.
 
@@ -159,7 +159,7 @@ available within Christian theology:
    the regulating reference: a personal Creator who entered history as a particular
    human being. The form is universal, and the content is specific. This is
    structurally similar to the Justin Martyr / *logos spermatikos* move that
-   [noticeable_hand.md](noticeable_hand.md#the-catholic--perennialist-reading)
+   [The noticeable hand](noticeable_hand.md#the-catholic--perennialist-reading)
    already identifies as Christian theological precedent for the catholic reading.
 
 2. **Read Vallée against himself.** His framework is empirically committed to
@@ -173,9 +173,9 @@ available within Christian theology:
 Either move is theologically coherent. The point his framework makes vivid is
 that strong Christian particularism cannot simply assume its own cycle is unique
 without engaging the generality of the pattern. The colonial-frontier counterweight
-in [noticeable_hand.md](noticeable_hand.md#counterweights) and the
+in [The noticeable hand](noticeable_hand.md#counterweights) and the
 Buddhist-longevity counterweight (treated at length in
-[buddhist_sangha.md](buddhist_sangha.md)) already require this engagement, and the
+[The Buddhist sangha](buddhist_sangha.md)) already require this engagement, and the
 framework names the underlying problem in generic form.
 
 ### With the catholic / perennialist reading
@@ -232,8 +232,8 @@ specifies that the *anchor-above-self* feature is what makes long-running
 voluntary cooperation across unconnected communities possible, and that this
 feature requires phenomena (or beliefs) that resist resolution and capture. This
 is a stronger claim than basic-naturalist cooperation theory makes, and it predicts
-the historical pattern [historical_cases.md](historical_cases.md) and
-[noticeable_hand.md](noticeable_hand.md) identify more directly than reciprocity
+the historical pattern [Historical cases](historical_cases.md) and
+[The noticeable hand](noticeable_hand.md) identify more directly than reciprocity
 and reputation alone. The naturalist reading, on the Vallée framework, becomes more
 specific and more empirically committed than its usual formulation.
 
@@ -244,8 +244,8 @@ Six points, in rough order of importance.
 ### 1. Ambiguity as feature, not bug
 
 The existing kith-covenant treatment of the substrate
-([justus_hostis.md](justus_hostis.md),
-[noticeable_hand.md](noticeable_hand.md)) discusses transcendent moral authority
+([Justus hostis](justus_hostis.md),
+[The noticeable hand](noticeable_hand.md)) discusses transcendent moral authority
 as a structural feature of long-running cooperation but does not directly engage
 why *ambiguity*, the impossibility of fully resolving what the substrate is, is
 itself load-bearing. The Vallée framework makes this explicit. A fully-revealed
@@ -255,7 +255,7 @@ partially-revealed substrate preserves the asymmetry between human comprehension
 and the anchor.
 
 For kith-covenant, the **non-ultimacy of the political community** anti-spiral
-feature ([justus_hostis.md](justus_hostis.md)) is structurally identical to the
+feature ([Justus hostis](justus_hostis.md)) is structurally identical to the
 ambiguity-as-feature claim. Non-ultimacy is what prevents
 the compact from being captured by becoming itself the ultimate. Stating this
 explicitly, that *unresolvability by the compact* is a design
@@ -310,7 +310,7 @@ distributed propagation.
 The dynamic framing has design implications. A regulatory feedback mechanism
 admits the same kind of analysis as any control loop, with gain, latency, margin,
 and oscillation all open to study. The kith-covenant protocol design
-([recognition_protocols.md](recognition_protocols.md),
+([Recognition protocols](recognition_protocols.md),
 [architecture/machine-participation.md](../architecture/machine-participation.md))
 is doing exactly this kind of feedback-mechanism design at the protocol layer.
 The Vallée framework suggests the substrate layer admits the same kind of
@@ -324,9 +324,9 @@ Component 3, that anchor-above-self machinery is vulnerable to
 instrumentalization, is the sharpest critique he supplies of any optimistic
 substrate framing. The existing kith-covenant treatment of failure modes
 (intra-Christian violence, colonial selectivity in
-[noticeable_hand.md](noticeable_hand.md#counterweights);
+[The noticeable hand](noticeable_hand.md#counterweights);
 capture resistance in
-[liminal_institutions.md](liminal_institutions.md)) addresses specific historical
+[Liminal institutions](liminal_institutions.md)) addresses specific historical
 instances but does not develop the general structural problem.
 
 The Vallée framework treats this as a feature of any anchor-above-self substrate,
@@ -334,27 +334,27 @@ not a contingent failure. The implication for kith-covenant is that the design m
 include **explicit countermeasures against capture** as constitutive features,
 not optional safeguards. The existing components address this in
 fragments: the jester role
-([jester_and_dissent.md](jester_and_dissent.md)), the audit commons
+([Jester and dissent](jester_and_dissent.md)), the audit commons
 ([architecture/machine-participation.md](../architecture/machine-participation.md)
 and
-[m2m_interaction.md](m2m_interaction.md)), and the emergency anathema procedure
-([liminal_institutions.md](liminal_institutions.md)). The general framing of
+[Machine-to-machine interaction](m2m_interaction.md)), and the emergency anathema procedure
+([Liminal institutions](liminal_institutions.md)). The general framing of
 "capture resistance as substrate design requirement" has not been articulated
 across the documents as a unified architectural concern.
 
 The unified treatment is now developed in
-[capture_resistance.md](capture_resistance.md), which catalogues six
+[Capture resistance](capture_resistance.md), which catalogues six
 strengthening moves (interpretive plurality, substrate-deference test,
 ceremony-cost tracking, manufactured-event resistance, light-lag-honest
 decision classes, adversarial-principal validation) with each routed to its
 host research document and to the corresponding implementation responsibility
-in [protocol-components.md](../architecture/protocol-components.md). The
+in [Protocol components](../architecture/protocol-components.md). The
 prior fragmentation is preserved (the host documents keep their local
 treatment) but is now explicitly framed as pieces of a single architectural
 concern that must interlock.
 
 The colonial-frontier counterweight in
-[noticeable_hand.md](noticeable_hand.md#counterweights) is a specific
+[The noticeable hand](noticeable_hand.md#counterweights) is a specific
 historical instance of what the Vallée framework predicts in general. The
 Christian substrate was *operationally captured* by an in-group definition of
 "neighbor" that contradicted its own scriptural mandate. The
@@ -367,8 +367,8 @@ in the structural correctives the historical Christian regimes did not.
 ### 5. The cross-cultural form/content distinction
 
 In *Passport to Magonia* (1969) Vallée makes a methodological move that
-[historical_cases.md](historical_cases.md) and
-[buddhist_sangha.md](buddhist_sangha.md) make in substance. The *form* of
+[Historical cases](historical_cases.md) and
+[The Buddhist sangha](buddhist_sangha.md) make in substance. The *form* of
 cross-community cooperation (recognition ceremony, oath-binding, restitution
 architecture) is universal. The *content* (which transcendent moral authority is
 invoked, how the recognition ceremony is enacted, what specific theology shapes
@@ -384,10 +384,10 @@ are heterogeneous in evidentiary status, since some are well-documented historic
 events and others are folkloric reports of varying credibility. The *structural*
 pattern across them (ambiguous-transcendent encounter, community formation
 around interpretation, ritual practice, generational propagation) is the same
-pattern [historical_cases.md](historical_cases.md) identifies in voluntary peer
+pattern [Historical cases](historical_cases.md) identifies in voluntary peer
 cooperation regimes. Whether the additional cases survive the
 voluntary-peer-longevity filter
-([noticeable_hand.md](noticeable_hand.md#a-methodological-refinement-voluntary-peer-cooperation-under-longevity))
+([The noticeable hand](noticeable_hand.md#a-methodological-refinement-voluntary-peer-cooperation-under-longevity))
 is a separate question, but the structural confirmation across heterogeneous
 domains strengthens the inference that the pattern is real.
 
@@ -401,7 +401,7 @@ and resists premature reduction to a single framework. The methodological
 discipline is the same.
 
 The kith-covenant documentation already exhibits this discipline
-([noticeable_hand.md](noticeable_hand.md#what-the-historical-evidence-can-and-cannot-settle)
+([The noticeable hand](noticeable_hand.md#what-the-historical-evidence-can-and-cannot-settle)
 is a clean example). Naming the discipline as a *method*, with his body of
 work as a precedent in a quite different domain, provides kith-covenant with a
 methodological lineage and vocabulary it currently improvises. It also positions
@@ -421,7 +421,7 @@ recognition problem is not part of his analytical apparatus: how individual
 members are admitted to the compact, how the recognition ceremony works at the
 personal level, how membership is maintained over time, and what specific
 psychological costs the ceremony imposes. The kith-covenant
-[recognition_protocols.md](recognition_protocols.md) and the two-layer
+[Recognition protocols](recognition_protocols.md) and the two-layer
 recognition model (intra-community by Christian-creed-model mechanism with
 asymmetric psychological cost, inter-community thin grammar in the
 Kadesh / lex-mercatoria tradition) engage this layer in a way Vallée does not.
@@ -440,7 +440,7 @@ existing kith-covenant treatment
 locates this in fallen-actor anthropology. That anthropology has its developed form
 in the Christian doctrine of original sin, with parallel forms in other traditions
 (the treatment of *kleshas* and afflictive states in
-[buddhist_sangha.md](buddhist_sangha.md) is the closest Buddhist analogue). The Vallée framework is
+[The Buddhist sangha](buddhist_sangha.md) is the closest Buddhist analogue). The Vallée framework is
 compatible with such anthropology but does not supply it.
 
 One may read the fallen-actor anthropology as Christian-specific (the
@@ -453,13 +453,13 @@ how it functions."
 ### No equivalent of the *justus hostis* / scapegoat-revelation features
 
 The kith-covenant anti-spiral features
-([justus_hostis.md](justus_hostis.md)) include specific mechanisms (fallen-actor
+([Justus hostis](justus_hostis.md)) include specific mechanisms (fallen-actor
 anthropology, grace over merit, scapegoat-revelation, enemy-love as operational
 norm, non-ultimacy of the political community) that have particular theological
 grounding in Christianity and analogous (though structurally distinct) grounding
 in Buddhism and the Iroquois Kaianerekowa
-([buddhist_sangha.md](buddhist_sangha.md);
-[historical_cases.md](historical_cases.md)). The Vallée framework does not engage
+([The Buddhist sangha](buddhist_sangha.md);
+[Historical cases](historical_cases.md)). The Vallée framework does not engage
 these specific mechanisms, and his analysis stops at the regulatory function of the
 substrate, short of its specific theological or moral architecture.
 
@@ -472,15 +472,15 @@ sociologically.
 ## Implications for kith-covenant design
 
 The implications converge across the three readings of
-[noticeable_hand.md](noticeable_hand.md) and across the Vallée framework, with one
+[The noticeable hand](noticeable_hand.md) and across the Vallée framework, with one
 significant addition.
 
 Across all three readings (now with Vallée):
 
 - Compact members must have internal cosmologies with
   transcendent-moral-authority structure (existing finding from
-  [historical_cases.md](historical_cases.md) and
-  [noticeable_hand.md](noticeable_hand.md), unchanged).
+  [Historical cases](historical_cases.md) and
+  [The noticeable hand](noticeable_hand.md), unchanged).
 - The substrate must be **structurally unresolvable by the compact**, since
   fully-revealed substrates fail by being capturable. (New emphasis from
   Component 1 / ambiguity-as-feature.) The non-ultimacy-of-political-community
@@ -498,7 +498,7 @@ Across all three readings (now with Vallée):
 - The recognition protocols must continue to operate at the
   intra-community level (where Vallée is silent), with the inter-community thin
   grammar handling cross-substrate cooperation. (Existing finding from
-  [recognition_protocols.md](recognition_protocols.md), unchanged.)
+  [Recognition protocols](recognition_protocols.md), unchanged.)
 
 The significant addition is the **dynamic / regulatory framing of substrate
 engagement**. The substrate is not a static feature of member
@@ -506,7 +506,7 @@ communities but a continuous regulatory operation that members participate in.
 This implies that protocol design should treat substrate
 engagement as an ongoing process, not a one-time admission criterion.
 Specifically, the two-layer structure in
-[recognition_protocols.md](recognition_protocols.md)
+[Recognition protocols](recognition_protocols.md)
 should be understood as the *protocol-layer* mechanism by which that
 regulatory function is rendered into operational practice. The
 substrate continuously shapes cooperation, the recognition protocol periodically
@@ -533,7 +533,7 @@ operate together as a single feedback architecture.
   analysis?
 
 - The catholic-leaning framework appears to fit the perennialist reading
-  of [noticeable_hand.md](noticeable_hand.md) better than the
+  of [The noticeable hand](noticeable_hand.md) better than the
   Christian-particularist reading, but the strong Christian reading has
   resources for engaging Vallée (the form/content distinction; the
   *logos spermatikos* tradition; the Incarnation-as-qualitatively-different
@@ -552,13 +552,13 @@ operate together as a single feedback architecture.
   kith-covenant might equally draw on.
 
 - The existing capture-resistance treatment
-  ([jester_and_dissent.md](jester_and_dissent.md), audit commons in
-  [m2m_interaction.md](m2m_interaction.md),
-  [liminal_institutions.md](liminal_institutions.md)) addressed specific
+  ([Jester and dissent](jester_and_dissent.md), audit commons in
+  [Machine-to-machine interaction](m2m_interaction.md),
+  [Liminal institutions](liminal_institutions.md)) addressed specific
   failure modes in fragments. The unified treatment is now developed in
-  [capture_resistance.md](capture_resistance.md), which catalogues seven
+  [Capture resistance](capture_resistance.md), which catalogues seven
   strengthening moves and routes their implementation responsibilities
-  through [protocol-components.md](../architecture/protocol-components.md).
+  through [Protocol components](../architecture/protocol-components.md).
   The remaining open question is therefore narrower. Are the seven moves
   *sufficient*, or does the general "manipulation vulnerability is
   structural" claim require countermeasures the unified
@@ -578,46 +578,46 @@ operate together as a single feedback architecture.
 
 ## Relationship to other documents
 
-- [capture_resistance.md](capture_resistance.md). The **operational
+- [Capture resistance](capture_resistance.md). The **operational
   follow-on** to this document. The seven strengthening moves catalogued
   there are the unified architectural response to Component 3
   (manipulation vulnerabilities). Where the present document analyzes
   the framework, capture_resistance.md routes its design
   implications to specific host documents and to
-  [protocol-components.md](../architecture/protocol-components.md).
-- [noticeable_hand.md](noticeable_hand.md). The parent analysis of the three
+  [Protocol components](../architecture/protocol-components.md).
+- [The noticeable hand](noticeable_hand.md). The parent analysis of the three
   readings; this document supplements rather than replaces. The Vallée framework
   can be combined with each of the three readings, with the strongest fit being
   the catholic reading and the most demanding engagement required from the
   Christian-particularist reading.
-- [justus_hostis.md](justus_hostis.md). The anti-spiral features and
+- [Justus hostis](justus_hostis.md). The anti-spiral features and
   fallen-actor anthropology that this document treats as load-bearing remain
   unchanged, and the Vallée framework supplies a methodological / sociological
   description of how those features function, not a replacement for them. The
   non-ultimacy-of-political-community feature is reframed here as an
   operational realization of the ambiguity-as-feature requirement.
-- [historical_cases.md](historical_cases.md). The empirical case set, where the
+- [Historical cases](historical_cases.md). The empirical case set, where the
   expanded case base of *Passport to Magonia* (1969) merits explicit
   examination as supplementary evidence for the cross-cultural pattern of
   anchor-above-self structure.
-- [buddhist_sangha.md](buddhist_sangha.md). The strongest non-Christian
+- [The Buddhist sangha](buddhist_sangha.md). The strongest non-Christian
   voluntary peer cooperation case, and the catholic-leaning framework is
   structurally parallel to the buddhist-sangha analysis.
-- [recognition_protocols.md](recognition_protocols.md). The intra-community
+- [Recognition protocols](recognition_protocols.md). The intra-community
   recognition layer. Vallée is silent on this layer, but the dynamic /
   regulatory framing developed here has direct implications for how the
   recognition ceremony should be understood (as periodic re-anchoring within an
   ongoing feedback loop, not one-time admission).
-- [jester_and_dissent.md](jester_and_dissent.md). The licensed truth-teller /
+- [Jester and dissent](jester_and_dissent.md). The licensed truth-teller /
   capture-resistance role. The Component 3 treatment of manipulation
   vulnerabilities reinforces the structural importance of this role and argues
   that capture resistance is a substrate-level requirement, not merely a
   cultural-dissent affordance.
-- [liminal_institutions.md](liminal_institutions.md). Capture-resistance
+- [Liminal institutions](liminal_institutions.md). Capture-resistance
   discussion at the institutional layer, to be read in conjunction with
   the general argument that capture resistance is a substrate design
   requirement common across institutional, protocol, and recognition layers.
-- [m2m_interaction.md](m2m_interaction.md). Audit commons and demonic
+- [Machine-to-machine interaction](m2m_interaction.md). Audit commons and demonic
   detection bounded by envelope, one of the existing fragments of
   capture-resistance machinery that the Vallée framework would unify with the
   others architecturally.
@@ -672,13 +672,13 @@ Methodological / comparative-religion context:
 
 Cross-references for kith-covenant context:
 
-- See [noticeable_hand.md](noticeable_hand.md) for the three-readings
+- See [The noticeable hand](noticeable_hand.md) for the three-readings
   framework and the bibliography on transcendent-moral-authority research
   (Norenzayan, Henrich, Lang et al., Schmitt, and the Catholic Catechism on
   the relationship of the Church to other religions).
-- See [historical_cases.md](historical_cases.md) for the empirical case base
+- See [Historical cases](historical_cases.md) for the empirical case base
   on voluntary peer cooperation across unconnected communities.
-- See [justus_hostis.md](justus_hostis.md) for the anti-spiral features and
+- See [Justus hostis](justus_hostis.md) for the anti-spiral features and
   the fallen-actor anthropology this document treats as compatible with but
   not supplied by the Vallée framework.
 

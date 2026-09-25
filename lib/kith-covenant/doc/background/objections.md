@@ -1,6 +1,6 @@
 *Previous: [Reputation bridges](reputation_bridges.md)*
 
-# Objections from Specific Intellectual Traditions
+# Objections from specific intellectual traditions
 
 Kith-covenant makes claims that several established intellectual
 traditions will challenge on sight. This document takes the strongest
@@ -119,7 +119,7 @@ of incoherence.
 
 This is not the same minimum as the thin functional one the compact adopts
 as the ground of its conduct toward parties that have not joined it
-([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)), and the two
+([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)), and the two
 answer different objections. The Noahide analogue answers the Rawlsian by
 saying how little the compact asks of a *candidate*. The functional minimum
 answers a different charge, that the compact acts on a standard it has not

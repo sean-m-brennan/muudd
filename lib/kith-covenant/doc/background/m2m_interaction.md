@@ -1,6 +1,6 @@
 *Previous: [Righteous war](righteous_war.md)*
 
-# Machine-to-Machine interaction: principal-derived contact across compact boundaries
+# Machine-to-machine interaction: principal-derived contact across compact boundaries
 
 ## Thesis
 

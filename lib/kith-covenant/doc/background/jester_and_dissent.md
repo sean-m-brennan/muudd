@@ -1,6 +1,6 @@
 *Previous: [Commons federation](commons_federation.md)*
 
-# Jester and Dissent: Cross-Community Journalism and Protected Heterodoxy
+# Jester and dissent: cross-community journalism and protected heterodoxy
 
 ## Thesis
 
@@ -8,11 +8,11 @@ Every cooperation regime must solve the information-flow
 problem. How do communities learn what is actually happening
 inside other communities, especially when what is happening
 violates the common virtues? The escalation ladder
-([bounded_conflict.md](bounded_conflict.md)) detects violations
+([Bounded conflict](bounded_conflict.md)) detects violations
 *after the fact*, when the harm has already spilled across
 community boundaries. The re-affirmation cadence of the
 recognition ceremony
-([recognition_protocols.md](recognition_protocols.md)) detects
+([Recognition protocols](recognition_protocols.md)) detects
 hollowing, but on a generational timescale. Neither mechanism
 provides *real-time, cross-community information flow* about the
 health of the member communities.
@@ -27,7 +27,7 @@ speaker.
 Kith-covenant needs this role at the inter-community scope.
 Internal dissent that does not produce protocol violation is the
 autonomous_trust scope, not the compact one
-([recognition_protocols.md](recognition_protocols.md)). But
+([Recognition protocols](recognition_protocols.md)). But
 dissent that *crosses community boundaries* (internal practices
 that affect the health of the compact, corruption within the
 liminal institutions themselves, hollowing of the recognition
@@ -36,7 +36,7 @@ business, and the jester function is the mechanism that brings
 it to light.
 
 The inquisitorial-caste problem
-([justus_hostis.md](justus_hostis.md), [bounded_conflict.md](bounded_conflict.md))
+([Justus hostis](justus_hostis.md), [Bounded conflict](bounded_conflict.md))
 and the jester problem are the **same problem viewed from opposite
 ends**. The inquisitor asks. How do we cultivate discernment in a
 specialized class without that class becoming oppressive? The jester
@@ -137,7 +137,7 @@ consequences.
 
 The prophetic case also connects to the orthodox-determination
 question developed in
-[exit_and_succession.md](exit_and_succession.md) §"The futility
+[Exit and succession](exit_and_succession.md) §"The futility
 lesson and its limits." The prophets were, in many cases, making
 exactly the kind of second- and third-order orthodox
 determination that the compact needs. They told communities that
@@ -222,7 +222,7 @@ Examples:
   faction, and the mediator pool is no longer functioning
   neutrally.
 - A community is depleting a shared commons
-  ([commons_federation.md](commons_federation.md)) in ways that are
+  ([Commons federation](commons_federation.md)) in ways that are
   not yet visible to the distributed monitoring system.
 
 In each case, the information exists within the affected community
@@ -344,8 +344,8 @@ even absent formal pressure.
 ## The inquisitorial-caste problem from the other side
 
 The inquisitorial-caste problem, raised in
-[justus_hostis.md](justus_hostis.md) and
-[bounded_conflict.md](bounded_conflict.md), asks. How does the compact
+[Justus hostis](justus_hostis.md) and
+[Bounded conflict](bounded_conflict.md), asks. How does the compact
 cultivate discernment (the ability to distinguish the fallen-but-
 recoverable from the demonic) in a specialized class without that
 class becoming inquisitors who enjoy the exercise of judgment and use
@@ -489,7 +489,7 @@ attack surface:
 
 **1. Funding independence.** The jester function must not depend on
 concentrated funding sources. The liminal-institution funding model
-([liminal_institutions.md](liminal_institutions.md)) applies to the
+([Liminal institutions](liminal_institutions.md)) applies to the
 information infrastructure as much as to the mediator pool. Assessed
 contributions from all member communities, supplemented by service
 fees, with budget set by the compact as a whole. A
@@ -517,7 +517,7 @@ claiming false neutrality.
 
 This design creates an apparent tension with the neutrality
 required of the mediator pool
-([liminal_institutions.md](liminal_institutions.md)). If the
+([Liminal institutions](liminal_institutions.md)). If the
 information feed is openly non-neutral, how does the adjudicator
 maintain neutrality? The answer is the **adversarial-information
 model**: the same model that underlies the court system. A court
@@ -615,7 +615,7 @@ The compact faces two risks:
 ### Cryptographic substrate
 
 The reputation-bridge mechanisms
-([reputation_bridges.md](reputation_bridges.md)) provide the technical
+([Reputation bridges](reputation_bridges.md)) provide the technical
 substrate:
 
 - **Ring signatures** allow the whistleblower to prove that they are
@@ -629,7 +629,7 @@ substrate:
   community.
 - **Secure communication channels** maintained by the liminal
   institutions
-  ([liminal_institutions.md](liminal_institutions.md)) provide
+  ([Liminal institutions](liminal_institutions.md)) provide
   the infrastructure for whistleblower reports to reach the
   compact without passing through the communication
   infrastructure of the accused community.
@@ -670,7 +670,7 @@ compact proceedings are public).
 ## The information commons as a dissent substrate
 
 The "inheritance of the future" virtue from
-[bounded_conflict.md](bounded_conflict.md) protects the compact
+[Bounded conflict](bounded_conflict.md) protects the compact
 knowledge archive from destruction, corruption, and suppression.
 The knowledge archive (the record of compact history,
 deliberations, mediations, reports, and scholarship) is itself
@@ -697,11 +697,11 @@ ceremonies, and decisions)?
 - Transparency is the fundamental dissent mechanism. What is public
   cannot be concealed, and concealment is the enemy of accountability.
 - The archive serves the generational-transmission function
-  ([exit_and_succession.md](exit_and_succession.md)). Future
+  ([Exit and succession](exit_and_succession.md)). Future
   generations can understand *why* the compact was designed as it
   was by reading the record of its deliberations.
 - The archive is the foundation of the reputation bridge
-  ([reputation_bridges.md](reputation_bridges.md)). Compact-facing
+  ([Reputation bridges](reputation_bridges.md)). Compact-facing
   behavior is verifiable only if the record of behavior is preserved.
 
 **Arguments against:**
@@ -773,7 +773,7 @@ between the two failure modes:
    alarming, the compact may invoke the mediation mechanisms of
    the escalation ladder. The investigation is conducted by the
    mediator pool, with the protections and procedures described
-   in [bounded_conflict.md](bounded_conflict.md).
+   in [Bounded conflict](bounded_conflict.md).
 
 4. **Designation** (terminal measure). If the investigation reveals
    sustained, deliberate common-virtue violations that the community
@@ -798,7 +798,7 @@ The argument. The compact information-flow infrastructure
 channels, the secure communication infrastructure maintained by
 the liminal institutions) is itself a liminal institution
 deserving the same protections that
-[liminal_institutions.md](liminal_institutions.md) develops for
+[Liminal institutions](liminal_institutions.md) develops for
 the mediator pool and the witness infrastructure.
 
 Attacks on the information-flow infrastructure (jamming
@@ -838,7 +838,7 @@ compact to function.
   not the faith itself), but the line between challenging
   practice and challenging foundation is not always clear. The
   two-layers framing in
-  [recognition_protocols.md](recognition_protocols.md#two-layers-intra-community-authorization-and-inter-community-grammar)
+  [Recognition protocols](recognition_protocols.md#two-layers-intra-community-authorization-and-inter-community-grammar)
   relieves one part of the pressure here (the compact does not
   hold a shared creed to be challenged, only a thin grammar) but
   leaves intact the harder question of jester speech within a
@@ -875,7 +875,7 @@ compact to function.
   malfeasance?
 
 - The **collusion vulnerability**
-  ([bounded_conflict.md](bounded_conflict.md) §"The collusion
+  ([Bounded conflict](bounded_conflict.md) §"The collusion
   vulnerability") is particularly acute for the jester function. If a
   coordinated faction captures the observer corps *and* the archive
   *and* the whistleblower reception panel, the jester function becomes
@@ -888,46 +888,46 @@ compact to function.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md). The inquisitorial-caste
+- [Justus hostis](justus_hostis.md). The inquisitorial-caste
   problem, which the jester function addresses from the complementary
   direction.
-- [bounded_conflict.md](bounded_conflict.md). The "inheritance
+- [Bounded conflict](bounded_conflict.md). The "inheritance
   of the future" virtue as the foundation of the information
   commons; the escalation ladder that the jester function feeds
   into.
-- [recognition_protocols.md](recognition_protocols.md). The
+- [Recognition protocols](recognition_protocols.md). The
   internal-dissent boundary (AT scope vs. kith-covenant scope);
   the re-affirmation cadence as a hollowing detector that the
   jester function supplements.
-- [liminal_institutions.md](liminal_institutions.md). The
+- [Liminal institutions](liminal_institutions.md). The
   mediator pool as the institutional home for the observer corps
   and the whistleblower reception panel; information
   infrastructure as liminal institution.
-- [commons_federation.md](commons_federation.md). The knowledge
+- [Commons federation](commons_federation.md). The knowledge
   archive as commons; the information commons as a governed
   resource.
-- [reputation_bridges.md](reputation_bridges.md). Cryptographic
+- [Reputation bridges](reputation_bridges.md). Cryptographic
   mechanisms (ring signatures, commitment schemes) as the technical
   substrate for whistleblower protection.
-- [exit_and_succession.md](exit_and_succession.md). The jester
+- [Exit and succession](exit_and_succession.md). The jester
   function as hollowing detector; the archive as succession
   infrastructure.
-- [historical_cases.md](historical_cases.md). The Hanseatic
+- [Historical cases](historical_cases.md). The Hanseatic
   factors as intelligence conduits; the reputation network of
   the lex mercatoria as information infrastructure.
-- [tacit_coordination.md](tacit_coordination.md). Common knowledge
+- [Tacit coordination](tacit_coordination.md). Common knowledge
   (everyone knows that everyone knows) as the information condition
   that the jester function creates.
-- [noticeable_hand.md](noticeable_hand.md). The prophetic tradition
+- [The noticeable hand](noticeable_hand.md). The prophetic tradition
   as the deepest grounding for the jester function.
-- [../social_framework.md](../concept.md). Parent document. The
+- [Cooperation without a sovereign](../concept.md). Parent document. The
   jester role in the five-role model.
 - [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md). The AT/kith-covenant boundary that the whistleblower function
   crosses.
 
 ## References
 
-*Anchor works to be expanded.*
+*Anchor works, to be expanded:*
 
 - Welsford, *The Fool: His Social and Literary History* (1935).
 - Zijderveld, *Reality in a Looking-Glass* (1982).

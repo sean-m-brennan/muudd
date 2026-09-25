@@ -1,6 +1,6 @@
 *Previous: [Erosion legibility](erosion-legibility.md)*
 
-# The Determined Adversary: a Campaign Against the Stack
+# The determined adversary: a campaign against the stack
 
 *Scope: §5 escalation and designation, §9 enforcement, and the §2 admission gate,
 exercised as one continuous case rather than as separate rules. The campaign lives at
@@ -77,7 +77,7 @@ Against the stack as it stood before this campaign, six of the nine phases passe
 three failed, with thirteen things the adversary got away with. Four of them mattered, and
 all four were one shape, a status that no rule read. All four are closed. The rule that
 closes each is named with it, and each lives in
-[protocol-components.md](protocol-components.md#5-escalation-and-designation) §5 and §9.
+[Protocol components](protocol-components.md#5-escalation-and-designation) §5 and §9.
 
 - **A standing designation withheld nothing.** All four probed office acts were
   authorized. The designated community seated mediators, observers and examiners, and
@@ -124,7 +124,7 @@ a pattern is proved. The campaign reports them by name instead of leaving them o
 - **The adversary is a member of the compact in good standing.** §2 rules are about acts:
   the sponsor's stake, the admitting quorum, the composition of the examining panel. None
   of them reads a belief, because
-  [natural_law.md](../background/natural_law.md#the-interior-of-a-member-community) holds
+  [Natural law](../background/natural_law.md#the-interior-of-a-member-community) holds
   that the compact forms no verdict on an interior until it touches the covenant. A rite
   is an act, and an act can be performed by a community that means none of it. What §2
   supplies is what survives a successful deceit: the entrant carries no weight until its
@@ -146,7 +146,7 @@ substitution reading looks for in volume, breadth and rate: thirteen enforcement
 high for its size, over a quarter of the shared taxonomy of grounds. What spares it is
 target dispersion of 1.0, every act aimed at one subject. Legitimate concentration lands
 on a target, while substitution concentrates a ground across many targets, which is
-finding K5 of [erosion-legibility.md](erosion-legibility.md). The erosion reading is
+finding K5 of [Erosion legibility](erosion-legibility.md). The erosion reading is
 `None` throughout, both before and after the rules above.
 
 Although a control that fires nothing is the quietest part of a campaign, this one matters
@@ -162,7 +162,7 @@ adversary accounts for the seat it took, because keeping the form is what it doe
 
 ## What a simulator cannot settle
 
-Two limits remain, both structural.
+Two limits remain, both structural:
 
 Firstly, the campaign scores what the protocol refuses and what its lenses report. While
 that is what a protocol can be held to, it cannot reach whether the withholding *hurts*. A

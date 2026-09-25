@@ -1,6 +1,6 @@
 *Previous: [Tacit coordination](tacit_coordination.md)*
 
-# Recognition Protocols: The Handshake That Does Real Work
+# Recognition protocols: the handshake that does real work
 
 ## Thesis
 
@@ -19,8 +19,8 @@ This document develops the kith-covenant recognition protocols. It takes
 seriously two converging conclusions from the prior research:
 
 - **The transcendent moral authority substrate finding** from
-  [historical_cases.md](historical_cases.md#the-transcendent-moral-authority-pattern) and
-  [noticeable_hand.md](noticeable_hand.md). The cooperation regimes
+  [Historical cases](historical_cases.md#the-transcendent-moral-authority-pattern) and
+  [The noticeable hand](noticeable_hand.md). The cooperation regimes
   that have endured across unconnected communities in the case set
   rested on substrates that point to a single ultimate. The finding is
   abductive and held provisionally (see
@@ -739,7 +739,7 @@ work is done in combination with (not instead of) conduct
 observation over time, material entanglement (trade, rescue,
 commons), costly signaling (capacity commitments visible enough
 that falsity eventually surfaces), the jester function
-([jester_and_dissent.md](jester_and_dissent.md)), and the
+([Jester and dissent](jester_and_dissent.md)), and the
 anathema procedure for cases the earlier filters miss. The
 recognition ceremony is the *first* filter. It should not be
 asked to be the *only* filter. Where the other filters are
@@ -1058,7 +1058,7 @@ The ceremony has the following characteristics:
   commitments of its own members under its own substrate) with
   the new admission as occasion. This is the generational
   re-affirmation pattern treated in
-  [exit_and_succession.md](exit_and_succession.md); it is intra-
+  [Exit and succession](exit_and_succession.md); it is intra-
   community, not joint.
 
 The ceremony is *expensive in time, attention, and human investment*.
@@ -1072,7 +1072,7 @@ something a community unwilling has not.
 The recognition statement is not recited once. The periodic
 re-affirmation of the compact cadence (rung 7 of the protocol
 sketch in
-[bounded_conflict.md](bounded_conflict.md#protocol-sketch))
+[Bounded conflict](bounded_conflict.md#protocol-sketch))
 includes a full re-recitation of the five movements by every
 current member community.
 
@@ -1235,7 +1235,7 @@ and bidirectional.
 
 Either members in active dispute (who remain peers despite the
 dispute, per the entire architecture of
-[bounded_conflict.md](bounded_conflict.md)) or non-members with
+[Bounded conflict](bounded_conflict.md)) or non-members with
 whom conflict exists but who are still treated within the
 bounded-conflict frame. The *justus hostis* is the enemy who
 *remains a neighbor within the encounter of conflict.* One who
@@ -1345,7 +1345,7 @@ speak for. They are what any viable order among vulnerable,
 approximately equal, imperfectly altruistic parties contains,
 which is why the compact does not treat them as discretionary
 where reciprocity is absent
-([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)).
+([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)).
 The same ground carries the *hostis humani generis* designation
 at the other edge, and it stops at the boundary of the compact
 itself. It says nothing about whom a member community counts as
@@ -1435,7 +1435,7 @@ Two subcases:
   the asymmetry and names it as such. What binds such a community to the
   virtues it commits to is the adopted functional minimum rather than a
   substrate it has declined to name
-  ([natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)), which is
+  ([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)), which is
   what makes the category coherent and not a courtesy. The thinness of that
   ground is also why the category remains restricted. It supplies no
   anti-spiral features and cannot be enlarged to yield them.
@@ -1601,7 +1601,7 @@ itself a measurable property and should be tested explicitly.
   tolerance grounded in the view that other monotheisms were variants
   of Tengrism) is suggestive but not directly applicable. What binds a
   restricted member is settled (the adopted functional minimum, see
-  [natural_law.md](natural_law.md#the-ground-the-compact-claims-for-itself)); whether the
+  [Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)); whether the
   arrangement holds over generations is the part that remains open, and a
   coherent ground is not the same thing as a durable one.
 - **Detection of inauthenticity at first reception** is a virtue, not
@@ -1609,8 +1609,8 @@ itself a measurable property and should be tested explicitly.
   cultivate this discernment, but how, and against what corrupting
   pressures? This is a shared open question with the *hostis humani
   generis* treatment in
-  [justus_hostis.md](justus_hostis.md#open-questions) and
-  [bounded_conflict.md](bounded_conflict.md#open-questions).
+  [Justus hostis](justus_hostis.md#open-questions) and
+  [Bounded conflict](bounded_conflict.md#open-questions).
 - **Movement 3 (recognition of the other)** asks each community
   to recognize the substrate of the other as bearing the same
   structural role. This is a strong claim. Some communities
@@ -1641,33 +1641,33 @@ itself a measurable property and should be tested explicitly.
 
 ## Relationship to other documents
 
-- [justus_hostis.md](justus_hostis.md). The theoretical foundation.
+- [Justus hostis](justus_hostis.md). The theoretical foundation.
   Recognition operationalizes the *justus hostis* commitment at
   compact-formation, and Movement 5 is the antidote-to-entropy
   acknowledgment that document foreshadowed.
-- [bounded_conflict.md](bounded_conflict.md). Movement 4 is the
+- [Bounded conflict](bounded_conflict.md). Movement 4 is the
   recitation form of the common-virtue list developed there. The
   anathema procedure intersects with recognition at designation and
   re-entry.
-- [historical_cases.md](historical_cases.md). The transcendent-moral-authority pattern
+- [Historical cases](historical_cases.md). The transcendent-moral-authority pattern
   there is what Movement 1 enacts. The case material there
   (especially the Iroquois Condolence ceremony and the Christian
   creed tradition) supplies precedent for the recognition ceremony
   structure.
-- [tacit_coordination.md](tacit_coordination.md). The recognition
+- [Tacit coordination](tacit_coordination.md). The recognition
   ceremony is a costly-signaling event. The periodic re-affirmation
   is a common-knowledge maintenance event.
-- [noticeable_hand.md](noticeable_hand.md). The truth-finding /
+- [The noticeable hand](noticeable_hand.md). The truth-finding /
   design-making distinction developed there is the principle that
   lets kith-covenant require structural commitment to a the substrate
   without dictating theological content. Movement 1 lives in
   exactly that distinction.
-- [liminal_institutions.md](liminal_institutions.md). The
+- [Liminal institutions](liminal_institutions.md). The
   witnessing roles in the recognition ceremony are a natural
   responsibility for the liminal third-party institutions.
-- [exit_and_succession.md](exit_and_succession.md). Recognition has a counterpart in withdrawal. The same procedural
+- [Exit and succession](exit_and_succession.md). Recognition has a counterpart in withdrawal. The same procedural
   weight that applies to admission should apply to formal exit.
-- [../social_framework.md](../concept.md). Parent document.
+- [Cooperation without a sovereign](../concept.md). Parent document.
 
 ## References
 

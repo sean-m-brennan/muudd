@@ -1,11 +1,11 @@
 *Previous: [Jester and dissent](jester_and_dissent.md)*
 
-# Exit and Succession: Leaving a Compact, Splitting, Dissolving, Reconstituting
+# Exit and succession: leaving a compact, splitting, dissolving, reconstituting
 
 ## Thesis
 
 Recognition has a counterpart in withdrawal. The five-movement
-recognition ceremony ([recognition_protocols.md](recognition_protocols.md))
+recognition ceremony ([Recognition protocols](recognition_protocols.md))
 brings a community into the compact through a weighty, public,
 witnessed commitment. **The same procedural weight that applies to
 admission must apply to formal exit**, not to trap members, but
@@ -51,7 +51,7 @@ Voluntary withdrawal is the mirror of the recognition ceremony. A
 formal, public, witnessed act. The withdrawing community:
 
 1. **Gives formal notice** to the compact through its liminal
-   institutions ([liminal_institutions.md](liminal_institutions.md)).
+   institutions ([Liminal institutions](liminal_institutions.md)).
    The notice specifies the effective date and the reasons for
    withdrawal. The reasons need not be approved by the compact. The
    right to withdraw is unconditional. But the reasons are part of
@@ -65,7 +65,7 @@ formal, public, witnessed act. The withdrawing community:
    calendar, typically one year.
 3. **Settles its commons stake.** The share a withdrawing
    community holds in the compact common resources
-   ([commons_federation.md](commons_federation.md)) must be
+   ([Commons federation](commons_federation.md)) must be
    either (a) transferred to the remaining compact, (b) replaced
    by the remaining compact, or (c) maintained by mutual
    agreement. Physical infrastructure that the withdrawing
@@ -101,7 +101,7 @@ In the kith-covenant analogue, a withdrawing community loses:
   it.
 - **Reputation bridge benefits.** Its compact-facing record remains
   in the compact archive (see
-  [reputation_bridges.md](reputation_bridges.md) §"Reputation upon
+  [Reputation bridges](reputation_bridges.md) §"Reputation upon
   exit"), but it no longer accrues reputation within the compact.
 - **Commons rights.** It loses its appropriation rights in the
   compact shared commons (communication relays, navigational data,
@@ -124,7 +124,7 @@ In the kith-covenant analogue, a withdrawing community loses:
 
 Expulsion is the terminal consequence of the anathema designation
 procedure
-([bounded_conflict.md](bounded_conflict.md) §"Handling the anathema").
+([Bounded conflict](bounded_conflict.md) §"Handling the anathema").
 A community designated as anathema after the full compact deliberation
 (meeting all four conditions, with multiple communities concurring)
 is expelled from the compact.
@@ -140,7 +140,7 @@ The differences are procedural and moral, not merely administrative:
 - **No transition period.** The designation itself implies that
   continued presence in the compact is actively harmful. The
   interim-injunction mechanism
-  ([liminal_institutions.md](liminal_institutions.md)) may
+  ([Liminal institutions](liminal_institutions.md)) may
   already be in effect. The transition from designation to
   expulsion should be as short as the settlement of material
   obligations permits.
@@ -162,7 +162,7 @@ The differences are procedural and moral, not merely administrative:
 ### Re-entry after expulsion
 
 The anathema designation includes a re-entry procedure (per
-[bounded_conflict.md](bounded_conflict.md)). The designated
+[Bounded conflict](bounded_conflict.md)). The designated
 community may petition for re-admission after demonstrating sustained
 change. The re-entry procedure is structurally identical to the
 original recognition ceremony (the five-movement recognition
@@ -285,7 +285,7 @@ Consider the progression:
   the community but is *identical* with it. The community *is*
   the voice of God, and therefore its pronouncements carry
   substrate authority. This is the civil-religion failure mode
-  warned against in [justus_hostis.md](justus_hostis.md)
+  warned against in [Justus hostis](justus_hostis.md)
   §"Substrate affords emergence." The theological claim is
   nominally about the divine relationship to human institutions,
   which sounds like first-order theology, but its effect is to
@@ -317,7 +317,7 @@ worship (first order) had produced exploitation of the poor
 (second order) which constituted covenant-repudiation (third
 order). The communities that heard this determination frequently
 responded by killing the prophet (see
-[jester_and_dissent.md](jester_and_dissent.md) §"The Old
+[Jester and dissent](jester_and_dissent.md) §"The Old
 Testament prophetic tradition"). The killing was itself
 diagnostic. A community secure in its fidelity does not need to
 silence the voice pointing out its infidelity. The pattern
@@ -338,7 +338,7 @@ maximal theological diversity at the first order while
 maintaining the discernment to detect and respond to structural
 threats at the second and third orders. The discernment function
 of the mediator pool
-([liminal_institutions.md](liminal_institutions.md)) is the
+([Liminal institutions](liminal_institutions.md)) is the
 institutional mechanism. The transcendent-moral-authority
 substrate is the reference point against which structural effects
 can be measured.
@@ -473,12 +473,12 @@ security. Communities believe they are part of a functioning
 cooperation framework when they are not.
 
 **Detection mechanism.** The generational re-affirmation cadence from
-[recognition_protocols.md](recognition_protocols.md) is a
+[Recognition protocols](recognition_protocols.md) is a
 hollowing detector. If re-affirmation becomes perfunctory (if
 communities recite without conviction, if witnesses stop assessing
 sincerity, if the psychological-cost mechanism no longer engages)
 then the compact is hollowing. The mediator pool and the jester
-function ([jester_and_dissent.md](jester_and_dissent.md)) are the
+function ([Jester and dissent](jester_and_dissent.md)) are the
 institutions responsible for detecting and naming this hollowing.
 
 ---
@@ -550,7 +550,7 @@ elements from the successful models:
   forces each generation to commit publicly, with witnesses who can
   assess sincerity. This is the catechetical element.
 - **Mediator apprenticeship** (from
-  [liminal_institutions.md](liminal_institutions.md)) trains the
+  [Liminal institutions](liminal_institutions.md)) trains the
   next generation of mediators through practice under experienced
   mentors. This is the apprenticeship element.
 - **The compact archive** preserves the institutional memory.
@@ -559,7 +559,7 @@ elements from the successful models:
   Future generations should be able to read *why* the compact was
   designed as it was, not merely *what* the design is.
 - **The jester function**
-  ([jester_and_dissent.md](jester_and_dissent.md)) provides the
+  ([Jester and dissent](jester_and_dissent.md)) provides the
   critical voice that detects drift. A generation drifting from
   what its founders intended may not notice from within. The
   jester is there to name the drift.
@@ -812,7 +812,7 @@ A departed community is a non-member encountered. Not a *justus
 hostis*, not an anathema, but a community encountered
 without compact-level commitments. The common virtues apply within
 any encounter (the encounter-based neighbor ethic from
-[recognition_protocols.md](recognition_protocols.md)), but the
+[Recognition protocols](recognition_protocols.md)), but the
 non-aggression obligation goes further. A departed community that
 was in good standing at departure should not be treated as a
 potential adversary absent new cause for conflict.
@@ -854,33 +854,33 @@ aggression and does not trigger the escalation ladder.
 
 ## Relationship to other documents
 
-- [recognition_protocols.md](recognition_protocols.md). Exit as
+- [Recognition protocols](recognition_protocols.md). Exit as
   the mirror of recognition; the withdrawal ceremony as counter
   to the recognition ceremony; the re-affirmation cadence as
   hollowing detector.
-- [bounded_conflict.md](bounded_conflict.md). The *hostis humani
+- [Bounded conflict](bounded_conflict.md). The *hostis humani
   generis* designation as the mechanism for expulsion; the
   escalation ladder as the alternative to splitting.
-- [historical_cases.md](historical_cases.md). Verhansung, the
+- [Historical cases](historical_cases.md). Verhansung, the
   Iroquois fracture, the Hanseatic decline, the Westphalian
   system as post-Reformation exit product.
-- [liminal_institutions.md](liminal_institutions.md). Liminal
+- [Liminal institutions](liminal_institutions.md). Liminal
   institutions as the infrastructure that must be allocated upon
   split; the mediator pool as settlement arbiters.
-- [commons_federation.md](commons_federation.md). Shared commons as
+- [Commons federation](commons_federation.md). Shared commons as
   the material stake that makes exit consequential.
-- [reputation_bridges.md](reputation_bridges.md). Reputation
+- [Reputation bridges](reputation_bridges.md). Reputation
   portability upon exit; reputation laundering; reputation
   capture.
-- [justus_hostis.md](justus_hostis.md). The substrate-survival
+- [Justus hostis](justus_hostis.md). The substrate-survival
   question; the Iroquois case as unsolved failure mode.
-- [tacit_coordination.md](tacit_coordination.md). The shadow of
+- [Tacit coordination](tacit_coordination.md). The shadow of
   the future shortened by impending exit.
-- [noticeable_hand.md](noticeable_hand.md). The Reformation as
+- [The noticeable hand](noticeable_hand.md). The Reformation as
   substrate-level splitting event.
-- [jester_and_dissent.md](jester_and_dissent.md). The
+- [Jester and dissent](jester_and_dissent.md). The
   jester function as hollowing detector.
-- [../social_framework.md](../concept.md). Parent document.
+- [Cooperation without a sovereign](../concept.md). Parent document.
 - [../../../autonomous_trust/doc/autonomous_trust.md](../../../autonomous_trust/doc/autonomous_trust.md). The intra-community complement. Internal governance that must
   persist through exit events.
 

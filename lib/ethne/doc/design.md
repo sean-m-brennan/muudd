@@ -7,7 +7,7 @@
 
 # Ethne. The polity tier
 
-**Design document.** The decisions are recorded as D1-D31 below, and the
+**Design document.** The decisions are recorded as D1-D35 below, and the
 questions they raised as Q1-Q9. Anything the design specifies and the code does
 not carry is in [`TODO.md`](../TODO.md). How the tier is built, which toolchain
 choices are deliberate, and the verification discipline the slices are held to
@@ -76,7 +76,7 @@ Dependency directions (X → Y means "X depends on Y"):
  machinery where it exists (below). It does **not** depend on AT.
 - **AT is one pluggable substrate**, reached through an `ethne-at` adapter that
   depends on both AT and ethne. Swap it for a manual-founding provider, or an
-  importer for the roster of an existing organisation, and ethne still works.
+  importer for the roster of an existing organization, and ethne still works.
   AT is optional.
 - **KC depends on neither AT nor ethne.** Ethne speaks to KC *only through
   the existing public record vocabulary of KC*: it emits a standard
@@ -91,7 +91,7 @@ Dependency directions (X → Y means "X depends on Y"):
 ## The load-bearing principle. Ratify emergence, do not replace it
 
 AT and KC embody two different **legitimacy stories**. AT. Structure is
-legitimate because it is *earned and emergent*, bottom-up from behaviour. KC.
+legitimate because it is *earned and emergent*, bottom-up from behavior. KC.
 Standing is legitimate because it is *conferred and covenantal*, by a
 recognized act. The entire job of ethne is to reconcile them, and the way it
 does so is a single discipline it must never violate:
@@ -114,7 +114,7 @@ can act as one.
  equal to its current members. Members join and leave it.
 - **Charter.** The polity founding, signed constitutional artifact. The
  ratified membership roll at founding, the articulated substrate, the internal
- offices, and the amendment rules. The community-scoped analogue of the KC
+ offices, and the amendment rules. The community-scoped analog of the KC
  compact genesis.
 - **Substrate.** What the polity holds above itself and defers to (its
  tradition / governance / ground). For a machine-majority polity the substrate
@@ -146,7 +146,7 @@ charter's.
 Turning implicit emergent norms into an explicit stance the polity defers to.
 This is the raw material the compact tier recognition statement operates on and
 the thing the non-ultimacy / substrate-deference features presuppose *within*
-each community. AT has behaviour. KC needs a community that *stands for
+each community. AT has behavior. KC needs a community that *stands for
 something*. Ethne is where "standing for something" is constituted and recorded.
 
 ### 3. Internal offices. Trust → conferred standing, turned inward *(new)*
@@ -209,14 +209,14 @@ decoupled (no ethne→KC-governance edge) and lets ethne run standalone.
 
 Ethne defines a narrow `SubstrateProvider` interface (built in
 `en-substrate`). The source of the emergent evidence a founding ratifies and
-the ongoing behavioural input cohesion monitors. It exposes, roughly. A
+the ongoing behavioral input cohesion monitors. It exposes, roughly. A
 candidate membership set with soft boundaries, a per-member earned-reputation
 reading, a per-member guardian edge with the liveness stamp of when that
 guardian was last verified present, and a change/anomaly stream (**D16**:
 `SubstrateChange` deltas behind a *separate* `ChangeStream` trait, so a
 provider with no notion of change is not made to fake one). The shipped
 `ManualFounding` provider needs no substrate service. An
-existing-organisation roster importer is another trivial provider.
+existing-organization roster importer is another trivial provider.
 
 **`ethne-at`: the autonomous_trust provider, over the AT C interface
 (decision D5).** The autonomous_trust *production* implementation is a **C
@@ -414,7 +414,7 @@ KC cannot see on its own and AT cannot decide on its own.
  node it borrows from. Three properties of that ABI matter to a Rust caller
  and are pinned on the AT side, because finishing this found all three
  broken. The arguments are actually *used* (a config aliasing the node it
- initialised was being zeroed, so every queue name silently became an AT
+ initialized was being zeroed, so every queue name silently became an AT
  default and `generate_config` did nothing). The strings are **copied**, so a
  `CString` temporary may drop while the node lives (`node.h` keeps the
  calling pointers and reads `app_name` at shutdown); and a handle means the
@@ -436,7 +436,7 @@ KC cannot see on its own and AT cannot decide on its own.
  Two things the live leg then measured, both of which had been invisible.
  `at_app_node_start` returns in ~2 ms while the daemon queue is not bound for
  another ~170-210 ms, so the first sends of a host silently went nowhere,
- hence `EmbeddedAtNode::ready`/`wait_ready` over the new AT
+ so `EmbeddedAtNode::ready`/`wait_ready` over the new AT
  `at_app_node_ready`, and a distinct `AT_APP_NOT_READY` from a roster pull
  instead of an unclassifiable -1. And `at_app_node_stop` returned while the
  daemon was still running, because it `waitpid`'d a process that
@@ -939,7 +939,7 @@ KC cannot see on its own and AT cannot decide on its own.
  non-vacuous *at founding* rather than only after a deliberate designation.
  - **An unrated candidate does not satisfy a demanded floor.** A positive
  `min_reputation` is a positive assertion and `None` cannot support it; a floor of
- `0.0` demands nothing and admits everyone. Behaviour-preserving at both ends. A
+ `0.0` demands nothing and admits everyone. Behavior-preserving at both ends. A
  provider that used to collapse "unknown" into a low number saw those members
  trimmed by any floor above it, and still does.
  - **The AT mapping is structural, which was a finding rather than a choice.** In
@@ -1090,7 +1090,7 @@ KC cannot see on its own and AT cannot decide on its own.
    `HostCycle::tick(archive, candidate, as_of)` returns the `DueAction`s
    owed, persist, a graded `CohesionReport`, a `RaiseConcern` when it reaches
    that level, a `PruneRecommendation` when the log is due. It takes `as_of`
-   like every other cadence in this tier, so a year of host behaviour runs in
+   like every other cadence in this tier, so a year of host behavior runs in
    microseconds at times chosen to land on cadence boundaries, and it
    **authors nothing.** Raising a Concern and pruning both need signing keys
    the host holds. Emergence proposes and the polity ratifies, applied to the
@@ -2220,7 +2220,7 @@ KC cannot see on its own and AT cannot decide on its own.
  D29 built the five movements and named one follow-up. The doctrine "periodic
  re-affirmation includes a full re-recitation of the five movements" had no record
  shape, so re-affirmation kept its bare self-signed form. Measuring it found the tier
- did not merely omit the re-recitation. **It refused it.** Three behaviours, through the
+ did not merely omit the re-recitation. **It refused it.** Three behaviors, through the
  running code:
 
   | what a polity does | authority pass | freshness | erosion |
@@ -2572,7 +2572,7 @@ next one is added.
 
 Scope this design specifies that the code does not carry, together with the
 slices that follow from it, is listed in [`TODO.md`](../TODO.md). One boundary
-is worth naming here rather than there, because it is a division of labour and
+is worth naming here rather than there, because it is a division of labor and
 not a backlog item. The intra and inter ceremony rites for envoy recognition
 belong to KC, and the records they are held to belong to this tier. KC holds the
 ceremonies, seals them, and enforces their scopes; ethne says who presided over
@@ -2582,9 +2582,11 @@ from either tier, and the rite half needed a `Reciter` delegation, a witness
 registry and a recitation that only this tier could supply.
 
 Cross-references:
-[kith-covenant/doc/architecture/autonomous-trust-integration.md](../../kith-covenant/doc/architecture/autonomous-trust-integration.md),
-[kith-covenant/doc/architecture/protocol-components.md](../../kith-covenant/doc/architecture/protocol-components.md),
-[kith-covenant/doc/architecture/machine-participation.md](../../kith-covenant/doc/architecture/machine-participation.md).
+
+- [Autonomous trust integration](../../kith-covenant/doc/architecture/autonomous-trust-integration.md)
+- [Protocol components](../../kith-covenant/doc/architecture/protocol-components.md)
+- [Machine participation](../../kith-covenant/doc/architecture/machine-participation.md)
+.
 
 ---
 
