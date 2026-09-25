@@ -112,6 +112,15 @@ pub mod ffi {
     /// short buffer costs an extra call, never a lost event.
     const BATCH: usize = 32;
 
+    /// `app_events.h`'s `AT_APP_ABI_VERSION`: the layout below. Checked against
+    /// the linked library's `at_app_abi_version()` at open, because a mismatch
+    /// misaligns every event after the first rather than failing loudly.
+    const AT_APP_ABI_VERSION: u32 = 2;
+
+    /// `app_events.h`'s `AT_APP_EVENT_PAYLOAD_MAX`: the opaque arm that carries a
+    /// feature's events (Agora's), and so fixes the event's size in every build.
+    const AT_APP_EVENT_PAYLOAD_MAX: usize = 8192;
+
     #[repr(C)]
     #[derive(Clone, Copy)]
     struct AtAppPeer {
@@ -126,6 +135,11 @@ pub mod ffi {
         /// below check both, and why they are measured with a compiler rather
         /// than reasoned about.
         operator_pubkey: [u8; AT_SIGNING_KEY_LEN],
+        /// Present in every build since ABI v2 (they were social-only, which is
+        /// why this mirror's 104-byte event was right for exactly one build).
+        /// Not read here; mirrored so the size and every offset are the C's.
+        in_group: bool,
+        blocked: bool,
     }
 
     #[repr(C)]
@@ -134,6 +148,9 @@ pub mod ffi {
         peer_uuid: [u8; AT_UUID_LEN],
         score: f64,
         rated: bool,
+        /// Phase 4 P4.1 tail; mirrored for layout, not yet read here.
+        effective_tier: i32,
+        standing_ceiling: f64,
     }
 
     #[repr(C)]
@@ -141,13 +158,23 @@ pub mod ffi {
     union AtAppData {
         peer: AtAppPeer,
         reputation: AtAppReputation,
+        /// The feature arm. Never read here -- it is what makes the union, and
+        /// so the batch stride, the C's size.
+        payload: [u8; AT_APP_EVENT_PAYLOAD_MAX],
     }
 
     #[repr(C)]
     #[derive(Clone, Copy)]
     struct AtAppEvent {
-        kind: c_int,
+        kind: i32,
         data: AtAppData,
+    }
+
+    impl AtAppEvent {
+        const ZEROED: AtAppEvent = AtAppEvent {
+            kind: 0,
+            data: AtAppData { payload: [0; AT_APP_EVENT_PAYLOAD_MAX] },
+        };
     }
 
     /// Opaque; the C side owns the allocation and the bound queue.
@@ -169,6 +196,7 @@ pub mod ffi {
             q_out: *const c_char,
         ) -> c_int;
         fn at_app_events_close(handle: *mut AtAppEventsHandle);
+        fn at_app_abi_version() -> u32;
     }
 
     /// Opaque; the C side owns the `at_node_t` and the queue it bound.
@@ -191,6 +219,50 @@ pub mod ffi {
         fn at_app_node_wait_ready(node: *mut AtAppNodeHandle, timeout_ms: c_int) -> bool;
         fn at_app_node_pid(node: *const AtAppNodeHandle) -> c_int;
         fn at_app_node_stop(node: *mut AtAppNodeHandle);
+    }
+
+    // The extension libraries' link anchors (`at_<name>.h`), one per library
+    // build.rs found and linked. Each is a no-op; calling it is what keeps the
+    // library's DT_NEEDED through rustc's `--as-needed`, and so its registration
+    // constructor in any binary that embeds a node (build.rs explains).
+    extern "C" {
+        #[cfg(at_ext_physics)]
+        fn at_physics_link();
+        #[cfg(at_ext_calibration)]
+        fn at_calibration_link();
+        #[cfg(at_ext_certificates)]
+        fn at_certificates_link();
+        #[cfg(at_ext_prequential)]
+        fn at_prequential_link();
+        #[cfg(at_ext_replication)]
+        fn at_replication_link();
+        #[cfg(at_ext_gateway)]
+        fn at_gateway_link();
+        #[cfg(at_ext_social)]
+        fn at_social_link();
+    }
+
+    /// Reference every linked extension library, so an embedded node has the
+    /// verification layers, social and gateway its AT build provides — as it did when
+    /// they were part of the core.
+    fn link_extensions() {
+        // SAFETY: each anchor takes nothing, returns nothing and does nothing.
+        unsafe {
+            #[cfg(at_ext_physics)]
+            at_physics_link();
+            #[cfg(at_ext_calibration)]
+            at_calibration_link();
+            #[cfg(at_ext_certificates)]
+            at_certificates_link();
+            #[cfg(at_ext_prequential)]
+            at_prequential_link();
+            #[cfg(at_ext_replication)]
+            at_replication_link();
+            #[cfg(at_ext_gateway)]
+            at_gateway_link();
+            #[cfg(at_ext_social)]
+            at_social_link();
+        }
     }
 
     /// `app_events.h`'s `AT_APP_NOT_READY`: the daemon is there but has not bound
@@ -245,6 +317,8 @@ pub mod ffi {
         q_out: Option<CString>,
         join: PeerJoin,
         roster_requested: bool,
+        /// The poll buffer, on the heap: BATCH events are ~260 KB at ABI v2.
+        batch: Vec<AtAppEvent>,
     }
 
     impl AttachedAtDaemon {
@@ -284,6 +358,15 @@ pub mod ffi {
                      (already bound, or the socket path is unavailable)"
                 )));
             }
+            // SAFETY: no arguments, no state.
+            let abi = unsafe { at_app_abi_version() };
+            if abi != AT_APP_ABI_VERSION {
+                // SAFETY: non-null, and not stored, so closed exactly once.
+                unsafe { at_app_events_close(handle) };
+                return Err(KcError::Key(format!(
+                    "at_app_events: library speaks app ABI v{abi}, this mirror v{AT_APP_ABI_VERSION}"
+                )));
+            }
             let q_out = match q_out {
                 Some(q) => Some(cstr(q)?),
                 None => None,
@@ -293,6 +376,7 @@ pub mod ffi {
                 q_out,
                 join: PeerJoin::new(),
                 roster_requested: false,
+                batch: vec![AtAppEvent::ZEROED; BATCH],
             })
         }
 
@@ -355,24 +439,13 @@ pub mod ffi {
 
     impl AtEventSource for AttachedAtDaemon {
         fn poll(&mut self) -> KcResult<Vec<AtEvent>> {
-            let mut batch = [AtAppEvent {
-                kind: 0,
-                data: AtAppData {
-                    peer: AtAppPeer {
-                        peer_uuid: [0; AT_UUID_LEN],
-                        signing_pubkey: [0; AT_SIGNING_KEY_LEN],
-                        rank: 0,
-                        operator_bound: false,
-                        operator_attested_at: 0.0,
-                        operator_pubkey: [0; AT_SIGNING_KEY_LEN],
-                    },
-                },
-            }; BATCH];
-
+            // Taken rather than borrowed so `self.join` stays usable below.
+            let mut batch = std::mem::take(&mut self.batch);
             // SAFETY: `batch` is BATCH events long and we say so; the C side
             // writes at most that many and returns how many it wrote.
-            let n = unsafe { at_app_events_poll(self.handle, batch.as_mut_ptr(), BATCH) };
+            let n = unsafe { at_app_events_poll(self.handle, batch.as_mut_ptr(), batch.len()) };
             if n < 0 {
+                self.batch = batch;
                 return Err(KcError::Key("at_app_events_poll failed".into()));
             }
 
@@ -406,6 +479,7 @@ pub mod ffi {
                     _ => {}
                 }
             }
+            self.batch = batch;
             Ok(out)
         }
     }
@@ -491,6 +565,7 @@ pub mod ffi {
                 None => None,
             };
             let log_ptr = log.as_ref().map_or(std::ptr::null(), |c| c.as_ptr());
+            link_extensions();
             // SAFETY: all three strings outlive the call — and only the call:
             // `app_node.h` copies them into the handle, so these may drop here
             // while the node lives on. (`node.h` keeps the caller's pointers,
@@ -611,18 +686,19 @@ pub mod ffi {
         /// through the union is garbage — the shape of AT's own break #5, where a
         /// tag was read from the first eight payload bytes.
         ///
-        /// **The numbers are not hand-computed.** They come from clang on
-        /// `app_events.h` (2026-07-30): `at_app_peer_t` 64/8,
-        /// `at_app_reputation_t` 32/8, `at_app_event_t` 72/8, `kind` at offset 0
-        /// and `data` at offset 8 — the 4 bytes of padding after the `int` tag
-        /// being exactly the kind of detail that is wrong when guessed.
+        /// **The numbers are not hand-computed.** They are the ones AT's own
+        /// `test/app_abi_test.c` asserts against the compiled C in every build
+        /// config (app ABI v2): `at_app_peer_t` 104, `at_app_reputation_t` 40,
+        /// `at_app_event_t` 8 + 8192, `kind` at 0 and `data` at 8 — the 4 bytes
+        /// of padding after the `int` tag being exactly the kind of detail that
+        /// is wrong when guessed.
         #[test]
         fn the_flat_abi_layout_matches_what_c_reports() {
-            assert_eq!(std::mem::size_of::<AtAppPeer>(), 96);
+            assert_eq!(std::mem::size_of::<AtAppPeer>(), 104);
             assert_eq!(std::mem::align_of::<AtAppPeer>(), 8);
-            assert_eq!(std::mem::size_of::<AtAppReputation>(), 32);
+            assert_eq!(std::mem::size_of::<AtAppReputation>(), 40);
             assert_eq!(std::mem::align_of::<AtAppReputation>(), 8);
-            assert_eq!(std::mem::size_of::<AtAppEvent>(), 104);
+            assert_eq!(std::mem::size_of::<AtAppEvent>(), 8 + AT_APP_EVENT_PAYLOAD_MAX);
             assert_eq!(std::mem::align_of::<AtAppEvent>(), 8);
             assert_eq!(std::mem::offset_of!(AtAppEvent, kind), 0);
             assert_eq!(std::mem::offset_of!(AtAppEvent, data), 8);
@@ -636,6 +712,17 @@ pub mod ffi {
             assert_eq!(std::mem::offset_of!(AtAppReputation, peer_uuid), 0);
             assert_eq!(std::mem::offset_of!(AtAppReputation, score), 16);
             assert_eq!(std::mem::offset_of!(AtAppReputation, rated), 24);
+            assert_eq!(std::mem::offset_of!(AtAppPeer, in_group), 96);
+            assert_eq!(std::mem::offset_of!(AtAppPeer, blocked), 97);
+            assert_eq!(std::mem::offset_of!(AtAppReputation, effective_tier), 28);
+            assert_eq!(std::mem::offset_of!(AtAppReputation, standing_ceiling), 32);
+        }
+
+        /// The linked library must speak the layout above.
+        #[test]
+        fn the_linked_library_speaks_this_abi_version() {
+            // SAFETY: no arguments, no state.
+            assert_eq!(unsafe { at_app_abi_version() }, AT_APP_ABI_VERSION);
         }
 
         /// Binding a queue, polling it empty, and closing it — real FFI calls

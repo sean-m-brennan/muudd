@@ -71,26 +71,31 @@
         },
         {
           "n": 12,
+          "path": "lib/autonomous_trust/doc/architecture/first-contact.md",
+          "title": "First contact"
+        },
+        {
+          "n": 13,
           "path": "lib/autonomous_trust/doc/architecture/negotiation.md",
           "title": "Getting work done"
         },
         {
-          "n": 13,
+          "n": 14,
           "path": "lib/autonomous_trust/doc/architecture/reputation.md",
           "title": "Earning standing"
         },
         {
-          "n": 14,
+          "n": 15,
           "path": "lib/autonomous_trust/doc/architecture/trust-tiers.md",
           "title": "Standing turned into capability"
         },
         {
-          "n": 15,
+          "n": 16,
           "path": "lib/autonomous_trust/doc/architecture/operator-attended.md",
           "title": "The human behind the machine"
         },
         {
-          "n": 16,
+          "n": 17,
           "path": "lib/autonomous_trust/doc/example-application.md",
           "title": "A worked scenario"
         }
@@ -102,34 +107,34 @@
       "kind": "spine",
       "documents": [
         {
-          "n": 17,
+          "n": 18,
           "path": "lib/ethne/doc/concept.md",
           "title": "From cooperation to community"
         },
         {
-          "n": 18,
+          "n": 19,
           "path": "lib/ethne/doc/charter.md",
           "title": "Founding a polity"
         },
         {
-          "n": 19,
+          "n": 20,
           "path": "lib/ethne/doc/guardianship.md",
           "title": "Which human answers for which machine"
         },
         {
-          "n": 20,
+          "n": 21,
           "path": "lib/ethne/doc/transmission.md",
           "title": "The rite"
         },
         {
-          "n": 21,
+          "n": 22,
           "path": "lib/ethne/doc/cohesion.md",
           "title": "Watching for erosion"
         },
         {
-          "n": 22,
+          "n": 23,
           "path": "lib/ethne/doc/uplift.md",
-          "title": "What crosses to the compact"
+          "title": "Crossing to the compact"
         }
       ]
     },
@@ -139,52 +144,52 @@
       "kind": "spine",
       "documents": [
         {
-          "n": 23,
+          "n": 24,
           "path": "lib/kith-covenant/doc/concept.md",
           "title": "Cooperation without a sovereign"
         },
         {
-          "n": 24,
+          "n": 25,
           "path": "lib/kith-covenant/doc/substrate.md",
           "title": "The ground each community stands on"
         },
         {
-          "n": 25,
+          "n": 26,
           "path": "lib/kith-covenant/doc/recognition.md",
           "title": "Two layers of recognition"
         },
         {
-          "n": 26,
+          "n": 27,
           "path": "lib/kith-covenant/doc/standing.md",
           "title": "Four categories of standing"
         },
         {
-          "n": 27,
+          "n": 28,
           "path": "lib/kith-covenant/doc/disputes.md",
           "title": "When communities disagree"
         },
         {
-          "n": 28,
+          "n": 29,
           "path": "lib/kith-covenant/doc/commons.md",
           "title": "The five commons"
         },
         {
-          "n": 29,
+          "n": 30,
           "path": "lib/kith-covenant/doc/jester.md",
           "title": "Protected dissent"
         },
         {
-          "n": 30,
+          "n": 31,
           "path": "lib/kith-covenant/doc/machines.md",
           "title": "Machines as delegates"
         },
         {
-          "n": 31,
+          "n": 32,
           "path": "lib/kith-covenant/doc/capture.md",
           "title": "Capture resistance"
         },
         {
-          "n": 32,
+          "n": 33,
           "path": "lib/kith-covenant/doc/limits.md",
           "title": "What only humans can do"
         }
@@ -223,11 +228,6 @@
         {
           "n": "A6",
           "path": "doc/decentralization_momentum.md",
-          "title": "The case for decentralized communications"
-        },
-        {
-          "n": "A7",
-          "path": "doc/decentralization_momentum_alt.md",
           "title": "Infrastructure independence"
         }
       ]
@@ -259,131 +259,166 @@
         },
         {
           "n": "B5",
+          "path": "lib/autonomous_trust/doc/architecture/network-wire-format.md",
+          "title": "The network wire format"
+        },
+        {
+          "n": "B6",
           "path": "lib/autonomous_trust/doc/architecture/partition-recovery.md",
           "title": "Partition recovery"
         },
         {
-          "n": "B6",
+          "n": "B7",
           "path": "lib/autonomous_trust/doc/architecture/cohort-clock-skew.md",
           "title": "Cohort clock skew"
         },
         {
-          "n": "B7",
+          "n": "B8",
           "path": "lib/autonomous_trust/doc/architecture/persistent-cohort.md",
           "title": "Persistent cohort"
         },
         {
-          "n": "B8",
+          "n": "B9",
           "path": "lib/autonomous_trust/doc/architecture/gateway-reputation-tree.md",
           "title": "The gateway reputation tree"
         },
         {
-          "n": "B9",
+          "n": "B10",
           "path": "lib/autonomous_trust/doc/architecture/reputation-vs-blockchain-analysis.md",
           "title": "Reputation against blockchain"
         },
         {
-          "n": "B10",
+          "n": "B11",
           "path": "lib/autonomous_trust/doc/architecture/operator-access.md",
           "title": "Operator access"
         },
         {
-          "n": "B11",
+          "n": "B12",
           "path": "lib/autonomous_trust/doc/architecture/app-peer-carrier.md",
           "title": "The app-facing peer carrier"
         },
         {
-          "n": "B12",
+          "n": "B13",
+          "path": "lib/autonomous_trust/doc/architecture/extensions.md",
+          "title": "How a feature attaches to the core"
+        },
+        {
+          "n": "B14",
           "path": "lib/autonomous_trust/doc/architecture/native-ffi-dual-implementation.md",
           "title": "The dual implementation"
         },
         {
-          "n": "B13",
+          "n": "B15",
           "path": "lib/autonomous_trust/doc/architecture/zta-integration.md",
           "title": "Zero Trust integration"
         },
         {
-          "n": "B14",
+          "n": "B16",
           "path": "lib/autonomous_trust/doc/architecture/zta-python-parity.md",
           "title": "Zero Trust parity in Python"
         },
         {
-          "n": "B15",
+          "n": "B17",
           "path": "lib/autonomous_trust/doc/security.md",
           "title": "The security model"
         },
         {
-          "n": "B16",
+          "n": "B18",
           "path": "lib/autonomous_trust/doc/architecture/security-hardening.md",
           "title": "Security hardening"
         },
         {
-          "n": "B17",
+          "n": "B19",
           "path": "lib/autonomous_trust/doc/m2m_security.md",
           "title": "Machine-to-machine security"
         },
         {
-          "n": "B18",
+          "n": "B20",
           "path": "lib/autonomous_trust/doc/correctness-proofs.md",
           "title": "Correctness proofs"
         },
         {
-          "n": "B19",
+          "n": "B21",
           "path": "lib/autonomous_trust/doc/verification_oracle.md",
           "title": "The verification oracle"
         },
         {
-          "n": "B20",
+          "n": "B22",
+          "path": "lib/autonomous_trust/doc/architecture/physical-consistency.md",
+          "title": "Physical consistency"
+        },
+        {
+          "n": "B23",
+          "path": "lib/autonomous_trust/doc/architecture/certificate-interfaces.md",
+          "title": "Certificate-carrying interfaces"
+        },
+        {
+          "n": "B24",
+          "path": "lib/autonomous_trust/doc/architecture/calibration-audit.md",
+          "title": "Calibration audit"
+        },
+        {
+          "n": "B25",
+          "path": "lib/autonomous_trust/doc/architecture/prequential-competence.md",
+          "title": "Prequential competence"
+        },
+        {
+          "n": "B26",
+          "path": "lib/autonomous_trust/doc/architecture/replication.md",
+          "title": "Sampled replication"
+        },
+        {
+          "n": "B27",
           "path": "lib/autonomous_trust/doc/testing.md",
           "title": "Testing approach"
         },
         {
-          "n": "B21",
+          "n": "B28",
           "path": "lib/autonomous_trust/doc/architecture/integration-testing.md",
           "title": "Integration testing"
         },
         {
-          "n": "B22",
+          "n": "B29",
           "path": "lib/autonomous_trust/doc/architecture/adversarial-testing.md",
           "title": "Adversarial testing"
         },
         {
-          "n": "B23",
+          "n": "B30",
           "path": "lib/autonomous_trust/doc/architecture/sg2-detection-walkthrough.md",
           "title": "A compromise, detected"
         },
         {
-          "n": "B24",
+          "n": "B31",
           "path": "lib/autonomous_trust/doc/architecture/space-communications.md",
           "title": "Space communications"
         },
         {
-          "n": "B25",
+          "n": "B32",
           "path": "lib/autonomous_trust/doc/dtn.md",
           "title": "Delay-tolerant networking"
         },
         {
-          "n": "B26",
+          "n": "B33",
           "path": "lib/autonomous_trust/doc/at-over-dtn.md",
           "title": "AutonomousTrust over DTN"
         },
         {
-          "n": "B27",
+          "n": "B34",
           "path": "lib/autonomous_trust/doc/at-internet-traffic.md",
           "title": "Traffic over the open internet"
         },
         {
-          "n": "B28",
+          "n": "B35",
           "path": "lib/autonomous_trust/doc/api.md",
           "title": "The integration API"
         },
         {
-          "n": "B29",
+          "n": "B36",
           "path": "lib/autonomous_trust/doc/whitepaper/AutonomousTrust.md",
           "title": "AutonomousTrust whitepaper"
         },
         {
-          "n": "B30",
+          "n": "B37",
           "path": "lib/autonomous_trust/doc/whitepaper/HighTrust.md",
           "title": "High-trust computing whitepaper"
         }
@@ -402,7 +437,7 @@
         {
           "n": "C2",
           "path": "lib/ethne/doc/design.md",
-          "title": "Design decisions D1 to D34"
+          "title": "Design decisions D1 to D35"
         },
         {
           "n": "C3",
@@ -558,16 +593,26 @@
         },
         {
           "n": "D29",
+          "path": "lib/kith-covenant/doc/architecture/adversary-campaign.md",
+          "title": "The determined adversary"
+        },
+        {
+          "n": "D30",
+          "path": "lib/kith-covenant/doc/architecture/captured-prosecution.md",
+          "title": "The captured prosecution"
+        },
+        {
+          "n": "D31",
           "path": "lib/kith-covenant/doc/architecture/autonomous-trust-integration.md",
           "title": "The AutonomousTrust integration"
         },
         {
-          "n": "D30",
+          "n": "D32",
           "path": "lib/kith-covenant/doc/architecture/build-and-toolchain.md",
           "title": "Build and toolchain"
         },
         {
-          "n": "D31",
+          "n": "D33",
           "path": "lib/kith-covenant/doc/whitepaper/whitepaper.md",
           "title": "Kith-Covenant whitepaper"
         }
