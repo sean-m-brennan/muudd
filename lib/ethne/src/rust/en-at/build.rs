@@ -54,6 +54,48 @@ fn main() {
     // host, not here.
     println!("cargo:rustc-link-arg=-Wl,-rpath,{dir}");
 
+    // AT's extension libraries: the five verification layers (FEATURE_SPLIT_PLAN
+    // Phase 3, `libat_<layer>`) and social (Phase 5, `libat_social`), which were
+    // part of the core before the split, and `libat_gateway` for parity. Each registers from a constructor, and a node
+    // that declares a layer (`$AT_PHYSICS`, ...) without its library refuses to
+    // start, so every one present is linked; one the AT build left OFF is
+    // skipped. The build tree keeps them under `extensions/<name>/`, an install
+    // beside the core.
+    //
+    // Naming a dylib is not enough: rustc links with `--as-needed`, which drops a
+    // library nothing references, and the `-as-needed` link modifier is still
+    // nightly-only (rustc 1.93). So each one found also sets `at_ext_<name>`, and
+    // `EmbeddedAtNode` calls that library's `at_<name>_link()` anchor. The
+    // reference is real, so the DT_NEEDED survives into any binary that embeds a
+    // node, not just this crate's tests.
+    const EXTS: [&str; 7] = [
+        "physics",
+        "calibration",
+        "certificates",
+        "prequential",
+        "replication",
+        "gateway",
+        "social",
+    ];
+    println!(
+        "cargo::rustc-check-cfg=cfg({})",
+        EXTS.map(|e| format!("at_ext_{e}")).join(", ")
+    );
+    for ext in EXTS {
+        let file = format!("libat_{ext}.so");
+        let found = [format!("{dir}/extensions/{ext}"), dir.clone()]
+            .into_iter()
+            .find(|d| std::path::Path::new(d).join(&file).exists());
+        if let Some(d) = found {
+            if d != dir {
+                println!("cargo:rustc-link-search=native={d}");
+                println!("cargo:rustc-link-arg=-Wl,-rpath,{d}");
+            }
+            println!("cargo:rustc-link-lib=dylib=at_{ext}");
+            println!("cargo:rustc-cfg=at_ext_{ext}");
+        }
+    }
+
     // `libautonomous_trust.so` carries NO DT_NEEDED for its own dependencies
     // (checked 2026-07-30: only libc/libm/libstdc++/libgcc_s), so every symbol it
     // takes from libsodium, jansson, protobuf-c and OpenSSL is left for the
