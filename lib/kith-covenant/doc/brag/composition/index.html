@@ -1,0 +1,1218 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Kith-Covenant — Brag (narrated)</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <style>
+      /* Design tokens lifted from the project's own capture-signal dashboard,
+         dark theme:  src/python/dashboard/static/index.html
+         Three colours are lifted from the shipped values because they fail WCAG
+         AA at video type sizes over --surface; the ordering ink > ink-2 > muted
+         and the hue of each is preserved. */
+      :root {
+        --plane: #0d0d0d;
+        --surface: #1a1a19;
+        --surface-2: #232321;
+        --ink: #ffffff;
+        --ink-2: #c3c2b7;
+        /* dashboard ships --muted #898781 (4.85:1 over surface) — lifted for margin */
+        --muted: #a3a199;
+        --grid: #2c2c2a;
+        --axis: #4a4a46;
+        --border: #34342f;
+        --series-1: #3987e5;
+        /* text-weight variant of --series-1 (#3987e5 is 4.78:1 — too close to the line) */
+        --series-1-text: #5a9df0;
+        --good: #0ca30c;
+        --warning: #fab219;
+        /* dashboard ships --critical #d03b3b (3.62:1 — fails AA) */
+        --critical: #e8736b;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --mono: ui-monospace, Menlo, Consolas, monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--plane);
+      }
+
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--plane);
+        color: var(--ink);
+        font-family: var(--sans);
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 20px;
+        letter-spacing: 0.30em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .cite {
+        position: absolute;
+        left: 120px;
+        bottom: 64px;
+        font-family: var(--mono);
+        font-size: 19px;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+
+      /* ---- Scene 1: hook ------------------------------------------------ */
+      #hook {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 46px;
+      }
+
+      #hook-slug {
+        font-family: var(--mono);
+        font-size: 24px;
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+        color: var(--ink-2);
+      }
+
+      #hook-line {
+        font-size: 104px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+
+      #hook-rule {
+        width: 360px;
+        height: 2px;
+        background: var(--axis);
+      }
+
+      /* ---- Scene 2: the inversion --------------------------------------- */
+      #inv {
+        padding: 0 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      #inv-head {
+        display: flex;
+        align-items: baseline;
+        gap: 32px;
+        margin-bottom: 64px;
+      }
+
+      #inv-title {
+        font-size: 62px;
+        font-weight: 660;
+        letter-spacing: -0.01em;
+      }
+
+      .inv-colhead {
+        display: grid;
+        grid-template-columns: 1fr 96px 1.2fr;
+        gap: 0 32px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .inv-colhead span {
+        font-family: var(--mono);
+        font-size: 22px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .inv-row {
+        display: grid;
+        grid-template-columns: 1fr 96px 1.2fr;
+        gap: 0 32px;
+        align-items: center;
+        padding: 34px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .inv-a {
+        font-size: 35px;
+        color: var(--ink-2);
+      }
+
+      .inv-arrow {
+        font-family: var(--mono);
+        font-size: 34px;
+        color: var(--series-1-text);
+        text-align: center;
+      }
+
+      .inv-b {
+        font-size: 35px;
+        color: var(--ink);
+        font-weight: 560;
+      }
+
+      /* ---- Scene 3: what each community anchors to ----------------------- */
+      #anch {
+        padding: 0 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      #anch-head {
+        display: flex;
+        align-items: baseline;
+        gap: 32px;
+        margin-bottom: 66px;
+      }
+
+      #anch-chip {
+        font-family: var(--mono);
+        font-size: 21px;
+        letter-spacing: 0.14em;
+        color: var(--plane);
+        background: var(--warning);
+        border-radius: 6px;
+        padding: 6px 14px;
+        font-weight: 700;
+      }
+
+      #anch-title {
+        font-size: 60px;
+        font-weight: 660;
+        letter-spacing: -0.01em;
+      }
+
+      #anch-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 32px;
+      }
+
+      .anch-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 38px 30px 42px;
+        min-height: 330px;
+      }
+
+      .anch-who {
+        font-family: var(--mono);
+        font-size: 18px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 34px;
+      }
+
+      .anch-name {
+        font-size: 46px;
+        font-weight: 660;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        line-height: 1.12;
+      }
+
+      #anch-note {
+        margin-top: 52px;
+        display: flex;
+        align-items: baseline;
+        gap: 22px;
+      }
+
+      #anch-note-num {
+        font-family: var(--mono);
+        font-size: 46px;
+        font-weight: 700;
+        color: var(--series-1-text);
+      }
+
+      #anch-note-txt {
+        font-size: 32px;
+        color: var(--ink-2);
+        max-width: 1180px;
+      }
+
+      /* ---- Scene 4: the filter, as code ---------------------------------- */
+      #filt {
+        padding: 0 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      #filt-head {
+        display: flex;
+        align-items: baseline;
+        gap: 32px;
+        margin-bottom: 58px;
+      }
+
+      #filt-title {
+        font-size: 60px;
+        font-weight: 660;
+        letter-spacing: -0.01em;
+      }
+
+      #filt-body {
+        display: grid;
+        grid-template-columns: 840px 1fr;
+        gap: 56px;
+        align-items: center;
+      }
+
+      #code-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 34px 38px 38px;
+      }
+
+      #code-path {
+        font-family: var(--mono);
+        font-size: 20px;
+        color: var(--muted);
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .code-line {
+        font-family: var(--mono);
+        font-size: 29px;
+        line-height: 1.72;
+        color: var(--ink-2);
+        white-space: pre;
+      }
+
+      .code-line.variant {
+        color: var(--series-1-text);
+      }
+
+      .gloss-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 24px;
+        padding: 24px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .gloss-n {
+        font-family: var(--mono);
+        font-size: 23px;
+        color: var(--muted);
+        width: 34px;
+        flex: none;
+        padding-top: 7px;
+      }
+
+      .gloss-t {
+        font-size: 32px;
+        color: var(--ink);
+        line-height: 1.32;
+      }
+
+      /* ---- Scene 5: the ceremony ---------------------------------------- */
+      #cer {
+        padding: 0 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      #cer-head {
+        display: flex;
+        align-items: baseline;
+        gap: 32px;
+        margin-bottom: 56px;
+      }
+
+      #cer-title {
+        font-size: 60px;
+        font-weight: 660;
+        letter-spacing: -0.01em;
+      }
+
+      #cer-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 52px;
+      }
+
+      .cer-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 38px 42px 44px;
+      }
+
+      .cer-name {
+        font-size: 48px;
+        font-weight: 680;
+        letter-spacing: 0.01em;
+        margin-bottom: 6px;
+      }
+
+      .cer-layer {
+        font-family: var(--mono);
+        font-size: 21px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 24px;
+      }
+
+      .cer-kv {
+        display: grid;
+        grid-template-columns: 196px 1fr;
+        gap: 12px 22px;
+        font-family: var(--mono);
+        font-size: 27px;
+      }
+
+      .cer-k {
+        color: var(--muted);
+      }
+
+      .cer-v {
+        color: var(--ink-2);
+      }
+
+      #cer-bridge {
+        margin-top: 50px;
+        background: var(--surface-2);
+        border: 1px solid var(--series-1);
+        border-radius: 14px;
+        padding: 32px 42px;
+        display: flex;
+        align-items: center;
+        gap: 34px;
+      }
+
+      #cer-bridge-tag {
+        font-family: var(--mono);
+        font-size: 22px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--series-1-text);
+        font-weight: 700;
+      }
+
+      #cer-bridge-body {
+        font-family: var(--mono);
+        font-size: 28px;
+        color: var(--ink-2);
+      }
+
+      #cer-tally {
+        margin-top: 44px;
+        display: flex;
+        align-items: baseline;
+        gap: 34px;
+        flex-wrap: wrap;
+      }
+
+      .tally-item {
+        font-family: var(--mono);
+        font-size: 24px;
+        color: var(--muted);
+      }
+
+      .tally-item b {
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      #cer-verify {
+        font-family: var(--mono);
+        font-size: 26px;
+        color: var(--good);
+        font-weight: 700;
+      }
+
+      /* ---- Scene 6: the lenses (the project's own dashboard) ------------- */
+      #lens {
+        padding: 0;
+      }
+
+      #lens-top {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 104px;
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        padding: 0 72px;
+        border-bottom: 1px solid var(--border);
+        background: var(--plane);
+      }
+
+      #lens-brand {
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      #lens-sub {
+        font-size: 23px;
+        color: var(--ink-2);
+      }
+
+      #lens-badge {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--good);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 22px;
+        font-weight: 700;
+      }
+
+      #lens-note {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 104px;
+        padding: 16px 72px;
+        font-size: 22px;
+        color: var(--ink-2);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+
+      #lens-grid {
+        position: absolute;
+        left: 72px;
+        right: 72px;
+        top: 200px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: 1fr 1fr;
+        gap: 26px;
+        height: 800px;
+      }
+
+      .lcard {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px 26px 24px;
+        overflow: hidden;
+      }
+
+      .lcard h2 {
+        font-size: 25px;
+        font-weight: 620;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .ltag {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--series-1-text);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 3px 12px;
+        letter-spacing: 0.02em;
+      }
+
+      .ldesc {
+        font-size: 19px;
+        color: var(--muted);
+        margin: 4px 0 18px;
+      }
+
+      .lstat {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+
+      .lstat .num {
+        font-size: 66px;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        color: var(--critical);
+      }
+
+      .lstat .status {
+        font-size: 21px;
+        font-weight: 700;
+        color: var(--critical);
+      }
+
+      .lkv {
+        margin-top: 16px;
+        font-size: 20px;
+        color: var(--ink-2);
+      }
+
+      .lkv div {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .lkv .k {
+        color: var(--muted);
+      }
+
+      .lbars {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .lbar-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 12px;
+        align-items: center;
+      }
+
+      .lbar-label {
+        font-size: 20px;
+        color: var(--ink-2);
+        white-space: nowrap;
+      }
+
+      .lbar-val {
+        font-size: 20px;
+        color: var(--ink-2);
+      }
+
+      .lbar-track {
+        grid-column: 1 / -1;
+        height: 12px;
+        background: var(--grid);
+        border-radius: 5px;
+        overflow: hidden;
+      }
+
+      .lbar-fill {
+        height: 100%;
+        background: var(--series-1);
+        border-radius: 5px;
+      }
+
+      .lflags {
+        margin-top: 14px;
+        font-size: 19px;
+        color: var(--critical);
+        font-weight: 620;
+      }
+
+      .lstanding {
+        font-size: 60px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--critical);
+        line-height: 1;
+      }
+
+      /* ---- Scene 7: lockup ---------------------------------------------- */
+      #lock {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 34px;
+      }
+
+      #wordmark {
+        font-size: 118px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      #wordmark-sub {
+        font-size: 40px;
+        color: var(--ink-2);
+        letter-spacing: 0.01em;
+      }
+
+      #wordmark-rule {
+        width: 300px;
+        height: 2px;
+        background: var(--axis);
+      }
+
+      #music-credit {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 66px;
+        text-align: center;
+        font-family: var(--mono);
+        font-size: 20px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Narrated cut. Total length is set by the seven measured Kokoro clips
+         (46.46s of speech plus ~0.6s of air between lines), not by the default
+         15-25s law — see composition-brief.md for the voiceover carve-out. -->
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="52"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Scene 1 — Hook ------------------------------------------------- -->
+      <section id="hook" class="clip" data-start="0" data-duration="7.3" data-track-index="0">
+        <div id="hook-slug">Parity treaty · Hittite and Egyptian · 1259 BCE</div>
+        <div id="hook-rule"></div>
+        <h1 id="hook-line">The oldest problem in governance.</h1>
+      </section>
+
+      <!-- Scene 2 — The inversion ---------------------------------------- -->
+      <section id="inv" class="clip" data-start="7.1" data-duration="7.45" data-track-index="1">
+        <div id="inv-head">
+          <span class="eyebrow">The central move</span>
+          <span id="inv-title">Invert each ingredient.</span>
+        </div>
+        <div class="inv-colhead" id="inv-colhead">
+          <span>Bounded conflict requires</span><span></span><span>Cooperation primitives</span>
+        </div>
+        <div class="inv-row" id="inv-row-1">
+          <div class="inv-a">Recognition as legitimate peers</div>
+          <div class="inv-arrow">→</div>
+          <div class="inv-b">Standing-recognition baselines</div>
+        </div>
+        <div class="inv-row" id="inv-row-2">
+          <div class="inv-a">Symmetric rules binding both sides</div>
+          <div class="inv-arrow">→</div>
+          <div class="inv-b">Procedures equal regardless of size or wealth</div>
+        </div>
+        <div class="inv-row" id="inv-row-3">
+          <div class="inv-a">Protected channels for envoys and the wounded</div>
+          <div class="inv-arrow">→</div>
+          <div class="inv-b">Never-target: life support, rescue, children, communications</div>
+        </div>
+        <div class="inv-row" id="inv-row-4">
+          <div class="inv-a">A defined ending</div>
+          <div class="inv-arrow">→</div>
+          <div class="inv-b">Termination procedures that include re-entry</div>
+        </div>
+        <div class="cite" id="inv-cite">doc/concept.md — the inversion argument</div>
+      </section>
+
+      <!-- Scene 3 — What each community anchors to ------------------------ -->
+      <section id="anch" class="clip" data-start="14.35" data-duration="7.35" data-track-index="2">
+        <div id="anch-head">
+          <span id="anch-chip">Rule 1</span>
+          <span id="anch-title">Each party names its own.</span>
+        </div>
+        <div id="anch-grid">
+          <div class="anch-card" id="anch-1">
+            <div class="anch-who">A Christian community</div>
+            <div class="anch-name">the Trinity</div>
+          </div>
+          <div class="anch-card" id="anch-2">
+            <div class="anch-who">A Muslim community</div>
+            <div class="anch-name">Allah</div>
+          </div>
+          <div class="anch-card" id="anch-3">
+            <div class="anch-who">A Haudenosaunee community</div>
+            <div class="anch-name">Shöñgwa'ya'di:söñ</div>
+          </div>
+          <div class="anch-card" id="anch-4">
+            <div class="anch-who">A Buddhist community</div>
+            <div class="anch-name">the Dharma</div>
+          </div>
+        </div>
+        <div id="anch-note">
+          <span id="anch-note-num">≈23 centuries</span>
+          <span id="anch-note-txt"
+            >the Buddhist sangha — the single longest-running voluntary
+            cross-community network in the set</span
+          >
+        </div>
+        <div class="cite" id="anch-cite">README.md · doc/substrate.md</div>
+      </section>
+
+      <!-- Scene 4 — The filter, as the project's own enum ----------------- -->
+      <section id="filt" class="clip" data-start="21.5" data-duration="8.15" data-track-index="3">
+        <div id="filt-head">
+          <span class="eyebrow">The filter · full membership</span>
+          <span id="filt-title">Five features, read in practice.</span>
+        </div>
+        <div id="filt-body">
+          <div id="code-panel">
+            <div id="code-path">src/rust/kc-ceremony/src/inter/anti_spiral.rs</div>
+            <div class="code-line">pub enum AntiSpiralFeature {</div>
+            <div class="code-line variant" id="code-1">    FallenActorAnthropology,</div>
+            <div class="code-line variant" id="code-2">    GraceOverMerit,</div>
+            <div class="code-line variant" id="code-3">    ScapegoatDisarming,</div>
+            <div class="code-line variant" id="code-4">    EnemyLoveOperational,</div>
+            <div class="code-line variant" id="code-5">    NonUltimacyOfCompact,</div>
+            <div class="code-line">}</div>
+          </div>
+          <div id="filt-gloss">
+            <div class="gloss-row" id="gloss-1">
+              <span class="gloss-n">01</span
+              ><span class="gloss-t">everyone can fail, including the most virtuous</span>
+            </div>
+            <div class="gloss-row" id="gloss-2">
+              <span class="gloss-n">02</span
+              ><span class="gloss-t">virtue is received rather than earned</span>
+            </div>
+            <div class="gloss-row" id="gloss-3">
+              <span class="gloss-n">03</span
+              ><span class="gloss-t">victim-selection as communal hygiene is refused</span>
+            </div>
+            <div class="gloss-row" id="gloss-4">
+              <span class="gloss-n">04</span
+              ><span class="gloss-t">moral obligation extends to strangers</span>
+            </div>
+            <div class="gloss-row" id="gloss-5">
+              <span class="gloss-n">05</span
+              ><span class="gloss-t">the political community is not the final thing</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 5 — The ceremony, from the demo's own output -------------- -->
+      <section id="cer" class="clip" data-start="29.45" data-duration="8.15" data-track-index="4">
+        <div id="cer-head">
+          <span class="eyebrow">Recognition · two layers</span>
+          <span id="cer-title">Each side seals its own.</span>
+        </div>
+        <div id="cer-grid">
+          <div class="cer-card" id="cer-a">
+            <div class="cer-name">Alpha</div>
+            <div class="cer-layer">Intra-community rite · its own tradition</div>
+            <div class="cer-kv">
+              <span class="cer-k">did</span
+              ><span class="cer-v">did:key:z6Mkr37ipCjyL7mJfXgM7…</span>
+              <span class="cer-k">intra-rite</span
+              ><span class="cer-v">b3:d93165b54f9f4c5c3108…</span>
+            </div>
+          </div>
+          <div class="cer-card" id="cer-b">
+            <div class="cer-name">Beta</div>
+            <div class="cer-layer">Intra-community rite · its own tradition</div>
+            <div class="cer-kv">
+              <span class="cer-k">did</span
+              ><span class="cer-v">did:key:z6Mkh2sP2dNrJbAP9E…</span>
+              <span class="cer-k">intra-rite</span
+              ><span class="cer-v">b3:af778ba03497e3dfe7a9…</span>
+            </div>
+          </div>
+        </div>
+        <div id="cer-bridge">
+          <span id="cer-bridge-tag">Inter-community witness</span>
+          <span id="cer-bridge-body"
+            >compact: alpha-beta-compact · b3:af66c3f9333db2c8a546…</span
+          >
+        </div>
+        <div id="cer-tally">
+          <span class="tally-item">CommunityIdentityPublished <b>2</b></span>
+          <span class="tally-item">IntraCommunityRite <b>2</b></span>
+          <span class="tally-item">SpeakerDelegated <b>4</b></span>
+          <span class="tally-item">WitnessRegistryUpdated <b>2</b></span>
+          <span class="tally-item">InterCommunityWitness <b>1</b></span>
+          <span id="cer-verify">11 entries · reloaded from JSON · all verify OK</span>
+        </div>
+        <div class="cite" id="cer-cite">src/python/examples/two_communities_demo.py</div>
+      </section>
+
+      <!-- Scene 6 — The lenses, over the seeded signed commons ------------ -->
+      <section id="lens" class="clip" data-start="37.4" data-duration="7.9" data-track-index="5">
+        <div id="lens-top">
+          <span id="lens-brand">kith-covenant</span>
+          <span id="lens-sub">capture-signal lenses over a signed audit commons</span>
+          <span id="lens-badge">✓ 25 entries verify</span>
+        </div>
+        <div id="lens-note">Adjudication is the mediator pool's work.</div>
+        <div id="lens-grid">
+          <div class="lcard" id="lcard-1">
+            <h2>Sponsor stake &amp; taint <span class="ltag">Hub</span></h2>
+            <p class="ldesc">Does this sponsor's vouching precede misconduct?</p>
+            <div class="lstat"><span class="num">50%</span><span class="status">● taint high</span></div>
+            <div class="lkv">
+              <div><span class="k">sponsees</span><span>2</span></div>
+              <div><span class="k">tainted (adverse in probation)</span><span>1</span></div>
+            </div>
+          </div>
+
+          <div class="lcard" id="lcard-2">
+            <h2>Composition drift</h2>
+            <p class="ldesc">Who is concentrating admissions.</p>
+            <div class="lbars">
+              <div class="lbar-row">
+                <span class="lbar-label">z6MkpyQuNbjZ1RcT…</span><span class="lbar-val">2</span>
+                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
+              </div>
+            </div>
+            <div class="lkv">
+              <div><span class="k">vouching edges on record</span><span>2</span></div>
+            </div>
+          </div>
+
+          <div class="lcard" id="lcard-3">
+            <h2>Ceremony-cost decay <span class="ltag">Reaffirmer</span></h2>
+            <p class="ldesc">Re-affirmation witness count across rites.</p>
+            <svg id="decay-svg" width="440" height="190" viewBox="0 0 440 190" aria-hidden="true">
+              <line x1="34" y1="162" x2="424" y2="162" stroke="#4a4a46" stroke-width="1.5" />
+              <line x1="34" y1="30" x2="34" y2="162" stroke="#4a4a46" stroke-width="1.5" />
+              <polyline
+                id="decay-line"
+                points="70,38 224,102 396,162"
+                fill="none"
+                stroke="#3987e5"
+                stroke-width="4"
+              />
+              <circle cx="70" cy="38" r="7" fill="#3987e5" />
+              <circle cx="224" cy="102" r="7" fill="#3987e5" />
+              <circle cx="396" cy="162" r="7" fill="#3987e5" />
+              <text x="70" y="24" fill="#ffffff" font-size="22" font-weight="700" text-anchor="middle">5</text>
+              <text x="224" y="88" fill="#ffffff" font-size="22" font-weight="700" text-anchor="middle">3</text>
+              <text x="396" y="148" fill="#ffffff" font-size="22" font-weight="700" text-anchor="middle">1</text>
+              <text x="70" y="186" fill="#a3a199" font-size="19" text-anchor="middle">r1</text>
+              <text x="224" y="186" fill="#a3a199" font-size="19" text-anchor="middle">r2</text>
+              <text x="396" y="186" fill="#a3a199" font-size="19" text-anchor="middle">r3</text>
+            </svg>
+            <div class="lflags">● witnesses declined&nbsp;&nbsp;● gaps widening</div>
+          </div>
+
+          <div class="lcard" id="lcard-4">
+            <h2>Feature concern <span class="ltag">Drifting entrant</span></h2>
+            <p class="ldesc">Behavioural shadow of a hollow substrate.</p>
+            <div class="lbars">
+              <div class="lbar-row">
+                <span class="lbar-label">EnemyLoveOperational</span><span class="lbar-val">1</span>
+                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
+              </div>
+              <div class="lbar-row">
+                <span class="lbar-label">NonUltimacyOfCompact</span><span class="lbar-val">1</span>
+                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
+              </div>
+            </div>
+            <div class="lkv">
+              <div><span class="k">evidence CIDs</span><span>2</span></div>
+            </div>
+          </div>
+
+          <div class="lcard" id="lcard-5">
+            <h2>Rejection pattern</h2>
+            <p class="ldesc">Concentration of non-admissions by rejector.</p>
+            <div class="lbars">
+              <div class="lbar-row">
+                <span class="lbar-label">z6MkmQsTkMXG2mhg…</span><span class="lbar-val">2</span>
+                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
+              </div>
+            </div>
+            <div class="lkv">
+              <div><span class="k">cited feature</span><span>FallenActorAnthropology</span></div>
+            </div>
+          </div>
+
+          <div class="lcard" id="lcard-6">
+            <h2>Recognition standing <span class="ltag">Designated</span></h2>
+            <p class="ldesc">Derived standing and record counts.</p>
+            <div class="lstanding">Anathema</div>
+            <div class="lkv">
+              <div><span class="k">conduct records</span><span>1</span></div>
+              <div><span class="k">re-affirmation rites</span><span>0</span></div>
+              <div><span class="k">disputes (filed + against)</span><span>0</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 7 — Lockup ----------------------------------------------- -->
+      <section id="lock" class="clip" data-start="45.1" data-duration="6.9" data-track-index="6">
+        <div id="wordmark">Kith-Covenant</div>
+        <div id="wordmark-rule"></div>
+        <div id="wordmark-sub">Cooperation without a sovereign.</div>
+        <div id="music-credit">
+          Music: “Happy Beats / Business Moves Vol. 12” by ende.app
+        </div>
+      </section>
+
+      <!-- Audio -------------------------------------------------------------
+           Music bed. Level is carried entirely by timeline tweens: it enters
+           very low under the hook, holds at 0.13 beneath every narration line,
+           opens a hair to 0.16 across the lockup, and fades out under the last
+           words. Nothing here editorialises: no risers, no swells.
+
+           The source track is bright for a bed sitting under speech, so what
+           plays is a low-passed copy (ffmpeg lowpass f=2600, -7.4 dB above
+           4 kHz). The unfiltered original is kept beside it in assets/music/;
+           see CREDITS.md for the regeneration command. -->
+      <audio
+        id="bgm"
+        src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.lowpass2600.mp3"
+        data-start="0"
+        data-duration="52"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+
+      <!-- Narration. Seven Kokoro clips (am_michael @ 0.96), own tracks, gain 1.
+           Every scene boundary above is derived from these measured durations. -->
+      <audio id="vo-1" src="assets/voice/vo-1-hook.wav" data-start="0.90" data-duration="5.973" data-track-index="20" data-volume="1"></audio>
+      <audio id="vo-2" src="assets/voice/vo-2-inversion.wav" data-start="7.47" data-duration="6.549" data-track-index="21" data-volume="1"></audio>
+      <audio id="vo-3" src="assets/voice/vo-3-rule-one.wav" data-start="14.63" data-duration="6.635" data-track-index="22" data-volume="1"></audio>
+      <audio id="vo-4" src="assets/voice/vo-4-rule-two.wav" data-start="21.87" data-duration="7.296" data-track-index="23" data-volume="1"></audio>
+      <audio id="vo-5" src="assets/voice/vo-5-ceremony.wav" data-start="29.77" data-duration="7.339" data-track-index="24" data-volume="1"></audio>
+      <audio id="vo-6" src="assets/voice/vo-6-lenses.wav" data-start="37.71" data-duration="7.083" data-track-index="25" data-volume="1"></audio>
+      <audio id="vo-7" src="assets/voice/vo-7-lockup.wav" data-start="45.40" data-duration="5.589" data-track-index="26" data-volume="1"></audio>
+
+      <!-- Sparse, warm ticks on sequential arrivals. Every one sits on the
+           extrapolated 109.96 BPM grid (0.5573 + n*0.5455). -->
+      <!-- beat-grid: inversion rows at 8.194 / 9.285 / 10.376 / 11.467 -->
+      <audio id="sfx-inv-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="8.194" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-inv-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="9.285" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-inv-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="10.376" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-inv-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="11.467" data-track-index="11" data-volume="0.18"></audio>
+
+      <!-- beat-locked: anchor cards 3 and 4 land on strong cues 17.468 / 18.559 -->
+      <audio id="sfx-anch-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="15.286" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-anch-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="16.377" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-anch-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="17.468" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-anch-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="18.559" data-track-index="11" data-volume="0.18"></audio>
+
+      <!-- beat-locked: the code panel opens on strong cue 21.832 -->
+      <audio id="sfx-code" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="21.832" data-track-index="12" data-volume="0.20"></audio>
+      <!-- beat-grid: glosses at 22.923 / 24.014 / 25.105 / 26.196 / 27.287 -->
+      <audio id="sfx-gl-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="22.923" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-gl-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="24.014" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-gl-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="25.105" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-gl-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="26.196" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-gl-5" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="27.287" data-track-index="11" data-volume="0.16"></audio>
+
+      <!-- beat-grid: ceremony cards 30.014 / 31.105, the witness bridge 32.742 -->
+      <audio id="sfx-cer-1" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="30.014" data-track-index="13" data-volume="0.22"></audio>
+      <audio id="sfx-cer-2" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="31.105" data-track-index="13" data-volume="0.22"></audio>
+      <audio id="sfx-cer-3" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="32.742" data-track-index="12" data-volume="0.22"></audio>
+      <audio id="sfx-cer-4" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="34.924" data-track-index="13" data-volume="0.20"></audio>
+
+      <!-- beat-grid: six lens cards, every other beat from 38.197 -->
+      <audio id="sfx-len-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="38.197" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-len-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="39.288" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-len-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="40.379" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-len-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="41.470" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-len-5" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="42.561" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-len-6" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="43.652" data-track-index="11" data-volume="0.16"></audio>
+
+      <!-- beat-grid: the wordmark settles at 45.834 -->
+      <audio id="sfx-lock" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="45.834" data-track-index="14" data-volume="0.26"></audio>
+    </div>
+
+    <script>
+      /* ------------------------------------------------------------------
+         Kith-Covenant — narrated brag cut.
+
+         Everything on screen is the project's own material: the treaty date and
+         the two rules from README.md, the inversion table from doc/concept.md,
+         the sangha figure from doc/substrate.md, the enum verbatim from
+         src/rust/kc-ceremony/src/inter/anti_spiral.rs, the ceremony CIDs from a
+         real run of src/python/examples/two_communities_demo.py, and the lens
+         values from the seeded commons behind src/python/dashboard.
+
+         Beat grid: happy-beats-business-moves-vol-12, tempo 109.96 BPM. The
+         bundled cue preset analyses only the first 25s, so cues beyond that are
+         extrapolated on the measured grid t = 0.5573 + n * 0.5455.
+         ------------------------------------------------------------------ */
+
+      var T_END = 52.0;
+
+      /* Measured narration. These seven numbers set every boundary above. */
+      var VO = [
+        { id: "#vo-1", start: 0.9, dur: 5.973 },
+        { id: "#vo-2", start: 7.47, dur: 6.549 },
+        { id: "#vo-3", start: 14.63, dur: 6.635 },
+        { id: "#vo-4", start: 21.87, dur: 7.296 },
+        { id: "#vo-5", start: 29.77, dur: 7.339 },
+        { id: "#vo-6", start: 37.71, dur: 7.083 },
+        { id: "#vo-7", start: 45.4, dur: 5.589 },
+      ];
+
+      var tl = gsap.timeline({ paused: true });
+
+      /* Nothing is visible until its own scene brings it up. */
+      var HIDDEN = [
+        "#hook-slug", "#hook-rule", "#hook-line",
+        "#inv-head", "#inv-colhead", "#inv-row-1", "#inv-row-2", "#inv-row-3", "#inv-row-4", "#inv-cite",
+        "#anch-head", "#anch-1", "#anch-2", "#anch-3", "#anch-4", "#anch-note", "#anch-cite",
+        "#filt-head", "#code-panel", "#code-1", "#code-2", "#code-3", "#code-4", "#code-5",
+        "#gloss-1", "#gloss-2", "#gloss-3", "#gloss-4", "#gloss-5",
+        "#cer-head", "#cer-a", "#cer-b", "#cer-bridge", "#cer-tally", "#cer-cite",
+        "#lens-top", "#lens-note",
+        "#lcard-1", "#lcard-2", "#lcard-3", "#lcard-4", "#lcard-5", "#lcard-6",
+        "#wordmark", "#wordmark-rule", "#wordmark-sub", "#music-credit",
+      ];
+      for (var h = 0; h < HIDDEN.length; h++) {
+        tl.set(HIDDEN[h], { opacity: 0 }, 0);
+      }
+
+      /* Scene shells crossfade rather than cut: slow, cinematic, 0.45s in. */
+      var SCENES = [
+        { sel: "#hook", inAt: 0.0, outAt: 7.1 },
+        { sel: "#inv", inAt: 7.1, outAt: 14.35 },
+        { sel: "#anch", inAt: 14.35, outAt: 21.5 },
+        { sel: "#filt", inAt: 21.5, outAt: 29.45 },
+        { sel: "#cer", inAt: 29.45, outAt: 37.4 },
+        { sel: "#lens", inAt: 37.4, outAt: 45.1 },
+        { sel: "#lock", inAt: 45.1, outAt: T_END },
+      ];
+      for (var s = 0; s < SCENES.length; s++) {
+        var sc = SCENES[s];
+        tl.fromTo(sc.sel, { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, sc.inAt);
+        if (s < SCENES.length - 1) {
+          tl.to(sc.sel, { opacity: 0, duration: 0.35, ease: "power1.in" }, sc.outAt);
+        }
+      }
+
+      /* ---- Scene 1 — hook ---------------------------------------------- */
+      /* The slug carries the date; the voice never says it. */
+      tl.fromTo("#hook-slug", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 0.45);
+      tl.fromTo("#hook-rule", { opacity: 0, scaleX: 0.2 }, { opacity: 1, scaleX: 1, duration: 0.7, ease: "power2.out" }, 1.1);
+      /* beat-grid 1.648s — the claim lands, then holds for five seconds. */
+      tl.fromTo("#hook-line", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.648);
+
+      /* ---- Scene 2 — the inversion ------------------------------------- */
+      tl.fromTo("#inv-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 7.3);
+      tl.fromTo("#inv-colhead", { opacity: 0 }, { opacity: 1, duration: 0.35 }, 7.649);
+      /* beat-grid: one row every other beat (1.091s), the readable spacing. */
+      var INV_ROWS = [8.194, 9.285, 10.376, 11.467];
+      for (var r = 0; r < INV_ROWS.length; r++) {
+        tl.fromTo(
+          "#inv-row-" + (r + 1),
+          { opacity: 0, x: 26 },
+          { opacity: 1, x: 0, duration: 0.42, ease: "power2.out" },
+          INV_ROWS[r],
+        );
+      }
+      tl.fromTo("#inv-cite", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 12.558);
+
+      /* ---- Scene 3 — the four substrates -------------------------------- */
+      tl.fromTo("#anch-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 14.55);
+      /* beat-grid 15.286 / 16.377, then strong cues 17.468 and 18.559. */
+      var ANCH = [15.286, 16.377, 17.468, 18.559];
+      for (var a = 0; a < ANCH.length; a++) {
+        tl.fromTo(
+          "#anch-" + (a + 1),
+          { opacity: 0, y: 24 },
+          { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" },
+          ANCH[a],
+        );
+      }
+      /* beat-locked: strong cue 19.650 — the longevity figure. */
+      tl.fromTo("#anch-note", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 19.65);
+      tl.fromTo("#anch-cite", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 20.195);
+
+      /* ---- Scene 4 — the filter, as code -------------------------------- */
+      tl.fromTo("#filt-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 21.7);
+      /* beat-locked: 21.832 — the source file opens. */
+      tl.fromTo("#code-panel", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 21.832);
+      /* beat-grid: variant + its plain-language gloss arrive together, every
+         other beat from strong cue 22.923. */
+      var FILT = [22.923, 24.014, 25.105, 26.196, 27.287];
+      for (var f = 0; f < FILT.length; f++) {
+        tl.fromTo("#code-" + (f + 1), { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, FILT[f]);
+        tl.fromTo(
+          "#gloss-" + (f + 1),
+          { opacity: 0, x: 22 },
+          { opacity: 1, x: 0, duration: 0.42, ease: "power2.out" },
+          FILT[f] + 0.06,
+        );
+      }
+
+      /* ---- Scene 5 — the ceremony --------------------------------------- */
+      tl.fromTo("#cer-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 29.65);
+      /* beat-grid 30.014 / 31.105 — each community's own rite, sealed apart. */
+      tl.fromTo("#cer-a", { opacity: 0, x: -28 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 30.014);
+      tl.fromTo("#cer-b", { opacity: 0, x: 28 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 31.105);
+      /* beat-grid 32.742 — only then does the thin inter-community record cross. */
+      tl.fromTo("#cer-bridge", { opacity: 0, scaleX: 0.86 }, { opacity: 1, scaleX: 1, duration: 0.5, ease: "power2.out" }, 32.742);
+      /* beat-grid 34.924 — the audit trail, and the whole archive re-verifying. */
+      tl.fromTo("#cer-tally", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 34.924);
+      tl.fromTo("#cer-cite", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 35.469);
+
+      /* ---- Scene 6 — the lenses ----------------------------------------- */
+      tl.fromTo("#lens-top", { opacity: 0, y: -16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 37.6);
+      tl.fromTo("#lens-note", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 37.9);
+      /* beat-grid: six cards, every other beat from 38.197. Descriptive only —
+         nothing here animates a verdict. */
+      var LENS = [38.197, 39.288, 40.379, 41.47, 42.561, 43.652];
+      for (var L = 0; L < LENS.length; L++) {
+        tl.fromTo(
+          "#lcard-" + (L + 1),
+          { opacity: 0, y: 22 },
+          { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" },
+          LENS[L],
+        );
+      }
+      /* The decay line draws itself once its card is up: 5 witnesses, then 3,
+         then 1. The flags beneath it are the analytics' own booleans. */
+      tl.fromTo(
+        "#decay-line",
+        { strokeDasharray: 420, strokeDashoffset: 420 },
+        { strokeDashoffset: 0, duration: 1.0, ease: "none" },
+        40.6,
+      );
+
+      /* ---- Scene 7 — lockup --------------------------------------------- */
+      /* beat-grid 45.834 — the wordmark. */
+      tl.fromTo("#wordmark", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 45.834);
+      tl.fromTo("#wordmark-rule", { opacity: 0, scaleX: 0.2 }, { opacity: 1, scaleX: 1, duration: 0.6, ease: "power2.out" }, 46.652);
+      /* beat-grid 47.470 — the chapter title the voice deliberately never says. */
+      tl.fromTo("#wordmark-sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 47.47);
+      tl.fromTo("#music-credit", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 48.561);
+
+      /* ------------------------------------------------------------------
+         Music: narration-led. The gaps between lines are ~0.6s, which is too
+         short to open a bed into without audible pumping, so the level simply
+         holds beneath the voice for the whole argument and opens a hair across
+         the lockup. No risers, no swells; if a cue and a word collide, the word
+         wins.
+         ------------------------------------------------------------------ */
+      var BED_DUCK = 0.13;
+      tl.fromTo("#bgm", { volume: 0.1 }, { volume: BED_DUCK, duration: 1.0, ease: "power1.inOut" }, 0);
+      tl.to("#bgm", { volume: 0.16, duration: 0.8, ease: "power1.inOut" }, 44.85);
+      tl.to("#bgm", { volume: 0, duration: 1.2, ease: "power1.in" }, T_END - 1.2);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
