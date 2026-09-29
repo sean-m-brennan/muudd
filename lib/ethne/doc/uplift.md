@@ -139,6 +139,23 @@ One honest limit remains, and we state it rather than paper over it. A roll is
 the polity speaking about itself, and the compact checks that the publisher is
 who he claims to be rather than that the roll is true.
 
+## One artifact that crosses the other way
+
+A seventh artifact leaves this tier and does not go to the compact at all. A polity
+may run first-contact rendezvous relays for the trust substrate, and the substrate
+has to know which relays the polity stands behind (D36). The roll makes a member a
+rendezvous operator by conferring an office; the operator declares where its relay
+listens, in its own name; and the polity publishes a relay roster under its root key.
+
+The roster is written in the substrate's vocabulary, not ours and not the
+compact's: AutonomousTrust's own signed relay-roster file, which it checks against
+the key its operator chose to trust and nothing else. The substrate learns no charter
+and no office. It learns that this key vouches for these relays, each pinned to the
+operator's own key, and that a newer roster from the same key replaces the last. That
+replacement is the one place this border departs from the member roll, which only
+ever widens: a roster that could not shrink would keep a revoked operator's relay in
+every client's list.
+
 ## Deliberate omissions
 
 Naming the omissions is as useful as naming the artifacts.

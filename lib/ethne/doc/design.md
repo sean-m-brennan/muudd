@@ -7,7 +7,7 @@
 
 # Ethne. The polity tier
 
-**Design document.** The decisions are recorded as D1-D35 below, and the
+**Design document.** The decisions are recorded as D1-D36 below, and the
 questions they raised as Q1-Q9. Anything the design specifies and the code does
 not carry is in [`TODO.md`](../TODO.md). How the tier is built, which toolchain
 choices are deliberate, and the verification discipline the slices are held to
@@ -263,6 +263,10 @@ Ethne emits only KC-native artifacts, so KC stays oblivious to the tier
   commitment keys as Movement 4. KC seals it and its inter-community ceremony takes
   the sealed record as input, so without this a polity is identifiable in KC and
   admissible to no compact;
+- sideways rather than upward, a **relay roster** in AutonomousTrust's own signed
+  `at-relay-roster` file (**D36**): the members the polity has made rendezvous
+  operators, pinned to their own keys. The one artifact that crosses to the substrate
+  instead of to KC, and in the substrate's format;
 - a **`Concern`** when the cohesion monitor finds *soft coherence erosion*,
   the jester pre-indictment flag KC already routes. `Concern` carries
   **early warning**, not a fission verdict (a `Concern` is about conduct,
@@ -2403,6 +2407,75 @@ KC cannot see on its own and AT cannot decide on its own.
  networks. Two polities are admitted to one compact in one process, over in-memory
  archives, which is what the tier can be held to; nothing here has crossed a wire.
 
+
+- **D36. A polity may run relays, and says so in the substrate's own file (locked
+ 2026-09-29).** AutonomousTrust's first-contact plan (`FIRST_CONTACT_PLAN.md` §4.2,
+ §4.5) names an Ethne polity as the natural operator of rendezvous relays: such
+ infrastructure should be governed, reputation-gated and persistent, which is what a
+ polity is. It is also explicit that first contact stays an AT primitive and that a plain
+ AT deployment never needs this tier. So the question was never whether ethne hosts the
+ protocol. It was how a polity can **vouch for which relays are its own** without either
+ tier learning the other's records.
+
+ *The office decides who serves.* `Office::RendezvousOperator` is a first-class office,
+ conferred and revoked through the ordinary `OfficeChange` rules: the roll confers at a
+ majority, the holder consents, and the roll may revoke. A named variant rather than
+ `Other("rendezvous")`, because the roster reads it and a string that one polity spells
+ differently from another would silently empty its roster. ciborium encodes variants by
+ name, so the addition changes no existing record's CID.
+
+ *The member says where.* `RelayEndpoint` (`CharterEntry::RelayEndpointDeclared`) is the
+ operator's own statement of its AT uuid, host and port, or its withdrawal, signed by the
+ member alone, the rule an `Observation` follows: nobody puts an endpoint in somebody
+ else's mouth. The authority pass refuses a declaration unless its signer holds the
+ office at that point in the log (the effective holding, so D29's substrate rule
+ applies), refuses one after dissolution, and refuses an endpoint that cannot be written
+ into an AT pin. A withdrawal needs no office, so a revoked operator can still take back
+ what it said. The key a client pins is **not** carried: it is the member's own
+ `did:key`, which for an AT machine is that node's signing key, so no declaration can
+ name a relay under a key that is not its declarer's.
+
+ *The read-model runs the authority pass itself.* `rendezvous_state` lists each member's
+ latest accepted declaration, unless withdrawn, only while the member holds the office in
+ `office_state` at the query instant, so revoking, resigning or leaving the roll drops the
+ relay with no further act. It reads only declarations `authority_violations` accepts,
+ rather than trusting that the host checked, because measuring found the two office
+ read-models disagree: `office_state` intersects holdings with the roll but not with the
+ substrate (D29), so an admitted, seated, un-inducted member showed as a holder there
+ while its declaration was refused. The roster is what an outsider trusts, so it follows
+ the stricter reading.
+
+ *Border artifact #7 crosses to the substrate, in the substrate's format.*
+ `en_uplift::rendezvous_roster` emits AT's own `at-relay-roster` file: `{"body", "sig"}`,
+ the root key signing `"at-relay-roster-v1|" + body`, and a body of
+ `{v, typename, issuer, seq, relays}` whose relays are pinned
+ `relay://<uuid>:<fp>@host:port` hints, `fp` being SHA-256 of the operator's key cut to 16
+ bytes, as AT's `relay.key_fingerprint` computes it. AT owns the format and verifies it with
+ the ed25519 key its operator pinned; it never parses a charter, so `ethne ⟂ AT` holds, and
+ `en-at` stays read-only. The file is byte-pinned by a test vector that AT's own Python
+ (`parse_hint`, `key_fingerprint`, `hint_for`, and a raw signature check) was run against
+ before the vector was fixed. It lives in `en-uplift` with the other root-signed artifacts;
+ it is the one of the seven that crosses to AT rather than to KC, and it adds no KC crate,
+ only `serde_json`, `sha2` and `hex`, all already in the graph.
+
+ *A higher seq replaces; it does not union.* This is the opposite of the member roll
+ (D26), and deliberately. A roll that could shrink would let a polity narrow a suspect set
+ around a member who had left; a roster that could not shrink would keep a revoked
+ operator's relay in every client's list for good. So AT keeps the highest seq it has seen
+ per issuer and a newer roster replaces the older whole, and an **empty** roster is valid:
+ it is how a polity says it runs no relays now.
+
+ **Honest limits.** *The polity key cannot rotate.* The polity DID is its root key, and the
+ only `SuccessorLink` this tier emits is a fission or fusion, which dissolves the
+ predecessor; a client that pins the issuer pins that key for the polity's life. *The
+ roster is the polity speaking about itself*, the status D26 names for the roll: it says
+ which relays the polity stands behind, and nothing about whether they are up or honest,
+ which AT's own relay proof and reputation gating still decide per connection. *Delivery
+ is a file.* The host writes it where its AT nodes read rosters, and nothing is fetched at
+ runtime, matching AT's seed-list rule. The AT consumer is the other half of this decision and
+ is built (`network/relay_rosters.py`, `net_relay_rosters.{h,c}`, 2026-09-29): a node reads
+ rosters only from the issuers its operator pinned, ahead of AT's own seed list, and AT's
+ signer fed this artifact's inputs reproduces the pinned vector byte for byte.
 
 ## Questions and resolutions (round 2)
 

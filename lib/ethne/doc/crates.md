@@ -34,7 +34,7 @@ a charter-level operation returning a new archive.
 
 ## `en-charter`
 
-The founding primitive and the keystone of the tier, `en-charter` holds fourteen
+The founding primitive and the keystone of the tier, `en-charter` holds fifteen
 record kinds, the ratify-not-replace interface, the authority rules, and the
 read models that derive state from the log.
 
@@ -638,6 +638,13 @@ rather than the archive.
 `member_roll` (D26) publishes the roll from `charter_state` under the root key
 of the polity as the `MemberRoll` of the compact tier, being border artifact six
 and the feed for the whistleblower ring one tier up.
+
+`rendezvous_roster` (D36, module `rendezvous`) is border artifact seven and the
+one that crosses to the substrate rather than to the compact: the members holding
+`RendezvousOperator` with a live `RelayEndpoint`, from `rendezvous_state`, written
+as AutonomousTrust's own signed `at-relay-roster` file under the root key, each relay
+pinned to its operator's `did:key`. It adds no compact-tier crate, only `serde_json`,
+`sha2` and `hex`.
 
 ## `en-store`
 

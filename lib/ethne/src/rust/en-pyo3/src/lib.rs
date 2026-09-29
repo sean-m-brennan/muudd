@@ -60,6 +60,7 @@ use en_charter::{
     MembershipKind, Observation, ObservationPruning, ObservationWindow, Office, OfficeChange,
     OfficeKind, OfficeState, PolityCharter, PruneRecommendation, PruneRoute, RetentionPolicy,
     Substrate, Movement, RiteMovement, rite_state, Rite,
+    rendezvous_state, RelayEndpoint,
 };
 use en_charter::{
     BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion, FoundingBasis,
@@ -275,7 +276,7 @@ fn parse_amendment_kind(s: &str) -> PyResult<AmendmentKind> {
     }
 }
 
-/// The four named offices match by name; anything else is a polity-specific
+/// The named offices match by name; anything else is a polity-specific
 /// `Office::Other`.
 fn parse_office(s: &str) -> Office {
     match s {
@@ -283,6 +284,7 @@ fn parse_office(s: &str) -> Office {
         "Inductor" => Office::Inductor,
         "EnvoyAuthorizer" => Office::EnvoyAuthorizer,
         "CharterKeeper" => Office::CharterKeeper,
+        "RendezvousOperator" => Office::RendezvousOperator,
         other => Office::Other(other.to_string()),
     }
 }
@@ -323,6 +325,7 @@ fn office_name(o: &Office) -> String {
         Office::Inductor => "Inductor".into(),
         Office::EnvoyAuthorizer => "EnvoyAuthorizer".into(),
         Office::CharterKeeper => "CharterKeeper".into(),
+        Office::RendezvousOperator => "RendezvousOperator".into(),
         Office::Other(s) => s.clone(),
     }
 }
@@ -1648,6 +1651,33 @@ impl PyArchive {
                 _ => None,
             })
             .ok_or_else(|| PyValueError::new_err(format!("no charter for {polity} in this archive")))
+    }
+
+    /// A relay declaration or withdrawal, signed by the member alone (D36).
+    #[allow(clippy::too_many_arguments)]
+    fn relay_endpoint(
+        &mut self,
+        polity_did: &str,
+        member_did: &str,
+        member_priv: &[u8],
+        at_uuid: &str,
+        host: &str,
+        port: u16,
+        declared_at: Option<i64>,
+        withdrawn: bool,
+    ) -> PyResult<String> {
+        let signers = Signers::only(member_did, member_priv)?;
+        let record = RelayEndpoint {
+            polity: parse_did(polity_did)?,
+            member: parse_did(member_did)?,
+            at_uuid: at_uuid.to_string(),
+            host: host.to_string(),
+            port,
+            declared_at: ts_or_now(declared_at)?,
+            withdrawn,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::RelayEndpointDeclared(signed))
     }
 }
 
@@ -3137,6 +3167,84 @@ impl PyArchive {
         )
         .map_err(en_err_to_py)?;
         serde_json::to_string(&signed).map_err(json_err_to_py)
+    }
+
+    /// A rendezvous operator states where its relay listens (design **D36**).
+    /// Signed by the member alone; the authority pass refuses it unless the member
+    /// holds `RendezvousOperator`. `at_uuid` is the member node's AT identity uuid,
+    /// lowercase and hyphenated. Returns the entry's CID.
+    #[pyo3(signature = (polity_did, member_did, member_priv, at_uuid, host, port, declared_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn declare_relay_endpoint(
+        &mut self,
+        polity_did: &str,
+        member_did: &str,
+        member_priv: &[u8],
+        at_uuid: &str,
+        host: &str,
+        port: u16,
+        declared_at: Option<i64>,
+    ) -> PyResult<String> {
+        self.relay_endpoint(polity_did, member_did, member_priv, at_uuid, host, port, declared_at, false)
+    }
+
+    /// The member takes back its relay declaration. Needs no office, so a revoked
+    /// operator can still withdraw. Returns the entry's CID.
+    #[pyo3(signature = (polity_did, member_did, member_priv, at_uuid, declared_at=None))]
+    fn withdraw_relay_endpoint(
+        &mut self,
+        polity_did: &str,
+        member_did: &str,
+        member_priv: &[u8],
+        at_uuid: &str,
+        declared_at: Option<i64>,
+    ) -> PyResult<String> {
+        self.relay_endpoint(polity_did, member_did, member_priv, at_uuid, "", 0, declared_at, true)
+    }
+
+    /// The relays the polity runs as of `as_of` (design **D36**): a list of
+    /// `(member_did, at_uuid, host, port, declared_at)`, one per operator who holds
+    /// `RendezvousOperator` then and has a live declaration, sorted by member DID.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn rendezvous_state(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<Vec<(String, String, String, u16, i64)>> {
+        let st = rendezvous_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok(st
+            .relays
+            .into_iter()
+            .map(|r| (r.member.as_str().to_string(), r.at_uuid, r.host, r.port, r.declared_at.as_second()))
+            .collect())
+    }
+
+    /// Emit the polity's relay roster as AT's signed `at-relay-roster` file
+    /// (border artifact #7, design **D36**), read from this log as of `as_of`.
+    /// Returns the file's exact text, for the host to write where its AT nodes
+    /// read rosters. `seq` must exceed every seq published before; the seconds of
+    /// `as_of` are a natural choice. An empty roster is valid and replaces the
+    /// previous one.
+    #[pyo3(signature = (polity_did, root_priv, root_pub, seq, as_of=None))]
+    fn rendezvous_roster(
+        &self,
+        polity_did: &str,
+        root_priv: &[u8],
+        root_pub: &[u8],
+        seq: u64,
+        as_of: Option<i64>,
+    ) -> PyResult<String> {
+        let polity = parse_did(polity_did)?;
+        let charter = self.charter_of(&polity)?;
+        let state = rendezvous_state(&self.inner, &polity, ts_or_now(as_of)?);
+        en_uplift::rendezvous_roster(
+            &charter,
+            &state,
+            &priv_from_bytes(root_priv),
+            &pub_from_bytes(root_pub),
+            seq,
+        )
+        .map_err(en_err_to_py)
     }
 
     /// Emit KC's `MemberRoll` (JSON) for this polity — the border artifact that gives

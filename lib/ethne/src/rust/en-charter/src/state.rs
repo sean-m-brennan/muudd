@@ -429,6 +429,77 @@ pub fn office_state(
     OfficeState { holdings: raw }
 }
 
+/// One relay the polity runs, as its roster will list it (design **D36**).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RelayListing {
+    /// The operator, whose `did:key` is the relay's signing key.
+    pub member: DidKey,
+    pub at_uuid: String,
+    pub host: String,
+    pub port: u16,
+    pub declared_at: Timestamp,
+}
+
+/// The relays a polity runs as of a query time, one per operator, sorted by
+/// member DID.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RendezvousState {
+    pub relays: Vec<RelayListing>,
+}
+
+/// Which relays the polity runs as of `as_of` (design **D36**): each member's
+/// latest [`RelayEndpoint`](crate::RelayEndpoint) declared by then, unless it was a
+/// withdrawal, kept only while that member holds
+/// [`Office::RendezvousOperator`] in [`office_state`] at `as_of`. So revoking the
+/// office, resigning it, or leaving the roll drops the relay with no further act,
+/// and a dissolved polity runs none.
+///
+/// **Only declarations the authority pass accepts are read.** This read-model runs
+/// [`authority_violations`](crate::authority_violations) itself rather than
+/// trusting that the host did, because the roster is what an outsider will trust:
+/// a declaration in somebody else's name, one by a member who never held the
+/// office, or one by a holder who has not received the substrate (D29's rule,
+/// which [`office_state`] alone does not apply) is simply not there.
+pub fn rendezvous_state(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> RendezvousState {
+    if charter_state(archive, polity, as_of).dissolved {
+        return RendezvousState::default();
+    }
+    let refused: Vec<Cid> =
+        crate::authority_violations(archive).into_iter().map(|(cid, _)| cid).collect();
+    let offices = office_state(archive, polity, as_of);
+    let mut latest: BTreeMap<String, &crate::RelayEndpoint> = BTreeMap::new();
+    for (cid, e) in archive.iter() {
+        let CharterEntry::RelayEndpointDeclared(s) = e else { continue };
+        let d = &s.payload;
+        if &d.polity != polity || d.declared_at > as_of || refused.contains(cid) {
+            continue;
+        }
+        // Insertion order is the tiebreak for equal instants: the later entry wins.
+        match latest.get(d.member.as_str()) {
+            Some(prev) if prev.declared_at > d.declared_at => {}
+            _ => {
+                latest.insert(d.member.as_str().to_string(), d);
+            }
+        }
+    }
+    let relays = latest
+        .into_values()
+        .filter(|d| !d.withdrawn && offices.holds(&d.member, &Office::RendezvousOperator))
+        .map(|d| RelayListing {
+            member: d.member.clone(),
+            at_uuid: d.at_uuid.clone(),
+            host: d.host.clone(),
+            port: d.port,
+            declared_at: d.declared_at,
+        })
+        .collect();
+    RendezvousState { relays }
+}
+
 /// Who may speak for the polity beyond it as of `as_of` — raw standings
 /// (`Authorize` − `Resign`/`Revoke`) intersected with the current roll and with
 /// the standings that have not expired.

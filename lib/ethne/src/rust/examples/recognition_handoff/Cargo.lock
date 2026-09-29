@@ -309,10 +309,14 @@ dependencies = [
  "en-cohesion",
  "en-core",
  "en-substrate",
+ "hex",
  "kc-ceremony",
  "kc-conduct",
  "kc-core",
  "kc-identity",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

@@ -47,6 +47,10 @@
 //!    Without this a polity could be *identified* in KC and never admitted to a
 //!    compact, because KC's inter-community ceremony takes a sealed intra rite as its
 //!    input. See [`intra_rite`].
+//! 7. **Relay roster** — the members the polity has made rendezvous operators, as
+//!    AT's own signed `at-relay-roster` file (design **D36**). The one artifact that
+//!    crosses to the trust substrate rather than to KC, and in the substrate's
+//!    format rather than KC's; see [`rendezvous`].
 //!
 //! # Why this crate exists (the confined coupling)
 //!
@@ -64,6 +68,9 @@
 //! this crate *emits* serialized `Signed<T>` payloads — CBOR-roundtrippable — and
 //! a KC-side consumer wraps each into an `ArchiveEntry` and appends it. Nothing
 //! here touches an archive.
+
+pub mod rendezvous;
+pub use rendezvous::rendezvous_roster;
 
 use en_charter::{
     AffirmationState, CharterDissolution, Commitment, EnvoyState, Office, OfficeState,

@@ -212,6 +212,37 @@ def confer_office(
     )
 
 
+def declare_relay_endpoint(
+    archive,
+    polity_did: str,
+    member: Signer,
+    at_uuid: str,
+    host: str,
+    port: int,
+    declared_at: Optional[int] = None,
+) -> str:
+    """A rendezvous operator states where its relay listens (D36). Signed by the
+    member alone, and authorized only while it holds ``RendezvousOperator``.
+    ``at_uuid`` is the member node's AT identity uuid, lowercase and hyphenated."""
+    return archive.declare_relay_endpoint(
+        polity_did, member.did, member.priv, at_uuid, host, port, declared_at
+    )
+
+
+def withdraw_relay_endpoint(
+    archive,
+    polity_did: str,
+    member: Signer,
+    at_uuid: str,
+    declared_at: Optional[int] = None,
+) -> str:
+    """The member takes back its relay declaration. Needs no office, so a revoked
+    operator can still withdraw."""
+    return archive.withdraw_relay_endpoint(
+        polity_did, member.did, member.priv, at_uuid, declared_at
+    )
+
+
 def resign_office(
     archive,
     polity_did: str,
@@ -839,6 +870,8 @@ __all__ = [
     "release_guardian",
     "resign_envoy",
     "resign_office",
+    "declare_relay_endpoint",
+    "withdraw_relay_endpoint",
     "revoke_envoy",
     "revoke_office",
     "rotate_guardian",

@@ -35,6 +35,10 @@ These artifacts cross the boundary, and nothing else:
    registry, and the drafted recitation. Without it a polity could be identified in
    KC and never admitted to a compact, because KC's inter-community ceremony takes a
    sealed intra rite as its input.
+7. **The relay roster** — `rendezvous_roster` lists the members the polity has
+   made rendezvous operators, in AutonomousTrust's own signed `at-relay-roster`
+   file rather than a KC record (D36): it crosses to the trust substrate, which
+   verifies it with nothing but the polity key its operator pinned.
 
 Every artifact crosses as **JSON**, which a KC-side consumer appends to its own
 log verbatim; each function here has a `*_dict` twin that parses it for
@@ -114,6 +118,35 @@ def member_roll(
     return archive.member_roll(
         polity_did, root_priv, root_pub, as_of, published_at
     )
+
+
+def rendezvous_roster(
+    archive,
+    polity_did: str,
+    root_priv: bytes,
+    root_pub: bytes,
+    seq: int,
+    as_of: Optional[int] = None,
+) -> str:
+    """The polity's relay roster as AT's signed ``at-relay-roster`` file (D36):
+    ``{"body": <exact JSON>, "sig": <hex>}``, signed by the polity root key over
+    ``"at-relay-roster-v1|" + body``.
+
+    It lists, as of ``as_of``, every member who holds ``RendezvousOperator`` and has
+    a live relay declaration, each pinned to the member's own key. Write the text
+    where the polity's AT nodes read rosters; AT accepts it only from an issuer its
+    operator pinned.
+
+    A higher ``seq`` **replaces** the previous roster whole, unlike the member
+    roll's union: that is how revoking the office removes a relay. So ``seq`` must
+    exceed every seq published before (the seconds of ``as_of`` are a natural
+    choice), and an empty roster is how the polity says it runs none now."""
+    return archive.rendezvous_roster(polity_did, root_priv, root_pub, seq, as_of)
+
+
+def roster_dict(roster_text: str) -> dict:
+    """The roster's signed body, parsed, for inspection."""
+    return json.loads(json.loads(roster_text)["body"])
 
 
 def intra_rite(
@@ -249,5 +282,7 @@ __all__ = [
     "identity_dict",
     "intra_rite",
     "member_roll",
+    "rendezvous_roster",
+    "roster_dict",
     "rite_dict",
 ]
