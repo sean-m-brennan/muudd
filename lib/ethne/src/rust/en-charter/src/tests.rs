@@ -6227,3 +6227,206 @@ mod renewal {
         refused(&a, "exactly the affirming member");
     }
 }
+
+// ---------------------------------------------------------------------------
+// D36 — the rendezvous office and the relays it lets a member declare.
+// ---------------------------------------------------------------------------
+
+const RELAY_UUID: &str = "0f1e2d3c-4b5a-4968-8776-655443322110";
+
+impl Polity {
+    /// Member `member`'s relay declaration, signed by member `signer` (normally the
+    /// same member; a different one forges it).
+    fn relay(&self, member: usize, signer: usize, host: &str, port: u16, at: i64, withdrawn: bool) -> CharterEntry {
+        let d = RelayEndpoint {
+            polity: self.polity.clone(),
+            member: self.ids[member].1.clone(),
+            at_uuid: RELAY_UUID.into(),
+            host: host.into(),
+            port,
+            declared_at: t(at),
+            withdrawn,
+        };
+        CharterEntry::RelayEndpointDeclared(Signed::build(d, &self.signers(&[signer])).unwrap())
+    }
+}
+
+fn violation(a: &Archive<CharterEntry>, needle: &str) -> bool {
+    authority_violations(a).iter().any(|(_, why)| why.contains(needle))
+}
+
+fn listed(a: &Archive<CharterEntry>, p: &Polity, at: i64) -> Vec<(DidKey, String, u16)> {
+    rendezvous_state(a, &p.polity, t(at))
+        .relays
+        .into_iter()
+        .map(|r| (r.member, r.host, r.port))
+        .collect()
+}
+
+#[test]
+fn an_operator_declares_a_relay_and_it_is_listed() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    a.append(p.relay(2, 2, "relay.example.org", 27790, 300, false)).unwrap();
+
+    verify_all(&a).unwrap();
+    check_authority(&a).expect("an operator's own declaration is authorized");
+    assert_eq!(listed(&a, &p, 400), vec![(p.ids[2].1.clone(), "relay.example.org".into(), 27790)]);
+    // Not before it was declared.
+    assert!(listed(&a, &p, 250).is_empty());
+}
+
+#[test]
+fn a_member_without_the_office_cannot_declare() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.relay(1, 1, "relay.example.org", 27790, 300, false)).unwrap();
+
+    assert!(violation(&a, "without holding RendezvousOperator"));
+    assert!(listed(&a, &p, 400).is_empty());
+}
+
+#[test]
+fn a_declaration_before_the_conferral_is_refused() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.relay(2, 2, "relay.example.org", 27790, 150, false)).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    assert!(violation(&a, "without holding RendezvousOperator"));
+}
+
+#[test]
+fn nobody_declares_a_relay_in_somebody_elses_name() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    // Member 0 signs a declaration that names member 2, who holds the office.
+    a.append(p.relay(2, 0, "evil.example.org", 27790, 300, false)).unwrap();
+
+    verify_all(&a).expect("the signature itself is valid");
+    assert!(violation(&a, "signed by exactly its member"));
+    // The read-model does not rely on the authority pass having run.
+    assert!(listed(&a, &p, 400).is_empty());
+}
+
+#[test]
+fn revoking_or_resigning_the_office_drops_the_relay() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    a.append(p.relay(2, 2, "relay.example.org", 27790, 300, false)).unwrap();
+    a.append(p.revoke_office(Office::RendezvousOperator, 2, &[0, 1], 500)).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(listed(&a, &p, 450).len(), 1);
+    assert!(listed(&a, &p, 600).is_empty(), "no further act is needed to drop it");
+
+    let mut r = Archive::new();
+    r.append(p.charter_seasoned(vec![])).unwrap();
+    r.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    r.append(p.relay(2, 2, "relay.example.org", 27790, 300, false)).unwrap();
+    r.append(p.resign(Office::RendezvousOperator, 2, 500)).unwrap();
+    check_authority(&r).unwrap();
+    assert!(listed(&r, &p, 600).is_empty());
+}
+
+#[test]
+fn a_withdrawal_needs_no_office_and_outlives_a_reconferral() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    a.append(p.relay(2, 2, "relay.example.org", 27790, 300, false)).unwrap();
+    a.append(p.revoke_office(Office::RendezvousOperator, 2, &[0, 1], 400)).unwrap();
+    // Revoked, and still able to take back what it said.
+    a.append(p.relay(2, 2, "", 0, 450, true)).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 500)).unwrap();
+    check_authority(&a).expect("a withdrawal by a revoked operator is authorized");
+    // Holding the office again does not revive a withdrawn endpoint.
+    assert!(listed(&a, &p, 600).is_empty());
+}
+
+#[test]
+fn the_latest_declaration_wins() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    a.append(p.relay(2, 2, "old.example.org", 27790, 300, false)).unwrap();
+    a.append(p.relay(2, 2, "new.example.org", 27791, 400, false)).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(listed(&a, &p, 350), vec![(p.ids[2].1.clone(), "old.example.org".into(), 27790)]);
+    assert_eq!(listed(&a, &p, 500), vec![(p.ids[2].1.clone(), "new.example.org".into(), 27791)]);
+}
+
+#[test]
+fn an_endpoint_that_cannot_be_written_as_a_pin_is_refused() {
+    for (host, port) in [("a@b", 27790u16), ("", 27790), ("relay.example.org", 0), ("a b", 1)] {
+        let p = Polity::new(3);
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+        a.append(p.relay(2, 2, host, port, 300, false)).unwrap();
+        assert!(violation(&a, "relay endpoint of"), "{host:?}:{port} was accepted");
+        assert!(listed(&a, &p, 400).is_empty(), "{host:?}:{port} was listed");
+    }
+    let d = RelayEndpoint {
+        polity: Polity::new(1).polity,
+        member: Polity::new(1).polity,
+        at_uuid: RELAY_UUID.to_uppercase(),
+        host: "relay.example.org".into(),
+        port: 1,
+        declared_at: t(1),
+        withdrawn: false,
+    };
+    assert!(d.check_shape().is_err(), "an uppercase uuid is not how AT writes a pin");
+}
+
+#[test]
+fn a_dissolved_polity_runs_no_relays() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    a.append(p.relay(2, 2, "relay.example.org", 27790, 300, false)).unwrap();
+    a.append(p.dissolve(&[], &[0, 1, 2], 400)).unwrap();
+    assert_eq!(listed(&a, &p, 350).len(), 1);
+    assert!(listed(&a, &p, 500).is_empty());
+    a.append(p.relay(2, 2, "later.example.org", 27790, 600, false)).unwrap();
+    assert!(violation(&a, "after its dissolution"));
+}
+
+#[test]
+fn an_operator_who_has_not_received_the_substrate_is_not_listed() {
+    // D29: an office acts only through a holder who holds the substrate. A joiner
+    // admitted and seated but never inducted cannot declare, and the roster must
+    // not list it even though office_state alone would show the holding.
+    let p = Polity::new(3);
+    let joiner = id();
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.admit(&joiner, &[0, 1], 150)).unwrap();
+    a.append(p.confer_on(Office::RendezvousOperator, &joiner, &[0, 1], 200)).unwrap();
+    let d = RelayEndpoint {
+        polity: p.polity.clone(),
+        member: joiner.1.clone(),
+        at_uuid: RELAY_UUID.into(),
+        host: "relay.example.org".into(),
+        port: 27790,
+        declared_at: t(300),
+        withdrawn: false,
+    };
+    a.append(CharterEntry::RelayEndpointDeclared(
+        Signed::build(d, &[(joiner.1.as_str(), &joiner.0)]).unwrap(),
+    ))
+    .unwrap();
+    assert!(violation(&a, "without holding RendezvousOperator"));
+    assert!(office_state(&a, &p.polity, t(400)).holds(&joiner.1, &Office::RendezvousOperator),
+            "precondition: the raw read-model shows the holding");
+    assert!(listed(&a, &p, 400).is_empty());
+}

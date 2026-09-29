@@ -668,6 +668,11 @@ pub enum Office {
     EnvoyAuthorizer,
     /// Custodian of the charter log.
     CharterKeeper,
+    /// Runs one of the polity's first-contact rendezvous relays (design **D36**).
+    /// Holding it is what lets a member declare a [`RelayEndpoint`], and the
+    /// polity's relay roster lists exactly the holders with a live declaration, so
+    /// conferring and revoking this office is how the polity decides who serves.
+    RendezvousOperator,
     /// A polity-specific office named by the string.
     Other(String),
 }
@@ -1251,4 +1256,65 @@ pub struct IndependenceAttestation {
     /// The basis for the claim (free text, legible to whoever audits it).
     pub basis: String,
     pub attested_at: Timestamp,
+}
+
+/// A member's own statement of where it serves first-contact rendezvous for the
+/// polity (design **D36**), or its withdrawal of that statement.
+///
+/// **Signed by the member alone.** Where a relay listens is a fact about one
+/// machine that only its operator can state, and nobody may put an endpoint in
+/// somebody else's mouth, which is the rule an [`Observation`] follows. What the
+/// roll decides is *whether* the member serves: the declaration is refused unless
+/// its signer holds [`Office::RendezvousOperator`] at `declared_at`. A later
+/// revocation or resignation needs no withdrawal: the roster reads office holdings
+/// as of its own instant, so the endpoint drops out on its own.
+///
+/// The key a client pins is not carried here. It is the member's own `did:key`,
+/// which for an AT machine is that node's signing key, so a roster cannot name a
+/// relay under a key that is not the member's.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RelayEndpoint {
+    pub polity: DidKey,
+    /// The member stating it, and its sole signer.
+    pub member: DidKey,
+    /// The member node's AT identity uuid, lowercase and hyphenated: the half of
+    /// an AT relay pin that the key does not give.
+    pub at_uuid: String,
+    /// Where the relay listens. Ignored when `withdrawn`.
+    pub host: String,
+    pub port: u16,
+    pub declared_at: Timestamp,
+    /// `true` takes back the member's previous declaration.
+    pub withdrawn: bool,
+}
+
+impl RelayEndpoint {
+    /// Whether the declared endpoint can be written into an AT relay pin
+    /// (`relay://<uuid>:<fp>@host:port`) unambiguously. A withdrawal carries no
+    /// endpoint and always passes. `Err` names the first problem.
+    pub fn check_shape(&self) -> Result<(), String> {
+        if !is_lower_uuid(&self.at_uuid) {
+            return Err(format!("at_uuid {:?} is not a lowercase hyphenated uuid", self.at_uuid));
+        }
+        if self.withdrawn {
+            return Ok(());
+        }
+        if self.port == 0 {
+            return Err("port 0 is not an endpoint".into());
+        }
+        let bad = |c: char| c.is_whitespace() || c.is_control() || matches!(c, '@' | '/' | '[' | ']' | ',');
+        if self.host.is_empty() || self.host.len() > 253 || self.host.chars().any(bad) {
+            return Err(format!("host {:?} cannot be written into a relay pin", self.host));
+        }
+        Ok(())
+    }
+}
+
+fn is_lower_uuid(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 36
+        && b.iter().enumerate().all(|(i, &c)| match i {
+            8 | 13 | 18 | 23 => c == b'-',
+            _ => c.is_ascii_digit() || (b'a'..=b'f').contains(&c),
+        })
 }

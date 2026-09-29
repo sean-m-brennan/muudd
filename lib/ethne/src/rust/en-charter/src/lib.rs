@@ -66,7 +66,7 @@ pub use record::{
     GuardianChange, GuardianEvidence, GuardianKind, MemberReading, MembershipChange,
     MembershipKind, Observation,
     AttestedRole, IndependenceKind, ObservationPruning, Office, OfficeChange, OfficeKind,
-    PolityCharter,
+    PolityCharter, RelayEndpoint,
     IndependenceAttestation, Substrate, SubstrateDisavowal,
     Movement, RiteMovement,
 };
@@ -83,4 +83,5 @@ pub use state::{
     ObservationPoint, ObservationWindow, OfficeHolding, OfficeState, PruneRecommendation,
     PruneRoute, RetentionPolicy,
     rite_state, MovementPoint, Rite,
+    rendezvous_state, RelayListing, RendezvousState,
 };

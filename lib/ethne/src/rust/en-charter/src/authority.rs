@@ -2244,6 +2244,47 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     Some(_) => {}
                 }
             }
+            CharterEntry::RelayEndpointDeclared(s) => {
+                let d = &s.payload;
+                let prior = reconstruct(archive, &d.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("relay endpoint for {} precedes its charter", d.polity)));
+                    continue;
+                }
+                // A governing act's shadow, so it dies with the polity: a dissolved
+                // polity runs no service, and a roster read after dissolution must
+                // not find one declared later (D36).
+                if prior.dissolved {
+                    out.push((*cid, format!("relay endpoint for {} after its dissolution", d.polity)));
+                    continue;
+                }
+                // Nobody puts an endpoint in somebody else's mouth.
+                let signers = e.signer_dids();
+                let sole: BTreeSet<String> =
+                    std::iter::once(d.member.as_str().to_string()).collect();
+                if signers != sole {
+                    out.push((*cid, "a relay endpoint must be signed by exactly its member".into()));
+                    continue;
+                }
+                if let Err(why) = d.check_shape() {
+                    out.push((*cid, format!("relay endpoint of {}: {why}", d.member)));
+                    continue;
+                }
+                // Whether the member serves is the roll's decision, made by
+                // conferring the office; the declaration only says where. A
+                // withdrawal needs no office, so an operator who was revoked can
+                // still take back what it said.
+                if !d.withdrawn
+                    && !effective_holders(&prior, &Office::RendezvousOperator)
+                        .contains(d.member.as_str())
+                {
+                    out.push((*cid, format!(
+                        "{} declared a relay endpoint without holding RendezvousOperator",
+                        d.member
+                    )));
+                    continue;
+                }
+            }
             CharterEntry::IndependenceAttested(s) => {
                 let a = &s.payload;
                 let prior = reconstruct(archive, &a.polity, idx);

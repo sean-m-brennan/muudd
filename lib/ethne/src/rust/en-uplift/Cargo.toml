@@ -30,3 +30,9 @@ kc-identity = { workspace = true }
 # assembled elsewhere would hand KC half an artifact and put the mapping of the
 # polity's Movement 4 onto KC's outside the tier that owns it.
 kc-ceremony = { workspace = true }
+# The relay roster (D36) is not a KC record: it is AT's own signed file, so it needs
+# JSON, SHA-256 and hex rather than a KC crate. None of the three adds a crate.
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }

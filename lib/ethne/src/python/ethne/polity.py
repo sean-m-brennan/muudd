@@ -67,8 +67,9 @@ generate_keypair = _core.generate_ed25519_keypair
 now_seconds = _core.now_seconds
 propose_charter = _core.propose_charter
 
-#: The four offices ethne names; any other string is a polity-specific office.
-OFFICES = ("Convener", "Inductor", "EnvoyAuthorizer", "CharterKeeper")
+#: The offices ethne names; any other string is a polity-specific office.
+#: `RendezvousOperator` (D36) runs one of the polity's first-contact relays.
+OFFICES = ("Convener", "Inductor", "EnvoyAuthorizer", "CharterKeeper", "RendezvousOperator")
 #: Commitment amendment kinds.
 AMENDMENT_KINDS = ("Add", "Remove")
 #: Coherence-erosion levels, in rising order.
