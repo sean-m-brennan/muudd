@@ -69,7 +69,12 @@ propose_charter = _core.propose_charter
 
 #: The offices ethne names; any other string is a polity-specific office.
 #: `RendezvousOperator` (D36) runs one of the polity's first-contact relays.
-OFFICES = ("Convener", "Inductor", "EnvoyAuthorizer", "CharterKeeper", "RendezvousOperator")
+#: `Moderator` (D37) labels content posted in the polity's name.
+OFFICES = (
+    "Convener", "Inductor", "EnvoyAuthorizer", "CharterKeeper", "RendezvousOperator", "Moderator",
+)
+#: What a content label does under a polity's content policy (D37), loosest first.
+LABEL_ACTIONS = ("Allow", "Warn", "Hide")
 #: Commitment amendment kinds.
 AMENDMENT_KINDS = ("Add", "Remove")
 #: Coherence-erosion levels, in rising order.

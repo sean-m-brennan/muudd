@@ -16,7 +16,7 @@
 
 //! The charter record shapes and the ratify-not-replace founding API.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use en_core::{Cid, DidKey, KcError, KcResult, PubKey, Signed, Timestamp};
 use serde::{Deserialize, Serialize};
@@ -673,6 +673,12 @@ pub enum Office {
     /// polity's relay roster lists exactly the holders with a live declaration, so
     /// conferring and revoking this office is how the polity decides who serves.
     RendezvousOperator,
+    /// Labels content posted in the polity's name (design **D37**). The roll sets
+    /// the [`ContentPolicy`] — what a label *does* — and a holder of this office
+    /// applies labels alone, because moderation that waits on a quorum arrives
+    /// after the harm. The roll keeps the last word: it may revoke the office at a
+    /// majority, and the policy's actions are its own decision, not the holder's.
+    Moderator,
     /// A polity-specific office named by the string.
     Other(String),
 }
@@ -1317,4 +1323,130 @@ fn is_lower_uuid(s: &str) -> bool {
             8 | 13 | 18 | 23 => c == b'-',
             _ => c.is_ascii_digit() || (b'a'..=b'f').contains(&c),
         })
+}
+
+/// What a content label does where a polity's [`ContentPolicy`] applies (design
+/// **D37**). Ordered from the loosest to the strictest, so `a < b` reads "`a` does
+/// less than `b`": the order is what [`ContentPolicy::is_loosening_of`] measures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum LabelAction {
+    /// Show the content, with the label as a tag.
+    Allow,
+    /// Show the content behind a warning the reader taps through.
+    Warn,
+    /// Hide the content, saying which label hid it.
+    Hide,
+}
+
+/// The longest label a policy may name, in bytes. A label travels in a post's
+/// signed canonical form behind a one-byte length (Agora `post.h`), so this is the
+/// wire's own limit and not a taste.
+pub const CONTENT_LABEL_MAX: usize = 32;
+
+/// The most labels a policy may name. A policy travels to readers as one bounded,
+/// signed bundle, and this with [`CONTENT_LABEL_MAX`] is what keeps the worst case
+/// inside it: a policy that did not fit would reach nobody.
+pub const CONTENT_LABELS_MAX: usize = 32;
+
+/// How content posted in a polity's name is moderated where the polity is heard
+/// (design **D37**): the requirements an author must meet, and what each label does.
+///
+/// A policy is the polity's statement about its **own** space. It binds no reader:
+/// a reader applies it because they follow the polity, and may set it aside for
+/// themselves. That is what makes moderation here local and per-community rather
+/// than global — there is no policy above the polities, and no polity's policy
+/// reaches content posted outside it.
+///
+/// The empty policy ([`ContentPolicy::default`]) is the loosest one, and it is the
+/// policy of a polity that has never amended one.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContentPolicy {
+    /// Only an author with an operator bound to their node — a human who answers
+    /// for the account — may post in the polity's name.
+    pub operator_bound_required: bool,
+    /// The lowest trust tier (0..=4) a reader must hold the author at. Each reader
+    /// measures it with their own view of the author, as every tier in AT is.
+    pub min_tier: u8,
+    /// The most posts one author may make in the polity's name in one UTC day, as
+    /// each reader counts what it received. `None` is no cap.
+    pub daily_post_cap: Option<u32>,
+    /// What each label does. A label the policy does not name is allowed.
+    pub labels: BTreeMap<String, LabelAction>,
+}
+
+impl ContentPolicy {
+    /// Whether this policy lets through anything `prev` held back — the question
+    /// that sets the quorum, because loosening a policy takes **more** than a
+    /// majority (D11's asymmetry, the rule commitments follow). A change that only
+    /// tightens is not a loosening, and neither is no change at all.
+    ///
+    /// Loosening is any of: dropping the operator requirement, lowering the tier
+    /// floor, raising or removing the cap, weakening a label's action, or removing
+    /// a label that did more than allow. A change that tightens one rule and
+    /// loosens another is a loosening.
+    pub fn is_loosening_of(&self, prev: &ContentPolicy) -> bool {
+        if prev.operator_bound_required && !self.operator_bound_required {
+            return true;
+        }
+        if self.min_tier < prev.min_tier {
+            return true;
+        }
+        match (prev.daily_post_cap, self.daily_post_cap) {
+            (Some(_), None) => return true,
+            (Some(p), Some(n)) if n > p => return true,
+            _ => {}
+        }
+        prev.labels.iter().any(|(label, was)| {
+            let now = self.labels.get(label).copied().unwrap_or(LabelAction::Allow);
+            now < *was
+        })
+    }
+
+    /// Whether the policy can travel: a tier inside 0..=4, and labels that fit a
+    /// post's canonical form. `Err` names the first problem.
+    pub fn check_shape(&self) -> Result<(), String> {
+        if self.min_tier > 4 {
+            return Err(format!("min_tier {} is not a trust tier (0..=4)", self.min_tier));
+        }
+        if self.labels.len() > CONTENT_LABELS_MAX {
+            return Err(format!(
+                "{} labels exceed the {CONTENT_LABELS_MAX} a post can carry",
+                self.labels.len()
+            ));
+        }
+        for label in self.labels.keys() {
+            check_label(label)?;
+        }
+        Ok(())
+    }
+}
+
+/// Whether `label` can be written into a post's canonical form and read back as the
+/// same label: 1..=[`CONTENT_LABEL_MAX`] bytes of lowercase ASCII letters, digits,
+/// `-` and `_`. One spelling per label is what lets an author's label and a
+/// policy's name meet without a normalisation step either side could get wrong.
+pub fn check_label(label: &str) -> Result<(), String> {
+    let ok = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_';
+    if label.is_empty() || label.len() > CONTENT_LABEL_MAX || !label.chars().all(ok) {
+        return Err(format!(
+            "label {label:?} must be 1..={CONTENT_LABEL_MAX} of [a-z0-9_-]"
+        ));
+    }
+    Ok(())
+}
+
+/// The roll replacing its polity's [`ContentPolicy`] whole (design **D37**).
+///
+/// Replacement rather than a per-rule delta keeps one question per act: the
+/// deciders sign the policy they will live under, and the bar is set by comparing
+/// it with the policy it replaces — a majority to tighten, more than a majority to
+/// loosen ([`ContentPolicy::is_loosening_of`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContentPolicyAmendment {
+    pub polity: DidKey,
+    pub policy: ContentPolicy,
+    pub rationale: String,
+    /// The members deciding it; they must co-sign.
+    pub deciders: Vec<DidKey>,
+    pub decided_at: Timestamp,
 }

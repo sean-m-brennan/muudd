@@ -627,6 +627,13 @@ fn evidence_shows_edge(
 /// All authority violations in the archive, each as `(entry_cid, reason)`.
 pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String)> {
     let mut out = Vec::new();
+    // D37 — the content policy each polity lives under, advanced ONLY by accepted
+    // amendments. Unlike the commitments `reconstruct` folds, a policy amendment is
+    // judged against the policy it replaces, so the baseline must be one that
+    // passed: measured against a refused extreme loosening, a real loosening would
+    // read as a tightening and pass at a bare majority.
+    let mut policies: std::collections::BTreeMap<String, crate::ContentPolicy> =
+        std::collections::BTreeMap::new();
     for (idx, (cid, e)) in archive.iter().enumerate() {
         match e {
             CharterEntry::PolityChartered(s) => {
@@ -2284,6 +2291,64 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     )));
                     continue;
                 }
+            }
+            CharterEntry::ContentPolicyAmended(s) => {
+                let a = &s.payload;
+                let prior = reconstruct(archive, &a.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("content policy for {} precedes its charter", a.polity)));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!("content policy for {} after its dissolution", a.polity)));
+                    continue;
+                }
+                if let Err(why) = a.policy.check_shape() {
+                    out.push((*cid, format!("content policy of {}: {why}", a.polity)));
+                    continue;
+                }
+                let members = did_set(&prior.members);
+                let deciders = did_set(&a.deciders);
+                if a.deciders.is_empty() {
+                    out.push((*cid, "content policy amendment has no deciders".into()));
+                    continue;
+                }
+                if deciders.len() != a.deciders.len() {
+                    out.push((*cid, "duplicate decider".into()));
+                    continue;
+                }
+                if !deciders.is_subset(&members) {
+                    out.push((*cid, "decider is not a member of the polity".into()));
+                    continue;
+                }
+                if e.signer_dids() != deciders {
+                    out.push((*cid, "amendment signers must be exactly the deciders".into()));
+                    continue;
+                }
+                // D29 weight, and D11's asymmetry: a majority binds the polity tighter,
+                // and only more than a majority lets anything back through.
+                let m = seasoned_members(&prior).len();
+                let weighed = deciding_weight(&prior, &a.deciders);
+                let key = a.polity.as_str().to_string();
+                let in_force = policies.get(&key).cloned().unwrap_or_default();
+                if a.policy.is_loosening_of(&in_force) {
+                    let need = majority(m) + 1;
+                    if weighed < need {
+                        out.push((*cid, format!(
+                            "loosening the content policy needs more than a majority (>= {need}), got {weighed}"
+                        )));
+                        continue;
+                    }
+                } else {
+                    let need = majority(m);
+                    if weighed < need {
+                        out.push((*cid, format!(
+                            "a content policy needs a majority (>= {need}), got {weighed}"
+                        )));
+                        continue;
+                    }
+                }
+                policies.insert(key, a.policy.clone());
             }
             CharterEntry::IndependenceAttested(s) => {
                 let a = &s.payload;

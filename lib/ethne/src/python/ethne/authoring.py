@@ -43,6 +43,7 @@ Records do not verify on append — a batch may be assembled out of order — so
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
@@ -140,6 +141,31 @@ def amend_commitment(
     return archive.amend_commitment(
         polity_did, kind, key, description, rationale, dids, privs, decided_at
     )
+
+
+def amend_content_policy(
+    archive,
+    polity_did: str,
+    policy: dict,
+    deciders: Sequence[Signer],
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Replace the polity's content policy whole (D37). ``policy`` is a dict with
+    ``operator_bound_required`` (bool), ``min_tier`` (0..4), ``daily_post_cap``
+    (int or None) and ``labels`` ({label: "Allow"|"Warn"|"Hide"}). A majority
+    tightens it; loosening anything needs a majority + 1."""
+    dids, privs = _split(deciders)
+    return archive.amend_content_policy(
+        polity_did, json.dumps(policy, sort_keys=True), rationale, dids, privs, decided_at
+    )
+
+
+def content_policy_state(archive, polity_did: str, as_of: Optional[int] = None) -> dict:
+    """The policy in force as of ``as_of`` and who may label under it (D37):
+    ``{"policy": dict, "set_by": cid or None, "moderators": [did]}``."""
+    policy, set_by, moderators = archive.content_policy_state(polity_did, as_of)
+    return {"policy": json.loads(policy), "set_by": set_by, "moderators": moderators}
 
 
 # ---- Membership -------------------------------------------------------------
@@ -872,6 +898,8 @@ __all__ = [
     "resign_office",
     "declare_relay_endpoint",
     "withdraw_relay_endpoint",
+    "amend_content_policy",
+    "content_policy_state",
     "revoke_envoy",
     "revoke_office",
     "rotate_guardian",

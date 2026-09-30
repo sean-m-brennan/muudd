@@ -7,7 +7,7 @@
 
 # Ethne. The polity tier
 
-**Design document.** The decisions are recorded as D1-D36 below, and the
+**Design document.** The decisions are recorded as D1-D37 below, and the
 questions they raised as Q1-Q9. Anything the design specifies and the code does
 not carry is in [`TODO.md`](../TODO.md). How the tier is built, which toolchain
 choices are deliberate, and the verification discipline the slices are held to
@@ -2476,6 +2476,60 @@ KC cannot see on its own and AT cannot decide on its own.
  is built (`network/relay_rosters.py`, `net_relay_rosters.{h,c}`, 2026-09-29): a node reads
  rosters only from the issuers its operator pinned, ahead of AT's own seed list, and AT's
  signer fed this artifact's inputs reproduces the pinned vector byte for byte.
+
+- **D37. A polity sets how content posted in its name is moderated, and a conferred
+ office labels it (locked 2026-09-30).** Agora needs content moderation that is *local
+ and per-community, not global* (`apps/agora/SOCIAL_APP_PLAN.md` Phase 4). A community
+ there is a polity, so the rules belong to the roll, and there is no policy above the
+ polities: a polity's policy governs only content posted in its name, and only where a
+ reader follows it.
+
+ *The roll decides the policy, whole.* `ContentPolicy` carries the requirements an author
+ must meet (`operator_bound_required`, `min_tier` 0..=4, `daily_post_cap`) and what each
+ label does (`LabelAction`: `Allow` < `Warn` < `Hide`). `CharterEntry::ContentPolicyAmended`
+ replaces it whole, so the deciders sign the policy they will live under rather than a
+ delta whose effect depends on what it lands on. There is no founding policy; a polity
+ that has never amended one is under the empty policy, which is the loosest.
+
+ *Tightening at a majority, loosening above it.* D11's asymmetry, the rule commitments
+ follow: a majority of the seasoned roll (D29 weight) binds the polity tighter, and only
+ more than a majority lets anything back through. `ContentPolicy::is_loosening_of` decides
+ which, in this tier, so the bar cannot be argued at the border: dropping the operator
+ requirement, lowering the tier floor, raising or removing the cap, weakening a label, or
+ removing a label that did more than allow. A change that tightens one rule and loosens
+ another is a loosening. The authority pass judges each amendment against the policy
+ **accepted** so far, never the naive fold of the log: measured against a refused extreme
+ loosening, a real loosening reads as a tightening and would pass at a bare majority.
+
+ *Labels are applied by an office, not a quorum.* `Office::Moderator` is conferred and
+ revoked through the ordinary `OfficeChange` rules. Its holder labels content alone,
+ because moderation that waits on a quorum arrives after the harm; what a label *does* is
+ still the roll's decision, in the policy. A label is not a charter entry. It is the
+ consumer's artifact, signed by the moderator's own member key, and it is honoured only
+ where the polity's policy artifact lists that member as a moderator.
+
+ *The read-model is the strict one.* `content_policy_state` returns the latest accepted
+ amendment decided by the query instant (the later entry wins a tie), the entry that set
+ it, and the moderators: holders of the office in `office_state` who are also inducted in
+ `affirmation_state`, since `office_state` alone does not apply D29 (the disagreement D36
+ measured). A dissolved polity moderates nothing and has no moderators.
+
+ *The artifact and the verdict are the consumer's.* Agora's cdylib (`ethne_ffi`) signs the
+ policy under the root key with the moderators it lists, verifies moderator labels against
+ it, and computes the show / warn / hide verdict. A policy travels opaque through the AT
+ core, which never parses it. Labels are bounded by the wire they ride: 1..=32 bytes of
+ `[a-z0-9_-]`, because a post carries each label behind a one-byte length, and at most
+ 32 per policy, because the policy crosses as one bounded bundle (`check_label`,
+ `CONTENT_LABEL_MAX`, `CONTENT_LABELS_MAX`). One spelling per label, with no
+ normalisation step, is what lets an author's label and a policy's name meet.
+
+ **Honest limits.** *A reader measures the requirements.* The tier floor and the daily cap
+ are each reader's own reading of the author, as every tier in AT is, so two followers may
+ hide different posts. *The policy binds no one.* A reader may set a polity's policy aside
+ for themselves; the policy is the polity's statement about its own space and says
+ nothing about content posted outside it. *No members-only rule yet.* It needs an author to
+ prove that an AT node is a member, which the D36 `at_uuid` binding points at and nothing
+ here builds.
 
 ## Questions and resolutions (round 2)
 
