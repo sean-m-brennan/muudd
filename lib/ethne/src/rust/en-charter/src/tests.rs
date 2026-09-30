@@ -6430,3 +6430,205 @@ fn an_operator_who_has_not_received_the_substrate_is_not_listed() {
             "precondition: the raw read-model shows the holding");
     assert!(listed(&a, &p, 400).is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// D37 — a polity's content policy, and the office that labels in its name.
+// ---------------------------------------------------------------------------
+
+impl Polity {
+    /// The roll replacing the content policy, decided and signed by `deciders`.
+    fn policy(&self, policy: ContentPolicy, deciders: &[usize], at: i64) -> CharterEntry {
+        let a = ContentPolicyAmendment {
+            polity: self.polity.clone(),
+            policy,
+            rationale: "r".into(),
+            deciders: self.dids(deciders),
+            decided_at: t(at),
+        };
+        CharterEntry::ContentPolicyAmended(Signed::build(a, &self.signers(deciders)).unwrap())
+    }
+}
+
+fn strict() -> ContentPolicy {
+    ContentPolicy {
+        operator_bound_required: true,
+        min_tier: 2,
+        daily_post_cap: Some(5),
+        labels: [("nsfw".to_string(), LabelAction::Hide), ("spoiler".to_string(), LabelAction::Warn)]
+            .into_iter()
+            .collect(),
+    }
+}
+
+fn policy_at(a: &Archive<CharterEntry>, p: &Polity, at: i64) -> ContentPolicy {
+    content_policy_state(a, &p.polity, t(at)).policy
+}
+
+#[test]
+fn a_first_policy_is_a_tightening_and_passes_at_a_majority() {
+    // Five seasoned: a majority is 3, more than a majority is 4.
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.policy(strict(), &[0, 1, 2], 200)).unwrap();
+
+    verify_all(&a).unwrap();
+    check_authority(&a).expect("tightening from the empty policy needs only a majority");
+    assert_eq!(policy_at(&a, &p, 300), strict());
+    assert_eq!(policy_at(&a, &p, 150), ContentPolicy::default(), "not before it was decided");
+    assert!(content_policy_state(&a, &p.polity, t(300)).set_by.is_some());
+}
+
+#[test]
+fn a_policy_needs_a_majority_even_to_tighten() {
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.policy(strict(), &[0, 1], 200)).unwrap();
+    assert!(violation(&a, "needs a majority (>= 3), got 2"));
+    assert_eq!(policy_at(&a, &p, 300), ContentPolicy::default());
+}
+
+#[test]
+fn loosening_is_refused_at_a_majority_and_accepted_above_it() {
+    let p = Polity::new(5);
+    let mut looser = strict();
+    looser.min_tier = 1;
+
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.policy(strict(), &[0, 1, 2], 200)).unwrap();
+    a.append(p.policy(looser.clone(), &[0, 1, 2], 300)).unwrap();
+    assert!(violation(&a, "loosening the content policy needs more than a majority (>= 4), got 3"));
+    assert_eq!(policy_at(&a, &p, 400), strict(), "the refused loosening is not in force");
+
+    let mut b = Archive::new();
+    b.append(p.charter_seasoned(vec![])).unwrap();
+    b.append(p.policy(strict(), &[0, 1, 2], 200)).unwrap();
+    b.append(p.policy(looser.clone(), &[0, 1, 2, 3], 300)).unwrap();
+    check_authority(&b).expect("more than a majority may loosen");
+    assert_eq!(policy_at(&b, &p, 400), looser);
+}
+
+#[test]
+fn a_refused_loosening_does_not_launder_the_next_one() {
+    // A bare majority files an extreme loosening, which is refused. It then files a
+    // milder one that is still looser than the policy IN FORCE. Measured against the
+    // refused entry the second would read as a tightening; it must not pass.
+    let p = Polity::new(5);
+    let mut milder = strict();
+    milder.daily_post_cap = Some(10);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.policy(strict(), &[0, 1, 2], 200)).unwrap();
+    a.append(p.policy(ContentPolicy::default(), &[0, 1, 2], 300)).unwrap();
+    a.append(p.policy(milder, &[0, 1, 2], 400)).unwrap();
+    assert_eq!(
+        authority_violations(&a).iter().filter(|(_, w)| w.contains("loosening")).count(),
+        2
+    );
+    assert_eq!(policy_at(&a, &p, 500), strict());
+}
+
+#[test]
+fn what_counts_as_loosening() {
+    let s = strict();
+    let mut c = s.clone();
+    c.operator_bound_required = false;
+    assert!(c.is_loosening_of(&s), "dropping the operator requirement");
+    let mut c = s.clone();
+    c.min_tier = 1;
+    assert!(c.is_loosening_of(&s), "lowering the tier floor");
+    let mut c = s.clone();
+    c.daily_post_cap = None;
+    assert!(c.is_loosening_of(&s), "removing the cap");
+    let mut c = s.clone();
+    c.daily_post_cap = Some(6);
+    assert!(c.is_loosening_of(&s), "raising the cap");
+    let mut c = s.clone();
+    c.labels.insert("nsfw".into(), LabelAction::Warn);
+    assert!(c.is_loosening_of(&s), "weakening a label");
+    let mut c = s.clone();
+    c.labels.remove("spoiler");
+    assert!(c.is_loosening_of(&s), "removing a label that warned");
+    let mut c = s.clone();
+    c.labels.insert("gore".into(), LabelAction::Allow);
+    assert!(!c.is_loosening_of(&s), "naming a label that only allows loosens nothing");
+    let mut c = s.clone();
+    c.min_tier = 3;
+    c.daily_post_cap = Some(1);
+    c.labels.insert("spoiler".into(), LabelAction::Hide);
+    assert!(!c.is_loosening_of(&s), "tightening everything");
+    assert!(!s.is_loosening_of(&s), "no change");
+    let mut c = s.clone();
+    c.min_tier = 3;
+    c.operator_bound_required = false;
+    assert!(c.is_loosening_of(&s), "a mixed change is a loosening");
+}
+
+#[test]
+fn a_policy_that_cannot_travel_is_refused() {
+    let p = Polity::new(5);
+    let mut bad = strict();
+    bad.min_tier = 5;
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.policy(bad, &[0, 1, 2, 3], 200)).unwrap();
+    assert!(violation(&a, "not a trust tier"));
+
+    let mut bad = strict();
+    bad.labels.insert("Not OK".into(), LabelAction::Hide);
+    let mut b = Archive::new();
+    b.append(p.charter_seasoned(vec![])).unwrap();
+    b.append(p.policy(bad, &[0, 1, 2, 3], 200)).unwrap();
+    assert!(violation(&b, "must be 1..=32 of [a-z0-9_-]"));
+}
+
+#[test]
+fn only_members_decide_a_policy_and_they_sign_it() {
+    let p = Polity::new(5);
+    let outsider = Polity::new(1);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    let rec = ContentPolicyAmendment {
+        polity: p.polity.clone(),
+        policy: strict(),
+        rationale: "r".into(),
+        deciders: vec![p.ids[0].1.clone(), p.ids[1].1.clone(), outsider.ids[0].1.clone()],
+        decided_at: t(200),
+    };
+    let signers = vec![
+        (p.ids[0].1.as_str(), &p.ids[0].0),
+        (p.ids[1].1.as_str(), &p.ids[1].0),
+        (outsider.ids[0].1.as_str(), &outsider.ids[0].0),
+    ];
+    a.append(CharterEntry::ContentPolicyAmended(Signed::build(rec, &signers).unwrap())).unwrap();
+    assert!(violation(&a, "decider is not a member"));
+}
+
+#[test]
+fn moderators_are_inducted_holders_of_the_office() {
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.policy(strict(), &[0, 1, 2], 200)).unwrap();
+    a.append(p.confer(Office::Moderator, 4, &[0, 1, 2], 300)).unwrap();
+    check_authority(&a).unwrap();
+    assert_eq!(content_policy_state(&a, &p.polity, t(250)).moderators, vec![]);
+    assert_eq!(content_policy_state(&a, &p.polity, t(350)).moderators, vec![p.ids[4].1.clone()]);
+
+    a.append(p.revoke_office(Office::Moderator, 4, &[0, 1, 2], 400)).unwrap();
+    check_authority(&a).unwrap();
+    assert!(content_policy_state(&a, &p.polity, t(450)).moderators.is_empty());
+    assert_eq!(policy_at(&a, &p, 450), strict(), "revoking a moderator leaves the policy alone");
+}
+
+#[test]
+fn a_moderator_who_was_never_inducted_does_not_moderate() {
+    // Four of five ratify, so member 4 is on the roll without the substrate (D29).
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter(&[0, 1, 2, 3], vec![])).unwrap();
+    a.append(p.confer(Office::Moderator, 4, &[0, 1, 2], 300)).unwrap();
+    assert!(content_policy_state(&a, &p.polity, t(350)).moderators.is_empty());
+}

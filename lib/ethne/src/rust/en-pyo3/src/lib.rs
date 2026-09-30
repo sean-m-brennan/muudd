@@ -61,6 +61,7 @@ use en_charter::{
     OfficeKind, OfficeState, PolityCharter, PruneRecommendation, PruneRoute, RetentionPolicy,
     Substrate, Movement, RiteMovement, rite_state, Rite,
     rendezvous_state, RelayEndpoint,
+    content_policy_state, ContentPolicy, ContentPolicyAmendment,
 };
 use en_charter::{
     BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion, FoundingBasis,
@@ -285,6 +286,7 @@ fn parse_office(s: &str) -> Office {
         "EnvoyAuthorizer" => Office::EnvoyAuthorizer,
         "CharterKeeper" => Office::CharterKeeper,
         "RendezvousOperator" => Office::RendezvousOperator,
+        "Moderator" => Office::Moderator,
         other => Office::Other(other.to_string()),
     }
 }
@@ -326,6 +328,7 @@ fn office_name(o: &Office) -> String {
         Office::EnvoyAuthorizer => "EnvoyAuthorizer".into(),
         Office::CharterKeeper => "CharterKeeper".into(),
         Office::RendezvousOperator => "RendezvousOperator".into(),
+        Office::Moderator => "Moderator".into(),
         Office::Other(s) => s.clone(),
     }
 }
@@ -1896,6 +1899,56 @@ impl PyArchive {
         };
         let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
         self.append(CharterEntry::CommitmentAmended(signed))
+    }
+
+    // ---- Content policy (D37) ---------------------------------------------
+
+    /// Replace the polity's content policy whole (design **D37**). `policy_json`
+    /// is a `ContentPolicy` as JSON: `{"operator_bound_required", "min_tier",
+    /// "daily_post_cap", "labels": {label: "Allow"|"Warn"|"Hide"}}`. A majority
+    /// tightens; loosening anything needs a majority + 1. Returns the entry's CID.
+    #[pyo3(signature = (
+        polity_did, policy_json, rationale=String::new(),
+        decider_dids=Vec::new(), decider_privs=Vec::new(), decided_at=None,
+    ))]
+    fn amend_content_policy(
+        &mut self,
+        polity_did: &str,
+        policy_json: &str,
+        rationale: String,
+        decider_dids: Vec<String>,
+        decider_privs: Vec<Vec<u8>>,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        let policy: ContentPolicy = serde_json::from_str(policy_json).map_err(json_err_to_py)?;
+        let signers = Signers::new(decider_dids, decider_privs)?;
+        let record = ContentPolicyAmendment {
+            polity: parse_did(polity_did)?,
+            policy,
+            rationale,
+            deciders: parse_dids(&signers.dids)?,
+            decided_at: ts_or_now(decided_at)?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::ContentPolicyAmended(signed))
+    }
+
+    /// The polity's content policy as of `as_of` (design **D37**):
+    /// `(policy_json, set_by_cid_or_None, moderator_dids)`. Only accepted
+    /// amendments are read; moderators are inducted holders of `Moderator`.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn content_policy_state(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<(String, Option<String>, Vec<String>)> {
+        let st = content_policy_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        let policy = serde_json::to_string(&st.policy).map_err(json_err_to_py)?;
+        Ok((
+            policy,
+            st.set_by.map(|c| c.to_string()),
+            st.moderators.iter().map(|d| d.as_str().to_string()).collect(),
+        ))
     }
 
     // ---- Membership lifecycle --------------------------------------------

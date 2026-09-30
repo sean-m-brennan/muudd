@@ -62,7 +62,8 @@ pub use record::{
     BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion,
     SubstrateReading,
     pruning_digest, Affirmation, AffirmationKind, AmendmentKind, CharterDissolution, Commitment,
-    CommitmentAmendment, Derivation, DerivedEdge, EnvoyAuthorization, EnvoyKind, FoundingProposal,
+    CommitmentAmendment, ContentPolicy, ContentPolicyAmendment, LabelAction, check_label,
+    CONTENT_LABEL_MAX, CONTENT_LABELS_MAX, Derivation, DerivedEdge, EnvoyAuthorization, EnvoyKind, FoundingProposal,
     GuardianChange, GuardianEvidence, GuardianKind, MemberReading, MembershipChange,
     MembershipKind, Observation,
     AttestedRole, IndependenceKind, ObservationPruning, Office, OfficeChange, OfficeKind,
@@ -84,4 +85,5 @@ pub use state::{
     PruneRoute, RetentionPolicy,
     rite_state, MovementPoint, Rite,
     rendezvous_state, RelayListing, RendezvousState,
+    content_policy_state, ContentPolicyState,
 };

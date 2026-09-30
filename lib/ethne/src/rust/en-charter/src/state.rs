@@ -500,6 +500,74 @@ pub fn rendezvous_state(
     RendezvousState { relays }
 }
 
+/// The content policy a polity is under as of a query time, and who may label
+/// content in its name (design **D37**).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ContentPolicyState {
+    /// The policy in force: the latest accepted amendment decided by `as_of`, or the
+    /// empty policy when there is none.
+    pub policy: crate::ContentPolicy,
+    /// The amendment that set it, `None` for the empty policy. A policy artifact's
+    /// sequence is read from here, so a reader can tell a newer policy from an
+    /// older one without the log.
+    pub set_by: Option<Cid>,
+    /// Holders of [`Office::Moderator`] who hold the substrate (D29), sorted by DID.
+    pub moderators: Vec<DidKey>,
+}
+
+/// The content policy and moderators of a polity as of `as_of` (design **D37**).
+///
+/// **Only amendments the authority pass accepts are read**, for the reason
+/// [`rendezvous_state`] gives: this is what a reader outside the polity will be
+/// shown, so a loosening passed at a bare majority is simply not there. A dissolved
+/// polity moderates nothing and has no moderators.
+///
+/// A moderator must hold the office ([`office_state`]) **and** have been inducted
+/// ([`affirmation_state`]), because labelling in the polity's name is the polity
+/// acting through a member — D29's rule for every office.
+pub fn content_policy_state(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> ContentPolicyState {
+    if charter_state(archive, polity, as_of).dissolved {
+        return ContentPolicyState::default();
+    }
+    let refused: Vec<Cid> =
+        crate::authority_violations(archive).into_iter().map(|(cid, _)| cid).collect();
+    let mut out = ContentPolicyState::default();
+    let mut latest: Option<Timestamp> = None;
+    for (cid, e) in archive.iter() {
+        let CharterEntry::ContentPolicyAmended(s) = e else { continue };
+        let a = &s.payload;
+        if &a.polity != polity || a.decided_at > as_of || refused.contains(cid) {
+            continue;
+        }
+        // Insertion order is the tiebreak for equal instants: the later entry wins.
+        if latest.is_none_or(|t| a.decided_at >= t) {
+            latest = Some(a.decided_at);
+            out.policy = a.policy.clone();
+            out.set_by = Some(*cid);
+        }
+    }
+    let inducted: BTreeSet<String> = affirmation_state(archive, polity, as_of)
+        .entries
+        .iter()
+        .filter(|m| m.inducted)
+        .map(|m| m.member.as_str().to_string())
+        .collect();
+    let mut moderators: Vec<DidKey> = office_state(archive, polity, as_of)
+        .holders(&Office::Moderator)
+        .into_iter()
+        .filter(|d| inducted.contains(d.as_str()))
+        .cloned()
+        .collect();
+    moderators.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    moderators.dedup();
+    out.moderators = moderators;
+    out
+}
+
 /// Who may speak for the polity beyond it as of `as_of` — raw standings
 /// (`Authorize` − `Resign`/`Revoke`) intersected with the current roll and with
 /// the standings that have not expired.

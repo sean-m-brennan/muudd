@@ -34,7 +34,7 @@ a charter-level operation returning a new archive.
 
 ## `en-charter`
 
-The founding primitive and the keystone of the tier, `en-charter` holds fifteen
+The founding primitive and the keystone of the tier, `en-charter` holds sixteen
 record kinds, the ratify-not-replace interface, the authority rules, and the
 read models that derive state from the log.
 
@@ -73,7 +73,7 @@ death.
 ### Internal offices, and their use
 
 `OfficeChange` over `Office { Convener, Inductor, EnvoyAuthorizer,
-CharterKeeper, Other }`. Confer at a majority plus the consent of the holder,
+CharterKeeper, RendezvousOperator, Moderator, Other }`. Confer at a majority plus the consent of the holder,
 and in a machine-majority polity never on a derived member with no guardian
 (D15). Resign self-signed. Revoke at a majority with the holder excluded.
 
@@ -98,6 +98,19 @@ costs the roll nothing.
 Convener and charter keeper gate nothing, and self-signed acts are never gated.
 The `office_state` model derives who holds what, and `envoy_state` derives the
 standings in force, effective only while the envoy is on the roll and unexpired.
+
+### Content policy (D37)
+
+`ContentPolicy` carries what an author must meet to post in the polity's name
+(`operator_bound_required`, `min_tier`, `daily_post_cap`) and what each label
+does, over `LabelAction { Allow, Warn, Hide }`. `ContentPolicyAmendment`
+(`CharterEntry::ContentPolicyAmended`) replaces it whole: a majority tightens it,
+and a loosening, as `ContentPolicy::is_loosening_of` decides, needs a majority
+plus one. The authority pass measures each amendment against the policy accepted
+so far. `content_policy_state` derives the policy in force from accepted
+amendments only, and the moderators: inducted holders of `Moderator`, who label
+content alone. The policy artifact, the labels and the verdict belong to the
+consumer (Agora's `ethne_ffi`).
 
 ### The chartered node-to-guardian edge
 
