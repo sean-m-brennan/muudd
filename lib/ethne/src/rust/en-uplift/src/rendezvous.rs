@@ -30,8 +30,14 @@
 //! ```text
 //! sig  = ed25519(polity root key, "at-relay-roster-v1|" + body)
 //! body = {"v":1,"typename":"at-relay-roster","issuer":<hex root pubkey>,
-//!         "seq":N,"relays":["relay://<uuid>:<fp>@host:port", ...]}
+//!         "seq":N,"relays":["relay://<uuid>:<fp>@host:port", ...],
+//!         "areas":{"<a relays entry>":["u4pr", ...], ...}}
 //! ```
+//!
+//! `areas` names the relays that are also **area hubs** (design **D38**) and the
+//! geohash areas each keeps a directory of nearby people for. It is left out when
+//! no relay is a hub, so a roster without hubs is byte for byte what it was under
+//! D36 alone.
 //!
 //! and `fp` is the first 16 bytes of SHA-256 over the relay's raw ed25519 signing
 //! key, in hex, exactly as AT's `relay.key_fingerprint` computes it.
@@ -45,6 +51,7 @@ use en_charter::{PolityCharter, RendezvousState};
 use en_core::{keys, DidKey, KcError, KcResult, PrivKey, PubKey};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 /// The domain prefix AT verifies the roster signature under.
 pub const ROSTER_DOMAIN: &str = "at-relay-roster-v1|";
@@ -65,6 +72,8 @@ struct RosterBody<'a> {
     issuer: String,
     seq: u64,
     relays: Vec<String>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    areas: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -130,8 +139,13 @@ pub fn rendezvous_roster(
         )));
     }
     let mut relays = Vec::with_capacity(state.relays.len());
+    let mut areas = BTreeMap::new();
     for r in &state.relays {
-        relays.push(relay_hint(&r.member, &r.at_uuid, &r.host, r.port)?);
+        let hint = relay_hint(&r.member, &r.at_uuid, &r.host, r.port)?;
+        if !r.areas.is_empty() {
+            areas.insert(hint.clone(), r.areas.clone());
+        }
+        relays.push(hint);
     }
     let body = RosterBody {
         v: ROSTER_VERSION,
@@ -139,6 +153,7 @@ pub fn rendezvous_roster(
         issuer: hex::encode(&root_pub.bytes),
         seq,
         relays,
+        areas,
     };
     let body_str = serde_json::to_string(&body)
         .map_err(|e| KcError::CanonicalEncode(e.to_string()))?;
@@ -191,6 +206,7 @@ mod tests {
             host: host.into(),
             port,
             declared_at: t(300),
+            areas: vec![],
         }
     }
 
@@ -286,6 +302,41 @@ mod tests {
         }
         assert_eq!(file, PINNED_VECTOR);
     }
+
+    fn two_relays_one_hub() -> RendezvousState {
+        let mut st = two_relays();
+        st.relays[1].areas = vec!["u4pr".into(), "gcpv".into()];
+        st
+    }
+
+    #[test]
+    fn a_hub_is_named_with_its_areas_and_a_plain_relay_is_not() {
+        let (sk, pk) = fixed(7);
+        let file = rendezvous_roster(&charter_for(&pk), &two_relays_one_hub(), &sk, &pk, 6).unwrap();
+        let (body, _) = split(&file);
+        let b: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let hub = b["relays"][1].as_str().unwrap();
+        assert_eq!(b["areas"].as_object().unwrap().len(), 1, "only the hub is named");
+        assert_eq!(b["areas"][hub], serde_json::json!(["u4pr", "gcpv"]));
+        // No hub at all: no `areas`, so a D36 roster keeps its bytes (the pinned vector).
+        let plain = rendezvous_roster(&charter_for(&pk), &two_relays(), &sk, &pk, 6).unwrap();
+        assert!(!split(&plain).0.contains("areas"));
+    }
+
+    /// The D38 bytes AT's consumer is held to, as `the_file_is_byte_pinned` is for D36.
+    #[test]
+    fn the_hub_file_is_byte_pinned() {
+        let (sk, pk) = fixed(7);
+        let file = rendezvous_roster(&charter_for(&pk), &two_relays_one_hub(), &sk, &pk, 6).unwrap();
+        if std::env::var("EN_PRINT_ROSTER_VECTOR").is_ok() {
+            println!("HUB_ROSTER_VECTOR={file}");
+        }
+        assert_eq!(file, PINNED_HUB_VECTOR);
+    }
+
+    /// Cross-checked 2026-09-30 against AT's own Python: `relay_rosters.verify_roster_areas`
+    /// accepts it under the issuer key and reads `["u4pr", "gcpv"]` for the second relay.
+    const PINNED_HUB_VECTOR: &str = r#"{"body":"{\"v\":1,\"typename\":\"at-relay-roster\",\"issuer\":\"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c\",\"seq\":6,\"relays\":[\"relay://0f1e2d3c-4b5a-4968-8776-655443322110:7300c0ae1429cd153252736a781b78f4@relay.example.org:27790\",\"relay://1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9:d7e1e084be213b01e506852af8198b99@[2001:db8::7]:27791\"],\"areas\":{\"relay://1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9:d7e1e084be213b01e506852af8198b99@[2001:db8::7]:27791\":[\"u4pr\",\"gcpv\"]}}","sig":"9b59c3c96b25f91136a418b13787adae452ca850afffb3531bf92655c487b1b02bdf755071623d7ce6c336b08eb6d02f1ef0cd0b6b9c90baf74f561e2b3fd40f"}"#;
 
     /// Cross-checked 2026-09-29 against AT's own Python: the signature verifies
     /// under `at-relay-roster-v1|` with the issuer key, `relay.parse_hint` reads

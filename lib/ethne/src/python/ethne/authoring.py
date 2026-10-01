@@ -168,6 +168,39 @@ def content_policy_state(archive, polity_did: str, as_of: Optional[int] = None) 
     return {"policy": json.loads(policy), "set_by": set_by, "moderators": moderators}
 
 
+# ---- Compacts (D40) -----------------------------------------------------------
+
+COMPACT_ACT_KINDS = ("Join", "Admit", "Sponsor", "Refuse", "Anathematize", "Lift")
+
+
+def decide_compact_act(
+    archive,
+    polity_did: str,
+    kind: str,
+    compact: str,
+    counterparties: Sequence[str],
+    deciders: Sequence[Signer],
+    probation_days: Optional[int] = None,
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+    expires_at: Optional[int] = None,
+) -> str:
+    """Record the roll's decision about a kith-covenant compact (D40): the mandate
+    the polity's envoy signs under at KC's border. ``kind`` is one of
+    :data:`COMPACT_ACT_KINDS`. A majority decides; ``Refuse`` and ``Anathematize``
+    bear down on another community and need a majority + 1."""
+    dids, privs = _split(deciders)
+    return archive.decide_compact_act(
+        polity_did, kind, compact, list(counterparties), dids, privs,
+        probation_days, rationale, decided_at, expires_at,
+    )
+
+
+def compact_state(archive, polity_did: str, as_of: Optional[int] = None) -> list:
+    """The compact acts in force as of ``as_of`` (D40): ``[{"cid", "act"}]``."""
+    return json.loads(archive.compact_state(polity_did, as_of))
+
+
 # ---- Membership -------------------------------------------------------------
 
 
@@ -246,12 +279,14 @@ def declare_relay_endpoint(
     host: str,
     port: int,
     declared_at: Optional[int] = None,
+    areas: Optional[list] = None,
 ) -> str:
     """A rendezvous operator states where its relay listens (D36). Signed by the
     member alone, and authorized only while it holds ``RendezvousOperator``.
-    ``at_uuid`` is the member node's AT identity uuid, lowercase and hyphenated."""
+    ``at_uuid`` is the member node's AT identity uuid, lowercase and hyphenated.
+    ``areas`` (D38) makes the relay an area hub for those geohash areas."""
     return archive.declare_relay_endpoint(
-        polity_did, member.did, member.priv, at_uuid, host, port, declared_at
+        polity_did, member.did, member.priv, at_uuid, host, port, declared_at, areas
     )
 
 
@@ -900,6 +935,9 @@ __all__ = [
     "withdraw_relay_endpoint",
     "amend_content_policy",
     "content_policy_state",
+    "decide_compact_act",
+    "compact_state",
+    "COMPACT_ACT_KINDS",
     "revoke_envoy",
     "revoke_office",
     "rotate_guardian",

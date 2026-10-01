@@ -1278,6 +1278,11 @@ pub struct IndependenceAttestation {
 /// The key a client pins is not carried here. It is the member's own `did:key`,
 /// which for an AT machine is that node's signing key, so a roster cannot name a
 /// relay under a key that is not the member's.
+///
+/// A relay may also serve as an **area hub** (design **D38**): the geohash areas it
+/// keeps a directory of nearby people for, listed in `areas`. Empty is a plain
+/// rendezvous relay, and serializes as it did before D38, so every earlier
+/// declaration keeps its bytes and its signature.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelayEndpoint {
     pub polity: DidKey,
@@ -1292,6 +1297,23 @@ pub struct RelayEndpoint {
     pub declared_at: Timestamp,
     /// `true` takes back the member's previous declaration.
     pub withdrawn: bool,
+    /// The geohash areas this relay is a hub for (D38): 2 to 5 lowercase base32
+    /// characters each, at most [`RELAY_AREAS_MAX`], no repeats. Ignored when
+    /// `withdrawn`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub areas: Vec<String>,
+}
+
+/// The most areas one relay may serve as a hub (AT's `AT_RELAY_ROSTER_AREAS_MAX`:
+/// past it AT refuses the whole roster, so a declaration cannot name more).
+pub const RELAY_AREAS_MAX: usize = 8;
+
+/// A geohash area as AT's hubs take one: 2 to 5 characters of lowercase geohash
+/// base32 (`0-9`, `b-z` without `a`, `i`, `l`, `o`). Five characters is about 5 km,
+/// which is as fine as an area gets: coarse on purpose.
+pub fn is_geohash_area(s: &str) -> bool {
+    (2..=5).contains(&s.len())
+        && s.bytes().all(|c| c.is_ascii_digit() || (c.is_ascii_lowercase() && !matches!(c, b'a' | b'i' | b'l' | b'o')))
 }
 
 impl RelayEndpoint {
@@ -1311,6 +1333,17 @@ impl RelayEndpoint {
         let bad = |c: char| c.is_whitespace() || c.is_control() || matches!(c, '@' | '/' | '[' | ']' | ',');
         if self.host.is_empty() || self.host.len() > 253 || self.host.chars().any(bad) {
             return Err(format!("host {:?} cannot be written into a relay pin", self.host));
+        }
+        if self.areas.len() > RELAY_AREAS_MAX {
+            return Err(format!("{} areas, and a hub serves at most {RELAY_AREAS_MAX}", self.areas.len()));
+        }
+        for (i, a) in self.areas.iter().enumerate() {
+            if !is_geohash_area(a) {
+                return Err(format!("area {a:?} is not 2 to 5 characters of lowercase geohash"));
+            }
+            if self.areas[..i].contains(a) {
+                return Err(format!("area {a:?} is listed twice"));
+            }
         }
         Ok(())
     }
@@ -1372,6 +1405,27 @@ pub struct ContentPolicy {
     pub daily_post_cap: Option<u32>,
     /// What each label does. A label the policy does not name is allowed.
     pub labels: BTreeMap<String, LabelAction>,
+    /// What a post made in **another** community's name does, by that community's
+    /// standing in this polity's compacts (design **D39**). A standing the policy
+    /// does not name is allowed. Left out when empty, so every D37 policy keeps its
+    /// bytes, its signature and its CID.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub standing: BTreeMap<CommunityStanding, LabelAction>,
+}
+
+/// Another community's standing as this polity's compacts read it (design **D39**),
+/// the key of [`ContentPolicy::standing`]. This tier's own word for it, so the charter
+/// keeps no dependency on kith-covenant: the consumer maps KC's reading onto it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum CommunityStanding {
+    /// Admitted to a compact this polity is in, and still inside its probation.
+    Probationary,
+    /// Refused admission by a compact this polity is in.
+    Denied,
+    /// Designated anathema by a compact this polity is in.
+    Anathema,
+    /// In none of this polity's compacts.
+    Outside,
 }
 
 impl ContentPolicy {
@@ -1396,10 +1450,16 @@ impl ContentPolicy {
             (Some(p), Some(n)) if n > p => return true,
             _ => {}
         }
-        prev.labels.iter().any(|(label, was)| {
+        let label_loosened = prev.labels.iter().any(|(label, was)| {
             let now = self.labels.get(label).copied().unwrap_or(LabelAction::Allow);
             now < *was
-        })
+        });
+        // D39: a standing is loosened exactly as a label is.
+        label_loosened
+            || prev.standing.iter().any(|(standing, was)| {
+                let now = self.standing.get(standing).copied().unwrap_or(LabelAction::Allow);
+                now < *was
+            })
     }
 
     /// Whether the policy can travel: a tier inside 0..=4, and labels that fit a
@@ -1433,6 +1493,108 @@ pub fn check_label(label: &str) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+/// What the roll decided its polity does in a kith-covenant compact (design **D40**).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum CompactActKind {
+    /// Found or join `compact` together with `counterparties`.
+    Join,
+    /// Accept `counterparties` into a compact the polity sits in.
+    Admit,
+    /// Vouch for `counterparties`, staking the polity's standing on their conduct.
+    Sponsor,
+    /// Refuse `counterparties` admission.
+    Refuse,
+    /// Report `counterparties` for designation anathema.
+    Anathematize,
+    /// Lift a designation the polity reported.
+    Lift,
+}
+
+impl CompactActKind {
+    /// The acts that bear down on another community. They take **more** than a
+    /// majority, as loosening a policy does (D11's asymmetry, turned outward): a
+    /// polity binds itself at a majority, and speaks against another only above one.
+    pub fn is_severe(self) -> bool {
+        matches!(self, CompactActKind::Refuse | CompactActKind::Anathematize)
+    }
+}
+
+/// The longest compact label a polity may name, in bytes.
+pub const COMPACT_LABEL_MAX: usize = 64;
+
+/// The most counterparties one compact act may name. A ceremony carries at most
+/// three participants on Agora's wire, so this is generous.
+pub const COMPACT_COUNTERPARTIES_MAX: usize = 8;
+
+/// The roll's decision about a kith-covenant compact (design **D40**). It is the
+/// polity's **mandate**: an envoy may sign at KC's border only what an act in force
+/// covers, the way D14 makes an envoy speak only while the roll keeps them standing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CompactAct {
+    pub polity: DidKey,
+    pub kind: CompactActKind,
+    /// The compact's label, as KC's records name it.
+    pub compact: String,
+    /// The other communities the act concerns.
+    pub counterparties: Vec<DidKey>,
+    /// For [`CompactActKind::Sponsor`]: how long the stake rides, in days.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probation_days: Option<u32>,
+    pub rationale: String,
+    /// The members deciding it; they must co-sign.
+    pub deciders: Vec<DidKey>,
+    pub decided_at: Timestamp,
+    /// When the mandate lapses, if it does. A lapsed act was validly decided and
+    /// covers nothing after this instant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<Timestamp>,
+}
+
+impl CompactAct {
+    /// Whether the act can be read at KC's border: a label KC can carry, one to
+    /// [`COMPACT_COUNTERPARTIES_MAX`] counterparties with no repeats and not the
+    /// polity itself, and a probation only on a sponsorship.
+    pub fn check_shape(&self) -> Result<(), String> {
+        let ok = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_';
+        if self.compact.is_empty()
+            || self.compact.len() > COMPACT_LABEL_MAX
+            || !self.compact.chars().all(ok)
+        {
+            return Err(format!(
+                "compact {:?} must be 1..={COMPACT_LABEL_MAX} of [a-z0-9_-]",
+                self.compact
+            ));
+        }
+        if self.counterparties.is_empty() || self.counterparties.len() > COMPACT_COUNTERPARTIES_MAX {
+            return Err(format!(
+                "a compact act names 1..={COMPACT_COUNTERPARTIES_MAX} counterparties, got {}",
+                self.counterparties.len()
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for c in &self.counterparties {
+            if c == &self.polity {
+                return Err("a polity is not its own counterparty".into());
+            }
+            if !seen.insert(c.as_str()) {
+                return Err(format!("counterparty {c} named twice"));
+            }
+        }
+        match (self.kind, self.probation_days) {
+            (CompactActKind::Sponsor, None) => Err("a sponsorship names its probation".into()),
+            (CompactActKind::Sponsor, Some(0)) => Err("a probation of no days stakes nothing".into()),
+            (CompactActKind::Sponsor, Some(_)) => Ok(()),
+            (_, Some(_)) => Err("only a sponsorship carries a probation".into()),
+            (_, None) => Ok(()),
+        }
+    }
+
+    /// Whether the act is in force at `t`.
+    pub fn in_force_at(&self, t: Timestamp) -> bool {
+        self.decided_at <= t && self.expires_at.is_none_or(|end| t < end)
+    }
 }
 
 /// The roll replacing its polity's [`ContentPolicy`] whole (design **D37**).

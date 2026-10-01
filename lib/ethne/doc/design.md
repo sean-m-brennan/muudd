@@ -2480,7 +2480,7 @@ KC cannot see on its own and AT cannot decide on its own.
 
 - **D37. A polity sets how content posted in its name is moderated, and a conferred
  office labels it (locked 2026-09-30).** Agora needs content moderation that is *local
- and per-community, not global* (`apps/agora/SOCIAL_APP_PLAN.md` Phase 4). A community
+ and per-community, not global* (`apps/agora/doc/agora/design.md`, Phase 4). A community
  there is a polity, so the rules belong to the roll, and there is no policy above the
  polities: a polity's policy governs only content posted in its name, and only where a
  reader follows it.
@@ -2533,7 +2533,7 @@ KC cannot see on its own and AT cannot decide on its own.
  here builds.
 
 - **D38. A rendezvous relay may also be the polity's area hub (locked 2026-09-30).**
- Agora needs city-scale discovery without a global index (`apps/agora/SOCIAL_APP_PLAN.md`
+ Agora needs city-scale discovery without a global index (`apps/agora/doc/agora/design.md`
  §4.1, the band between the LAN and friend-of-friend): someone in the same city, on
  another network, should be findable if they choose to be, and only by others who have
  made the same choice. AT builds the mechanism, an opt-in role on its relay that files
@@ -2571,7 +2571,7 @@ KC cannot see on its own and AT cannot decide on its own.
 
 
 - **D39. A polity's policy may act on another community's standing in its compacts
- (locked 2026-10-01).** Agora carries kith-covenant compacts (`apps/agora/SOCIAL_APP_PLAN.md`
+ (locked 2026-10-01).** Agora carries kith-covenant compacts (`apps/agora/doc/agora/design.md`
  Phase 5): communities that recognized one another under KC's admission rite, and whose
  standing towards one another KC derives from the compact's own record. A polity that
  moderates content in its name (D37) needs to say what a post made in **another**

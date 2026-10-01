@@ -2350,6 +2350,59 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                 }
                 policies.insert(key, a.policy.clone());
             }
+            CharterEntry::CompactActDecided(s) => {
+                // D40: the roll's mandate for its envoy at KC's border. The same
+                // rules a content policy follows, with D11's asymmetry turned
+                // outward: a majority to bind the polity, more than one to bear down
+                // on another community.
+                let a = &s.payload;
+                let prior = reconstruct(archive, &a.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("compact act for {} precedes its charter", a.polity)));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!("compact act for {} after its dissolution", a.polity)));
+                    continue;
+                }
+                if let Err(why) = a.check_shape() {
+                    out.push((*cid, format!("compact act of {}: {why}", a.polity)));
+                    continue;
+                }
+                if a.expires_at.is_some_and(|end| end <= a.decided_at) {
+                    out.push((*cid, "a compact act expires before it is decided".into()));
+                    continue;
+                }
+                let members = did_set(&prior.members);
+                let deciders = did_set(&a.deciders);
+                if a.deciders.is_empty() {
+                    out.push((*cid, "compact act has no deciders".into()));
+                    continue;
+                }
+                if deciders.len() != a.deciders.len() {
+                    out.push((*cid, "duplicate decider".into()));
+                    continue;
+                }
+                if !deciders.is_subset(&members) {
+                    out.push((*cid, "decider is not a member of the polity".into()));
+                    continue;
+                }
+                if e.signer_dids() != deciders {
+                    out.push((*cid, "compact act signers must be exactly the deciders".into()));
+                    continue;
+                }
+                let m = seasoned_members(&prior).len();
+                let weighed = deciding_weight(&prior, &a.deciders);
+                let need = if a.kind.is_severe() { majority(m) + 1 } else { majority(m) };
+                if weighed < need {
+                    out.push((*cid, format!(
+                        "{:?} in a compact needs {} (>= {need}), got {weighed}",
+                        a.kind,
+                        if a.kind.is_severe() { "more than a majority" } else { "a majority" }
+                    )));
+                    continue;
+                }
+            }
             CharterEntry::IndependenceAttested(s) => {
                 let a = &s.payload;
                 let prior = reconstruct(archive, &a.polity, idx);

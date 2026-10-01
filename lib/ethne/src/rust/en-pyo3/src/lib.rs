@@ -62,6 +62,7 @@ use en_charter::{
     Substrate, Movement, RiteMovement, rite_state, Rite,
     rendezvous_state, RelayEndpoint,
     content_policy_state, ContentPolicy, ContentPolicyAmendment,
+    compact_state, CompactAct, CompactActKind,
 };
 use en_charter::{
     BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion, FoundingBasis,
@@ -1668,6 +1669,7 @@ impl PyArchive {
         port: u16,
         declared_at: Option<i64>,
         withdrawn: bool,
+        areas: Vec<String>,
     ) -> PyResult<String> {
         let signers = Signers::only(member_did, member_priv)?;
         let record = RelayEndpoint {
@@ -1678,6 +1680,7 @@ impl PyArchive {
             port,
             declared_at: ts_or_now(declared_at)?,
             withdrawn,
+            areas,
         };
         let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
         self.append(CharterEntry::RelayEndpointDeclared(signed))
@@ -1949,6 +1952,66 @@ impl PyArchive {
             st.set_by.map(|c| c.to_string()),
             st.moderators.iter().map(|d| d.as_str().to_string()).collect(),
         ))
+    }
+
+    // ---- Compact acts (D40) ------------------------------------------------
+
+    /// Record the roll's decision about a kith-covenant compact (design **D40**).
+    /// `kind` is one of `Join`, `Admit`, `Sponsor`, `Refuse`, `Anathematize`,
+    /// `Lift`. A majority decides; `Refuse` and `Anathematize` need a majority + 1.
+    /// A sponsorship names `probation_days`. Returns the entry's CID.
+    #[pyo3(signature = (
+        polity_did, kind, compact, counterparty_dids, decider_dids, decider_privs,
+        probation_days=None, rationale=String::new(), decided_at=None, expires_at=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn decide_compact_act(
+        &mut self,
+        polity_did: &str,
+        kind: &str,
+        compact: String,
+        counterparty_dids: Vec<String>,
+        decider_dids: Vec<String>,
+        decider_privs: Vec<Vec<u8>>,
+        probation_days: Option<u32>,
+        rationale: String,
+        decided_at: Option<i64>,
+        expires_at: Option<i64>,
+    ) -> PyResult<String> {
+        let kind: CompactActKind =
+            serde_json::from_value(serde_json::Value::String(kind.into())).map_err(json_err_to_py)?;
+        let signers = Signers::new(decider_dids, decider_privs)?;
+        let record = CompactAct {
+            polity: parse_did(polity_did)?,
+            kind,
+            compact,
+            counterparties: parse_dids(&counterparty_dids)?,
+            probation_days,
+            rationale,
+            deciders: parse_dids(&signers.dids)?,
+            decided_at: ts_or_now(decided_at)?,
+            expires_at: expires_at.map(|t| ts_or_now(Some(t))).transpose()?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::CompactActDecided(signed))
+    }
+
+    /// The compact acts in force as of `as_of` (design **D40**), as JSON: a list of
+    /// `{"cid", "act"}` in log order. Only acts the authority pass accepts are read.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn compact_state(&self, polity_did: &str, as_of: Option<i64>) -> PyResult<String> {
+        let st = compact_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        let list: Vec<serde_json::Value> = st
+            .acts
+            .iter()
+            .map(|(cid, a)| {
+                Ok(serde_json::json!({
+                    "cid": cid.to_string(),
+                    "act": serde_json::to_value(a).map_err(json_err_to_py)?,
+                }))
+            })
+            .collect::<PyResult<_>>()?;
+        serde_json::to_string(&list).map_err(json_err_to_py)
     }
 
     // ---- Membership lifecycle --------------------------------------------
@@ -3225,8 +3288,9 @@ impl PyArchive {
     /// A rendezvous operator states where its relay listens (design **D36**).
     /// Signed by the member alone; the authority pass refuses it unless the member
     /// holds `RendezvousOperator`. `at_uuid` is the member node's AT identity uuid,
-    /// lowercase and hyphenated. Returns the entry's CID.
-    #[pyo3(signature = (polity_did, member_did, member_priv, at_uuid, host, port, declared_at=None))]
+    /// lowercase and hyphenated. `areas` (D38) makes the relay an area hub for
+    /// those geohash areas. Returns the entry's CID.
+    #[pyo3(signature = (polity_did, member_did, member_priv, at_uuid, host, port, declared_at=None, areas=None))]
     #[allow(clippy::too_many_arguments)]
     fn declare_relay_endpoint(
         &mut self,
@@ -3237,8 +3301,10 @@ impl PyArchive {
         host: &str,
         port: u16,
         declared_at: Option<i64>,
+        areas: Option<Vec<String>>,
     ) -> PyResult<String> {
-        self.relay_endpoint(polity_did, member_did, member_priv, at_uuid, host, port, declared_at, false)
+        self.relay_endpoint(polity_did, member_did, member_priv, at_uuid, host, port, declared_at,
+                            false, areas.unwrap_or_default())
     }
 
     /// The member takes back its relay declaration. Needs no office, so a revoked
@@ -3252,23 +3318,28 @@ impl PyArchive {
         at_uuid: &str,
         declared_at: Option<i64>,
     ) -> PyResult<String> {
-        self.relay_endpoint(polity_did, member_did, member_priv, at_uuid, "", 0, declared_at, true)
+        self.relay_endpoint(polity_did, member_did, member_priv, at_uuid, "", 0, declared_at, true,
+                            vec![])
     }
 
     /// The relays the polity runs as of `as_of` (design **D36**): a list of
-    /// `(member_did, at_uuid, host, port, declared_at)`, one per operator who holds
-    /// `RendezvousOperator` then and has a live declaration, sorted by member DID.
+    /// `(member_did, at_uuid, host, port, declared_at, areas)`, one per operator who
+    /// holds `RendezvousOperator` then and has a live declaration, sorted by member
+    /// DID; `areas` (D38) is empty for a relay that is no hub.
     #[pyo3(signature = (polity_did, as_of=None))]
     fn rendezvous_state(
         &self,
         polity_did: &str,
         as_of: Option<i64>,
-    ) -> PyResult<Vec<(String, String, String, u16, i64)>> {
+    ) -> PyResult<Vec<(String, String, String, u16, i64, Vec<String>)>> {
         let st = rendezvous_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
         Ok(st
             .relays
             .into_iter()
-            .map(|r| (r.member.as_str().to_string(), r.at_uuid, r.host, r.port, r.declared_at.as_second()))
+            .map(|r| {
+                (r.member.as_str().to_string(), r.at_uuid, r.host, r.port, r.declared_at.as_second(),
+                 r.areas)
+            })
             .collect())
     }
 
