@@ -31,3 +31,5 @@ kc-identity = { path = "../../../../../kith-covenant/src/rust/kc-identity" }
 kc-ceremony = { path = "../../../../../kith-covenant/src/rust/kc-ceremony" }
 kc-archive = { path = "../../../../../kith-covenant/src/rust/kc-archive" }
 kc-reputation = { path = "../../../../../kith-covenant/src/rust/kc-reputation" }
+serde = { version = "1", features = ["derive"] }
+kc-conduct = { path = "../../../../../kith-covenant/src/rust/kc-conduct" }

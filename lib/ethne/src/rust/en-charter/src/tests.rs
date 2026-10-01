@@ -6246,6 +6246,7 @@ impl Polity {
             port,
             declared_at: t(at),
             withdrawn,
+            areas: vec![],
         };
         CharterEntry::RelayEndpointDeclared(Signed::build(d, &self.signers(&[signer])).unwrap())
     }
@@ -6383,6 +6384,7 @@ fn an_endpoint_that_cannot_be_written_as_a_pin_is_refused() {
         port: 1,
         declared_at: t(1),
         withdrawn: false,
+        areas: vec![],
     };
     assert!(d.check_shape().is_err(), "an uppercase uuid is not how AT writes a pin");
 }
@@ -6420,6 +6422,7 @@ fn an_operator_who_has_not_received_the_substrate_is_not_listed() {
         port: 27790,
         declared_at: t(300),
         withdrawn: false,
+        areas: vec![],
     };
     a.append(CharterEntry::RelayEndpointDeclared(
         Signed::build(d, &[(joiner.1.as_str(), &joiner.0)]).unwrap(),
@@ -6429,6 +6432,70 @@ fn an_operator_who_has_not_received_the_substrate_is_not_listed() {
     assert!(office_state(&a, &p.polity, t(400)).holds(&joiner.1, &Office::RendezvousOperator),
             "precondition: the raw read-model shows the holding");
     assert!(listed(&a, &p, 400).is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// D38 — a rendezvous relay that is also an area hub.
+// ---------------------------------------------------------------------------
+
+impl Polity {
+    /// As `relay`, declaring the relay a hub for `areas`.
+    fn hub(&self, member: usize, areas: &[&str], at: i64) -> CharterEntry {
+        let d = RelayEndpoint {
+            polity: self.polity.clone(),
+            member: self.ids[member].1.clone(),
+            at_uuid: RELAY_UUID.into(),
+            host: "hub.example.org".into(),
+            port: 27790,
+            declared_at: t(at),
+            withdrawn: false,
+            areas: areas.iter().map(|s| s.to_string()).collect(),
+        };
+        CharterEntry::RelayEndpointDeclared(Signed::build(d, &self.signers(&[member])).unwrap())
+    }
+}
+
+#[test]
+fn a_hub_declares_its_areas_and_the_state_carries_them() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+    a.append(p.hub(2, &["u4pr", "gcpv"], 300)).unwrap();
+    assert!(authority_violations(&a).is_empty(), "{:?}", authority_violations(&a));
+    let st = rendezvous_state(&a, &p.polity, t(400));
+    assert_eq!(st.relays.len(), 1);
+    assert_eq!(st.relays[0].areas, vec!["u4pr".to_string(), "gcpv".to_string()]);
+    // A later plain declaration replaces it: the relay is no hub any more.
+    a.append(p.relay(2, 2, "hub.example.org", 27790, 500, false)).unwrap();
+    assert!(rendezvous_state(&a, &p.polity, t(600)).relays[0].areas.is_empty());
+}
+
+#[test]
+fn a_hub_with_areas_no_hub_could_serve_is_refused() {
+    for areas in [vec!["u"], vec!["u4pru1"], vec!["u4pa"], vec!["U4PR"], vec!["u4pr", "u4pr"],
+                  vec!["u4p0", "u4p1", "u4p2", "u4p3", "u4p4", "u4p5", "u4p6", "u4p7", "u4p8"]] {
+        let p = Polity::new(3);
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(p.confer(Office::RendezvousOperator, 2, &[0, 1], 200)).unwrap();
+        a.append(p.hub(2, &areas, 300)).unwrap();
+        assert!(violation(&a, "relay endpoint of"), "{areas:?} was accepted");
+        assert!(listed(&a, &p, 400).is_empty(), "{areas:?} was listed");
+    }
+}
+
+#[test]
+fn a_plain_relay_declaration_keeps_its_d36_bytes() {
+    // Empty areas are not serialized: a declaration made before D38 verifies, and
+    // hashes, exactly as it did.
+    let p = Polity::new(3);
+    let entry = p.relay(2, 2, "relay.example.org", 27790, 300, false);
+    let bytes = en_core::canonical::to_canonical_cbor(&entry).unwrap();
+    assert!(!bytes.windows(5).any(|w| w == b"areas"), "a plain relay serialized an areas field");
+    let hub = p.hub(2, &["u4pr"], 300);
+    let bytes = en_core::canonical::to_canonical_cbor(&hub).unwrap();
+    assert!(bytes.windows(5).any(|w| w == b"areas"), "precondition: a hub does");
 }
 
 // ---------------------------------------------------------------------------
@@ -6457,6 +6524,7 @@ fn strict() -> ContentPolicy {
         labels: [("nsfw".to_string(), LabelAction::Hide), ("spoiler".to_string(), LabelAction::Warn)]
             .into_iter()
             .collect(),
+        standing: Default::default(),
     }
 }
 
@@ -6632,3 +6700,188 @@ fn a_moderator_who_was_never_inducted_does_not_moderate() {
     a.append(p.confer(Office::Moderator, 4, &[0, 1, 2], 300)).unwrap();
     assert!(content_policy_state(&a, &p.polity, t(350)).moderators.is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// D39 — a policy acts on another community's standing in this polity's compacts.
+// ---------------------------------------------------------------------------
+
+fn by_standing(action: LabelAction) -> ContentPolicy {
+    let mut p = strict();
+    p.standing = [(CommunityStanding::Anathema, action), (CommunityStanding::Denied, LabelAction::Warn)]
+        .into_iter()
+        .collect();
+    p
+}
+
+#[test]
+fn a_d37_policy_keeps_its_bytes() {
+    // An empty standing map is not serialized: every policy signed before D39
+    // verifies, and hashes, exactly as it did.
+    let bytes = en_core::canonical::to_canonical_cbor(&strict()).unwrap();
+    assert!(!bytes.windows(8).any(|w| w == b"standing"), "an empty map serialized");
+    let bytes = en_core::canonical::to_canonical_cbor(&by_standing(LabelAction::Hide)).unwrap();
+    assert!(bytes.windows(8).any(|w| w == b"standing"), "precondition: a filled one does");
+    // A policy as D37 wrote it, from before the field existed, reads back with none.
+    #[derive(serde::Serialize)]
+    struct D37Policy {
+        operator_bound_required: bool,
+        min_tier: u8,
+        daily_post_cap: Option<u32>,
+        labels: std::collections::BTreeMap<String, LabelAction>,
+    }
+    let old = D37Policy {
+        operator_bound_required: true,
+        min_tier: 2,
+        daily_post_cap: Some(5),
+        labels: strict().labels,
+    };
+    let old_bytes = en_core::canonical::to_canonical_cbor(&old).unwrap();
+    assert_eq!(old_bytes, en_core::canonical::to_canonical_cbor(&strict()).unwrap(),
+               "a policy with no standing rules is byte-identical to its D37 form");
+    let back: ContentPolicy = en_core::canonical::from_canonical_cbor(&old_bytes).unwrap();
+    assert!(back.standing.is_empty(), "a D37 policy reads back with no standing rules");
+}
+
+#[test]
+fn weakening_a_standing_rule_is_a_loosening() {
+    let hide = by_standing(LabelAction::Hide);
+    let warn = by_standing(LabelAction::Warn);
+    assert!(warn.is_loosening_of(&hide));
+    assert!(!hide.is_loosening_of(&warn), "strengthening is a tightening");
+    assert!(strict().is_loosening_of(&hide), "dropping a rule that did more than allow");
+    assert!(!hide.is_loosening_of(&strict()));
+}
+
+#[test]
+fn a_standing_loosening_needs_more_than_a_majority() {
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.policy(by_standing(LabelAction::Hide), &[0, 1, 2], 200)).unwrap();
+    a.append(p.policy(by_standing(LabelAction::Warn), &[0, 1, 2], 300)).unwrap();
+    assert!(violation(&a, "loosening the content policy needs more than a majority (>= 4), got 3"));
+    assert_eq!(policy_at(&a, &p, 400), by_standing(LabelAction::Hide));
+}
+
+// ---------------------------------------------------------------------------
+// D40 — the roll's mandate for its envoy at kith-covenant's border.
+// ---------------------------------------------------------------------------
+
+impl Polity {
+    fn compact_act(&self, kind: CompactActKind, others: &[&DidKey], deciders: &[usize], at: i64)
+        -> CharterEntry
+    {
+        let a = CompactAct {
+            polity: self.polity.clone(),
+            kind,
+            compact: "river-compact".into(),
+            counterparties: others.iter().map(|d| (*d).clone()).collect(),
+            probation_days: (kind == CompactActKind::Sponsor).then_some(90),
+            rationale: "r".into(),
+            deciders: self.dids(deciders),
+            decided_at: t(at),
+            expires_at: None,
+        };
+        CharterEntry::CompactActDecided(Signed::build(a, &self.signers(deciders)).unwrap())
+    }
+}
+
+#[test]
+fn joining_a_compact_is_a_majority_and_the_state_covers_it() {
+    let p = Polity::new(5);
+    let other = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.compact_act(CompactActKind::Join, &[&other.polity], &[0, 1, 2], 200)).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).expect("a majority joins");
+    let st = compact_state(&a, &p.polity, t(300));
+    assert!(st.covers(CompactActKind::Join, "river-compact", &other.polity));
+    assert!(!st.covers(CompactActKind::Admit, "river-compact", &other.polity));
+    assert_eq!(st.compacts(), vec!["river-compact".to_string()]);
+    assert!(compact_state(&a, &p.polity, t(150)).acts.is_empty(), "not before it was decided");
+}
+
+#[test]
+fn bearing_down_on_another_community_needs_more_than_a_majority() {
+    let p = Polity::new(5);
+    let other = Polity::new(3);
+    for kind in [CompactActKind::Refuse, CompactActKind::Anathematize] {
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(p.compact_act(kind, &[&other.polity], &[0, 1, 2], 200)).unwrap();
+        assert!(violation(&a, "needs more than a majority (>= 4), got 3"), "{kind:?}");
+        assert!(compact_state(&a, &p.polity, t(300)).acts.is_empty(), "{kind:?} stood");
+        let mut b = Archive::new();
+        b.append(p.charter_seasoned(vec![])).unwrap();
+        b.append(p.compact_act(kind, &[&other.polity], &[0, 1, 2, 3], 200)).unwrap();
+        check_authority(&b).expect("more than a majority may");
+        assert!(compact_state(&b, &p.polity, t(300)).covers(kind, "river-compact", &other.polity));
+    }
+}
+
+#[test]
+fn a_compact_act_needs_a_majority_and_its_deciders_signatures() {
+    let p = Polity::new(5);
+    let other = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.compact_act(CompactActKind::Admit, &[&other.polity], &[0, 1], 200)).unwrap();
+    assert!(violation(&a, "needs a majority (>= 3), got 2"));
+}
+
+#[test]
+fn a_compact_act_of_the_wrong_shape_is_refused() {
+    let p = Polity::new(5);
+    let other = Polity::new(3);
+    let base = |f: &dyn Fn(&mut CompactAct)| {
+        let mut act = CompactAct {
+            polity: p.polity.clone(),
+            kind: CompactActKind::Join,
+            compact: "river-compact".into(),
+            counterparties: vec![other.polity.clone()],
+            probation_days: None,
+            rationale: "r".into(),
+            deciders: p.dids(&[0, 1, 2]),
+            decided_at: t(200),
+            expires_at: None,
+        };
+        f(&mut act);
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(CharterEntry::CompactActDecided(Signed::build(act, &p.signers(&[0, 1, 2])).unwrap()))
+            .unwrap();
+        a
+    };
+    assert!(violation(&base(&|a| a.compact = "River Compact".into()), "must be 1..=64"));
+    assert!(violation(&base(&|a| a.counterparties.clear()), "counterparties"));
+    assert!(violation(&base(&|a| a.counterparties = vec![p.polity.clone()]), "its own counterparty"));
+    assert!(violation(&base(&|a| a.kind = CompactActKind::Sponsor), "names its probation"));
+    assert!(violation(&base(&|a| a.probation_days = Some(30)), "only a sponsorship"));
+    assert!(violation(&base(&|a| a.expires_at = Some(t(100))), "expires before"));
+}
+
+#[test]
+fn a_lapsed_act_covers_nothing() {
+    let p = Polity::new(5);
+    let other = Polity::new(3);
+    let act = CompactAct {
+        polity: p.polity.clone(),
+        kind: CompactActKind::Sponsor,
+        compact: "river-compact".into(),
+        counterparties: vec![other.polity.clone()],
+        probation_days: Some(90),
+        rationale: "r".into(),
+        deciders: p.dids(&[0, 1, 2]),
+        decided_at: t(200),
+        expires_at: Some(t(400)),
+    };
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(CharterEntry::CompactActDecided(Signed::build(act, &p.signers(&[0, 1, 2])).unwrap()))
+        .unwrap();
+    check_authority(&a).expect("validly decided");
+    assert!(compact_state(&a, &p.polity, t(300)).covers(CompactActKind::Sponsor, "river-compact", &other.polity));
+    assert!(compact_state(&a, &p.polity, t(500)).acts.is_empty(), "lapsed");
+}
+

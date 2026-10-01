@@ -71,6 +71,10 @@
 
 pub mod rendezvous;
 pub use rendezvous::rendezvous_roster;
+pub mod compact;
+pub use compact::{
+    anathema, anti_spiral_claims, examiner_registry, feature_acceptance, lift, mandate, sponsorship,
+};
 
 use en_charter::{
     AffirmationState, CharterDissolution, Commitment, EnvoyState, Office, OfficeState,

@@ -63,7 +63,7 @@ def test_the_roll_seats_an_operator_and_the_roster_pins_its_key(polity):
     polity.archive.check_authority()
 
     assert polity.archive.rendezvous_state(polity.did, 400) == [
-        (op.did, UUID, "relay.example.org", 27790, 300)
+        (op.did, UUID, "relay.example.org", 27790, 300, [])
     ]
     roster = e.rendezvous_roster(polity.archive, polity.did, polity.priv, polity.pub,
                                  seq=400, as_of=400)
@@ -130,3 +130,29 @@ def test_a_root_key_that_is_not_the_politys_is_refused(polity):
     stranger_priv, stranger_pub, _ = _core.generate_ed25519_keypair()
     with pytest.raises(RuntimeError, match="does not match the supplied root key"):
         e.rendezvous_roster(polity.archive, polity.did, stranger_priv, stranger_pub, seq=1)
+
+
+def test_a_hub_names_its_areas_in_the_state_and_the_roster(polity):
+    """D38: a rendezvous relay may also be an area hub, for geohash areas it lists."""
+    op = polity.founders[2]
+    seat(polity, op)
+    declare_relay_endpoint(polity.archive, polity.did, op, UUID, "hub.example.org", 27790,
+                           declared_at=300, areas=["u4pr", "gcpv"])
+    polity.archive.check_authority()
+    assert polity.archive.rendezvous_state(polity.did, 400) == [
+        (op.did, UUID, "hub.example.org", 27790, 300, ["u4pr", "gcpv"])
+    ]
+    body = e.roster_dict(e.rendezvous_roster(polity.archive, polity.did, polity.priv,
+                                             polity.pub, seq=1, as_of=400))
+    (hint,) = body["relays"]
+    assert body["areas"] == {hint: ["u4pr", "gcpv"]}
+
+
+def test_a_hub_with_an_area_no_hub_could_serve_is_refused(polity):
+    op = polity.founders[2]
+    seat(polity, op)
+    declare_relay_endpoint(polity.archive, polity.did, op, UUID, "hub.example.org", 27790,
+                           declared_at=300, areas=["u4pa"])
+    with pytest.raises(Exception):
+        polity.archive.check_authority()
+    assert polity.archive.rendezvous_state(polity.did, 400) == []

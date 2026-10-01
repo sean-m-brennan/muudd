@@ -41,7 +41,7 @@ use en_core::{DidKey, KcResult, PubKey, Signed};
 use serde::{Deserialize, Serialize};
 
 use crate::record::{
-    Affirmation, BoundaryDissent, CharterDissolution, CommitmentAmendment, ContentPolicyAmendment, EnvoyAuthorization,
+    Affirmation, BoundaryDissent, CharterDissolution, CommitmentAmendment, CompactAct, ContentPolicyAmendment, EnvoyAuthorization,
     GuardianChange, GuardianEvidence, MembershipChange, Observation, ObservationPruning,
     OfficeChange, PolityCharter, RelayEndpoint, RiteMovement,
     IndependenceAttestation, SubstrateDisavowal,
@@ -99,6 +99,9 @@ pub enum CharterEntry {
     /// The roll replacing the polity's content policy (design **D37**): a majority
     /// to tighten it, more than a majority to loosen it.
     ContentPolicyAmended(Signed<ContentPolicyAmendment>),
+    /// The roll's decision about a kith-covenant compact (design **D40**): a majority
+    /// to join, admit, sponsor or lift, more than a majority to refuse or anathematize.
+    CompactActDecided(Signed<CompactAct>),
     /// The deliberate winding-up of the polity (terminal; may name successors).
     CharterDissolved(Signed<CharterDissolution>),
 }
@@ -121,6 +124,7 @@ impl CharterEntry {
             CharterEntry::IndependenceAttested(s) => &s.signatures,
             CharterEntry::RelayEndpointDeclared(s) => &s.signatures,
             CharterEntry::ContentPolicyAmended(s) => &s.signatures,
+            CharterEntry::CompactActDecided(s) => &s.signatures,
             CharterEntry::ObservationsPruned(s) => &s.signatures,
             CharterEntry::CharterDissolved(s) => &s.signatures,
         };
@@ -144,6 +148,7 @@ impl CharterEntry {
             CharterEntry::IndependenceAttested(s) => &s.payload.polity,
             CharterEntry::RelayEndpointDeclared(s) => &s.payload.polity,
             CharterEntry::ContentPolicyAmended(s) => &s.payload.polity,
+            CharterEntry::CompactActDecided(s) => &s.payload.polity,
             CharterEntry::ObservationsPruned(s) => &s.payload.polity,
             CharterEntry::CharterDissolved(s) => &s.payload.polity,
         }
@@ -167,6 +172,7 @@ impl Entry for CharterEntry {
             CharterEntry::IndependenceAttested(_) => "IndependenceAttested",
             CharterEntry::RelayEndpointDeclared(_) => "RelayEndpointDeclared",
             CharterEntry::ContentPolicyAmended(_) => "ContentPolicyAmended",
+            CharterEntry::CompactActDecided(_) => "CompactActDecided",
             CharterEntry::ObservationsPruned(_) => "ObservationsPruned",
             CharterEntry::CharterDissolved(_) => "CharterDissolved",
         }
@@ -234,6 +240,7 @@ pub fn verify_entry(entry: &CharterEntry) -> KcResult<()> {
         CharterEntry::IndependenceAttested(s) => s.verify(didkey_resolver),
         CharterEntry::RelayEndpointDeclared(s) => s.verify(didkey_resolver),
         CharterEntry::ContentPolicyAmended(s) => s.verify(didkey_resolver),
+        CharterEntry::CompactActDecided(s) => s.verify(didkey_resolver),
         CharterEntry::ObservationsPruned(s) => s.verify(didkey_resolver),
         CharterEntry::CharterDissolved(s) => s.verify(didkey_resolver),
     }

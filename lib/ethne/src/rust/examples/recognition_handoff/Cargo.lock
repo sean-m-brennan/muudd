@@ -711,9 +711,11 @@ dependencies = [
  "en-uplift",
  "kc-archive",
  "kc-ceremony",
+ "kc-conduct",
  "kc-core",
  "kc-identity",
  "kc-reputation",
+ "serde",
 ]
 
 [[package]]

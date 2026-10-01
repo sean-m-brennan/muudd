@@ -62,12 +62,13 @@ pub use record::{
     BoundaryAttestation, BoundaryDissent, BoundarySource, DissentKind, Exclusion,
     SubstrateReading,
     pruning_digest, Affirmation, AffirmationKind, AmendmentKind, CharterDissolution, Commitment,
-    CommitmentAmendment, ContentPolicy, ContentPolicyAmendment, LabelAction, check_label,
+    CommitmentAmendment, CommunityStanding, CompactAct, CompactActKind, COMPACT_COUNTERPARTIES_MAX,
+    COMPACT_LABEL_MAX, ContentPolicy, ContentPolicyAmendment, LabelAction, check_label,
     CONTENT_LABEL_MAX, CONTENT_LABELS_MAX, Derivation, DerivedEdge, EnvoyAuthorization, EnvoyKind, FoundingProposal,
     GuardianChange, GuardianEvidence, GuardianKind, MemberReading, MembershipChange,
     MembershipKind, Observation,
     AttestedRole, IndependenceKind, ObservationPruning, Office, OfficeChange, OfficeKind,
-    PolityCharter, RelayEndpoint,
+    PolityCharter, RelayEndpoint, RELAY_AREAS_MAX, is_geohash_area,
     IndependenceAttestation, Substrate, SubstrateDisavowal,
     Movement, RiteMovement,
 };
@@ -86,4 +87,5 @@ pub use state::{
     rite_state, MovementPoint, Rite,
     rendezvous_state, RelayListing, RendezvousState,
     content_policy_state, ContentPolicyState,
+    compact_state, CompactState,
 };

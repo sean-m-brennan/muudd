@@ -438,6 +438,8 @@ pub struct RelayListing {
     pub host: String,
     pub port: u16,
     pub declared_at: Timestamp,
+    /// The geohash areas the relay is a hub for (D38); empty for a plain relay.
+    pub areas: Vec<String>,
 }
 
 /// The relays a polity runs as of a query time, one per operator, sorted by
@@ -495,9 +497,68 @@ pub fn rendezvous_state(
             host: d.host.clone(),
             port: d.port,
             declared_at: d.declared_at,
+            areas: d.areas.clone(),
         })
         .collect();
     RendezvousState { relays }
+}
+
+/// The compact acts a polity's roll has decided and that are in force (design
+/// **D40**): its envoy's mandate at kith-covenant's border.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CompactState {
+    /// Accepted acts decided by `as_of` and not lapsed, in log order, each with the
+    /// entry that recorded it.
+    pub acts: Vec<(Cid, crate::CompactAct)>,
+}
+
+impl CompactState {
+    /// Whether an act in force lets the envoy do `kind` in `compact` towards
+    /// `counterparty`.
+    pub fn covers(&self, kind: crate::CompactActKind, compact: &str, counterparty: &DidKey) -> bool {
+        self.acts.iter().any(|(_, a)| {
+            a.kind == kind && a.compact == compact && a.counterparties.contains(counterparty)
+        })
+    }
+
+    /// The compacts the roll has decided to found or join.
+    pub fn compacts(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .acts
+            .iter()
+            .filter(|(_, a)| a.kind == crate::CompactActKind::Join)
+            .map(|(_, a)| a.compact.clone())
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
+}
+
+/// The compact acts in force for `polity` as of `as_of` (design **D40**). Only acts
+/// the authority pass accepts are read, as for [`content_policy_state`], so a
+/// severe act passed at a bare majority is simply not there. A dissolved polity has
+/// no mandate.
+pub fn compact_state(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> CompactState {
+    if charter_state(archive, polity, as_of).dissolved {
+        return CompactState::default();
+    }
+    let refused: Vec<Cid> =
+        crate::authority_violations(archive).into_iter().map(|(cid, _)| cid).collect();
+    let mut out = CompactState::default();
+    for (cid, e) in archive.iter() {
+        let CharterEntry::CompactActDecided(s) = e else { continue };
+        let a = &s.payload;
+        if &a.polity != polity || refused.contains(cid) || !a.in_force_at(as_of) {
+            continue;
+        }
+        out.acts.push((*cid, a.clone()));
+    }
+    out
 }
 
 /// The content policy a polity is under as of a query time, and who may label

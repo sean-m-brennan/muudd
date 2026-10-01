@@ -37,6 +37,13 @@ use kc_ceremony::inter::{
     ParticipantContext, REQUIRED_FEATURES,
 };
 use kc_ceremony::intra::{IntraCommunityRiteRecord, IntraCommunityRiteRunner};
+use kc_ceremony::inter::{
+    AntiSpiralFeatureClaim, ExaminerEntry, ExaminerRegistry, FeatureAcceptance,
+    NonAdmissionRecord, SponsorshipRecord,
+};
+use kc_conduct::{
+    ConductBearing, ConductKind, ConductRecord, DecisionClass, LadderRung, Severity,
+};
 
 /// A founded polity with keys the caller can still sign with.
 pub struct Polity {
@@ -410,6 +417,232 @@ pub fn charter_of(archive: &Archive<CharterEntry>) -> KcResult<en_charter::Polit
     Err(en_core::KcError::Archive("the polity is not chartered".into()))
 }
 
+// --- Across nodes: admission into a standing compact (Agora Phase 5) -------------
+//
+// Everything above runs every key in one process. Below is the shape the Agora app
+// uses when each community's keys live on its own device: every record is signed by
+// whoever holds the key, and the one record too large to carry, the seal, is never
+// carried at all. Each node rebuilds it from records it already holds and signs the
+// rebuilt bytes.
+
+/// Seat `seats` (DID and public key) as `polity`'s examiners from `from` until `until`.
+/// Root-signed, as KC requires of a roster.
+pub fn seat_examiners(
+    polity: &Polity,
+    seats: &[(DidKey, PubKey)],
+    kc: &mut InMemoryArchive,
+    from: Timestamp,
+    until: Timestamp,
+) -> KcResult<Signed<ExaminerRegistry>> {
+    let registry = ExaminerRegistry {
+        nominating_community: polity.did.clone(),
+        entries: seats
+            .iter()
+            .map(|(did, pk)| ExaminerEntry {
+                examiner_did: did.clone(),
+                examiner_pubkey: pk.clone(),
+                valid_from: from,
+                valid_until: Some(until),
+            })
+            .collect(),
+        issued_at: from,
+    };
+    let signed = Signed::build(registry, &[(polity.did.as_str(), &polity.root_priv)])?;
+    kc.append(ArchiveEntry::ExaminerRegistryUpdated(signed.clone()))?;
+    Ok(signed)
+}
+
+/// `sponsor` vouches for `entrant`, staking its standing until `until`. Envoy-signed.
+pub fn sponsor(
+    sponsor: &Polity,
+    entrant: &DidKey,
+    kc: &mut InMemoryArchive,
+    at: Timestamp,
+    until: Timestamp,
+) -> KcResult<Signed<SponsorshipRecord>> {
+    let record = SponsorshipRecord {
+        sponsor_community: sponsor.did.clone(),
+        entrant_community: entrant.clone(),
+        admission_cid: None,
+        probation_until: until,
+        statement: "we answer for them while they find their footing".into(),
+        sponsored_at: at,
+    };
+    let signed = Signed::build(record, &[(sponsor.envoy.0.as_str(), &sponsor.envoy.1)])?;
+    kc.append(ArchiveEntry::SponsorshipVouched(signed.clone()))?;
+    Ok(signed)
+}
+
+/// The claims every participant presents and the verdicts every other participant
+/// gives, each signed by that community's own envoy. `verdict(accepter, presenter)`
+/// says whether `accepter` accepts `presenter`'s claims.
+#[allow(clippy::type_complexity)]
+pub fn ceremony_parts(
+    polities: &[&Polity],
+    at: Timestamp,
+    verdict: impl Fn(&DidKey, &DidKey) -> bool,
+) -> KcResult<(Vec<Signed<AntiSpiralFeatureClaim>>, Vec<Signed<FeatureAcceptance>>)> {
+    let mut claims = Vec::new();
+    for p in polities {
+        for feature in REQUIRED_FEATURES.iter().copied() {
+            claims.push(InterCredentialingRunner::present_claim(
+                &p.envoy.0,
+                &p.envoy.1,
+                p.did.clone(),
+                feature,
+                format!("{feature:?} as the polity's charter binds it"),
+                vec![],
+                at,
+            )?);
+        }
+    }
+    let mut acceptances = Vec::new();
+    for claim in &claims {
+        for p in polities {
+            if p.did == claim.payload.community_did {
+                continue;
+            }
+            let ok = verdict(&p.did, &claim.payload.community_did);
+            acceptances.push(InterCredentialingRunner::accept(
+                &p.envoy.0,
+                &p.envoy.1,
+                p.did.clone(),
+                claim.payload_cid,
+                ok,
+                (!ok).then(|| "not yet".to_string()),
+                at,
+            )?);
+        }
+    }
+    Ok((claims, acceptances))
+}
+
+/// What a seal would be, built with throwaway keys so that KC's own runner still
+/// enforces one claim per feature per participant and one verdict per claim from
+/// every other participant. The envelope is discarded; only the payload is kept.
+pub enum Draft {
+    Sealed(InterCommunityWitnessRecord),
+    NonAdmission(NonAdmissionRecord),
+}
+
+pub fn draft_seal(
+    label: &str,
+    participants: &[(&Polity, &Signed<IntraCommunityRiteRecord>)],
+    kc: &InMemoryArchive,
+    claims: Vec<Signed<AntiSpiralFeatureClaim>>,
+    acceptances: Vec<Signed<FeatureAcceptance>>,
+    at: Timestamp,
+) -> KcResult<Draft> {
+    let identities: Vec<_> = participants
+        .iter()
+        .map(|(p, _)| identity_in(kc, &p.did))
+        .collect::<KcResult<Vec<_>>>()?;
+    let throwaway: Vec<PrivKey> = participants.iter().map(|_| keypair().1).collect();
+    let contexts: Vec<ParticipantContext> = participants
+        .iter()
+        .zip(identities.iter())
+        .zip(throwaway.iter())
+        .map(|(((p, rite), identity), sk)| ParticipantContext {
+            community: identity,
+            intra_record: rite,
+            cross_boundary_signer_did: p.envoy.0.clone(),
+            cross_boundary_signer_priv: sk,
+        })
+        .collect();
+    let runner = InterCredentialingRunner::new(label.into(), contexts);
+    Ok(match runner.seal(claims, acceptances, vec![], at)? {
+        InterCredentialingOutcome::Sealed(s) => Draft::Sealed(s.payload),
+        InterCredentialingOutcome::NonAdmission(s) => Draft::NonAdmission(s.payload),
+    })
+}
+
+/// Sign `payload` the way the Agora nodes do: each signer signs the canonical bytes
+/// on its own device, and the signatures are assembled onto the payload. Returns the
+/// envelope and the size, in bytes, of what each signer was handed.
+pub fn detached<T: serde::Serialize>(
+    payload: T,
+    signers: &[(&DidKey, &PrivKey)],
+) -> KcResult<(Signed<T>, usize)> {
+    let pending = en_charter::pending(payload, "a KC record".into())?;
+    let mut sigs = Vec::new();
+    for (did, sk) in signers {
+        sigs.push((did.as_str().to_string(), keys::sign(sk, &pending.bytes)?.bytes));
+    }
+    let n = pending.bytes.len();
+    Ok((en_charter::assemble(pending.payload, &sigs)?, n))
+}
+
+/// A second-class anathema on `subject`, reported by every community in `reporters`,
+/// each signing through its envoy. KC counts the reporters as the quorum only when
+/// the record says `SecondClass`; Agora always does.
+pub fn anathematize(
+    reporters: &[&Polity],
+    subject: &DidKey,
+    kc: &mut InMemoryArchive,
+    at: Timestamp,
+) -> KcResult<Signed<ConductRecord>> {
+    let record = ConductRecord {
+        subject_community: subject.clone(),
+        reporters: reporters.iter().map(|p| p.did.clone()).collect(),
+        reporter_perspective: None,
+        kind: ConductKind::DesignationAnathema,
+        bearing: ConductBearing::CommonsObligation,
+        severity: Severity::Grave,
+        ladder_rung: Some(LadderRung::Expulsion),
+        decision_class: DecisionClass::SecondClass,
+        references: vec![],
+        commitments_cited: vec![],
+        narrative: "the compact has found it cannot stand with them".into(),
+        observed_at: at,
+        recorded_at: at,
+    };
+    let signers: Vec<(&DidKey, &PrivKey)> =
+        reporters.iter().map(|p| (&p.envoy.0, &p.envoy.1)).collect();
+    let (signed, _) = detached(record, &signers)?;
+    kc.append(ArchiveEntry::ConductAttested(signed.clone()))?;
+    Ok(signed)
+}
+
+/// The manifest a seal ask carries in place of the seal: the label, the instant, and
+/// the content addresses of everything the seal is built from. Every replica holds
+/// those records, so every signer can rebuild the seal and check it is this one.
+///
+/// Carried as canonical CBOR, CIDs as their binary form: as JSON with text CIDs a
+/// three-participant manifest measured 7286 hex characters, over the carrier's 6144.
+#[derive(serde::Serialize)]
+pub struct SealManifest {
+    pub label: String,
+    pub participants: Vec<DidKey>,
+    pub rites: Vec<kc_core::Cid>,
+    pub claims: Vec<kc_core::Cid>,
+    pub acceptances: Vec<kc_core::Cid>,
+    pub witnessed_at: Timestamp,
+}
+
+impl SealManifest {
+    pub fn of(rec: &InterCommunityWitnessRecord) -> Self {
+        Self {
+            label: rec.compact_label.clone(),
+            participants: rec.participants.clone(),
+            rites: rec.sequenced_rites.iter().map(|r| r.intra_record_cid).collect(),
+            claims: rec.claims.iter().map(|c| c.payload_cid).collect(),
+            acceptances: rec.acceptances.iter().map(|a| a.payload_cid).collect(),
+            witnessed_at: rec.witnessed_at,
+        }
+    }
+
+    /// Its size on the co-sign carrier, in hex characters.
+    pub fn hex_len(&self) -> usize {
+        2 * kc_core::canonical::to_canonical_cbor(self).map(|b| b.len()).unwrap_or(0)
+    }
+}
+
+/// The size, in hex characters (what the co-sign carrier counts), of a signed record
+/// as Agora delivers it: its canonical CBOR envelope.
+pub fn hex_len<T: serde::Serialize>(signed: &Signed<T>) -> usize {
+    2 * kc_core::canonical::to_canonical_cbor(signed).map(|b| b.len()).unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -597,5 +830,189 @@ mod tests {
         hand_off(&p, &mut kc, at).expect("border");
         let err = seal_rite(&p, &mut kc, later).expect_err("nothing to commit to");
         assert!(format!("{err}").contains("no commitments in force"), "{err}");
+    }
+
+    // --- across nodes: admission into a standing compact (Agora Phase 5) ------
+
+    use kc_reputation::{lookup, RecognitionStanding};
+
+    /// Alpha and Beta's compact, plus Gamma ready at the border with its rite sealed,
+    /// and the examiners seated: Alpha's envoy and one more Alpha member, Beta's envoy.
+    fn a_compact_and_an_entrant() -> (InMemoryArchive, Polity, Polity, Polity,
+                                      Signed<IntraCommunityRiteRecord>, Timestamp) {
+        let (mut kc, alpha, beta, later) = a_compact_of_polities();
+        let gamma = found_polity("Gamma", 3, &[("hospitality", "we receive the stranger")],
+                                 ts(T0)).expect("Gamma founds");
+        hand_off(&gamma, &mut kc, ts(T0)).expect("Gamma's border");
+        let g_rite = seal_rite(&gamma, &mut kc, later).expect("Gamma's rite");
+        let until = ts(T0 + 100 + 180 * 86_400);
+        let a_second = (alpha.members[2].0.clone(), alpha.members[2].2.clone());
+        seat_examiners(&alpha, &[(alpha.envoy.0.clone(), alpha.envoy.2.clone()), a_second],
+                       &mut kc, later, until).expect("Alpha seats two");
+        seat_examiners(&beta, &[(beta.envoy.0.clone(), beta.envoy.2.clone())],
+                       &mut kc, later, until).expect("Beta seats one");
+        (kc, alpha, beta, gamma, g_rite, ts(T0 + 200))
+    }
+
+    fn rite_of(kc: &InMemoryArchive, did: &DidKey) -> Signed<IntraCommunityRiteRecord> {
+        kc.iter()
+            .find_map(|(_, e)| match e {
+                ArchiveEntry::IntraCommunityRite(s)
+                    if &s.payload.recitation.payload.community_did == did => Some(s.clone()),
+                _ => None,
+            })
+            .expect("the rite is in KC")
+    }
+
+    /// Admit Gamma into the compact. `with_sponsor` and `examiners` vary the gates.
+    fn admit_gamma(kc: &mut InMemoryArchive, alpha: &Polity, beta: &Polity, gamma: &Polity,
+                   g_rite: &Signed<IntraCommunityRiteRecord>, at: Timestamp,
+                   with_sponsor: bool, examiners: usize)
+                   -> KcResult<Signed<InterCommunityWitnessRecord>> {
+        if with_sponsor {
+            sponsor(alpha, &gamma.did, kc, at, ts(at.as_second() + 90 * 86_400))?;
+        }
+        let (claims, acceptances) = ceremony_parts(&[alpha, beta, gamma], at, |_, _| true)?;
+        let a_rite = rite_of(kc, &alpha.did);
+        let b_rite = rite_of(kc, &beta.did);
+        let draft = draft_seal("polity-compact",
+                               &[(alpha, &a_rite), (beta, &b_rite), (gamma, g_rite)],
+                               kc, claims, acceptances, at)?;
+        let Draft::Sealed(rec) = draft else { panic!("everyone accepted") };
+        let mut signers: Vec<(&DidKey, &PrivKey)> = vec![
+            (&alpha.envoy.0, &alpha.envoy.1),
+            (&beta.envoy.0, &beta.envoy.1),
+            (&gamma.envoy.0, &gamma.envoy.1),
+        ];
+        if examiners >= 3 {
+            signers.push((&alpha.members[2].0, &alpha.members[2].1));
+        }
+        let (signed, _) = detached(rec, &signers)?;
+        kc.append(ArchiveEntry::InterCommunityWitness(signed.clone()))?;
+        Ok(signed)
+    }
+
+    #[test]
+    fn a_third_community_is_admitted_with_a_sponsor_and_a_panel_of_three() {
+        let (mut kc, alpha, beta, gamma, g_rite, at) = a_compact_and_an_entrant();
+        admit_gamma(&mut kc, &alpha, &beta, &gamma, &g_rite, at, true, 3)
+            .expect("the seal assembles from detached signatures");
+        kc_archive::verify_all(&kc).expect("verifies");
+        authorized(&kc).expect("sponsor, quorum of two sitting, panel of three from two");
+        let view = lookup(&kc, &gamma.did, Some(ts(at.as_second() + 1)));
+        assert_eq!(view.standing, RecognitionStanding::Probationary);
+        let alpha_view = lookup(&kc, &alpha.did, Some(ts(at.as_second() + 1)));
+        assert_eq!(alpha_view.standing, RecognitionStanding::InCompact);
+    }
+
+    #[test]
+    fn without_a_sponsor_the_admission_does_not_authorize() {
+        let (mut kc, alpha, beta, gamma, g_rite, at) = a_compact_and_an_entrant();
+        admit_gamma(&mut kc, &alpha, &beta, &gamma, &g_rite, at, false, 3).expect("appends");
+        let err = authorized(&kc).expect_err("no sponsor");
+        assert!(format!("{err}").contains("no sponsor"), "{err}");
+    }
+
+    #[test]
+    fn a_panel_of_two_does_not_authorize() {
+        let (mut kc, alpha, beta, gamma, g_rite, at) = a_compact_and_an_entrant();
+        admit_gamma(&mut kc, &alpha, &beta, &gamma, &g_rite, at, true, 2).expect("appends");
+        let err = authorized(&kc).expect_err("two examiners");
+        assert!(format!("{err}").contains("seated examiner"), "{err}");
+    }
+
+    #[test]
+    fn a_refused_ceremony_leaves_the_entrant_denied() {
+        let (mut kc, alpha, beta, _gamma, _g_rite, at) = a_compact_and_an_entrant();
+        let delta = found_polity("Delta", 3, &[("valour", "we stand")], ts(T0)).expect("founds");
+        hand_off(&delta, &mut kc, ts(T0)).expect("border");
+        let d_rite = seal_rite(&delta, &mut kc, ts(T0 + 100)).expect("rite");
+        sponsor(&alpha, &delta.did, &mut kc, at, ts(at.as_second() + 90 * 86_400)).expect("vouch");
+        let beta_did = beta.did.clone();
+        let delta_did = delta.did.clone();
+        let (claims, acceptances) = ceremony_parts(&[&alpha, &beta, &delta], at, |acc, pres| {
+            !(acc == &beta_did && pres == &delta_did)
+        })
+        .expect("parts");
+        let a_rite = rite_of(&kc, &alpha.did);
+        let b_rite = rite_of(&kc, &beta.did);
+        let draft = draft_seal("polity-compact",
+                               &[(&alpha, &a_rite), (&beta, &b_rite), (&delta, &d_rite)],
+                               &kc, claims, acceptances, at).expect("drafts");
+        let Draft::NonAdmission(rec) = draft else { panic!("Beta refused") };
+        let (signed, _) = detached(rec, &[(&alpha.envoy.0, &alpha.envoy.1),
+                                          (&beta.envoy.0, &beta.envoy.1),
+                                          (&delta.envoy.0, &delta.envoy.1)])
+            .expect("signed by all three, the refused one too");
+        kc.append(ArchiveEntry::InterCommunityNonAdmission(signed)).expect("append");
+        authorized(&kc).expect("authorizes");
+        let view = lookup(&kc, &delta.did, Some(ts(at.as_second() + 1)));
+        assert_eq!(view.standing, RecognitionStanding::Denied);
+    }
+
+    #[test]
+    fn two_communities_anathematize_a_third() {
+        let (mut kc, alpha, beta, gamma, g_rite, at) = a_compact_and_an_entrant();
+        admit_gamma(&mut kc, &alpha, &beta, &gamma, &g_rite, at, true, 3).expect("admitted");
+        let later = ts(at.as_second() + 1000);
+        anathematize(&[&alpha, &beta], &gamma.did, &mut kc, later).expect("second class");
+        kc_archive::verify_all(&kc).expect("verifies");
+        authorized(&kc).expect("two reporters make the quorum");
+        let view = lookup(&kc, &gamma.did, Some(ts(later.as_second() + 1)));
+        assert_eq!(view.standing, RecognitionStanding::Anathema);
+    }
+
+    #[test]
+    fn one_reporter_does_not_make_an_anathema() {
+        let (mut kc, alpha, beta, gamma, g_rite, at) = a_compact_and_an_entrant();
+        admit_gamma(&mut kc, &alpha, &beta, &gamma, &g_rite, at, true, 3).expect("admitted");
+        anathematize(&[&alpha], &gamma.did, &mut kc, ts(at.as_second() + 1000)).expect("appends");
+        assert!(authorized(&kc).is_err(), "a second-class act needs a quorum of two");
+    }
+
+    /// Phase 5 sizing (Agora): what each record costs on the co-sign carrier, which
+    /// counts hex characters of canonical CBOR and holds at most 6144.
+    #[test]
+    fn record_sizes_on_the_co_sign_carrier() {
+        let (mut kc, alpha, beta, gamma, g_rite, at) = a_compact_and_an_entrant();
+        let founding = kc.iter().find_map(|(_, e)| match e {
+            ArchiveEntry::InterCommunityWitness(s) => Some(s.clone()), _ => None,
+        }).expect("the founding seal");
+        let admitted = admit_gamma(&mut kc, &alpha, &beta, &gamma, &g_rite, at, true, 3)
+            .expect("admitted");
+        let anathema = anathematize(&[&alpha, &beta], &gamma.did, &mut kc,
+                                    ts(at.as_second() + 1000)).expect("anathema");
+        let mut max_small = 0usize;
+        println!("record (hex chars of canonical CBOR):");
+        for (_, e) in kc.iter() {
+            let (kind, n) = match e {
+                ArchiveEntry::CommunityIdentityPublished(s) => ("CommunityIdentity", hex_len(s)),
+                ArchiveEntry::SpeakerDelegated(s) => ("SpeakerDelegation", hex_len(s)),
+                ArchiveEntry::MemberRollPublished(s) => ("MemberRoll", hex_len(s)),
+                ArchiveEntry::WitnessRegistryUpdated(s) => ("WitnessRegistry", hex_len(s)),
+                ArchiveEntry::IntraCommunityRite(s) => ("IntraCommunityRite", hex_len(s)),
+                ArchiveEntry::ExaminerRegistryUpdated(s) => ("ExaminerRegistry", hex_len(s)),
+                ArchiveEntry::SponsorshipVouched(s) => ("Sponsorship", hex_len(s)),
+                ArchiveEntry::InterCommunityWitness(s) => ("InterCommunityWitness", hex_len(s)),
+                ArchiveEntry::ConductAttested(s) => ("ConductAttested", hex_len(s)),
+                _ => continue,
+            };
+            println!("  {kind:<24} {n}");
+            if !matches!(e, ArchiveEntry::InterCommunityWitness(_)
+                            | ArchiveEntry::IntraCommunityRite(_)) {
+                max_small = max_small.max(n);
+            }
+        }
+        let claim = &admitted.payload.claims[0];
+        let acceptance = &admitted.payload.acceptances[0];
+        println!("  {:<24} {}", "AntiSpiralFeatureClaim", hex_len(claim));
+        println!("  {:<24} {}", "FeatureAcceptance", hex_len(acceptance));
+        let m2 = SealManifest::of(&founding.payload).hex_len();
+        let m3 = SealManifest::of(&admitted.payload).hex_len();
+        println!("  {:<24} {m2} (2 participants), {m3} (3)", "SealManifest");
+        println!("  {:<24} {}", "anathema (2 reporters)", hex_len(&anathema));
+        assert!(hex_len(claim) <= 6144 && hex_len(acceptance) <= 6144);
+        assert!(max_small <= 6144, "every border record but the rite and seal fits one ask");
+        assert!(m3 <= 6144, "a three-participant seal manifest fits one ask");
     }
 }
