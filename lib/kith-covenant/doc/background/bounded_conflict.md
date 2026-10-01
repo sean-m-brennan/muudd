@@ -90,7 +90,7 @@ This is the mechanical template kith-covenant should copy. A cooperation protoco
 whose prohibitions are grounded in universal vulnerability is far more
 stable than one grounded in moral consensus. In the space context, the
 universal vulnerability is overwhelming. Every habitat is one bad day from
-needing the neighbor's help. This is the kith-covenant analogue of "every
+needing the neighbor's help. This is the kith-covenant analog of "every
 belligerent has wounded and POWs," and it should be the load-bearing
 premise of the whole compact.
 
@@ -238,7 +238,7 @@ Several load-bearing consequences follow from the virtue frame:
   cultivate these virtues will not be able to sustain them in the
   compact no matter what is signed.
 
-The historical analogue is the distinction between the Geneva
+The historical analog is the distinction between the Geneva
 framework (rule-shaped, formally reciprocal, often gamed) and the
 older just-war tradition (virtue-shaped, rooted in practicing
 communities). Geneva was necessary because the just-war tradition
@@ -563,7 +563,7 @@ Practical features of face-saving exits:
 - **Symmetry of concession.** Both parties concede something visible at
   the same moment. Asymmetric concession is indistinguishable from
   surrender and will not hold.
-- **Mediated exits.** Third parties (the kith-covenant analogue of seconds or
+- **Mediated exits.** Third parties (the kith-covenant analog of seconds or
   protecting powers) propose the settlement so neither disputant appears
   to have initiated retreat.
 - **Ritualized closure.** The dispute is formally *ended.* Communiqué,
@@ -913,7 +913,7 @@ satisfied:
    nor can it be by simple majority. It requires explicit deliberation
    by all compact members, with named representatives, with published
    reasoning, with at least two cycles of consideration separated by a
-   defined waiting period (the analogue of the Iroquois back-and-forth
+   defined waiting period (the analog of the Iroquois back-and-forth
    between sides; see
    [Historical cases](historical_cases.md#the-iroquois-confederacy-haudenosaunee-kaianerekowa)).
    The procedural weight is itself the principal safeguard against
@@ -1338,7 +1338,7 @@ to the individual conspirator.
   violation the protocol can defend against.
 - What is the minimum viable mediator pool? Too few and capture
   becomes inevitable. Too many and coordination fails.
-- Is there a meaningful analogue to the *protecting powers* of the
+- Is there a meaningful analog to the *protecting powers* of the
   Geneva tradition (neutral third parties with consular access)
   that can be constructed for inter-community contexts?
 - Does the indicative virtue list above over- or under-reach? What

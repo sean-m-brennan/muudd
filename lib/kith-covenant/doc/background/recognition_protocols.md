@@ -168,14 +168,14 @@ the Geneva framework document. The inter-community layer of the
 compact carries four elements:
 
 1. **A shared form for compact entry and standing**. A
-   treaty-grammar analogue specifying what a member community
+   treaty-grammar analog specifying what a member community
    must declare, in what form, to whom, with what deposit and
    what periodic reaffirmation. The form is content-thin by
    design. It encodes the structural commitment ("we have
    something above ourselves that binds us; we do not treat the
    compact as that thing") without requiring any community to
    accept the substrate of another community. This is the
-   compact-side analogue of the treaty form attested from Kadesh
+   compact-side analog of the treaty form attested from Kadesh
    through Westphalia and into modern multilateral accession
    instruments.
 2. **Credentialing of envoys and representative machines** whose
@@ -190,7 +190,7 @@ compact carries four elements:
    stake standing on new entrants, analogous to the merchant houses
    that vouched for apprentices entering the Champagne fairs and
    to the sponsor system in the historical catechumenate. This is
-   the catechumenate analogue *at the inter-community layer*, and
+   the catechumenate analog *at the inter-community layer*, and
    it does what the catechumenate did internally. It moves the
    filter from the moment of admission to an extended period of
    observation and vouching.
@@ -1137,7 +1137,7 @@ titles at each new generation. Each tradition has independently
 discovered that ceremony cost decays without reinforcement, and
 has built reinforcement into ordinary practice. The
 kith-covenant substantive re-engagement rung is the
-inter-community analogue of that pattern.
+inter-community analog of that pattern.
 
 ## Recognition, withdrawal, and the anathema
 

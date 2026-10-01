@@ -314,13 +314,13 @@ Genesis authority gates the accounting only. The numbers must add up, exclusions
 may not repeat, and nobody may be excluded and enrolled at once. Nothing refuses
 a charter for being narrow, because a genuinely separate group of three inside a
 thirty-node cluster is indistinguishable from a faction capturing it without a
-substantive judgement no rule can make. What the rule removes is the silence,
+substantive judgment no rule can make. What the rule removes is the silence,
 not the discretion.
 
 Since the core of a charter has no amendment path, the attestation is
 genesis-immutable by construction. `founding_legitimacy` reads the grade back
 off the charter *alone*, with no provider and no cohesion input, so anyone
-holding it can re-run the judgement forever. It reports `consent_share`, being
+holding it can re-run the judgment forever. It reports `consent_share`, being
 ratifiers over everyone the boundary *showed* rather than over the roll the
 founders *chose*: the faction of one reads 0.033. Its `FoundingBasis`, over
 corroborated, narrowed and self-attested, is deliberately unordered and
@@ -575,7 +575,7 @@ Watchers, not filings (D28). Counting *observations* instead would let one key
 file three times and clear a floor whose entire justification is that somebody
 has been watching, so a stranger with one keypair could manufacture the
 escalation this component alone is trusted with. Counting distinct observers is
-arithmetic rather than a judgement about who they are. Whether the watchers are
+arithmetic rather than a judgment about who they are. Whether the watchers are
 independent *of each other* is the watchers lens, over distinct, vouched and
 contested, reported beside the escalation it qualifies and read by no component.
 That asymmetry is deliberate: gating an escalation on the monitor being vouched
@@ -656,8 +656,11 @@ and the feed for the whistleblower ring one tier up.
 one that crosses to the substrate rather than to the compact: the members holding
 `RendezvousOperator` with a live `RelayEndpoint`, from `rendezvous_state`, written
 as AutonomousTrust's own signed `at-relay-roster` file under the root key, each relay
-pinned to its operator's `did:key`. It adds no compact-tier crate, only `serde_json`,
-`sha2` and `hex`.
+pinned to its operator's `did:key`. A relay whose `RelayEndpoint` lists `areas` is also
+an area hub (D38), and the file then carries an `areas` object naming each hub's
+geohash areas under its own hint; with no hub the object is left out and the file is
+byte for byte the D36 one. It adds no compact-tier crate, only `serde_json`, `sha2` and
+`hex`.
 
 ## `en-store`
 

@@ -78,7 +78,7 @@ section of it, and each links to the next at its foot.
 
 The reference corpus is appendix C of the same chain: [the
 crates](doc/crates.md), the numbered [design decisions D1 to
-D37](doc/design.md), and [build and
+D38](doc/design.md), and [build and
 toolchain](doc/architecture/build-and-toolchain.md).
 
 Outstanding scope is in [TODO.md](TODO.md).

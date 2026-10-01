@@ -144,7 +144,7 @@ Standard composition contract: one paused root timeline registered on
 `class="clip"` on timed scene sections, deterministic logic only (no
 `Date.now()`, no `Math.random()`, no network fetches), local assets only.
 
-Requirements honoured:
+Requirements honored:
 
 - Shows real project material: verbatim documentation copy throughout, and real
   `cargo tree` output executed against this workspace in scene 6.

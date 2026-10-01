@@ -30,11 +30,11 @@ Capture is a faction taking the machinery. It is the easy case to measure and th
 to state, since capture is a claim about intent, and intent is exactly what a protocol
 cannot read. The capture harness resolves that by measuring traces rather than motives.
 Coordination is a kind of action and leaves marks, so concentration, divergence, and
-correlated behaviour are readable where the purpose behind them is not.
+correlated behavior are readable where the purpose behind them is not.
 
 Substitution is neither. The form is kept, and kept harder than before. The object is
 replaced. A compact founded on eight grounds finds, over a generation, that it enforces one
-of them, and it enforces that one with rising vigour against a widening set of members. No
+of them, and it enforces that one with rising vigor against a widening set of members. No
 amendment records the change, because no amendment was proposed. Nobody narrowed the
 recitation. The recitation is still read in full at every rite, and the community that
 recites it means it.
@@ -54,7 +54,7 @@ Girard's account is of the sacrificial mechanism, and the countermeasure is reve
 Scapegoating is disarmed by being seen as scapegoating, so the third anti-spiral feature is
 an exposure requirement. Although the assumption behind it is sound wherever there is
 something anomalous to display, the countermeasure reaches only what can be shown, named,
-and recognised as what it is.
+and recognized as what it is.
 
 Wink's account is of the Powers, structures that are not evil in their creation and become
 so by claiming ultimacy for themselves, and the countermeasure is renunciation rather than
@@ -65,7 +65,7 @@ the ultimate has satisfied the assertion and failed the feature.
 
 Substitution falls in the gap between them. Revelation does not fire, because nothing
 anomalous is on display. There is no innocent victim being singled out for the compact to
-recognise, no crisis, no purge. There is a rising quantity of ordinary enforcement, filed
+recognize, no crisis, no purge. There is a rising quantity of ordinary enforcement, filed
 correctly, on a ground that genuinely is part of the recited object. Renunciation does not
 fire either, because the compact has not claimed ultimacy for itself. It has kept its
 compact-incapable list intact, held its fasts, and refused every matter it undertook to
@@ -163,7 +163,7 @@ required on the second and silence required on the first.
 A second control corrected the design itself. The natural place to take this reading is per
 community, and it is the wrong place. Six communities each filing on one ground apiece score
 as converged on every single per-community reading, while the compact between them still
-enforces six of the eight grounds. That is division of labour in an observer corps and not a
+enforces six of the eight grounds. That is division of labor in an observer corps and not a
 narrowing of what the compact holds. The reading that grades the compact is therefore
 compact-wide, and the per-community reading is the drill-down that names who, available only
 after the compact-wide reading has said there is anything to name.
@@ -180,7 +180,7 @@ was recorded rather than at the moment of reading.
 
 This is reported as its own dimension and not folded into the first, because either can
 occur without the other. It is also thresholded rather than absolute, and the reason is that
-some downward skew is what probation exists for. A compact that scrutinises its entrants
+some downward skew is what probation exists for. A compact that scrutinizes its entrants
 more closely than its founders is doing what the admissions rules ask of it. A compact whose
 enforcement has stopped reaching full members at all is doing something else, and the
 negative control for the dimension is a compact enforcing against full members at any

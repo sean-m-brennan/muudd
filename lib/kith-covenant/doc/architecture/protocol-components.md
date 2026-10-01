@@ -23,7 +23,7 @@ protocol describes but the code does not yet carry,
 
 Capture resistance is a cross-cutting architectural concern, not a component.
 Each component below carries capture-resistance responsibilities as part of its
-ordinary specification, and §11 catalogues the unified concern, routes the seven
+ordinary specification, and §11 catalogs the unified concern, routes the seven
 strengthening moves of
 [Capture resistance](../background/capture_resistance.md) to their component
 homes, and names the implementation work that follows.
@@ -588,7 +588,7 @@ prevention.
   live compact and a compact where every grievance ran one way would
   be the stranger object, and it is read **compact-wide** for the same
   reason as the substitution dimensions: a per-community reading
-  converges on any compact with a division of labour. It is a lens and
+  converges on any compact with a division of labor. It is a lens and
   never a refusal. A compact may have a genuine complaint against a member
   that itself complained, and no protocol can tell the two apart. Its
   stated limit is measured rather than assumed: the join names a pair,
@@ -765,7 +765,7 @@ prevention.
   `draw_allowance`, which is `provision_rule`'s machine-readable
   half and the only part of Ostrom's proportionality a rule can
   act on. Before it, a record drawing ten times the written cap
-  was authorized exactly like one that honoured it, and the two
+  was authorized exactly like one that honored it, and the two
   were indistinguishable to the archive. A community may then
   account under the §7 surveillance threshold rather than in
   public, committing its figures and publishing a
@@ -1025,7 +1025,7 @@ external force:
   than contractions procedurally, reflecting the asymmetric
   capture risk.
 - **Structured-fast cadence enforcement.** During defined periods
-  (the compact analogue of liturgical Lent / sabbatical *shmita*),
+  (the compact analog of liturgical Lent / sabbatical *shmita*),
   compact-level mediations, sanctions, and decisions are not
   initiated. Life-critical commons proceed. The deliberative and
   adjudicative functions pause. The cadence is part of the
@@ -1188,7 +1188,7 @@ Per-component criteria:
 
 ### 11. Capture resistance (cross-cutting)
 
-Although it is catalogued here as §11, this is not a separate
+Although it is cataloged here as §11, this is not a separate
 component but a unified architectural concern that runs through
 §§1-10. The full statement is in
 [Capture resistance](../background/capture_resistance.md).
@@ -1251,7 +1251,7 @@ capture-resistance test harness. Each is carried by the code named beside it:
 | Sealed decisions with threshold-reveal | §4 | `SealedReasoning` + `DecisionUnsealed` over `kc_core::ThresholdCustody`, the §8 primitive at its second use. Although the mediators are the parties who decide, custodians are **communities**, because the §4 two-year mediator term cannot carry a twenty-five-year seal. No party holds a share and no quorum sits with the communities of the panel itself |
 | Mediator-pool rotation and share cap | §4 | `MediatorRegistry` + `MediatorCaps`: bounded terms, rotation gap, continuous-service union, no-majority pool share, the same `check_roster_caps` the §2 examiner and §8 observer caps read. Until it existed the mediator pool was the third roster and the one wired to nothing, so one community could hold nine of ten seats and every mediator could be seated with no end date at all. The *draw* stays social: one panel may still be composed entirely of mediators from a single non-party community whose share of the pool is legal, as with drawing examiners by lot |
 | Recusal requested and answered | §4 | `RecusalRequest` + `RecusalDecision`. Grounds are required and never weighed for content, since a rule can record that a ground was stated, not judge it. Granted only by the mediator stepping down. A refusal belongs to the panel, never to that mediator. A declined request must state reasoning. It gates nothing: the mediation decides as it would have |
-| Protecting powers | §4 | `ProtectingPower`, the Geneva analogue from [Liminal institutions](../background/liminal_institutions.md). A non-party community standing for a disputant, co-signed by both, barred from seating mediators in the same dispute. "It is not an arbitrator. It is a witness with standing", so it gates nothing |
+| Protecting powers | §4 | `ProtectingPower`, the Geneva analog from [Liminal institutions](../background/liminal_institutions.md). A non-party community standing for a disputant, co-signed by both, barred from seating mediators in the same dispute. "It is not an arbitrator. It is a witness with standing", so it gates nothing |
 | Mediator training lineage | §4 | `MediatorEntry.trained_by` plus the lineage half of `mediator_pool_concentration`: per-trainer counts against the *recorded* denominator, so a pool that records nothing reads as unknown rather than healthy. Read by no rule, because the same doctrine warns against a certification barrier becoming a gatekeeping mechanism |
 | Substrate-deference dashboard maintained by observer corps | §8 | `substrate_deference` + `erosion_alert`, bundled on `observer_dashboard` |
 | Attested nulls for the standing functions | §4, §8 | `kc-conduct::ActivityAttestation`: a signed account of one window, whose **empty** act list is the purpose of the record. Silence becomes either evidence or a fact about the compact rather than missing data. Signed by the community that holds the seats, since the obligation is theirs for as long as it does |
@@ -1263,7 +1263,7 @@ capture-resistance test harness. Each is carried by the code named beside it:
 | Offices distinguished from services in the capability set | §9 | `Capability::offices()` beside `Capability::services()`: `MediatorSeat`, `ObserverSeat`, `ExaminerSeat`, `Deliberation`, `EmergencyPanelSeat`, gated at the three rosters, both emergency panels, and inside `deliberative_weight` itself. Before it, an injunction revoking every capability the compact could express left all three rosters open and every panel seat available. Three things withhold an office (`withheld_by`), each covenant-facing and none a reading of the interior of a member: an in-force injunction, a standing designation, an expulsion rung |
 | The differential protocol, made operative | §5 | A standing designation withholds the five offices and all deliberative weight, suspends the ordinary restitution path, and bars the subject from the quorum of its own designation and of the re-examination of it. Services stay, since the doctrine permits their denial rather than imposing it, and the rescue duty is never gated. An expulsion rung withholds the offices on the same terms, and a de-escalation restores them. Measured before it: a designated community seated mediators, observers and examiners, supplied an emergency panel against a third party, carried second-class decisions, and opened a fourth restitution cycle the day after the designation naming three |
 | The *hostis humani generis* bar | §5 | A prior anathema whose return failed (a re-entry broken, or a confirmed re-examination), at least one cited act postdating it, three cycles of consideration, `quorum_threshold + 1` counting weight, and a mandatory re-examination date. `ReexaminationOutcome::Vacated` is the error-correction conclusion the tier needs, since it has no reversal path for `Reversed` to report. Measured before it: the irreversible tier stood at the anathema tier's own bar, on recycled evidence, with no date and so invisible to `overdue_reexaminations` for good |
-| Recorded refusal to designate | §5 | `kc-escalation::DesignationDissent` plus the `designation_consensus` reading: who joined, who refused, who was silent, against the roll minus the subject. Vetoes nothing. A co-signer may not also dissent, the subject may not (its objection is its own defence, and it has the report response, the injunction challenge and the re-entry accounting), and an outsider may not (§8 observer reports are how a community outside a compact speaks about it). Before it, a designation carried by three of five read exactly like one carried by all five |
+| Recorded refusal to designate | §5 | `kc-escalation::DesignationDissent` plus the `designation_consensus` reading: who joined, who refused, who was silent, against the roll minus the subject. Vetoes nothing. A co-signer may not also dissent, the subject may not (its objection is its own defense, and it has the report response, the injunction challenge and the re-entry accounting), and an outsider may not (§8 observer reports are how a community outside a compact speaks about it). Before it, a designation carried by three of five read exactly like one carried by all five |
 | The compact's own recited object as the denominator | §3, §9 | `kc_ceremony::CommonVirtueMovement` (a preamble plus an ordered `Commitment` list, the recited text derived so the two cannot disagree) plus `ConductRecord.commitments_cited`, read by `kc_reputation::compact_object` and `commitment_coverage`, the erosion alert's fifteenth dimension. Pinned to the first rite of each seated member, so the denominator is what the compact undertook and only grows; later commitments count off-object; the volume floor scales with the object and testability counts only acts that cite. Measured before it: a compact halving what it recited scored 1.0 on shared-taxonomy coverage and `None` on all fourteen dimensions. §10 scenario 13 scores it against a whole-object control |
 | A commitment no longer recited | §3, §9 | `kc_reputation::commitment_contraction`, the sixteenth dimension and the act-triggered half of the fifteenth: the move that makes a narrowing legal is to bring the recitation down to match. Pinned baseline against the latest recitation, so a commitment taken up again clears. A cited key that no member of the compact recited at or before the act is refused outright |
 | Enforcement landing on the compact's own complainants | §5, §9 | `kc_reputation::reporter_targeting` (+ `_all`), the erosion alert's fourteenth dimension and the second with a *named beneficiary*. Reads the relation between an enforcement act and a prior grievance, asking whether this act's subject is the community that raised an earlier one about whoever brings this one, joined on party identity and time order rather than citation, over all four carriers of a raised matter. Compact-wide, thresholded on a volume floor and a majority share, compounding to `Alert` when more than one pair is implicated. Measured before it: a complicit majority ran the member that filed the evidence up to limited sanctions and zero instruments moved, `enforcement_direction` included, because its axis is standing and an honest complainant holds full standing. §10 scenario 12 scores it against a same-volume control |
@@ -1333,7 +1333,7 @@ Scope this document specifies that the code does not yet carry is listed in
    (the mechanisms of kith-covenant), and the implementation layer
    (software). No single component implements capture resistance.
    Each component carries responsibilities specified inline above
-   (§§1-10), and §11 catalogues the unified concern. The
+   (§§1-10), and §11 catalogs the unified concern. The
    implementation must refuse the temptation to consolidate
    capture-resistance into a single subsystem. The consolidation
    itself becomes a capture target. Distribution of the concern

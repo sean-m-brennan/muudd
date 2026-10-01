@@ -8,7 +8,7 @@ the kith-covenant design is grounded in the inverse argument
 ([Justus hostis](justus_hostis.md)). The structural features that
 historically allowed strangers to *bound their conflicts* yield, when
 inverted, the primitives by which strangers can cooperate. This document
-catalogues the cases that argument depends on. For each case it reports
+catalogs the cases that argument depends on. For each case it reports
 the founding context, the mechanisms that actually did the work, what
 the case accomplished while it functioned, the way it eventually decayed
 or collapsed, and the design lesson kith-covenant should take from it.
@@ -80,7 +80,7 @@ The system worked through several tightly coupled institutions:
 ### Output
 
 For roughly 250 years, European wars were largely *bounded*. They had
-named beginnings and ends, identifiable belligerents, defined theatres,
+named beginnings and ends, identifiable belligerents, defined theaters,
 exchanges of prisoners, and termination treaties that included the
 defeated as participants rather than reducing them to subjects. This is
 not an idealization of the period (it included serial partitions of
@@ -187,7 +187,7 @@ The Peace of God is the strongest pre-modern example of a
 sacred- substrate-only enforcement regime working at scale
 across communities that shared no common government. Its
 mechanism was *anathema.* Exclusion from a shared sacred
-reality. Although the closest contemporary analogue available to
+reality. Although the closest contemporary analog available to
 kith-covenant is *exclusion from the compact*, exclusion only
 carries comparable weight if the compact itself is
 sacred-equivalent, which (per
@@ -1571,7 +1571,7 @@ Israel's Magen David Adom. The underlying *protective framework*
 as a protective marker rather than a religious claim) has
 remained unchanged throughout. This is the cleanest modern case
 of a single framework with *culturally-pluralized symbols.* One
-protocol, many marks. It is also the closest modern analogue to
+protocol, many marks. It is also the closest modern analog to
 what the kith-covenant recognition ceremony aspires to
 structurally. The same substantive commitment, entered in the
 terms of each community itself.
@@ -1596,7 +1596,7 @@ across genuinely dissimilar cultures look consistent:
    The convergence is not invented jointly. It is discovered on
    contact. Rhodian jettison rules were absorbed because Roman law
    already had something close; Islamic law already had the
-   structural analogues; Mediterranean custom already recognized
+   structural analogs; Mediterranean custom already recognized
    them. Diplomatic immunity is polycentric precisely because the
    framework emerged independently many times before any synthesis.
 4. **Each party justifies the shared rule in its own substrate**.
@@ -1720,7 +1720,7 @@ Several careful consequences follow:
 - **The Mongol case (Tengrist tolerance grounded in shared
   transcendent moral authority ontology) and the Islamic case
   (formal legal architecture for *Ahl al-Kitab*) are the closest
-  historical analogues to what kith-covenant would need to design
+  historical analogs to what kith-covenant would need to design
   at compact founding.** Both *recognized in advance* that the
   high gods of other communities were in some sense the same as
   their own, and built cooperation on that recognition. The
@@ -1892,7 +1892,7 @@ patterns most directly relevant to the kith-covenant design.
 ## Open questions
 
 - The Haudenosaunee Condolence ceremony has no European-tradition
-  analogue and is a strong candidate for direct study by kith-covenant. What
+  analog and is a strong candidate for direct study by kith-covenant. What
   is the appropriate way for kith-covenant to engage with this: citation,
   inspiration, formal collaboration with Haudenosaunee scholars?
   This is a matter of intellectual seriousness as well as basic

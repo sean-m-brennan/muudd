@@ -33,7 +33,7 @@ under a neutral bearing that names coherence erosion.
 What it carries is early warning, and deliberately not a verdict about fission.
 A concern is about conduct, where a split is about whether a community still
 exists, which is a category a conduct record should not be made to carry. We
-decline to decide a split at all, because no measure can make that judgement and
+decline to decide a split at all, because no measure can make that judgment and
 a measure pretending to would be worse than none.
 
 *A fission.* A ratified split emits no new type. We charter the successor

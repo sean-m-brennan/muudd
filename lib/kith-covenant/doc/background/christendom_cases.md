@@ -1800,7 +1800,7 @@ this research set. Features (1), (3), and (4) are Christian
 distinctives in specific forms (universal fallen-actor with
 rigor. Scapegoat-revelation through the Cross. Enemy-love as
 positive scriptural commandment). Features (2) and (5) have
-strong analogues in other traditions (Buddhist grace and
+strong analogs in other traditions (Buddhist grace and
 renunciation; Jewish covenantal grace and two-ages doctrine;
 Sufi *tawakkul*) but the form of Christianity is fully
 developed and institutionally extensive. The Christendom
@@ -1849,7 +1849,7 @@ most fully developed single combination available in the
 cross-traditional survey**. Features (1), (3), and (4) have
 distinctively Christian forms whose structural robustness is real.
 Features (2) and (5) have strong Christian forms alongside strong
-non-Christian analogues. The combination of all five in developed
+non-Christian analogs. The combination of all five in developed
 form is what the Christendom cases instantiate.
 
 **Third, the failure modes are betrayals rather than absences**.

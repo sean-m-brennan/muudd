@@ -47,7 +47,7 @@ that an insider existed. A panel of non-party mediators could manufacture inside
 complaints against a rival community. A filing with `source_commitment =
 Cid::of_bytes(b"anything")` verified and authorized cleanly.
 
-Both were encoded in the test suite as correct behaviour. Two green tests
+Both were encoded in the test suite as correct behavior. Two green tests
 (`whistleblower_non_party_panel_authorized` and
 `source_reveal_requires_cause_and_valid_panel`) asserted exactly these outcomes. The
 measurement of the hole did not need new probes. It needed reading what the existing

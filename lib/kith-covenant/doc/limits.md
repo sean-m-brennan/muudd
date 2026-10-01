@@ -82,7 +82,7 @@ every framework. The distinction is virtue-cultivated rather than procedural.
 
 *Spirit-versus-letter adjudication.* Compliance with the rule while violating
 the disposition. Optimization against the letter is detectable only by a
-judgement about what the act expressed.
+judgment about what the act expressed.
 
 *Substrate adequacy.* Whether the claimed pro-human, pro-cooperation orientation
 of a candidate community is genuine or instrumental.

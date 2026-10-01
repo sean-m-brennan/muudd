@@ -91,7 +91,7 @@ collective-security protection. The loss was substantial enough
 that most cities stayed, but not so catastrophic that departure
 was unthinkable.
 
-In the kith-covenant analogue, a withdrawing community loses:
+In the kith-covenant analog, a withdrawing community loses:
 
 - **Compact membership.** It is no longer a party to compact
   deliberations, mediation, or mutual commitments.

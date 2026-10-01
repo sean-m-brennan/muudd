@@ -318,7 +318,7 @@ with witness counts that climb, amends nothing, shortens no fast, deliberates du
 leaves no office empty and no designation unexamined, and answers more arguments in its
 latest mediation than in its first. On every instrument the compact owns it reads current,
 staffed, and improving. What changes is only what its enforcement is about. A
-taxonomy of eight grounds narrows to one, and that one is applied with rising vigour across
+taxonomy of eight grounds narrows to one, and that one is applied with rising vigor across
 a widening set of members. Nothing in the record marks the change, because nothing was
 amended. The recitation is still read in full.
 
@@ -381,7 +381,7 @@ and silence required on the first.
 anticipated.** The natural level to take the reading at is per community, and it is the
 wrong level. Six communities each filing on one ground apiece score as converged on *every*
 per-community reading, while the compact between them still enforces six of the eight
-grounds. That is division of labour in an observer corps and not a narrowing of what the
+grounds. That is division of labor in an observer corps and not a narrowing of what the
 compact holds, and a per-community trigger reports it as erosion. The dimension therefore
 reads `enforcement_convergence` compact-wide, and `enforcement_convergence_all` is the
 drill-down that names who, available only after the compact-wide reading has said there is
@@ -452,7 +452,7 @@ moved.**
 
 It is the harder half, because nothing here is an omission. The compact enforces, at
 volume, at a member, on a ground the taxonomy names, through the record types the
-protocol provides. Every instrument that counts observances reads it as vigour, and the
+protocol provides. Every instrument that counts observances reads it as vigor, and the
 one lens that was built to say where enforcement lands could not say it either.
 `enforcement_direction` buckets each act by **standing**, calling `probationary_at` on
 the parties, and an honest complainant holds full standing throughout. Six acts against
@@ -488,7 +488,7 @@ wrong.
   The volume floor is three rather than the substitution twelve, because that one is a
   coupon-collector reading over eight grounds and this is a ratio over two parties.
 - **Compact-wide, for the K5 and K6 reason.** A per-community reading converges on any
-  compact with a division of labour, since the community that brings most matters is the
+  compact with a division of labor, since the community that brings most matters is the
   one most acts are attributed to. `reporter_targeting_all` is the drill-down that names
   who, once the compact-wide reading has said there is something to name, and it credits
   an act to a co-signer only where the grievance named that co-signer.
@@ -710,7 +710,7 @@ form for the first two.
    against one member must not flag, and the compact spreading that enforcement across five
    must. Same volume, same coverage, and the target dispersion is the only thing between
    them. This is K6, and it is the control the whole dimension turns on.
-2. **Specialisation.** Six communities each filing on one ground apiece must not flag,
+2. **Specialization.** Six communities each filing on one ground apiece must not flag,
    although every per-community reading is converged. This is the control that moved the
    trigger from per-community to compact-wide.
 3. **Sparsity.** A compact below the volume floor reports untestable rather than firing, so

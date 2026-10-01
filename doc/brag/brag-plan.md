@@ -113,7 +113,7 @@ The real thing shown instead is the physical layer's own material:
 
 **Nothing on screen is invented.** The only authored geometry is the ridge
 silhouette behind the node map, which is decorative and carries no reading; it is
-not a terrain profile and is not labelled as one.
+not a terrain profile and is not labeled as one.
 
 `baseline-results.json` was read and **deliberately left out**: its figures
 (`identity_convergence_s`, `reputation_stability_stddev`, `negotiation_rtt_mean_s`,
@@ -124,7 +124,7 @@ is built to defend. They belong in the AutonomousTrust video, which already exis
 ## Visual identity
 
 MUUDD ships no UI and no stylesheet, so there is no palette to lift — unlike the
-AutonomousTrust cut, which took its colours verbatim from the project's dashboard
+AutonomousTrust cut, which took its colors verbatim from the project's dashboard
 CSS. The palette here is authored, and it is authored *from the subject*: a ridge
 at night, a backbone link, and a solar array.
 
@@ -270,7 +270,7 @@ Transition: clean cut → Scene 3
 ### Scene 3 — The link budget · 13.35 → 20.55s
 The Sutton ↔ Burnsville hop lights and its callout appears on the map. The readout
 column fills with the nine worked rows. `LINK MARGIN 12.6 dB` is beat-locked to
-strong cue **18.01s** and lifts to the link colour; `450+ Mbps aggregate` follows.
+strong cue **18.01s** and lifts to the link color; `450+ Mbps aggregate` follows.
 Source strip: `doc/rural-network.md · Worked Example: Sutton to Burnsville Link`.
 Sequential/interaction: yes — nine rows, then the margin, then the throughput.
 Audio: no sting on the rows. One quiet bell on the margin.
@@ -287,7 +287,7 @@ Transition: column swap → Scene 5
 
 ### Scene 5 — The ledger · 28.15 → 33.60s
 Column swaps to two columns, FIBER against MESH, five rows. The fiber column is
-warm red; the mesh column is the link colour. Rows land on the extended grid at
+warm red; the mesh column is the link color. Rows land on the extended grid at
 28.92 / 29.47 / 30.01 / 30.56 / 31.10.
 Source strip: `doc/rural-network.md · Cost Comparison: Fiber vs Mesh · Model A`.
 Sequential/interaction: yes — five paired rows, all persisting.
@@ -335,7 +335,7 @@ opens to 0.22 rather than 0.30.
 
 ## Build notes (final figures)
 
-**Final duration: 45.6s.** Seven Kokoro clips (`am_michael`, speed 0.96) totalling
+**Final duration: 45.6s.** Seven Kokoro clips (`am_michael`, speed 0.96) totaling
 39.10s of speech, plus a 1.00s lead-in, ~0.70s between lines, and a 1.29s tail.
 
 | Clip | Measured | Starts at | Ends |

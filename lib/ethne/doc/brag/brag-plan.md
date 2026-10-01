@@ -313,7 +313,7 @@ refusal, and fading to silence under the closing line.
 Written after the narration was generated and measured.
 
 **Final duration: 46.0s.** Seven Kokoro clips (`am_michael`, speed 0.96)
-totalling **38.51s** of speech.
+totaling **38.51s** of speech.
 
 | Clip | Measured | Starts at | Ends |
 |---|---|---|---|

@@ -36,7 +36,7 @@ to run over the same wire.
 Reputation exists to allocate scarce things, whether that is bandwidth on a
 solar-powered relay, compute on a small node, a place on a membership roll, or
 the authority to speak for a community. Those decisions require knowing who is
-asking, because the whole content of the decision is a judgement about the
+asking, because the whole content of the decision is a judgment about the
 asker.
 
 Anonymity exists to protect speech that costs the speaker. A member reports that

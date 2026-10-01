@@ -52,7 +52,7 @@ Four conditions appear to be necessary for *justus hostis* to function:
 2. **Symmetric rules.** Whatever is permitted to one side is permitted to the
    other, and whatever is forbidden is forbidden to both. Asymmetry is the
    entering wedge of extermination-politics.
-3. **A recognized spatial/temporal bracket.** There is a *theatre* of conflict
+3. **A recognized spatial/temporal bracket.** There is a *theater* of conflict
    and a *time* of conflict. Domains and periods outside the bracket are
    protected. Parliaments meet, trade continues, churches are spared, hostages
    are exchanged at the end.
@@ -318,7 +318,7 @@ combination blocks the purity spiral:
    Moral seriousness is owed to the person actually before you,
    and discernment operates *within encounter*, regardless of
    which side designated whom as enemy. Other traditions with
-   strong analogues: Haudenosaunee mourning practices for dead
+   strong analogs: Haudenosaunee mourning practices for dead
    opponents. The *aman* and *dhimma* extended beyond strict
    Islamic-legal requirements in various historical moments;
    Buddhist *mettā* (loving-kindness) meditation as a formal
@@ -777,7 +777,7 @@ because idolators are morally inferior but because their oaths would
 not bind in the way the framework requires.
 
 The three kith-covenant substrate requirements are the Noahide
-analogue. Creator acknowledgment, pro-human orientation, and
+analog. Creator acknowledgment, pro-human orientation, and
 pro-cooperation orientation are the minimum below which the
 mechanisms of the compact (the recognition ceremony, the common
 virtues, the escalation ladder, the anathema procedure) cannot
@@ -796,7 +796,7 @@ interest of the swearer alone is an oath that breaks the moment
 the interest of the swearer changes.
 
 Two minima now appear in the design and they must not be run
-together. The Noahide analogue is a *substrate* minimum. The least
+together. The Noahide analog is a *substrate* minimum. The least
 a community must hold for the binding force of the compact
 mechanisms to work on it, and it is a condition of full
 membership. The adopted functional minimum is a *conduct* minimum.
@@ -1083,7 +1083,7 @@ Carl Schmitt's friend/enemy distinction (*Der Begriff des Politischen*,
       friend/enemy distinction, that politics exists where there
       is an us-and-them serious enough to potentially involve
       killing. The *hostis humani generis* category developed
-      below is in part the kith-covenant analogue of Schmitt's
+      below is in part the kith-covenant analog of Schmitt's
       enemy-pole. *But kith-covenant must depart from Schmitt at
       a critical point*: the friend/enemy distinction is morally
       subordinate to the prior category of *neighbor*. The

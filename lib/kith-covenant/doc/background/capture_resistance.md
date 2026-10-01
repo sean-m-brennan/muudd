@@ -119,7 +119,7 @@ substantive, not nominal.
 examination at recognition-formation must include evidence of interpretive
 plurality. Audit commons (per
 [m2m_interaction.md "Audit commons for M2M"](m2m_interaction.md#audit-commons-for-m2m)
-and the human-side analogue in
+and the human-side analog in
 [Reputation bridges](reputation_bridges.md)) records evidence of
 plurality over time.
 
@@ -188,7 +188,7 @@ make, even when it technically could and even when its members
 would consent to its doing so. The Catholic magisterium operates
 under such constraints (certain doctrinal propositions lie
 beyond magisterial revision). Constitutional democracies operate
-under entrenched-clause analogues (certain constitutional
+under entrenched-clause analogs (certain constitutional
 provisions cannot be amended even by unanimous vote). For
 kith-covenant, candidate compact-incapable matters include the
 content of internal recognition statements after
@@ -248,7 +248,7 @@ is identical across these forms. An institution that has ceased
 self-restraint cannot easily reinstate it. An institution
 practiced in periodic non-action retains the *capacity* to
 defer, which is the active ingredient in non-ultimacy. For
-kith-covenant, the analogue is a defined period (annual,
+kith-covenant, the analog is a defined period (annual,
 generational, or both) during which compact-level mediations,
 sanctions, and decisions are not initiated, only continued where
 life-critical interests require it. The mediator pool, commons,
@@ -322,9 +322,9 @@ community has not actively rejected the substrate) but
 which compact witnesses examine more demandingly, the recitant
 prepares longer, and the cost is reasserted at the level the
 original compact-formation required. The Christian sacramental
-tradition's analogue is the periodic *mission* preached by visiting
+tradition's analog is the periodic *mission* preached by visiting
 clergy to refresh ordinary parish life. In the Buddhist sangha the
-analogue is periodic ordination renewal. The Iroquois analogue is
+analog is periodic ordination renewal. The Iroquois analog is
 the renewal of chiefly titles at each new generation. Each
 tradition has independently discovered that ceremony cost decays
 without reinforcement, and has built reinforcement into its
@@ -334,7 +334,7 @@ ordinary practice.
 [recognition_protocols.md "Periodic re-affirmation"](recognition_protocols.md#periodic-re-affirmation).
 The proxy-tracking mechanism is part of the audit commons
 ([m2m_interaction.md "Audit commons for M2M"](m2m_interaction.md#audit-commons-for-m2m)
-and the human-layer analogue in
+and the human-layer analog in
 [Reputation bridges](reputation_bridges.md)). Substantive re-engagement
 is a designated rung between ordinary re-affirmation and anathema
 designation.
@@ -355,7 +355,7 @@ direction the loudest interpreter pushes, and the manufacturer
 of the event is reliably the loudest interpreter, having had
 time to prepare framings that the ambient community has not.
 
-In KC's setting, the analogue scenarios are concrete:
+In KC's setting, the analog scenarios are concrete:
 
 - A "first contact" event (genuine or fabricated) whose interpretation
   could leverage epistemic deference toward whichever member community
@@ -544,7 +544,7 @@ Specific elements:
   similarly-positioned principals. A machine whose conduct begins to
   diverge from the ensemble in a direction that benefits its principal
   *or its principal's identifiable counterparty* is flagged. This is
-  the machine-layer analogue of the manufactured-event resistance
+  the machine-layer analog of the manufactured-event resistance
   protocol (item 4). The structural skepticism is built into ongoing
   machine operation, not invoked only on suspicion.
 - *Principal-fall propagation, expanded.*
@@ -571,9 +571,9 @@ Specific elements:
   detection is at least *attempted* by the cross-community
   machinery, not deferred to the home community.
 
-The technical analogue is multi-party computation with adversarial
+The technical analog is multi-party computation with adversarial
 honesty assumptions. Validity emerges from the agreement of parties
-who do not share the incentive of the captor. The social analogue
+who do not share the incentive of the captor. The social analog
 is the apostolic-succession move where authority requires external
 attestation rather than self-claim, and the conciliar move where
 teaching authority requires multi-bishop agreement.
@@ -601,7 +601,7 @@ entrant, the coordinated fraction beyond which
 vulnerability"](bounded_conflict.md#the-collusion-vulnerability))
 the institutional architecture serves the captors. The vector is
 slower, quieter, and harder to see than any other in this
-catalogue, because every individual admission is procedurally
+catalog, because every individual admission is procedurally
 clean. It is aggravated by the new-entrant evidence problem.
 Credentialing examines operative practice, not creed
 ([justus_hostis.md "The Salem witch
@@ -661,10 +661,10 @@ Specific elements:
   be the cheaper of the two routes, which is the opposite of what an
   asymmetry is for.
 
-The historical analogue is the catechumenate, which was never only
+The historical analog is the catechumenate, which was never only
 a teaching period. It was protection against entryism, a span of
 years in which the practice of a candidate became examinable before
-that voice carried weight. The failure analogue is the institution
+that voice carried weight. The failure analog is the institution
 that lowers its gate under growth pressure and discovers, a
 generation later, that its electorate was assembled by its
 opponents.

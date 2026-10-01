@@ -87,7 +87,7 @@ and integration with other state services. Merchants migrated to the
 state-backed system voluntarily, and in doing so surrendered the
 non-state character of their reputation infrastructure.
 
-### The modern analogue question
+### The modern analog question
 
 The historical question from
 [Historical cases](historical_cases.md): "When most infrastructure is

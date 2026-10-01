@@ -21,7 +21,7 @@ detailed treatment can be read against them:
    cross-community cooperation, it is a different *kind* of case
    than Westphalia or the Hanse.** It is a trans-polity
    religious order as much as it is a cooperation regime among
-   polities that stay separate. The closer Christian analogue is
+   polities that stay separate. The closer Christian analog is
    not Westphalia but the Roman Catholic monastic orders, or the
    medieval papacy as a cross-sovereign ecclesiastical
    authority.
@@ -54,7 +54,7 @@ detailed treatment can be read against them:
    Christian-particularist reading, the claim that the *specific
    kind* of cross-polity cooperation Christendom produced
    (Westphalia, Hanse, lex mercatoria) has no close Buddhist
-   analogue, also survives, but at the cost of conceding that
+   analog, also survives, but at the cost of conceding that
    the kind of cross-polity cooperation is a real and durable
    achievement of a different form.
 
@@ -338,7 +338,7 @@ Second, **the re-ordination pattern is a useful precedent for
 the reconstitution question of kith-covenant**
 ([Exit and succession](exit_and_succession.md)). When a
 member community loses the local capacity to produce properly
-credentialed successors (analogue of Sri Lanka losing the
+credentialed successors (analog of Sri Lanka losing the
 *upasampada* lineage), a peer community across the boundary can
 supply the reconstitution, provided the cross-polity recognition
 machinery is kept working for exactly this purpose.
@@ -1043,7 +1043,7 @@ matters most.
   object") teaching (that the evildoer is the proper object of
   the saving vow of Amida before the good person) reads almost
   exactly as a Buddhist Pauline theology of grace. This is the
-  closest structural analogue to the Christian grace doctrine in
+  closest structural analog to the Christian grace doctrine in
   any non-Christian tradition.
 - **Zen** and **Vajrayana** handle the feature through different
   registers. Zen's *shikantaza* or *kensho* is explicitly not a
@@ -1130,7 +1130,7 @@ scapegoat narrative revealed *as* scapegoating, rather than an
 ontology that cuts below the mechanism. The ontological cut is
 structurally different from the historical revelation, and reasonable
 analysts differ on whether it is functionally equivalent or merely a
-partial analogue.
+partial analog.
 
 The reading the evidence supports: Buddhism supplies a real
 anti-sacrificial
@@ -1320,7 +1320,7 @@ the Christian-particularist is whether Buddhism has produced the
 The answer is that Buddhism has produced the first kind in
 greater abundance and longer duration than Christianity, and the
 second kind in weaker forms. The *yön-chö* relationship is the
-closest Buddhist analogue to Westphalia. It is real but is narrower
+closest Buddhist analog to Westphalia. It is real but is narrower
 in scope (Tibet and its Inner Asian patrons rather than the full
 Christendom). There is no Buddhist Hanseatic League, no Buddhist
 lex mercatoria, no Buddhist codes duello.
@@ -1420,13 +1420,13 @@ check is load-bearing.
 - The Pure Land (Shin) tradition appears to supply
   grace-over-merit in the form most directly analogous to
   Christian grace. Does it also supply a scapegoat-revelation
-  analogue, the vow of Amida as a structural revelation of the
+  analog, the vow of Amida as a structural revelation of the
   unworthiness-of-merit dynamic that drives the scapegoat
   mechanism? This is a non-trivial theological-comparative
   question that would repay direct treatment.
 - The *yön-chö* relationship is the clearest cross-polity
   substrate authority model in the case set. Are there Christian
-  historical analogues (the relationship of the medieval papacy
+  historical analogs (the relationship of the medieval papacy
   with Christian kings. Specific abbot-king relationships) that
   would repay direct comparison with *yön-chö* on the
   cross-polity-authority dimension?

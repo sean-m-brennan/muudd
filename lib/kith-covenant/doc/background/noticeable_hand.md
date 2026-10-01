@@ -244,7 +244,7 @@ Several lines of evidence and argument support this reading:
   and absolution) is a Christian innovation absorbed into Western
   jurisprudence (probation, parole, restorative justice) and into
   most modern conflict-resolution practice. Other traditions have
-  analogues (the Iroquois Condolence ceremony, Buddhist practices of
+  analogs (the Iroquois Condolence ceremony, Buddhist practices of
   formal apology and renewed vows) but the Christian form is unusually
   developed.
 - **Grace as gratuitous gift.** The Christian conception that grace
@@ -520,7 +520,7 @@ exists where there is an us-and-them serious enough to
 potentially involve killing. The distinction is real and
 kith-covenant acknowledges it (the anathema category in
 [Justus hostis](justus_hostis.md#hostis-humani-generis-limits-of-the-justus-hostis-frame)
-is the kith-covenant analogue). But the friend/enemy distinction
+is the kith-covenant analog). But the friend/enemy distinction
 *does not exhaust the categories of moral relation*. There is
 also the neighbor. The human being actually encountered, to whom
 one owes recognition and appropriate response regardless of
@@ -571,7 +571,7 @@ separate sovereigns. The Christian tradition has produced both
 kinds of regime. The sangha evidence shows Buddhism has produced
 the *first* kind in greater abundance and longer duration than
 Christianity, and the *second* kind in weaker forms (the Tibetan
-*yön-chö* relationship being the closest analogue). **Third, the
+*yön-chö* relationship being the closest analog). **Third, the
 strong Christian-particularist reading ("only Christianity can
 do the load-bearing work") is substantially weakened by the
 sangha evidence**. The moderate version ("Christianity supplies

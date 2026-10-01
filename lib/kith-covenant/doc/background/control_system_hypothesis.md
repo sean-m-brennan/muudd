@@ -343,7 +343,7 @@ and
 across the documents as a unified architectural concern.
 
 The unified treatment is now developed in
-[Capture resistance](capture_resistance.md), which catalogues six
+[Capture resistance](capture_resistance.md), which catalogs six
 strengthening moves (interpretive plurality, substrate-deference test,
 ceremony-cost tracking, manufactured-event resistance, light-lag-honest
 decision classes, adversarial-principal validation) with each routed to its
@@ -440,7 +440,7 @@ existing kith-covenant treatment
 locates this in fallen-actor anthropology. That anthropology has its developed form
 in the Christian doctrine of original sin, with parallel forms in other traditions
 (the treatment of *kleshas* and afflictive states in
-[The Buddhist sangha](buddhist_sangha.md) is the closest Buddhist analogue). The Vallée framework is
+[The Buddhist sangha](buddhist_sangha.md) is the closest Buddhist analog). The Vallée framework is
 compatible with such anthropology but does not supply it.
 
 One may read the fallen-actor anthropology as Christian-specific (the
@@ -525,7 +525,7 @@ operate together as a single feedback architecture.
 
 - The manipulation vulnerability (Component 3) is documented by Vallée
   primarily in the context of intelligence-agency exploitation and contactee
-  cults, domains that may be poor analogues for the manipulation a deep-space
+  cults, domains that may be poor analogs for the manipulation a deep-space
   cooperation regime would face. What capture vectors are specific to the actual
   kith-covenant setting (long-duration light-lag governance, AI-mediated
   participation, multi-generational membership, infrastructure dependency on
@@ -556,7 +556,7 @@ operate together as a single feedback architecture.
   [Machine-to-machine interaction](m2m_interaction.md),
   [Liminal institutions](liminal_institutions.md)) addressed specific
   failure modes in fragments. The unified treatment is now developed in
-  [Capture resistance](capture_resistance.md), which catalogues seven
+  [Capture resistance](capture_resistance.md), which catalogs seven
   strengthening moves and routes their implementation responsibilities
   through [Protocol components](../architecture/protocol-components.md).
   The remaining open question is therefore narrower. Are the seven moves
@@ -579,7 +579,7 @@ operate together as a single feedback architecture.
 ## Relationship to other documents
 
 - [Capture resistance](capture_resistance.md). The **operational
-  follow-on** to this document. The seven strengthening moves catalogued
+  follow-on** to this document. The seven strengthening moves cataloged
   there are the unified architectural response to Component 3
   (manipulation vulnerabilities). Where the present document analyzes
   the framework, capture_resistance.md routes its design
