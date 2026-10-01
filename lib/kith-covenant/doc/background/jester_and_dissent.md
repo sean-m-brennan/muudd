@@ -568,7 +568,7 @@ institutional design.
 The jester function has, then, four characteristic decay modes,
 each the mirror of a corruption in the inquisitor:
 
-| Decay mode | Mechanism | Analogue |
+| Decay mode | Mechanism | Analog |
 |---|---|---|
 | **Commercial capture** | Funding dependence constrains speech | The inquisitor funded by the faction he investigates |
 | **Ideological capture** | Observer class develops internal consensus | The inquisitor who mistakes his own prejudices for orthodoxy |

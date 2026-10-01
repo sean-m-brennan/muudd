@@ -118,7 +118,7 @@ that behave badly lose reach without anybody writing a rule or filing a ticket.
 A compromised node is contained by what it had earned rather than by what
 somebody remembered to forbid. Admission needs no certificate authority, so it
 keeps working when the network is cut off from everything. And the whole
-judgement is made at each node from local observation, which is why it survives
+judgment is made at each node from local observation, which is why it survives
 a partition that would leave a conventional zero-trust deployment either failing
 open or failing closed.
 

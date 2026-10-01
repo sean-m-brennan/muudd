@@ -114,13 +114,13 @@ outsiders to keep a minimal set (the seven Noahide laws) rather than the
 full comprehensive doctrine (the 613 Mosaic commandments). The minimum
 was not arbitrary. It was the threshold below which the framework could
 not function. The three substrate requirements of kith-covenant are the
-Noahide analogue, elbow room for theological diversity that stops short
+Noahide analog, elbow room for theological diversity that stops short
 of incoherence.
 
 This is not the same minimum as the thin functional one the compact adopts
 as the ground of its conduct toward parties that have not joined it
 ([Natural law](natural_law.md#the-ground-the-compact-claims-for-itself)), and the two
-answer different objections. The Noahide analogue answers the Rawlsian by
+answer different objections. The Noahide analog answers the Rawlsian by
 saying how little the compact asks of a *candidate*. The functional minimum
 answers a different charge, that the compact acts on a standard it has not
 derived at the edges where consent has run out, by saying what the compact

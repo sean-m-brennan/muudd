@@ -19,7 +19,7 @@ thirty-node cluster from chartering the whole cluster as a polity of themselves,
 with the other twenty-seven unrecorded rather than merely outvoted. Nothing can
 prevent it, because a genuinely separate group of three inside a cluster of
 thirty is indistinguishable from a faction capturing it, and telling them apart
-needs a substantive judgement no rule can make. We remove the silence instead. A
+needs a substantive judgment no rule can make. We remove the silence instead. A
 founding must say what it excluded and why, that statement is permanent and
 immutable, and anyone reading the charter later can compute for himself how much
 of the cluster consented.
@@ -121,7 +121,7 @@ silence rather than the discretion.
 The attestation is genesis-immutable by construction, since the core of a
 charter has no amendment path. Our read model computes the founding legitimacy
 from the charter alone, with no provider consulted and no cohesion input, so
-anyone holding the charter can re-run the judgement forever and get the same
+anyone holding the charter can re-run the judgment forever and get the same
 answer. It reports a consent share, being ratifiers over everyone the boundary
 showed rather than over the roll the founders chose, and the faction of one
 described above reads 0.033.

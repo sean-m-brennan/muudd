@@ -95,7 +95,7 @@ The material the bridge is welded from is one primitive. **Both are Ed25519.** A
 
 **A1. AT has no "community" object for KC to bind to.**
 The only first-class actor in KC is the community (a root `did:key`,
-`kc-identity/src/community.rs`). AT has no community type. Its nearest analogues
+`kc-identity/src/community.rs`). AT has no community type. Its nearest analogs
 (a `Group` (a shared-symmetric-key membership set, `identity/group.py`) and a
 gateway subtree) are *emergent topological clusters*, not named, root-anchored,
 covenant-bearing entities with a membership roll and a standing. So when KC says
@@ -424,7 +424,7 @@ The KC library already provides the base policy
 `ReputationUpdate`, `NegotiationStarted`, `NegotiationOutcome`, `EvaluatorResult`);
 the fields and events below are additions.
 
-### Feature 4 analogue: never-withhold floor (easiest)
+### Feature 4 analog: never-withhold floor (easiest)
 - **Policy.** Add `courtesy_floor: frozenset[str] = frozenset()`, capability
   categories (e.g. `"safety"`, `"distress"`, `"relay"`) owed to any peer
   regardless of reputation/cooldown. `strict_policy()` sets
@@ -455,7 +455,7 @@ the fields and events below are additions.
   is to make it an *invariant* with a test that forbids an exclusion event without a
   matching re-entry condition). Matches the anathema-reversibility rule of KC.
 
-### Feature 3 thin analogue: pile-on damping (moderate)
+### Feature 3 thin analog: pile-on damping (moderate)
 - **Policy.** Add `min_corroborators: int = 1` and `collapse_delay_s: float | None
   = None`.
 - **Observer.** Track anomaly/negative reports per subject and per reporter; flag a

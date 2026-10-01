@@ -144,7 +144,7 @@ recognition of the adversary as a legitimate peer inverts into
 recognition of the counterparty as a party one can make commitments
 with. Symmetric rules that constrain both belligerents invert into
 procedures that apply equally regardless of the size or ideology of
-the parties. Spatial and temporal brackets that keep a war-theatre
+the parties. Spatial and temporal brackets that keep a war-theater
 from consuming the whole civilization invert into
 compartmentalization. Protected envoys invert into never-target
 channels. And the shared oath-substrate (the thing that made the
@@ -289,7 +289,7 @@ Much of the developed anthropology and cooperative architecture we draw on is
 Christian in origin. The fallen-actor anthropology is, in its most developed
 form, Christian. So are the deepest articulations of *justus hostis*, the
 sacramental architecture of confession and return, and the *imago Dei*
-grounding of peer recognition, even where analogues exist in the Haudenosaunee
+grounding of peer recognition, even where analogs exist in the Haudenosaunee
 Great Law, the Buddhist *sangha*, the Mande *Maa Ngala* tradition, and others
 treated in Appendix A. The compact we propose requires the
 *features* (§3.2) that this lineage supplies. It does not require the theology
@@ -760,14 +760,14 @@ Geneva framework document. The inter-community layer of the compact
 carries five elements:
 
 (a) A **shared form for compact entry and standing.** A treaty-grammar
-analogue specifying what a member community must declare, in what form, to
+analog specifying what a member community must declare, in what form, to
 whom, with what deposit and periodic reaffirmation.
 
 (b) **Credentialing of envoys and representative machines** whose internal
 authorization has been completed by the sending community.
 
 (c) A **vouching and sponsor structure** by which existing members stake
-standing on new entrants (the catechumenate analogue, not the creed).
+standing on new entrants (the catechumenate analog, not the creed).
 
 (d) An **audit commons** by which the history of each member standing and
 each envoy conduct is visible to the compact as a whole.

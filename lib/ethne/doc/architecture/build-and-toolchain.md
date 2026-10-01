@@ -132,7 +132,7 @@ against this, since those go through the `PyRef` borrow path and never needed
 it by default and must opt **out**. So the bump hands a module a free-threaded
 claim silently, and no warning marks it. Both `_core` modules now declare
 `#[pymodule(gil_used = true)]`, which is what they required before the bump.
-That is a statement of the status quo rather than a judgement about
+That is a statement of the status quo rather than a judgment about
 thread-safety. It cannot be tested here, because the sandbox interpreter is a
 GIL build (`Py_GIL_DISABLED=0`) and never loads a module free-threaded, and the
 ethne seam hands out `FileStore`/`ArchiveStore` handles, whose two-writer

@@ -108,7 +108,7 @@ A party names one panelist on one dispute and states grounds. The request is
 recorded and answered, granted only by that mediator stepping down and never
 refused by that same mediator.
 
-A `ProtectingPower` is the Geneva analogue, being a non-party community standing
+A `ProtectingPower` is the Geneva analog, being a non-party community standing
 for a disputant, co-signed by both, since the duty is never conscripted and a
 protector a disputant did not accept is a watcher imposed on them. And
 `MediatorEntry.trained_by` records the apprenticeship.

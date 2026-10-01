@@ -109,7 +109,7 @@ not pursue. There are two grounds, **never pursued**, where no dispute ever cite
 record, and **closed unresolved**, where every dispute that did was dismissed.
 
 It is **absolute**, like the silence readings and for the same reason. The reference is a
-clock against a filed record, never the recent behaviour of the compact itself. A compact
+clock against a filed record, never the recent behavior of the compact itself. A compact
 that pursues nothing leaves shares, concentration and cadence exactly where they were, and
 a relative measure over a population that all agrees to look away is unchanged by the
 looking away.

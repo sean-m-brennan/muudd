@@ -7,7 +7,7 @@
 Bundled with the `/brag` skill at
 `skills/brag/assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3`
 (1:58, tempo 109.96 BPM). The skill's own `assets/music/README.md` notes that the
-exact licence terms are still to be verified and documented, so no licence is
+exact license terms are still to be verified and documented, so no license is
 asserted here; the attribution block travels with the video regardless, in
 `share-copy.txt` and on screen in the closing frames.
 
@@ -49,7 +49,7 @@ From the bundled `/brag` skill library (`skills/brag/assets/sfx/`), all CC0
 
 ## Narration
 
-Synthesised voiceover, Kokoro `am_michael` at speed 0.96, generated once into
+Synthesized voiceover, Kokoro `am_michael` at speed 0.96, generated once into
 `composition/assets/voice/`. These seven WAVs are **source, not build output** —
 `build.sh` deliberately skips the TTS backend, so they must be tracked alongside
 the composition rather than regenerated.
@@ -70,15 +70,15 @@ substrates, the sangha's ≈23-century run, the `AntiSpiralFeature` enum, the
 ceremony DIDs and CIDs, and every lens value — comes from Kith-Covenant's own
 documentation, source and demos. The per-item sourcing table is in `brag-plan.md`.
 
-## Music licence — CONFIRMED 2026-09-18
+## Music license — CONFIRMED 2026-09-18
 
 Verified directly at <https://ende.app/en/standard-license>. The earlier note in
 this file saying the terms were unverified is superseded.
 
-The ende.app catalogue (Sascha Ende) is released under **Creative Commons
+The ende.app catalog (Sascha Ende) is released under **Creative Commons
 Attribution 4.0 International (CC BY 4.0)**, with commercial use explicitly
 permitted, and the composer grants an additional **"attribution optional"**
-waiver on top of the licence. Remixing, cutting, looping and filtering are
+waiver on top of the license. Remixing, cutting, looping and filtering are
 expressly allowed, which covers the low-pass treatment applied to the bed here.
 Attribution is given anyway.
 

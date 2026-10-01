@@ -381,7 +381,7 @@ disputes) is more realistic. For larger compacts (10+), a
 standing mediator corps with term limits and formal rotation
 becomes feasible.
 
-### The protecting-powers analogue
+### The protecting-powers analog
 
 The Geneva Conventions designate *protecting powers.* Neutral states
 that look after the interests of parties to a conflict. The protecting
@@ -389,7 +389,7 @@ power has access to prisoners, inspects detention conditions, and
 forwards communications. It is not an arbitrator. It is a witness with
 standing.
 
-Kith-covenant's analogue. For any dispute that reaches the
+Kith-covenant's analog. For any dispute that reaches the
 mediation stage of the escalation ladder, a non-party community is
 designated as the protecting power for each disputant. The
 protecting power exists to ensure that the rights of the disputant
@@ -553,7 +553,7 @@ ecclesiastical sanction (suspension of sacraments for a territory)
 pending full hearing, served exactly this function in medieval
 Christendom. The Hanseatic emergency boycott (a temporary trade ban
 imposed by a subset of member cities pending the next *Hansetag*) is
-the commercial analogue. Both were subject to misuse. Both were
+the commercial analog. Both were subject to misuse. Both were
 nonetheless necessary because the full deliberative process was too
 slow for genuine emergencies. The design question is not whether
 emergency powers are needed (they are) but how to structure them so
@@ -570,14 +570,14 @@ Docks, relays, and beacons are the first three.
 **Shared docking facilities.** A neutral docking station where
 ships from different habitats can berth, transfer cargo, and
 exchange personnel without entering the sovereign space of either
-habitat. The docking facility is the space analogue of the free
+habitat. The docking facility is the space analog of the free
 port. A zone of suspended sovereignty governed by compact rules
 rather than the law of any single habitat.
 
 **Communication relays.** Relay stations positioned at Lagrange
 points or along high-traffic routes, maintained by the compact
 rather than by individual habitats. These relays are the space
-analogue of the Hanseatic Kontore. Neutral infrastructure that
+analog of the Hanseatic Kontore. Neutral infrastructure that
 enables the trade (information, in this case) that makes the
 compact valuable. Attacks on communication relays are attacks on
 the compact information commons and constitute a violation of the
@@ -780,7 +780,7 @@ From the historical cases, five principles emerge:
    that begins acting in its own interest rather than for the
    compact) is grounds for the compact to reconstitute the
    institution with new personnel. This is the compact-level
-   analogue of the *hostis humani generis* designation. A liminal
+   analog of the *hostis humani generis* designation. A liminal
    institution that has been captured is no longer serving its
    function and must be reformed.
 
@@ -803,8 +803,8 @@ counter-mechanism.
 The pattern is documented in *Messengers of Deception* (1979)
 across UFO contactee cults, intelligence-agency seeded
 paranormal narratives, and entrepreneurial religious movements.
-The structural analogue in this setting is direct, with concrete
-scenarios catalogued in [capture_resistance.md
+The structural analog in this setting is direct, with concrete
+scenarios cataloged in [capture_resistance.md
 "Manufactured-event resistance
 protocols"](capture_resistance.md#4-manufactured-event-resistance-protocols).
 What distinguishes manufactured events from genuine ones is not
@@ -863,7 +863,7 @@ or decades of investigation before any authoritative judgment is
 issued, and the great majority are never judged at all. The slowness
 denies the loudest-interpreter advantage by ensuring the interpretation
 must survive a long process during which ambient interpretation can
-develop. The KC analogue need not be that slow. The criterion is
+develop. The KC analog need not be that slow. The criterion is
 **long enough that the originating party cannot dominate the framing**,
 calibrated to the event class. For most events this is hours to days.
 For high-charge events of major interpretive consequence it may extend

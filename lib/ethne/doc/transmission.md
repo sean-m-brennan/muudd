@@ -149,7 +149,7 @@ and when he last affirmed.
 
 *Stale members* names the un-inducted and the overdue against a freshness
 cadence, so a community that stops re-affirming shows erosion. That cadence is a
-query parameter rather than a charter term, which keeps a judgement about how
+query parameter rather than a charter term, which keeps a judgment about how
 often is often enough out of a document that cannot be amended.
 
 The *rite state* reports each rite with its movements, its span, meaning the

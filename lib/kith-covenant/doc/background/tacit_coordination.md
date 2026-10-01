@@ -88,7 +88,7 @@ follow.
 
 - *Distress signal frequencies and protocols.* If protocol traffic is
   cut, vessels in distress and potential rescuers can converge on
-  legacy distress procedures (analogues of Mayday/SOS, COSPAS-SARSAT
+  legacy distress procedures (analogs of Mayday/SOS, COSPAS-SARSAT
   beacons) as the focal fallback. Kith-Covenant should specify and protect
   these fallbacks even though they sit "outside" the main protocol.
 - *Customary boundaries.* In the absence of negotiated borders, parties
@@ -383,7 +383,7 @@ Where the tacit layer carries weight that the explicit protocol cannot:
   points and costly signals that establish good faith.
 - **At the boundary with non-members.** The compact of Kith-Covenant does not
   reach non-members, but tacit coordination via focal points (the
-  freedom-of-the-seas analogue) can extend cooperation into spaces
+  freedom-of-the-seas analog) can extend cooperation into spaces
   where no compact applies.
 
 Where it cannot:

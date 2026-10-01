@@ -524,7 +524,7 @@ principal or by the community they belong to. Four elements follow.
   under similarly-positioned principals. A machine whose conduct
   begins to diverge from the ensemble in a direction that benefits
   its principal *or an identifiable counterparty of that principal* is
-  flagged. This is the M2M analogue of the manufactured-event
+  flagged. This is the M2M analog of the manufactured-event
   resistance protocol in
   [liminal_institutions.md "Manufactured-event resistance"](liminal_institutions.md#manufactured-event-resistance-the-structured-skepticism-protocol):
   structural skepticism built into ongoing operation, not invoked

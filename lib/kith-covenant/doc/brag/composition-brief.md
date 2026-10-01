@@ -59,7 +59,7 @@ as strong cues (17.468, 18.559, 19.650, 21.832, 22.923). Past 25s the grid is
 Sequential text always snaps every *other* beat (1.091s), because the grid itself
 is 0.545s — below the readable threshold.
 
-## Colour contract
+## Color contract
 
 Tokens are lifted from `src/python/dashboard/static/index.html` (dark theme). Three
 are raised for WCAG AA at video type sizes, preserving hue and the

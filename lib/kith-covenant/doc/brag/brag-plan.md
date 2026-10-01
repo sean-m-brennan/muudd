@@ -22,7 +22,7 @@ that runs it.** The video moves in one line from a 1259 BCE treaty to a Rust enu
 to a live audit commons, and lets the viewer see that the historical argument and
 the implementation are the same argument.
 
-The division of labour is the one the AutonomousTrust narrated cut established:
+The division of labor is the one the AutonomousTrust narrated cut established:
 the screen carries the *evidence* — dates, tables, source paths, enum variants,
 content-addressed CIDs, lens readouts — and the voice carries the *argument*. The
 voice never reads what is on screen, and the screen never repeats a sentence the
@@ -203,7 +203,7 @@ the authority for what the voice actually carries. Unlike the AutonomousTrust ru
 Two items in that list are ASR artifacts, not TTS defects: `base.en` has no way to
 choose between the homophones *rite* / *right* (clip 5) or *a signed* / *assigned*
 (clip 6), and it punctuates clip 7 as quoted speech. The audio is correct in all
-three places. "Kith" is pronounced correctly by Kokoro — whisper recognises the
+three places. "Kith" is pronounced correctly by Kokoro — whisper recognizes the
 word — so no phonetic respelling was needed.
 
 An earlier draft of the script measured 52.4s of speech on its own, which would
@@ -274,7 +274,7 @@ line.
 
 ## Build notes (final figures)
 
-**Final duration: 52.0s.** Seven Kokoro clips (`am_michael`, speed 0.96) totalling
+**Final duration: 52.0s.** Seven Kokoro clips (`am_michael`, speed 0.96) totaling
 46.464s of speech, plus ~0.6s of air between lines.
 
 | Clip | Measured | Starts at | Ends |

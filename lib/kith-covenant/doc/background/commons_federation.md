@@ -252,7 +252,7 @@ accurate debris-tracking catalogs are expensive).
 
 **Coercion vulnerability.** A community that controls navigational data
 can endanger other communities by withholding conjunction warnings or
-providing false orbital data. This is the space analogue of poisoning
+providing false orbital data. This is the space analog of poisoning
 a well, corrupting a commons that everyone depends on.
 
 ### 4. The knowledge archive
@@ -378,7 +378,7 @@ time through the common-virtue refusals.
 ## Light-lag and eventually-consistent commons
 
 The physics of interplanetary distance creates a governance constraint
-that has no terrestrial analogue. **Information about the commons is
+that has no terrestrial analog. **Information about the commons is
 always stale at any non-local point.**
 
 ### The delay problem
@@ -689,7 +689,7 @@ territorial waters, established exclusive economic zones (EEZs), and
 began to treat the oceans as partitionable resources rather than
 commons. The UN Convention on the Law of the Sea (1982) codified this
 partition. The commons was not destroyed by defection. It was
-**enclosed**, the maritime analogue of the English enclosure movement
+**enclosed**, the maritime analog of the English enclosure movement
 that destroyed the common fields. The lesson is that commons governance
 is vulnerable to defection from within and also to enclosure from
 without.

@@ -167,7 +167,7 @@ That rule counts watchers rather than filings. Counting observations instead
 would let one key file three times and clear a floor whose justification is that
 somebody has been watching, so a stranger with one keypair could manufacture the
 one escalation this component is trusted with alone. Counting distinct observers
-is arithmetic rather than a judgement about who they are.
+is arithmetic rather than a judgment about who they are.
 
 Whether the watchers are independent *of each other* is a separate lens,
 reported beside the escalation it qualifies and read by no component. We made
@@ -214,7 +214,7 @@ majority is a majority of the members who hold it.
 
 The read models the report needs travel in one inputs structure of optionals,
 which puts *not evaluated* into the type rather than into a convention. The
-report never decides a split, which is a judgement we refuse to make on our own.
+report never decides a split, which is a judgment we refuse to make on our own.
 
 ## Durable storage
 

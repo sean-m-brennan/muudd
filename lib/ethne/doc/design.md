@@ -7,7 +7,7 @@
 
 # Ethne. The polity tier
 
-**Design document.** The decisions are recorded as D1-D37 below, and the
+**Design document.** The decisions are recorded as D1-D40 below, and the
 questions they raised as Q1-Q9. Anything the design specifies and the code does
 not carry is in [`TODO.md`](../TODO.md). How the tier is built, which toolchain
 choices are deliberate, and the verification discipline the slices are held to
@@ -265,8 +265,9 @@ Ethne emits only KC-native artifacts, so KC stays oblivious to the tier
   admissible to no compact;
 - sideways rather than upward, a **relay roster** in AutonomousTrust's own signed
   `at-relay-roster` file (**D36**): the members the polity has made rendezvous
-  operators, pinned to their own keys. The one artifact that crosses to the substrate
-  instead of to KC, and in the substrate's format;
+  operators, pinned to their own keys, and which of them are also area hubs (**D38**).
+  The one artifact that crosses to the substrate instead of to KC, and in the substrate's
+  format;
 - a **`Concern`** when the cohesion monitor finds *soft coherence erosion*,
   the jester pre-indictment flag KC already routes. `Concern` carries
   **early warning**, not a fission verdict (a `Concern` is about conduct,
@@ -1144,9 +1145,9 @@ KC cannot see on its own and AT cannot decide on its own.
  (`candidate_size == members + exclusions`), whose exclusions repeat, or that
  excludes someone it also enrolls. Because the charter core has no amendment
  path, the attestation is genesis-immutable by construction.
- - **The judgement is only graded.** Nothing refuses a charter for being *narrow*.
+ - **The judgment is only graded.** Nothing refuses a charter for being *narrow*.
  A genuinely separate group of three inside a thirty-node cluster is
- indistinguishable from a faction capturing it without a substantive judgement
+ indistinguishable from a faction capturing it without a substantive judgment
  about the tradition. The same shape as the attendance cap's inability to tell a
  night shift from an abandoned polity (D8/Q9). What the rule removes is the
  silence, not the discretion.
@@ -1179,7 +1180,7 @@ KC cannot see on its own and AT cannot decide on its own.
  would be dressed up as a floor it is not, or done by hand with an attestation the
  convener writes themselves.
 
- *Judgement call, flagged.* `FoundingLegitimacy` carries the exclusion **list**,
+ *Judgment call, flagged.* `FoundingLegitimacy` carries the exclusion **list**,
  not only the count, though a Rust caller holding the charter could read it off the
  attestation. A grade reporting "29 excluded" without their names would reinstate,
  one level up, the exact silence D21 removes, and it is the only way the excluded,
@@ -1225,7 +1226,7 @@ KC cannot see on its own and AT cannot decide on its own.
   convener bare assertion to `Substrate`, and the grade with it to
   `Corroborated`, with no provider ever consulted and both verification passes
   green. **Decision #2 of D21 itself (that a convener-asserted boundary is
-  labelled so permanently) was unenforced**, and a rule that checks only that
+  labeled so permanently) was unenforced**, and a rule that checks only that
   the *numbers* add up, against a self-report, passes any internally consistent
   fabrication.
 
@@ -1295,7 +1296,7 @@ KC cannot see on its own and AT cannot decide on its own.
  its evidence as two things that could disagree. The very defect D22 exists to
  close, reintroduced one level down. So the sweep across the tier became a
  *deletion* of `source:` lines rather than an edit of them, and `ManualFounding` is
- `ConvenerAsserted` **because it holds no reader key**, not because it is labelled
+ `ConvenerAsserted` **because it holds no reader key**, not because it is labeled
  so. A convener who genuinely obtains a signed reading matching their roll has real
  corroboration and is welcome to it; what is no longer free is *claiming* one.
 
@@ -1507,7 +1508,7 @@ KC cannot see on its own and AT cannot decide on its own.
 
  **The honest limits.**
  - **These guards are structural, and that is all they are.** Nothing here can
-   tell a legitimate split from a faction dividing the spoils. That judgement
+   tell a legitimate split from a faction dividing the spoils. That judgment
    is not that of the tier. The split is a *ratified* act (D4/Q2, the monitor
    never decides one), and this records it rather than approving it.
  - **The successor DIDs are not checked for being chartered polities**, because
@@ -1682,7 +1683,7 @@ KC cannot see on its own and AT cannot decide on its own.
  the division is the whole design.
 
  - **Distinct watchers is a gate**, because it is not about independence at all. One
- actor filing three times is one watcher. That is arithmetic, not a judgement about
+ actor filing three times is one watcher. That is arithmetic, not a judgment about
  who anyone is. `ObservationWindow::watchers_for` counts distinct observers,
  `sustained_absence_readings` becomes `sustained_absence_watchers`, and the wrong
  name is renamed because the wrong name is what made the D19 sentence false.
@@ -1694,7 +1695,7 @@ KC cannot see on its own and AT cannot decide on its own.
    the horizon outright: the correct answer, and not a deadlock, because the
    roll may still prune anything by majority.
  - **Independence is a lens and never a gate.** Gating an escalation on the monitor
- being vouched for hands a captured polity the simplest defence there is. Vouch for
+ being vouched for hands a captured polity the simplest defense there is. Vouch for
  nobody, become unwatchable. And an unvouched monitor is the ordinary state of an
  honest new one, so refusing it would be refusing newness: the D24 line, kept.
 
@@ -2033,7 +2034,7 @@ KC cannot see on its own and AT cannot decide on its own.
  partial grade stays legitimate, because a young polity has held no rites and
  a caller comparing two readings may deliberately want one component; what
  changes is that the report says so. Which inputs count as Concern-capable is
- a property of the levels and not a judgement: `guardians`, `affirmations`
+ a property of the levels and not a judgment: `guardians`, `affirmations`
  (twice over, since `nobody_holds_the_substrate` is the only thing that
  reports a polity unable to take a second-class act of its own), `trends` via
  churn, `window` via sustained absence, and `ground`. `rites` is capped at
@@ -2505,7 +2506,7 @@ KC cannot see on its own and AT cannot decide on its own.
  revoked through the ordinary `OfficeChange` rules. Its holder labels content alone,
  because moderation that waits on a quorum arrives after the harm; what a label *does* is
  still the roll's decision, in the policy. A label is not a charter entry. It is the
- consumer's artifact, signed by the moderator's own member key, and it is honoured only
+ consumer's artifact, signed by the moderator's own member key, and it is honored only
  where the polity's policy artifact lists that member as a moderator.
 
  *The read-model is the strict one.* `content_policy_state` returns the latest accepted
@@ -2521,7 +2522,7 @@ KC cannot see on its own and AT cannot decide on its own.
  `[a-z0-9_-]`, because a post carries each label behind a one-byte length, and at most
  32 per policy, because the policy crosses as one bounded bundle (`check_label`,
  `CONTENT_LABEL_MAX`, `CONTENT_LABELS_MAX`). One spelling per label, with no
- normalisation step, is what lets an author's label and a policy's name meet.
+ normalization step, is what lets an author's label and a policy's name meet.
 
  **Honest limits.** *A reader measures the requirements.* The tier floor and the daily cap
  are each reader's own reading of the author, as every tier in AT is, so two followers may
@@ -2530,6 +2531,108 @@ KC cannot see on its own and AT cannot decide on its own.
  nothing about content posted outside it. *No members-only rule yet.* It needs an author to
  prove that an AT node is a member, which the D36 `at_uuid` binding points at and nothing
  here builds.
+
+- **D38. A rendezvous relay may also be the polity's area hub (locked 2026-09-30).**
+ Agora needs city-scale discovery without a global index (`apps/agora/SOCIAL_APP_PLAN.md`
+ §4.1, the band between the LAN and friend-of-friend): someone in the same city, on
+ another network, should be findable if they choose to be, and only by others who have
+ made the same choice. AT builds the mechanism, an opt-in role on its relay that files
+ people's own signed *area cards* under a coarse geohash area and answers lookups only
+ to people listed in that area (`network/hub.py`, `net_hub.{h,c}`). What was open is
+ who may be such a hub, and where a node learns of one. The answer is the D36 answer:
+ the polity's rendezvous operators, in the polity's relay roster.
+
+ *No new office.* A hub is a rendezvous relay that also keeps a directory, so the same
+ `Office::RendezvousOperator` governs it and the same roll decides who holds it. A second
+ office would let a polity seat a hub that is not one of its relays, which a node could not
+ reach anyway.
+
+ *The member says which areas.* `RelayEndpoint` gains `areas`: the geohash areas the relay
+ is a hub for, each 2 to 5 lowercase base32 characters (about 600 km down to 5 km), at most
+ eight (`RELAY_AREAS_MAX`, AT's own cap), no repeats. `check_shape` refuses anything else,
+ so the authority pass does. Empty is a plain relay, and serde leaves an empty list out, so
+ every D36 declaration keeps its bytes, its signature and its CID.
+
+ *The roster names the hubs, and only them.* The `at-relay-roster` body gains an optional
+ `areas` object, keyed by each hub's own `relays` entry. It is left out when no relay is a
+ hub, so D36's pinned vector is unchanged, and a second pinned vector
+ (`PINNED_HUB_VECTOR`) holds the hub form. AT's Python accepted it and reads the hub's areas
+ back, AT's own signer fed the same inputs reproduces it byte for byte, and AT's C reads it,
+ before it was fixed. AT refuses the whole roster if `areas` names a relay the roster does
+ not list, or an area that is not an area, which is the rule an unpinned entry follows. A
+ node registers first with the hubs whose area holds one of its own listed buckets.
+
+ **Honest limits.** *The polity speaks for where its hubs serve, not for who is there.* An
+ area card is its holder's own word about their coarse bucket, and nothing attests nearness;
+ what bounds a card is the hub (the holder files its own, one per area, for at most a day)
+ and the person asked, who answers or does not. *A hub sees who lists with it.* That is the
+ price of the role and why only an office the roll confers may hold it. *No neighboring
+ areas.* A lookup reads one area; someone just across its edge is in the next one.
+
+
+- **D39. A polity's policy may act on another community's standing in its compacts
+ (locked 2026-10-01).** Agora carries kith-covenant compacts (`apps/agora/SOCIAL_APP_PLAN.md`
+ Phase 5): communities that recognized one another under KC's admission rite, and whose
+ standing towards one another KC derives from the compact's own record. A polity that
+ moderates content in its name (D37) needs to say what a post made in **another**
+ community's name does, where that community stands badly with it.
+
+ *A field on the policy, not a new artifact.* `ContentPolicy` gains `standing`, from a
+ `CommunityStanding` (`Probationary`, `Denied`, `Anathema`, `Outside`) to a `LabelAction`.
+ The enum is this tier's own word, so en-charter keeps no dependency on KC: the consumer
+ maps KC's `RecognitionStanding` onto it. A standing the policy does not name is allowed.
+ An empty map is left out, so every D37 policy keeps its bytes, its signature and its CID.
+
+ *Loosened as a label is.* Weakening what a standing does, or dropping a standing rule
+ that did more than allow, is a loosening and needs more than a majority. Tightening
+ takes a majority, exactly as D37 runs.
+
+ *It reads the polity's own view.* The standing applied is the one the polity's compact
+ view states (an Agora artifact its root signs from the compact archive its governance
+ node holds and verifies). It applies only to posts made in another community's name,
+ and only for readers who follow this polity.
+
+ **Honest limit.** *The view is the polity's word.* A reader trusts its own community's
+ reading of the compact, as it trusts its policy; reader-side verification of the whole
+ compact record waits on AT carrying archives that size.
+
+- **D40. The roll decides what its polity does in a compact, and the envoy signs only
+ that (locked 2026-10-01).** KC admits a community to a compact by a ceremony its envoy
+ speaks in: five anti-spiral claims, a verdict on every other participant's claims, a
+ sponsor's vouch for an entrant, an examining panel, and later conduct records such as
+ a designation anathema. Each of those binds the polity, so each needs the roll's
+ decision behind it.
+
+ *A charter entry for the mandate.* `CharterEntry::CompactActDecided` carries a
+ `CompactAct`: the kind (`Join`, `Admit`, `Sponsor`, `Refuse`, `Anathematize`, `Lift`),
+ the compact's label, the counterparties, a probation for a sponsorship, an optional
+ expiry, and the deciders, who co-sign. `compact_state` reads the acts in force, the
+ accepted ones only. en-uplift's builders (`anti_spiral_claims`, `feature_acceptance`,
+ `sponsorship`, `anathema`, `lift`) refuse to draft a record no act in force covers, the
+ way D14 lets an envoy speak only while the roll keeps them standing. The examining roster
+ is the root's to sign and needs no act: a sitting polity examines its entrants, and who
+ examines is the root's choice of members.
+
+ *A majority to bind the polity, more to bear down on another.* Join, Admit, Sponsor and
+ Lift pass at a majority of the seasoned roll (D29 weight). Refuse and Anathematize take
+ more than a majority, D11's asymmetry turned outward.
+
+ *What crosses, measured.* On Agora's co-sign carrier (canonical CBOR as hex, at most
+ 6144): identity 828, envoy delegation about 1010, roll 1558, witness registry 1084,
+ rite about 3600, examiner roster 1102 to 1514, sponsorship 1048, claim 892, verdict 810,
+ a two-reporter anathema 1760. The seals do not fit: 18,716 for a founding by two and
+ 40,336 for an admission of a third. So the seal never crosses. Each member's governance
+ node rebuilds it from the claims, verdicts and rites it already holds, signs the rebuilt
+ bytes, and the ask carries a manifest of content addresses instead (1924 for two
+ participants, 3810 for three). A ceremony therefore holds at most three participants on
+ that wire: a founding by two, or an entrant with two sitting members.
+
+ **Honest limits.** *Denied is narrow.* KC records a refusal only as a ceremony's
+ non-admission, which the refused community co-signs; an admitted member never becomes
+ denied, and anathema is the way down. *Anathema needs two reporters*, so a compact of two
+ cannot anathematize its only peer. *The examining panel is the polities' own staff* (KC's
+ default of three from two communities), not a rotated pool. *There is no record for
+ leaving a compact.*
 
 ## Questions and resolutions (round 2)
 
@@ -2559,14 +2662,14 @@ Every question the design raised, Q1-Q8 here and Q9 above, is answered. Each
 entry records the question and the decision that settled it.
 
 - **Q1. The ratification quorum. Resolved. Gate the accounting, grade
- the judgement (see D21).** A founding may still narrow the cluster it came from,
+ the judgment (see D21).** A founding may still narrow the cluster it came from,
  but never *silently.* The charter carries the boundary it claims to ratify
  (`candidate_size` plus a reasoned `Exclusion` for everyone the boundary showed and
  the roll does not name) and, the charter core having no amendment path, carries
  it permanently. Authority refuses a charter whose boundary does not add up.
  Nothing refuses one merely for being narrow, because a genuinely separate group of
  three inside a thirty-node cluster is indistinguishable from a faction capturing
- it without a substantive judgement no rule can make. The number Q1 asks for
+ it without a substantive judgment no rule can make. The number Q1 asks for
  (what share of the cluster actually consented) is `founding_legitimacy`'s
  `consent_share`, derivable by anyone holding the charter, forever. The faction of
  one that used to pass a "majority" at a single signature now reads **0.033**.
