@@ -721,7 +721,7 @@ never had to state where its protocol fails.
   common virtues, the virtue-over-rule argument, the mutual-vulnerability premise that is
   the functional account in mechanical dress, and the collusion vulnerability. The refusals
   discussed here as negative precepts are stated there.
-- [Recognition protocols](recognition_protocols.md#kith-covenants-recognition-statement). Movement 4 and Movement 5, the four categories including non-members encountered, and the
+- [Recognition protocols](recognition_protocols.md#the-kith-covenant-recognition-statement). Movement 4 and Movement 5, the four categories including non-members encountered, and the
   sincere materialist cases that separate the two frameworks most cleanly.
 - [The noticeable hand](noticeable_hand.md#three-readings-of-the-evidence). The three
   readings of the evidence, which the functional ground is deliberately independent of, and

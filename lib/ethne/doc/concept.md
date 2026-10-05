@@ -27,7 +27,7 @@ One discipline governs the whole tier, and everything below elaborates it.
 
 We could have imposed a structure from the top, which would have betrayed what
 the trust layer is for, since a community handed down is a diktat rather than a
-people. We could have relabelled the emergent cluster, which betrays what the
+people. We could have relabeled the emergent cluster, which betrays what the
 compact assumes, since the mask has no inside. The interesting engineering sits
 in the ratification step, the moment a set of cooperators chooses to become a
 bounded thing that stands for something and can act as one.
@@ -50,7 +50,7 @@ An earlier proposal tried to close this by mapping a trust group onto a
 community identifier and making the gateway the external face of the community,
 which is an adapter and does what adapters do. It gives the compact a handle to
 bind to, and it quite deliberately does not build the inside of the community,
-punting on which cluster, with what boundary, standing for what. A relabelled
+punting on which cluster, with what boundary, standing for what. A relabeled
 cluster wearing a community mask is not a coherent, governed, durable polity. We
 build the inside instead, which answers what that proposal punted, since the
 boundary and the substrate an adapter binds are the ones our charter names.
@@ -181,11 +181,12 @@ the compact asserts in prose and neither neighboring tier holds in its types.
 Then comes the rite, being how a member actually receives the substrate rather
 than merely appearing on a list, followed by the monitor that watches a polity
 for the specific ways such bodies decay. The last chapter covers what crosses
-the border into the compact, which is six kinds of artifact and nothing else.
+the border into the compact, which is six kinds of artifact, then the records a
+polity signs as a member, and nothing else.
 
 ## Further reading
 
-- [Design decisions D1 to D35](design.md): the full record, including the
+- [Design decisions D1 to D40](design.md): the full record, including the
   reasoning behind every rule the next five chapters state.
 - [The crates](crates.md): what each crate holds, and the checked dependency
   boundary.

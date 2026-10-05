@@ -1,411 +1,293 @@
-# Brag Plan: MUUDD (narrated cut)
+# Brag Plan: MUUDD (narrated cut, re-concept 2026-10-01)
 
-Invoked as `/brag --voice`, so narration is on for this run only. Sibling run:
-`lib/autonomous_trust/doc/brag/` (AutonomousTrust, "beauty-flow" bed). This cut
-uses a different bed, a different angle, and stays strictly on the physical layer.
+Invoked as `/brag --voice`, so narration is on for this run only. This is a full
+re-concept of the 2026-09-18 cut, which is kept in `previous-2026-09-18/` (plan,
+brief, composition, voice). The CSS tokens, the music bed, the SFX set, the
+audio-data file and the audio-reactive helper are carried over; the angle, the
+storyboard, the script and every scene are new.
 
-## What is this project?
+## Rubric
 
-MUUDD — Mesh-routed User-owned User-controlled Dynamic Domains — is a
-communications network that belongs to the people using it. Solar-powered radios
-on ridgetops and rooftops, owned by the households they serve, passing traffic to
-each other directly instead of through a carrier's equipment.
-
-**Scope, which the video has to get right.** MUUDD proper is *only* the physical
-layer: hardware that moves bits without asking permission. Three further tiers can
-stack on top — AutonomousTrust (who may cooperate?), ethne (what is a community?),
-Kith-Covenant (how do communities treat one another?) — and each answers a question
-the layer below it cannot. None of the three is required. A network can run with
-none, with one, or with all three, and the physical layer neither knows nor cares
-which. That separability *is* the design claim, so the video shows the three tiers
-exactly once, as optional rows above a solid base, and never confuses them with
-MUUDD itself. Each of the three is getting its own video in this batch.
+1. **What is the project?** MUUDD (Mesh-routed User-owned User-controlled Dynamic
+   Domains) is the physical layer of a communications network that belongs to the
+   people using it: solar-powered radios on ridgetops and rooftops, owned by the
+   households they serve, passing traffic to each other directly. Three optional
+   tiers (AutonomousTrust, ethne, Kith-Covenant) can stack on top, and none is
+   required.
+2. **Most impressive claim.** The design target for a ridgetop relay is zero site
+   visits a year, and every other choice in Part I follows from that target.
+3. **Visual hook.** `Target: zero.` under a slug placing one relay on one ridge.
+4. **What to show from the project.** There is no UI. The real material is the
+   Tier 1 relay's bill of materials and solar sizing, the radio ladder, the
+   routing model, the unikernel image and the repair rules, all from Part I and
+   appendix A.
+5. **Shortest satisfying video.** Set by the narration: 49.5s (see below).
+6. **Tone.** Preset `cinematic`, direction *a capability film about one relay
+   through one winter, with nobody coming*.
+7. **Audio.** Narration-led. The low-passed ende.app bed from the previous cut,
+   ducked under every line, with a few quiet low-HF cues.
+8. **Share caption (draft).** One ridgetop relay, designed so nobody has to
+   climb up to it. That is the whole of MUUDD; everything above it is optional.
+9. **User flow worth showing.** A relay's year: it is powered through December,
+   it talks on bands nobody has to license, one of its neighbors dies and traffic
+   goes around, it restarts itself, and when somebody does have to go they know
+   what to bring.
 
 ## The angle
 
-**Priced to the connector.**
+**One relay, nobody coming.**
 
-The most convincing thing about the physical layer is not that it is principled.
-It is that the arithmetic is finished. The project has worked one Appalachian
-county end to end — terrain, link budget, solar sizing, bill of materials, cost
-against fiber — and every figure in this video comes off that page. So the video
-is a survey document read aloud: a ridge map built from the project's own surveyed
-node coordinates, and three readouts beside it that a person could actually buy
-equipment from.
+The previous cut was a costing (fiber against mesh, priced to the connector). The
+current Part I documentation makes a different and stronger argument, and this
+cut follows it: `doc/hardware_design.md` says the design optimizes for *the number
+of times per year somebody has to go look at it, and the target is zero*, because
+the man who climbs the hill in February is a volunteer with a job. Every
+physical-layer chapter then answers that constraint in its own register: power
+sized against the worst month (hardware), commodity parts on unlicensed spectrum
+(hardware), failures that stay local and routing with no map (software
+architecture), an image with nothing to log in to that answers a fault by
+restarting (software architecture), and diagnosis from a warm room so that a
+repair is one trip (hardware, Repairability).
 
-The turn at the end is the scoping claim. Everything the viewer has just watched —
-the map, the link budget, the power budget, the ledger — is the *whole* of MUUDD.
-Three tiers sit above it and not one of them is required.
+So the video follows one Tier 1 relay through those answers, and turns at the
+end on ownership: a node only someone else can fix belongs to them, and this one
+belongs to the households it serves. The three upper tiers appear once, as
+optional rows above a solid base, and are never presented as part of MUUDD.
 
-This is not a mesh-networking explainer. It is a costing.
+This is a capability film, not a costing and not a mesh explainer. The fiber
+comparison is deliberately absent.
 
-## Hook (first 2-4 seconds)
+## Hook (first 3 seconds)
 
-Dark frame. Monospace slug:
-`BRAXTON COUNTY, WEST VIRGINIA · 516 SQ MI · 24 PEOPLE PER SQUARE MILE`
-then the line, verbatim from the study:
+Night ridge, one mast on the crest, its status LED breathing with the bass. The
+slug `RIDGETOP RELAY · BRAXTON COUNTY, WEST VIRGINIA · 38.7°N`, then
+`SITE VISITS PER YEAR`, then **Target: zero.** The voice says none of it. It says
+who would have to make the climb instead.
 
-> **Payback never arrives.**
+## Key moments
 
-with its attribution underneath (`doc/rural-network.md · the fiber arithmetic`).
-The voice does not say that line. It says what it costs instead.
+- **Power, from December.** The site drawing's panels and battery light up, a
+  small inset shows December's sun arc under June's, and the worked solar sizing
+  lands row by row, ending on a 14% panel margin.
+- **Radios on a shelf.** The dishes, sector, TVWS yagi and LoRa whip light up;
+  the beams reach to both ridges; four bands land with what each is for. Amateur
+  mesh is named as excluded, with the reason.
+- **A relay dies.** The site becomes a backbone schematic. A packet crosses via
+  the middle ridgetop, that ridgetop dies on the beat, the households behind it
+  go dark, and the next packet goes the other way. Beside it: what a node knows,
+  and the one thing it does not.
+- **Nothing to log in to.** Back at the site, the enclosure is ringed by a
+  restart loop that draws under the word "reboot", next to the image's spec.
+- **From a warm room.** The LoRa whip lights, telemetry pulses run down to a
+  household, and the card ends on *1 trip, not 3*.
+- **The stack.** Three optional tiers above one solid base.
 
-## Key moments (the middle)
-
-- **The county assembles.** Eight ridgetop relays land one per beat at their real
-  surveyed coordinates, then twelve valley relays, then the links between them.
-  The Sutton ↔ Burnsville backbone hop stays lit.
-- **The link budget.** Nine rows of the worked 22 km / 5.8 GHz example land beside
-  the map, ending on `LINK MARGIN 12.6 dB` and `450+ Mbps`.
-- **The power budget.** 70 W continuous, worked backwards from December: 1,680 Wh
-  a day, 700 W of panel, a 200 Ah LiFePO4 bank, ≈2.8 days of autonomy.
-- **The ledger.** Fiber against mesh, side by side. $38,200,000 against $1,278,607.
-  $46,000–$78,000 per demand point against $527. $70 a month against $2.12.
-- **The stack.** The map recedes. Three optional tiers above one solid base.
-
-## Outro / punchline
+## Outro
 
 Wordmark **MUUDD**, the expansion, and *Hardware that moves bits without asking
-permission.* — verbatim from `README.md`.
+permission.* (README.md, verbatim). The voice says something else: *Nobody bills
+for it. Nobody can switch it off from a distance.*
 
 ## Tone
 
 - Preset: **cinematic**
-- Creative direction: *a surveyor's report, read at night.* Restrained, unhurried,
-  and entirely made of numbers that already exist.
-- Interpretation: wide dark frames, long holds, monospace figures, no flourish.
-  Nothing celebrates, nothing sells. The cost comparison is allowed to land hard
-  because the numbers do the landing.
-- Voice: `am_michael` (Kokoro) at speed 0.96 — the same voice as the
-  AutonomousTrust cut, so the batch reads as one family.
+- Creative direction: *one relay through one winter, with nobody coming.*
+- Interpretation: wide dark frames, monospace figures, long holds, nothing
+  celebratory. The relay dying lands as routine, with one dry hit and no sting.
+- Voice: Kokoro `am_michael` at speed 0.96, measured and calm, not an announcer.
+  Short declaratives and fragments. The voice carries the argument; the frame
+  carries the evidence; the voice never reads on-screen text.
 
-## Format: landscape — 1920x1080, 30fps
-## Duration: 45.6s, set by the measured narration
+## Format: landscape, 1920x1080, 30fps
+## Duration: 49.5s, set by the measured narration
 
-The 15–25s creative law is deliberately exceeded under the skill's own voiceover
-carve-out: *"Scene durations must flex to match the generated audio … Do not
-hardcode scene lengths when voiceover is present; let the voice set the pace."*
-The seven measured clips total 39.10s of speech; with a 1.0s lead-in, ~0.70s
-between lines and a 1.3s tail the composition runs 45.6s. The bed is 60s, so the
-music never runs out.
-
-## "Show the thing"
-
-The project has two Flutter apps (`apps/agora`, `apps/stele`), and **neither is
-shown**: Agora is an AutonomousTrust/ethne client and Stele is an unbuilt design
-plan, so showing either would blur exactly the boundary this video exists to draw.
-No Flutter build was attempted.
-
-The real thing shown instead is the physical layer's own material:
-
-| On screen | Source |
-|---|---|
-| 8 ridgetop + 12 valley node positions, by name, at their surveyed lat/lon | `lib/autonomous_trust/examples/appalachia/scenario.py` — `HILLTOP_NODES`, `VALLEY_NODES`, driven by `run-simulation.sh` |
-| `516 SQ MI · 24 PEOPLE PER SQUARE MILE`, `3,465 UN- OR UNDERSERVED LOCATIONS` | `doc/rural-network.md` § Overview |
-| "Payback never arrives." | `doc/rural-network.md` § Overview, verbatim |
-| Link budget: 22 km, 138.1 dB FSPL, 30 dBm, +60 dB, −3 dB, −1.3 dB, −52.4 dBm, −65 dBm, 12.6 dB margin, 450+ Mbps | `doc/rural-network.md` § Worked Example: Sutton to Burnsville Link |
-| Power: 70 W, 1,680 Wh/day, 3.0 peak sun hours (December), 700 W required, 2 × 400 W, 200 Ah LiFePO4 @ 24 V, ≈2.8 days, $4,920/node | `doc/rural-network.md` § Tier 1: Hilltop Relay Node (BOM + solar sizing) |
-| Ledger: $38,200,000 / $1,278,607; $46,000–$78,000 / $527; $70 / $2.12; 3–5 years / 6–12 months; community ownership Rarely / Yes | `doc/rural-network.md` § Cost Comparison: Fiber vs Mesh (Model A) and § Monthly Operating Costs |
-| Node tiers: ridgetop $4,920, valley $2,000, household $200–600, gateways 4 of 71 | `doc/hardware_design.md` § Four tiers of node; unit costs from the BOM tables and § Full County Deployment Estimate (26 hilltop + 45 valley relays, 4 fiber gateways) in `doc/rural-network.md` |
-| The three optional tiers and their questions | `README.md`, `doc/the-stack.md` |
-| "The physical layer neither knows nor cares which are present." | `README.md`, lightly re-tensed from "neither knows nor cares which" |
-| "Hardware that moves bits without asking permission." | `README.md`, verbatim |
-
-**Nothing on screen is invented.** The only authored geometry is the ridge
-silhouette behind the node map, which is decorative and carries no reading; it is
-not a terrain profile and is not labeled as one.
-
-`baseline-results.json` was read and **deliberately left out**: its figures
-(`identity_convergence_s`, `reputation_stability_stddev`, `negotiation_rtt_mean_s`,
-`bandwidth_overhead_fraction`) are AutonomousTrust protocol measurements, not
-physical-layer ones. Putting them on screen would blur the tier boundary the video
-is built to defend. They belong in the AutonomousTrust video, which already exists.
+The default 15-25s law is exceeded under the skill's voiceover carve-out ("Scene
+durations must flex to match the generated audio"). Eight clips total 43.09s of
+speech; with a 0.80s lead-in, 0.60s between lines and a 1.40s tail the
+composition runs 49.5s. The bed is 60s long, so it never runs out.
 
 ## Visual identity
 
-MUUDD ships no UI and no stylesheet, so there is no palette to lift — unlike the
-AutonomousTrust cut, which took its colors verbatim from the project's dashboard
-CSS. The palette here is authored, and it is authored *from the subject*: a ridge
-at night, a backbone link, and a solar array.
-
-- Background `#0a0e0d`; surface `#111917`; elevated `#18211e`; border `#27332f`
-- Ridge silhouette `#1c2622` / `#141c19`
-- Text `#e6ece9`; muted `#c6d2cd`; dim `#aebab5` (both lifted for WCAG AA at
-  video type sizes, the same adaptation the AutonomousTrust cut made)
-- Backbone link / 5.8 GHz `#6fd2e0`; ridgetop relay `#6fd2e0`
-- Valley relay `#8fc79a`
-- Solar / power `#f2ba5c`
-- Fiber column (the expensive one) `#f08c7a`
-- Display and mono are generic stacks: no font ships with this composition and a
-  named family without an `@font-face` is a lint error.
-
-## Share copy (draft)
-
-MUUDD: the physical layer, priced to the connector. Fiber to Braxton County, West
-Virginia costs $38.2 million. The same county, in solar radios the households own,
-costs $1.28 million — and three tiers of trust, community and covenant can stack
-on top, none of them required.
+Unchanged from the previous cut (MUUDD ships no UI or stylesheet; the palette is
+authored from the subject): background `#0a0e0d`, surface `#111917`, elevated
+`#18211e`, border `#27332f`; text `#e6ece9`, muted `#c6d2cd`, dim `#aebab5`;
+link/radio `#6fd2e0`, valley relay `#8fc79a`, solar `#f2ba5c`, fault `#f08c7a`.
+Generic sans and mono stacks; no font ships with the composition.
 
 ## Audio direction
 
-- Role: **narration-led.** Music is a bed underneath the voice, never a driver.
-- Music: `happy-beats-business-moves-vol-10-by-ende-dot-app.mp3` (ende.app),
-  109.96 BPM, 60s. Chosen against the AutonomousTrust cut's "Beauty Flow" so the
-  two videos do not repeat, and treated as a low, filtered bed — the track is
-  upbeat at full level and is never played anywhere near it here.
-- Music treatment: a **low-passed copy** of the track (`lowpass=f=2600`) at 0.22
-  in the gaps between narration lines, ducked to **0.13** for the full span of
-  every voice clip, entering very low under the hook and fading to silence over
-  the last 1.0s. Never above 0.22.
-- Voice track: seven per-scene WAVs on their own track indices at gain 1.0, so
-  every scene boundary is timed to measured audio rather than guessed.
-- Music cue guidance: the bundled preset
-  (`composition/assets/music/cues/…music-cues.json`) has a planning window of only
-  0–25s, so every timing in the finished composition is instead taken from
-  `npx hyperframes beats` run on the wired project, which writes 217 beats for the
-  whole track to
-  `composition/beats/assets/music/happy-beats-business-moves-vol-10-by-ende-dot-app.mp3.json`.
-  That detector resolves this track on a 0.2725s half-beat grid (reported 220 BPM);
-  the musical pulse used here is every second point, 0.545s, and it agrees with the
-  preset to within 0.04s inside the preset's own window. Narration wins every
-  conflict; a cue is only used where it falls inside a natural gap or on a word the
-  picture is already meeting.
-- Audio-reactive treatment: subtle. Bass energy breathes the relay halos and the
-  link stroke opacity on the map. No waveform, no bars, nothing that competes with
-  speech.
-- SFX posture: sparse, warm, low high-frequency-risk only
-  (`sfx-analysis.json`: `rollover2` low, `bong_001` low,
-  `impactSoft_medium_001` low). `drop_001` was considered for the panel swaps and
-  rejected — it rates **medium** HF risk.
-- Restraint rule: no risers, no swells. If a cue and a word collide, the word wins.
+- Role: narration-led; the bed sits under the voice.
+- Music: `happy-beats-business-moves-vol-10-by-ende-dot-app-lowpass.mp3` (the
+  previous cut's low-passed copy, `lowpass=f=2600`). Very low under the hook,
+  0.22 in the gaps, 0.13 under every voice span, fading to silence over 48.5 to
+  49.5s.
+- Music cue guidance: the bundled preset covers only 0-25s, so timings are taken
+  from the existing `npx hyperframes beats` file
+  (`composition/beats/assets/music/…mp3.json`, 217 points on a 0.2725s grid).
+  Strong locks: 20.70s (0.90) for the relay dying, 30.52s (0.91) for "an
+  evening", 38.15s (0.98) for a tier row. Narration wins every conflict.
+- Audio-reactive: subtle. Bass breathes the status-LED halos (hook and site) and
+  the backhaul beams. No waveform, bars or pulsing type.
+- SFX: sparse and low-HF only (`impactSoft_medium_001`, `bong_001`,
+  `rollover2`, all rated low in `sfx-analysis.json`): card swaps, one dry hit on
+  the relay dying, a soft tick when the packet reroutes, quiet bongs on four
+  locked figures and the four tier rows, one impact on the lockup.
 
-## Voiceover script
+## Voiceover script (as generated and measured)
 
-Seven clips, `hyperframes tts --voice am_michael --speed 0.96`. Each is written to
-carry the argument while the screen carries the evidence, so the voice never reads
-a figure that is already on the frame.
+Generated with `npx --yes hyperframes@0.8.47 tts "<line>" --voice am_michael
+--speed 0.96`. Durations are `ffprobe` measurements of the WAVs. Each clip was
+transcribed back (`hyperframes transcribe`, whisper `small.en`) and every word of
+every line was delivered; the word counts match the script exactly.
 
-1. **hook** — "Ridge and hollow, and a population too thin to pay for a trench."
-2. **backbone** — "So the households build it themselves. Solar radios on the
-   ridges, owned by the people they serve."
-3. **link** — "Ridge to ridge, above the canopy. The arithmetic is worked before
-   anybody buys a radio."
-4. **power** — "Sized against December rather than the annual average. Against the
-   longest outage, not a single night."
-5. **cost** — "Three percent of the fiber buildout, and nobody has to earn a return
-   on it."
-6. **stack** — "Three more tiers can sit above this one. Not one of them is
-   required to send a message."
-7. **lockup** — "The alternative, built from the bottom, and owned all the way
-   down."
+| # | Clip | Line | Measured | Start | End |
+|---|---|---|---|---|---|
+| 1 | `vo-1-hook.wav` | "Miles from anyone, on a ridge. Whoever climbs up here in February is a volunteer with a job." | 6.805s | 0.80 | 7.61 |
+| 2 | `vo-2-power.wav` | "So it is sized against the darkest month, not the average. Nothing with a fan." | 5.333s | 8.21 | 13.54 |
+| 3 | `vo-3-radio.wav` | "Shelf parts, on unlicensed spectrum. There is no permission to withdraw." | 4.800s | 14.14 | 18.94 |
+| 4 | `vo-4-failure.wav` | "When a relay dies, the houses behind it go quiet, and everyone else routes around it." | 5.845s | 19.54 | 25.39 |
+| 5 | `vo-5-image.wav` | "Nothing on it to log in to. Its answer to a fault is to reboot, and become new again." | 5.888s | 25.99 | 31.88 |
+| 6 | `vo-6-repair.wav` | "Anyone who does go reads the site from a warm room first." | 3.968s | 32.48 | 36.45 |
+| 7 | `vo-7-owned.wav` | "A node only someone else can fix belongs to them. This one belongs to the households it serves." | 6.400s | 37.05 | 43.45 |
+| 8 | `vo-8-lockup.wav` | "Nobody bills for it. Nobody can switch it off from a distance." | 4.053s | 44.05 | 48.10 |
 
-Line 4 is `doc/hardware_design.md` § Power, near-verbatim ("Size the panel against
-the darkest month rather than the annual average, size the battery against the
-longest expected outage rather than a single night"). Line 5's "three percent" is
-`doc/rural-network.md` verbatim ("Both mesh models cost approximately 3% of the
-fiber buildout"). Line 7's "built from the bottom" is `doc/muudd.md` verbatim.
+Total speech 43.09s. Two earlier drafts were generated and discarded for length
+(56.7s, then 45.5s of speech): line 3 lost "Every radio is" and "No license, so",
+line 6 was cut from a 6.3s sentence, and line 7 dropped "Everything above it is
+optional" because the stack scene says it on screen.
 
-### As synthesized
+Where the lines come from (paraphrase, never invented):
 
-Transcribed from the delivered WAVs (`hyperframes transcribe`, whisper.cpp
-`small.en`). Unlike the AutonomousTrust run, Kokoro dropped nothing — all seven
-clips came back complete:
+1. `doc/software_architecture.md` "nobody within five miles of it";
+   `doc/hardware_design.md` "the man who has to climb the hill in February is a
+   volunteer with a job".
+2. `doc/hardware_design.md` "Size the panel against the darkest month rather
+   than the annual average"; "rules out anything with a fan".
+3. `doc/hardware_design.md` "commodity parts on unlicensed spectrum ...
+   replaceable from a shelf"; "A license is a permission, and a permission is a
+   thing that can be withdrawn."
+4. `doc/hardware_design.md` "a dead relay takes out the households behind it and
+   reroutes everyone else."
+5. `doc/software_architecture.md` "It cannot be logged into, because there is
+   nothing to log in to"; "a system whose answer to confusion is to become new
+   again."
+6. `doc/hardware_design.md` "a failing site can be characterized from a warm room
+   before anyone drives out".
+7. `doc/hardware_design.md` "A node that cannot be fixed by the people who own it
+   is a node owned by whoever can fix it."; `README.md` "owned by the households
+   they serve".
+8. `doc/muudd.md` "Nobody bills for it, or can switch it off from a distance."
 
-1. *"ridge and hollow, and a population too thin to pay for a trench."*
-2. *"so the households build it themselves. Solar radios on the ridges owned by the people they serve."*
-3. *"Ridge to ridge. Above the canopy. The arithmetic is worked before anybody buys a radio."*
-4. *"Sized against December rather than the annual average. Against the longest outage, not a single night."*
-5. *"3% of the fiber build out and nobody has to earn a return on it."*
-6. *"Three more tiers can sit above this one. Not one of them is required to send a message."*
-7. *"The alternative built from the bottom and owned all the way down."*
+## Storyboard (final times)
 
-Two lines were **rewritten and regenerated** after the first transcription pass:
+| # | Scene | Window | VO | What is on screen |
+|---|---|---|---|---|
+| 1 | Hook | 0.00-7.95 | 1 | Night ridge, one mast. Slug, `SITE VISITS PER YEAR`, **Target: zero.** (beat 2.70), cite `doc/hardware_design.md` |
+| 2 | Power | 7.95-13.88 | 2 | Site sheet enters. Panels and battery lit; Dec/Jun sun-arc inset; seven sizing rows; `PANEL MARGIN OVER DECEMBER 14 %` (beat-locked 11.97); foot: battery target, three days through an ice storm |
+| 3 | Radios | 13.88-19.26 | 3 | Antennas lit, beams to both ridges, four callouts; four band rows on every third beat; foot: amateur mesh excluded, Part 97 |
+| 4 | A relay dies | 19.26-25.61 | 4 | Backbone schematic. Packet via middle ridgetop; that relay dies at 20.70 (beat-locked, one dry hit); households behind it dim under "go quiet"; rows *what a node knows*; packet reroutes on 23.97; `A WRONG DECISION COSTS a retransmission` |
+| 5 | The image | 25.61-32.15 | 5 | Site returns, enclosure ringed; six image rows; foot on the debugging trade; restart ring draws under "reboot"; `REVIEW BY ONE VOLUNTEER an evening` (beat-locked 30.52) |
+| 6 | Remote diagnosis | 32.15-36.75 | 6 | LoRa whip lit; dashed telemetry path to a household with four pulses; four *reported* fields; `CLIMBING THE HILL 1 trip, not 3` (beat 35.15) |
+| 7 | The stack | 36.75-43.76 | 7 | Three optional tiers on beats 37.06 / 38.15 / 39.25, the MUUDD base on 40.34; caption *The physical layer neither knows nor cares which.* |
+| 8 | Lockup | 43.76-49.50 | 8 | Wordmark 43.88, expansion 45.79, tagline 46.88 (beat-locked), music credit 47.43 |
 
-- Line 2 first read "Solar radios on the ridgetops"; the transcript came back as
-  *"rigid tops"*. Changed to "on the ridges", which transcribes cleanly and is no
-  worse a line.
-- Line 7 first opened "MUUDD. The alternative built from the bottom …"; the
-  transcript rendered the acronym as *"Mood"*. The name was removed from the
-  narration entirely.
+Every voice clip sits wholly inside its scene window; the nearest margin is
+0.30s (VO 6 ends 36.45, scene 6 ends 36.75).
 
-**Caveat on both, recorded rather than hidden:** whisper is unreliable on proper
-nouns and coined acronyms, so *"rigid tops"* and *"Mood"* may well be ASR
-artifacts rather than Kokoro defects — the transcript is evidence about the
-transcript as much as about the audio. Neither rewrite rests on the transcript
-alone. Line 7 stands on its own editorial ground: the wordmark **MUUDD** is on
-screen at exactly that moment, and the skill's rule is that the voice does not
-read the visible text, so the acronym did not belong in the line regardless. Line
-2 lost nothing by the change. No other clip was regenerated on the strength of a
-transcription oddity.
+Clips: `#hook` 0-8.1, `#site` 7.8-36.95 (scenes 2-6 as one continuous sheet),
+`#stack` 36.55-43.95, `#lockup` 43.6-49.5. Every text swap inside the sheet (mode
+chip, panel title, source strip) is a stacked label whose opacity is set at the
+scene boundary, so seeking to any frame shows the right label.
 
-## Storyboard
+**Poster:** 24.8s, the settled failure frame: dead relay marked, its households
+dark, all four *knows* rows and the retransmission line landed, packet on the
+alternate path.
 
-Durations are set by the measured clips. Beat times are the bundled preset's grid
-inside 0–25s and its continuation (≈0.545s spacing) past it.
+## Source table
 
-### Scene 1 — Hook · 0 → 6.0s
-Slug fades up at 0.40. **Payback never arrives.** lands on beat 1.37 and holds
-through VO 1 (1.00 → 5.44). Attribution line under it at 2.46. All three clear at
-5.55.
-Audio: bed enters at 0.10 and stays there; the voice is the first thing you notice.
-Transition: dramatic cut → Scene 2
+Every on-screen figure and every spoken claim, against the document it comes
+from as that document stands on 2026-10-01.
 
-### Scene 2 — The county assembles · 5.9 → 13.35s
-The survey frame enters: topbar (MUUDD · physical layer · Braxton County WV),
-ridge map left, empty readout column right, source strip along the bottom.
-Eight ridgetop relays arrive one per beat with their real ids
-(`sutton_hilltop`, `burnsville_hilltop`, `powell_mtn`, `otter_creek_ridge`,
-`flatwoods_hilltop`, `elk_ridge`, `birch_mtn`, `centralia_ridge`), then twelve
-valley relays in a fast stagger, then the backbone and access links draw in.
-The readout column is not left empty: it carries the four node tiers the map is
-made of — ridgetop relay $4,920, valley relay $2,000, household endpoint $200–600,
-and gateways, 4 of 71 nodes, the tier the design refuses to depend on. Counter
-runs relays 0 → 20; the mode chip reads SURVEY.
-Sequential/interaction: yes — eight arrivals on the beat grid, links following,
-and four tier rows at a slower 1.09s so they can be read.
-Audio: quiet competence under VO 2; one soft tick per ridgetop, two for the valley
-block.
-Transition: clean cut → Scene 3
+| On screen / spoken | Source and quote |
+|---|---|
+| Visit target 0; `Target: zero.` | `doc/hardware_design.md` lead: "We optimize for the number of times per year somebody has to go look at it, and the target is zero." |
+| Braxton County, West Virginia; 38.7°N | `doc/rural-network.md` Overview and "Solar Sizing Worked Example (38.7°N latitude, Braxton County)" |
+| 70 W load; 1,680 Wh/day | `doc/rural-network.md` Tier 1: "Total continuous load: 70 W → 1,680 Wh/day" |
+| December 3.0 h; June 5.5 h | same: "approximately 3.0 peak sun hours per day in December (worst month) and 5.5 hours in June" |
+| 80 % efficiency; 700 W required | same: "Panel capacity = 1,680 / (3.0 × 0.80) = 700 W" |
+| 2 × 400 W fitted; 14 % margin | same: "Two 400 W panels (800 W total) provide 14% margin over the minimum 700 W requirement" |
+| 200 Ah LiFePO₄ · 24 V | same BOM and battery sizing |
+| Battery target: three days through an ice storm | `doc/hardware_design.md` Power: "Three days of autonomy through an ice storm"; `doc/rural-network.md`: "3 days autonomy for extended cloud cover / ice storms" (the target only; see documentation problems) |
+| Solar and battery, no grid | `doc/muudd.md` Hardware: "a node has to run without the grid" |
+| Site drawing (two dishes, sector, TVWS, LoRa, enclosure, two panels, mast) | `doc/rural-network.md` Tier 1 BOM; `doc/hardware_design.md` "two backhaul radios pointed at neighboring ridges, one sector antenna serving the valley below, and a low-bandwidth long-range radio" |
+| Commodity parts · Part 15, no license | `doc/hardware_design.md`: "commodity parts on unlicensed spectrum, purchasable by anyone and replaceable from a shelf"; "Unlicensed operation under Part 15" |
+| Lower bands bend around the ridge; higher bands carry more | `doc/hardware_design.md` Choosing a radio: "lower frequencies bend around obstacles and pass through foliage, where higher frequencies carry more data" |
+| 900 MHz LoRa: monitoring, telemetry, emergency text, kilobits | same: "throughput measured in kilobits ... network monitoring, telemetry from the solar systems, emergency text" |
+| 470-698 MHz TV whitespace: valley to ridge, no line of sight, 10-15 km | same: "between 470 and 698 MHz ... over ten to fifteen kilometers without line of sight ... For valley-to-ridgetop links" |
+| 2.4 / 5 GHz WiFi: relay to the houses around it, under 2 km | same: "from a relay to the houses around it, over distances under a couple of kilometers" |
+| 5.8 GHz point-to-point: ridge to ridge, 20-50 km | same: "Ridgetop to ridgetop ... links of twenty to fifty kilometers" |
+| Amateur mesh excluded, Part 97 | same: "Part 97 prohibits encrypting amateur transmissions" |
+| Each ridgetop links to at least two others; traffic takes the alternate path | `doc/rural-network.md` Ridgetop backbone chain: "Each hilltop relay connects to at least two other hilltop relays ... traffic reroutes through the alternate backbone path" |
+| Households behind a dead relay go quiet; everyone else reroutes | `doc/hardware_design.md` Repairability: "a dead relay takes out the households behind it and reroutes everyone else" |
+| Routing without a map; no route server, no controller, no consensus about paths | `doc/software_architecture.md` Routing without a map: "There is no route server, no controller, and no consensus about paths to be lost." |
+| Knows its neighbors / what they told it / how its traffic got through; not the topology | same: "No node knows the topology ... A node knows its own neighbors, knows what they have recently told it, and knows how well its own recent traffic actually got through." |
+| A wrong decision costs a retransmission | same, What a node can know: "a wrong one costs a retransmission rather than an outage" |
+| Unikernel: the application, and only the OS it calls | same: "The application and exactly the operating system functions it calls are compiled together into a single bootable image." |
+| Six programs, a few hundred lines each; review in an evening | same, Small pieces: "six programs of a few hundred lines each ... are [reviewable by a volunteer in an evening]" |
+| No shell; no package manager | same: "an image with no shell, no package manager" |
+| A few MB; a fraction of a second; byte-for-byte reproducible | same: "boots in a fraction of a second, occupies a few megabytes, and is byte-for-byte reproducible from source" |
+| One immutable image | same: "the image is immutable" |
+| Debugging is harder without a shell; trade accepted | same: "debugging is harder without a shell ... We accept that trade" |
+| Nothing to log in to; reboot, become new again (VO 5) | same: "nothing to log in to"; "a system whose answer to confusion is to become new again" |
+| Long-range low-bandwidth radio on every node; battery voltage, panel current, link states, uptime | `doc/hardware_design.md` Repairability: "The long-range low-bandwidth radio on every node ... reporting battery voltage, panel current, radio link states and uptime" |
+| Every part is a catalog part | same: "Every part is a catalog part." |
+| 1 trip, not 3 | same: "Climbing the hill with the right part is the whole difference between one trip and three." |
+| Fixing and owning (VO 7) | same: "A node that cannot be fixed by the people who own it is a node owned by whoever can fix it."; `README.md` "owned by the households they serve" |
+| Three optional tiers and their questions; "neither knows nor cares which" | `README.md` and `doc/the-stack.md` ("None of the three is required ... the physical layer neither knows nor cares which") |
+| MUUDD expansion; "Hardware that moves bits without asking permission." | `README.md` title and second paragraph, verbatim |
+| Nobody bills for it; nobody can switch it off from a distance (VO 8) | `doc/muudd.md` lead: "Nobody bills for it, or can switch it off from a distance." |
 
-### Scene 3 — The link budget · 13.35 → 20.55s
-The Sutton ↔ Burnsville hop lights and its callout appears on the map. The readout
-column fills with the nine worked rows. `LINK MARGIN 12.6 dB` is beat-locked to
-strong cue **18.01s** and lifts to the link color; `450+ Mbps aggregate` follows.
-Source strip: `doc/rural-network.md · Worked Example: Sutton to Burnsville Link`.
-Sequential/interaction: yes — nine rows, then the margin, then the throughput.
-Audio: no sting on the rows. One quiet bell on the margin.
-Transition: column swap → Scene 4
+**Authored, carries no reading:** the ridge silhouettes, the proportions of the
+site drawing, the schematic's node positions (labeled *schematic*; it is not a
+map of Braxton County), and the household drawing.
 
-### Scene 4 — The power budget · 20.55 → 28.15s
-Column swaps to the solar sizing, beat-locked to strong cue **20.74s**. Seven rows
-land; the relay dots on the map pick up a warm solar ring. `≈2.8 DAYS AUTONOMY` is
-beat-locked to strong cue **24.01s**. `$4,920 PER NODE` closes it.
-Source strip: `doc/rural-network.md · Tier 1: Hilltop Relay Node · solar sizing, 38.7°N`.
-Sequential/interaction: yes — seven rows, then the autonomy figure, then the cost.
-Audio: one quiet bell on the autonomy figure; nothing else.
-Transition: column swap → Scene 5
+**Deliberately left out:** the battery autonomy figure (`≈2.8 days`, shown in the
+previous cut) and the valley-relay power budget, because the documented
+arithmetic did not close (see below; it does now, at about 2.3 and 1.1 days, so
+a future cut could show them); CBRS 3.5 GHz, because it is not a Part 15
+band; the fiber cost comparison, which belonged to the previous angle.
 
-### Scene 5 — The ledger · 28.15 → 33.60s
-Column swaps to two columns, FIBER against MESH, five rows. The fiber column is
-warm red; the mesh column is the link color. Rows land on the extended grid at
-28.92 / 29.47 / 30.01 / 30.56 / 31.10.
-Source strip: `doc/rural-network.md · Cost Comparison: Fiber vs Mesh · Model A`.
-Sequential/interaction: yes — five paired rows, all persisting.
-Audio: bed opens a little in the gap before VO 5. No cue on any number.
-Transition: the map recedes → Scene 6
+## Documentation problems noticed (reported, not edited)
 
-### Scene 6 — The stack · 33.60 → 40.20s
-Map and readout recede to 0.22. Four rows build **upward** from a solid base, on
-alternating beats 34.37 / 35.46 / 36.55 / 37.64:
+*All five were resolved in the documentation by 2026-10-02; the list is kept as the
+record of what this cut avoided.*
 
-```
-KITH-COVENANT     how do communities treat one another?     OPTIONAL
-ETHNE             what is a community?                       OPTIONAL
-AUTONOMOUSTRUST   who may cooperate?                          OPTIONAL
-MUUDD             hardware that moves bits                    THIS LAYER
-```
-
-The three upper rows are outlined and dim; only the base row is filled. Caption at
-38.73: *The physical layer neither knows nor cares which are present.*
-Audio: light tick per row, quiet.
-Transition: clean → Scene 7
-
-### Scene 7 — Lockup · 40.0 → 45.6s
-Survey frame recedes to 0.18. Wordmark **MUUDD** at 40.91, the expansion
-(*Mesh-routed · User-owned · User-controlled · Dynamic Domains*) at 41.46, and the
-tagline *Hardware that moves bits without asking permission.* at 42.55. The voice
-says none of the three. Music fades to silence from 44.6.
-Audio: settle and release.
-
-**Music mood for this video:** cinematic — low, filtered, subordinate to speech.
-
-**Audio summary:** A low, low-passed bed sits under seven narration clips,
-opening to 0.22 in the gaps and ducking to 0.13 for every spoken span, with four
-quiet cues in the whole video and a fade to silence under the closing line.
-
-**The bed is filtered as well as ducked.** At its own level this track is bright
-and upbeat, and ducking alone left its hats and sibilance sitting in the speech
-band. What plays is a low-passed copy (`ffmpeg -af "lowpass=f=2600"`), with the
-unfiltered original kept beside it in `composition/assets/music/`; the filter
-takes the top off without touching the pulse, which is all the bed carries here.
-`CREDITS.md` has the command and the reasoning. With the filter in place the bed
-opens to 0.22 rather than 0.30.
-
----
-
-## Build notes (final figures)
-
-**Final duration: 45.6s.** Seven Kokoro clips (`am_michael`, speed 0.96) totaling
-39.10s of speech, plus a 1.00s lead-in, ~0.70s between lines, and a 1.29s tail.
-
-| Clip | Measured | Starts at | Ends |
-|---|---|---|---|
-| `vo-1-hook` | 4.437s | 1.00 | 5.44 |
-| `vo-2-backbone` | 6.784s | 6.14 | 12.92 |
-| `vo-3-link` | 6.549s | 13.62 | 20.17 |
-| `vo-4-power` | 6.869s | 20.87 | 27.74 |
-| `vo-5-cost` | 4.715s | 28.44 | 33.16 |
-| `vo-6-stack` | 5.696s | 33.86 | 39.56 |
-| `vo-7-lockup` | 4.053s | 40.26 | 44.31 |
-
-Scene spans that follow: hook 0–6.0 · assemble 5.9–13.35 · link 13.35–20.55 ·
-power 20.55–28.15 · ledger 28.15–33.60 · stack 33.60–40.20 · lockup 40.0–45.6.
-
-### Where the picture meets the word
-
-All times below are measured beats from `hyperframes beats`; the strengths are
-that detector's normalized values.
-
-- Ridgetop arrivals ride the beat grid under VO 2: 6.79, 7.34, 7.88, 8.43, 8.97,
-  9.52, 10.06, 10.61 — one per beat, ids readable because they persist.
-- The node-tier rows beside them arrive at half that rate, 7.88 / 8.97 / 10.06 /
-  11.15, because they are text and text must not outrun reading.
-- `LINK MARGIN 12.6 dB` lands on **18.52s** (strength 0.85), in VO 3's pause after
-  *"above the canopy."*
-- The power column swap is locked to **20.70s** (strength 0.90), which is the
-  natural gap between VO 3 and VO 4.
-- `≈2.8 DAYS AUTONOMY` lands on **25.06s** (strength 0.82), under *"against the
-  longest outage."*
-- The ledger panel opens on **28.34s** (strength 0.84) and its rows run every beat
-  from 28.88 to 31.61, then hold as a full set for the rest of the scene.
-- Tier rows on alternating beats 34.34 / 35.43 / 36.52 / 37.61, base row last.
-- Wordmark on 40.88 (0.67), expansion on 41.43 (0.92), and the tagline on
-  **42.52s** — the single strongest beat in the track (1.00).
-
-### Audio outcome (measured off the delivered render)
-
-Voice spans sit at ≈ −24.6 dB mean with peaks −5.2 to −5.3 dB; the gaps between
-lines drop to ≈ −34.6 to −35.7 dB (bed only), so speech clears the music by about
-**10 dB** throughout. The final fade reaches −47 dB. Ten decibels is a wider
-margin than the AutonomousTrust cut's eight, which is the low-pass filter doing
-its work as much as the ducking.
-
-### Gates
-
-- `brag-plan.md` — this file, with the full beat-by-beat storyboard.
-- `npx hyperframes check --timeout 30000` — **0 errors**, 111/111 text checks pass
-  WCAG AA, 0 layout issues across 9 samples, 0 motion and 0 runtime findings. The
-  one remaining warning is `composition_file_too_large` (777 lines as the linter
-  counts them), accepted
-  rather than split for the same reason the AutonomousTrust cut accepted it: the
-  composition is a single continuous survey frame and splitting it would separate
-  timings that have to be read together. The `--timeout 30000` is pinned in
-  `composition/package.json` and `build.sh` — the default 10s navigation timeout
-  is flaky when several renders share the machine, and that failure is the
-  headless browser starting slowly rather than anything in the composition.
-- `brag.mp4` — exists, 3.6 MB, poster baked as frame 0.
-- `share-copy.txt` — written, with the ende.app attribution block.
-
-### Deliverables
-
-- `brag.mp4` — 1920x1080, 45.600s, h264 + AAC 48 kHz stereo, 30 fps, 3.6 MB
-  (`ffprobe`-verified on the delivered file, not on intent)
-- `brag.jpg` — poster pulled at **33.2s**, the settled ledger frame with all five
-  paired rows and the footnote landed: the single most postable still in the cut,
-  because it carries the whole argument on its own. Baked as frame 0 of the MP4
-  (verified: SSIM 0.988 against `brag.jpg`, while frame 1 measures 0.741, so the
-  bake replaced only the first frame).
-- `brag.webm` — vp9/opus transcode, 2.7 MB
-- `composition-brief.md`, `share-copy.txt`, `CREDITS.md`, `build.sh`, `composition/`
-  (including `assets/voice/` as source, `assets/music/` with both the filtered bed
-  and the unfiltered original, `beats/` and `snapshots/`)
+1. **Ridgetop battery autonomy.** `doc/rural-network.md` (Tier 1 battery sizing)
+   says a 200 Ah LiFePO₄ bank at 24 V "provides approximately 2.8 days of
+   autonomy with 80% depth of discharge". 200 Ah × 24 V = 4,800 Wh; at 80% DoD
+   that is 3,840 Wh, or 2.3 days at 1,680 Wh/day. 2.8 days is the figure at 100%
+   DoD. The 420 Ah requirement on the line above also omits DoD (at 80% it would
+   be about 525 Ah at 12 V). `doc/hardware_design.md` Power repeats the claim
+   that this bank "supplies" three days at 80% DoD.
+2. **Valley relay power budget.** `doc/rural-network.md` Tier 2: a 35 W load is
+   840 Wh/day, but the single 200 W panel yields 480 Wh in December, so the budget
+   does not close in the worst month, which contradicts the "size against the
+   darkest month" rule in `doc/hardware_design.md`. The stated "approximately
+   1.7 days autonomy" from a 100 Ah 12 V battery (1,200 Wh, 960 Wh at 80% DoD)
+   also does not follow; it is 1.1 to 1.4 days.
+3. **CBRS listed as unlicensed.** `doc/hardware_design.md` lists 3.5 GHz shared
+   spectrum and then says "Every band above is unlicensed ... Unlicensed operation
+   under Part 15". CBRS is governed by Part 96 with SAS registration (as
+   `doc/rural-network.md` reference 11 says), not Part 15.
+4. **Admission model contradicts the stack chapter.** `doc/rural-network.md`
+   "Trust-based network admission" has a node vouched in to receive "a signed
+   certificate", with routing that forwards "only through nodes with valid trust
+   credentials", and says "All MUUDD traffic is end-to-end encrypted via
+   AutonomousTrust". `doc/the-stack.md` rejects the credential answer and makes
+   AutonomousTrust optional ("Admission needs no certificate authority"), and
+   `doc/software_architecture.md` says a mesh with no trust layer "routes on link
+   quality alone".
+5. **README chapter list out of step with `doc/narrative-order.json`.** The README
+   Part II list omits "First contact" (narrative-order n=12), so the README counts
+   32 chapters against the JSON's 33, and the README's appendix C says "design
+   decisions D1 to D34" where the JSON says "D1 to D35".

@@ -34,8 +34,8 @@ fi
 export npm_config_ignore_scripts=true
 export HYPERFRAMES_PYTHON="$HOME/.cache/hyperframes/tts-python"
 
-# The poster: the settled ledger frame, fiber against mesh, every row landed.
-POSTER_AT=33.2
+# The poster: the settled failure frame, dead relay marked, traffic on the other path.
+POSTER_AT=24.8
 
 if [[ "${SKIP_RENDER:-0}" != 1 ]]; then
     ( cd "$here/composition"

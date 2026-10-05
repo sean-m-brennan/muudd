@@ -8,10 +8,11 @@ communities, and it never learns where either came from.
 
 That is achievable only if our border is narrow and speaks the vocabulary of the
 compact rather than a vocabulary of its own. The border is important and still
-narrow. Six kinds of artifact cross it, all of them record types the compact
-already understands, and nothing else does. There is no adapter protocol, no
-negotiation, and no handshake, since a polity emits a signed payload and
-something on the other side appends it.
+narrow. Six kinds of artifact carry a polity across it, and once the polity
+sits in a compact, the records it signs there as a member cross too. All of them
+are record types the compact already understands, and nothing else crosses.
+There is no adapter protocol, no negotiation, and no handshake, since a polity
+emits a payload and something on the other side appends it.
 
 The confinement is structural as well as conventional. Exactly one crate in this
 tier speaks the record types of the compact, and every other crate depends only
@@ -139,6 +140,31 @@ One honest limit remains, and we state it rather than paper over it. A roll is
 the polity speaking about itself, and the compact checks that the publisher is
 who he claims to be rather than that the roll is true.
 
+## Acting as a member
+
+Recognition does not end the traffic. A polity that joins a compact has to speak
+in its ceremonies and answer for its conduct there. It presents the five
+anti-spiral claims, gives a verdict on the claims of every other participant,
+vouches for an entrant it sponsors, names an examining panel, and may join in a
+designation anathema or lift one. Each of those binds the polity, so none of
+them can be the envoy's own idea (D40).
+
+The roll decides them first. A compact act in the charter log names the kind,
+the compact, the counterparties and the members who decided it, who co-sign it,
+and the builders here refuse to draft a record no act in force covers, in the
+same way an envoy speaks only while the roll keeps them standing. Joining,
+admitting, sponsoring and lifting pass at a majority of the seasoned roll.
+Refusing an entrant and anathematizing a member take more than a majority, which
+is the asymmetry the roll applies to itself, where expelling a member is harder
+than admitting one (D11), turned outward. The examining panel is the exception,
+since who examines is the root's choice of members and needs no act.
+
+None of these records leaves here signed. Each builder returns the payload, and
+the envoy or the root signs it on whatever device holds the key. The seal of a
+ceremony does not cross at all, being too large for the carrier, so each
+member's node rebuilds it from the claims, verdicts and rites it already holds.
+The compact has no record for leaving a compact, and so neither do we.
+
 ## One artifact that crosses the other way
 
 A seventh artifact leaves this tier and does not go to the compact at all. A polity
@@ -202,7 +228,7 @@ book.
 
 ## Further reading
 
-- [Design decisions D1 to D35](design.md): D4, D9 and D10 for the upward
+- [Design decisions D1 to D40](design.md): D4, D9 and D10 for the upward
   interface and its confinement, D14 for the envoy delegation, D25 for N-ary
   fission and fusion, D26 for the roll, and D35 for the rite.
 - [Protected dissent](../../kith-covenant/doc/jester.md) and

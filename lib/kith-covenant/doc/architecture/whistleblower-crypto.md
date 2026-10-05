@@ -413,7 +413,7 @@ and adding a crate changes that set.
 | `MediatorEntry.encryption_pubkey` | `src/rust/kc-mediation/src/record.rs` |
 | `insider_keys` / `insider_keys_upto`, `mediator_encryption_keys` + the authority rules | `src/rust/kc-archive/src/authority.rs` |
 | `source_tag`, `exculpations`, `distinct_sources_by_accused`, `anonymity_set_by_community` | `src/rust/kc-reputation/` |
-| The polity-tier feed (border artifact #6) | `ethne/src/rust/en-uplift/src/lib.rs` |
+| The polity-tier feed (border artifact #5) | `ethne/src/rust/en-uplift/src/lib.rs` |
 | The tier-crossing composition, and why it is outside ethne's workspace | `ethne/src/rust/examples/recognition_handoff/Cargo.toml` |
 | Python surface | `src/python/kith_covenant/authoring.py` |
 | Worked example incl. every refusal | `src/python/examples/observer_demo.py` |

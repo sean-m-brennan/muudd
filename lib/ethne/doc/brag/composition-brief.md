@@ -1,157 +1,108 @@
-# Hyperframes Composition Brief: Ethne
+# Hyperframes Composition Brief: Ethne (re-concept 2026-10-01)
 
 ## Objective
 
-A narrated launch-style brag video for **Ethne**, the polity tier of the MUUDD
-stack. Narration-led, cinematic, 1920x1080, 46.0s.
+A narrated capability film for **Ethne**, the polity tier: one founding, followed
+from emergent cluster to dissolution, showing that the founding must account for
+everyone it left out. Narration-led, cinematic, 1920x1080, 48.0s.
 
 ## Output
 
-- Composition directory: `brag-output/composition/`
-- Rendered video: `brag-output/brag.mp4`
-- Format: landscape — 1920x1080, 30fps
-- Duration: **46.0s**, set by seven measured Kokoro clips (38.51s of speech).
-  This exceeds the skill's 15–25s creative law under its own voiceover
-  carve-out: *"Do not hardcode scene lengths when voiceover is present; let the
-  voice set the pace."*
+- Composition directory: `composition/`
+- Rendered video: `brag.mp4` (rendered later by `build.sh`, not in this run)
+- Format: landscape, 1920x1080, 30fps
+- Duration: **48.0s**, set by seven measured Kokoro clips (41.386s of speech),
+  under the skill's voiceover carve-out.
 
 ## Source material
 
 - Project root: `/home/user/Software/continuous-space/lib/muudd/lib/ethne`
-- Primary files read: `README.md`, `TODO.md`, `doc/concept.md`,
-  `doc/charter.md`, `doc/transmission.md`, `doc/cohesion.md`, `doc/uplift.md`,
-  `doc/crates.md`, `doc/design.md`, `src/python/examples/polity_demo.py`,
-  `src/rust/` (crate manifests), `run-tests.sh`
+- Primary files read: `README.md`, `doc/concept.md`, `doc/charter.md`,
+  `doc/guardianship.md`, `doc/transmission.md`, `doc/cohesion.md`,
+  `doc/uplift.md`, `doc/crates.md`, `doc/design.md` (D1-D40),
+  `src/rust/en-uplift/src/lib.rs`, `src/rust/en-uplift/src/compact.rs`,
+  `src/rust/en-uplift/Cargo.toml`
 - Product name: **Ethne** (ἔθνη)
-- Strongest claim: *Emergence proposes, the polity ratifies, and the compact
-  recognizes.*
-- Key real artifact to put on screen: the output of two `cargo tree` invocations
-  run against this workspace — the machine-checked decoupling.
+- Strongest claim: a founding must say what it excluded and why, permanently,
+  and anyone holding the charter can re-run the judgment.
+- Key visual: a persistent thirty-node cluster field beside a record panel
+  carrying the real record kinds (`FoundingProposal`, `PolityCharter`,
+  `BoundaryAttestation`, `BoundaryDissented`).
 
-### Copy that must appear verbatim
+### Copy that must appear verbatim (or as condensed in the plan's source table)
 
-- "Nine machines that reliably deal with each other are not a community."
-- "who cooperates?" / "what is a community, and what keeps it one?" / "how do
-  communities treat one another?"
-- "emergent topological clusters rather than named, root-anchored,
-  covenant-bearing entities"
-- "Emergence proposes · the polity ratifies · the compact recognizes"
-- "the trust field · the cluster boundary · the earned reputations"
-- "Ratify emergence, do not replace it."
-- The five movements, in the chapter's own words.
-- Both `cargo tree` blocks, trimmed only of the local `(path)` suffix.
+- "A cluster is not a community."
+- members? / stands for? / speaks for it?, with the concept chapter's answers
+- "Ratify emergence, do not replace it"
+- "a diktat rather than a people" / "the mask has no inside"
+- candidate 30 · roll 3 · excluded 27; "the numbers must add up"
+- "a faction of one reads 0.033"; corroborated · narrowed · self-attested
+- "the dissenter alone" / "may still be filed" after dissolution
 
-Full provenance for every figure is the table in `brag-plan.md`.
+Every figure is sourced in the table in `brag-plan.md`.
 
 ## Creative direction
 
-- Tone preset: **cinematic**
-- Creative direction: *a constitutional document, read aloud at the pace of
-  somebody who has thought about it.*
-- Interpretation: wide dark frames, warm paper-white type over ink, long holds,
-  no motion that is not carrying an argument.
-- Angle: the tier sits between a trust substrate and a federation and produces
-  the entity the federation presumes. The video runs the argument in one
-  direction — the gap, the discipline that closes it, the charter, the rite, the
-  border — and ends on the check that proves the border is where the project
-  says it is.
-- Hook: the opening sentence of `doc/concept.md`, on screen, unread by the voice.
-- Outro: the wordmark and the governing discipline.
-- Avoid:
-  - Generic SaaS language
-  - Abstract filler visuals
-  - Restating AutonomousTrust's argument — no trust graph, no adversary, no
-    detection story
-  - Hedging the project's own stance. The documentation writes from inside it;
-    the narration inherits that register rather than describing it from outside.
+- Tone preset: **cinematic**, restrained.
+- Creative direction: *a capability film about a constitution, told through one
+  founding.*
+- Angle: accountability rather than prevention. Ethne cannot stop three founders
+  from chartering a thirty-node cluster as a polity of themselves; it makes the
+  founding say so, permanently, and lets the excluded answer back.
+- Hook: the cluster assembles; the boundary appears on the word *boundary* and
+  will not hold still.
+- Outro: wordmark, ἔθνη, and the governing discipline. The voice says
+  *Not prevention. Accountability.* and never the tagline.
+- Avoid: generic SaaS language, filler motion, celebrating the stamp or the
+  dissolution, reading on-screen text aloud, the previous cut's argument spine.
 
 ## Visual identity
 
-Ethne ships no UI, no CSS and no images. The palette below is **authored for
-this video** and documented as such in `brag-plan.md` — it is not lifted from a
-project stylesheet, because there is none.
+Reused from the 2026-09-18 cut and documented there and in `brag-plan.md` as
+authored (Ethne ships no UI): ink background `#0b0d12`, paper text `#ece9e3`,
+gold `#e3b25a` for the ratified thing, slate `#85a9cd` for what the substrate
+proposes, paper white for the excluded member who speaks. Generic font stacks.
 
-- Background `#0b0d12`; surface `#141821`; elevated `#1c212c`
-- Border `#2b3242`; border-muted `#3d4658`
-- Text `#ece9e3`; muted `#c9c4b8`; dim `#aba598`
-- Gold `#e3b25a` — this tier (polity, charter, ratified)
-- Slate `#85a9cd` — the substrate below (autonomous-trust)
-- Jade `#86c9a5` — the compact above (kith-covenant)
-- Rust `#e0705f` — refusal, used exactly once
-- Display font: generic sans stack. Body/mono: generic mono stack. No
-  `@font-face` ships, so no named family is requested.
+## Structure
 
-Visual references from the project: the three-tier stack diagram in `README.md`;
-the numbered five movements of `doc/transmission.md`; the crate inventory of
-`doc/crates.md`; real `cargo tree` output.
+One standalone `index.html`:
 
-## Storyboard
+- `#frame` (track 1, 0-48): topbar, the cluster field (SVG, 30 nodes, 38 edges,
+  laid out once from a fixed seed and frozen as constants), the empty record
+  panel. Field state changes are tweens on these persistent elements.
+- `#sc1`-`#sc6` (track 2): one clip per narrated scene, carrying the record panel
+  content, the field status tag and the field legend for that scene.
+- `#lockup` (track 3, 43.4-48).
+- Audio: `#bgm` (track 10), five SFX (tracks 11-15), seven VO clips (tracks
+  20-26), each VO wholly inside its scene clip.
 
-The storyboard in `brag-output/brag-plan.md` is the creative contract.
+## Scene summary
 
-1. **Hook** — 0 → 6.1s — slug, then the concept.md sentence.
-2. **The gap** — 6.1 → 13.0s — the document frame, the three-tier rail, four
-   presumption cards.
-3. **The discipline** — 13.0 → 20.5s — "Ratify emergence, do not replace it",
-   then the three-card spine.
-4. **The founding** — 20.5 → 26.1s — the charter card, the boundary attestation
-   readout, the refusal stamp.
-5. **The rite** — 26.1 → 32.4s — five numbered movements.
-6. **The border, checked** — 32.4 → 40.2s — seven artifact chips, then real
-   `cargo tree` output, then the `kc-*` highlight.
-7. **Lockup** — 40.2 → 46.0s — wordmark, ἔθνη, tagline, music credit.
+1. Hook — 0 → 8.75 — the cluster, the three questions, the drifting boundary
+2. Ratify — 8.75 → 17.5 — ruled-out moves; proposal → co-signing → charter
+3. Three inside thirty — 17.5 → 25.95 — the capture case; identical miniatures
+4. The attestation — 25.95 → 30.8 — 30 / 3 / 27, reasons, genesis-immutable
+5. The judgment, re-run — 30.8 → 37.0 — consent share, 0.033, founding basis
+6. The excluded answer back — 37.0 → 43.4 — `BoundaryDissented`; the charter dissolves
+7. Lockup — 43.4 → 48.0
 
 ## Audio
 
-- Audio role: **cinematic support under narration.** The voice leads throughout.
-- Audio arc: bed enters at 0.10 under the hook, ducks to 0.11 for every spoken
-  span, opens to 0.24 in the gaps, drops to 0.09 through the refusal, fades to
-  silence over the last 1.2s.
-- Music: `happy-beats-business-moves-vol-9-by-ende-dot-app.mp3` (ende.app),
-  114.84 BPM, cut to the first 48s with a stream copy, then low-passed at
-  2600 Hz. The composition plays the `.lowpass.mp3`; the unfiltered cut is kept
-  beside it in `assets/music/` and the command is recorded in `CREDITS.md`.
-- Music treatment: low and filtered. The track is bright by nature and is
-  deliberately used as a pulse under a document rather than a driver. The filter
-  is tonal, not a level fix — the gaps already cleared the voice by 6–10 dB
-  measured off the first render.
-- Music cue guidance: bundled preset
-  `assets/music/happy-beats-business-moves-vol-9-by-ende-dot-app.music-cues.json`.
-  Beat interval ≈ 0.5225s. **Three** strong-cue locks: 6.339 (frame entry),
-  23.174 (boundary readout settles), 38.963 (`kc-*` highlight). Everything else
-  rides the beat grid. Narration wins any conflict.
-- Audio-reactive treatment: subtle — bass energy breathes panel border presence
-  and a faint warmth behind the lit tier in the rail. No bars, no spectrum, no
-  pulsing type.
-- Audio-coupled moments:
-  - presumption cards / spine cards / rite movements — beat-grid arrivals
-  - boundary readout counter — settles on a strong cue
-  - `kc-*` highlight — strong cue, under the word it illustrates
-  - wordmark and tagline — beat-grid
-- SFX selection guidance: sparse, warm, low high-frequency risk only. Quiet
-  ticks on card arrivals, one dry impact on the refusal, one soft impact on the
-  `kc-*` highlight and one on the wordmark. Nothing that editorialises.
-- SFX analysis guidance:
-  `/home/user/.claude/plugins/cache/brag/brag/0.2.2/skills/brag/assets/sfx/sfx-analysis.md`
-  — only `low` high-frequency-risk files are used.
-- Voiceover: seven per-scene WAVs in `assets/voice/`, own tracks, gain 1.0.
-  Tracked as **source**, not build output — `build.sh` never regenerates them.
+- Role: narration-led; the bed is low-passed and subordinate.
+- Music: `assets/music/happy-beats-business-moves-vol-9-by-ende-dot-app.lowpass.mp3`
+  (48.05s), clip 0-48, 0.11 under voice, 0.24 in gaps over 0.75s, faded out
+  46.8-48.0.
+- Cue source: the bundled preset beside the track. Every VO start is a beat.
+  Strong-cue locks at 7.396, 14.756, 20.526, 28.444, 39.486, 43.700, 45.801.
+- Audio-reactive: subtle, panel borders and boundary glow from `audio-data.js`
+  (unchanged; ends 46.27s).
+- SFX: `rollover2` 14.756, `bong_001` 20.526, `impactSoft_medium_003` 29.478,
+  `click2` 38.429, `impactSoft_medium_001` 43.700.
 
-## Hyperframes instructions
+## Gate
 
-Standard composition contract: one paused root timeline registered on
-`window.__timelines`, `data-start` + `data-duration` on every timed element,
-`class="clip"` on timed scene sections, deterministic logic only (no
-`Date.now()`, no `Math.random()`, no network fetches), local assets only.
-
-Requirements honored:
-
-- Shows real project material: verbatim documentation copy throughout, and real
-  `cargo tree` output executed against this workspace in scene 6.
-- All text readable in the final render; `check`'s WCAG AA pass is the gate.
-- Music and SFX layer present; audio-reactive layer wired from a pre-extracted
-  `assets/audio-data.js` so renders stay deterministic and seek-safe.
-- `npx hyperframes check --timeout 30000` run before render, with zero errors.
-  The longer navigation timeout is required: the default 10s is not enough to
-  start the headless browser on a loaded machine, and the failure that produces
-  is the browser, not the composition.
+`npm run check` (`hyperframes check --timeout 30000`): **passed, 0 errors**.
+Two lint warnings remain and are accepted: `composition_file_too_large` and
+`timeline_track_too_dense` (six scene clips on track 2), since the film is one
+continuous field and splitting it into sub-compositions would split the field.
+Layout: 0 issues. Contrast: 60/60 text checks pass WCAG AA.

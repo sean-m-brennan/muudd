@@ -1,98 +1,78 @@
-# Composition brief — Kith-Covenant (narrated)
+# Composition brief — Kith-Covenant (narrated, "the quiet polity")
 
 Handoff brief for `composition/index.html`. Read `brag-plan.md` first for the
-angle, the sourcing table and the measured narration timings; this file is the
-build contract.
+angle, the source table and the measured narration; this file is the build
+contract.
 
 ## Fixed parameters
 
 | | |
 |---|---|
 | Resolution | 1920 x 1080, landscape, 30fps |
-| Duration | 52.0s, set by seven measured Kokoro clips (46.464s of speech) |
-| Tone | `cinematic` — restrained, unhurried, no hype |
+| Duration | 50.0s, set by seven measured Kokoro clips (44.203s of speech) |
+| Tone | `cinematic` capability film — restrained, no verdicts |
 | Voice | Kokoro `am_michael`, speed 0.96, narration-led |
 | Runtime | GSAP, single paused timeline, `window.__timelines["main"]` |
-| Fonts | generic `system-ui` / `ui-monospace` stacks; no `@font-face` is shipped |
+| Fonts | generic `system-ui` / `ui-monospace` stacks; no `@font-face` shipped |
 | CLI | pinned `hyperframes@0.8.47` |
 
 ## Structure
 
-Seven `.clip` sections, each on its own track index, crossfading (0.45s in,
-0.35s out) rather than cutting. Nothing is a sub-composition; the whole cut is one
-file, which is why `composition_file_too_large` stands as an accepted warning.
+Seven `.clip` sections, one track each, crossfading (0.45s in, 0.35s out). One
+file, no sub-compositions, so `composition_file_too_large` stands as an accepted
+warning.
 
-| # | Section id | Track | Start | Duration | Carries |
+| # | Section | Track | Start | Duration | Carries |
 |---|---|---|---|---|---|
-| 1 | `#hook` | 0 | 0 | 7.30 | slug, rule, the claim |
-| 2 | `#inv` | 1 | 7.10 | 7.45 | the inversion table, 4 rows |
-| 3 | `#anch` | 2 | 14.35 | 7.35 | 4 substrate cards + the sangha figure |
-| 4 | `#filt` | 3 | 21.50 | 8.15 | the `AntiSpiralFeature` enum + 5 glosses |
-| 5 | `#cer` | 4 | 29.45 | 8.15 | 2 intra-rites, the witness bridge, the tally |
-| 6 | `#lens` | 5 | 37.40 | 7.90 | the dashboard, 6 lens panels |
-| 7 | `#lock` | 6 | 45.10 | 6.90 | wordmark, tagline, music credit |
+| 1 | `#hook` | 0 | 0 | 7.00 | slug, *No adversary.*, the one-rite timeline |
+| 2 | `#stop` | 1 | 6.65 | 8.12 | four lapses, the alert's three inputs, `None` |
+| 3 | `#pin` | 2 | 14.42 | 7.60 | headline, 100/400/400/400 bars, rolling vs pinned |
+| 4 | `#null` | 3 | 21.62 | 7.06 | the 43-year empty office, `ActivityAttestation` |
+| 5 | `#wide` | 4 | 28.28 | 8.30 | the sixteen `ErosionAlert` fields in four kinds |
+| 6 | `#harn` | 5 | 36.18 | 8.55 | real harness output, moves 8-13 |
+| 7 | `#lock` | 6 | 44.37 | 5.63 | wordmark, tagline, music credit |
 
-Every element inside a section starts at `opacity: 0` (set at t=0 in the `HIDDEN`
-list) and is brought up by its own tween. No tween measures the DOM; everything
-spatial is CSS.
+Every element inside a section starts at `opacity: 0` (the `HIDDEN` list at t=0)
+and is brought up by its own tween. Nothing measures the DOM.
 
 ## Audio tracks
 
 | Track | Contents | Level |
 |---|---|---|
-| 10 | music bed (low-passed copy) | tweened: 0.10 → 0.13 → 0.16 → 0 |
-| 11 | `rollover2` sequential ticks | 0.16 – 0.18 |
-| 12 | `bong_001` structural accents | 0.20 – 0.22 |
-| 13 | `click_002` record rows | 0.20 – 0.22 |
-| 14 | `impactSoft_medium_001` wordmark | 0.26 |
-| 20–26 | the seven narration WAVs, one track each | 1.0 |
+| 10 | music bed (low-passed copy), 50s | tweened 0.10 → 0.13 → 0.16 (47.9s) → 0 (48.8-50.0s) |
+| 11 | `rollover2` sequential arrivals | 0.16-0.18 |
+| 12 | `bong_001`, pinned reading and attestation record | 0.20 |
+| 13 | `click_002`, rite, severity line, harness rows | 0.18-0.20 |
+| 14 | `impactSoft_medium_001`, wordmark | 0.26 |
+| 20-26 | the seven narration WAVs, one track each | 1.0 |
 
-Voice clips never share a track index, so each scene boundary can be derived from
-a measured duration rather than guessed.
+Each voice clip ends before its scene's crossfade begins (smallest margin 0.28s, clips 2-4;
+clip 1 has 0.30s).
 
 ## Beat grid
 
-`happy-beats-business-moves-vol-12`, tempo 109.96 BPM. The bundled cue preset
-analyses only the first 25s of the track. Inside that window, strong cues are used
-as strong cues (17.468, 18.559, 19.650, 21.832, 22.923). Past 25s the grid is
-**extrapolated** as `t = 0.5573 + n × 0.5455` and used only for smaller entrances.
-Sequential text always snaps every *other* beat (1.091s), because the grid itself
-is 0.545s — below the readable threshold.
+`happy-beats-business-moves-vol-12`, 109.96 BPM, beat spacing 0.5455s. Beats and
+strong cues are read straight from the shipped preset, whose arrays cover the
+whole track. Strong-cue locks: 12.550 (severity), 18.564 (rolling reading),
+22.372 / 22.930 / 24.555 / 26.738 (scene 4), 36.548 and the six harness rows
+37.105 → 42.562, 44.745 (wordmark), 46.370 (tagline). Sequential text snaps every
+other beat; the four gap bars go one per beat because their labels are
+three-digit numbers that hold to the scene end.
 
-## Color contract
+## Editorial rules
 
-Tokens are lifted from `src/python/dashboard/static/index.html` (dark theme). Three
-are raised for WCAG AA at video type sizes, preserving hue and the
-ink > ink-2 > muted ordering:
-
-- `--muted` `#898781` → `#a3a199`
-- `--series-1-text` `#5a9df0` (text only; the chart stroke keeps `#3987e5`)
-- `--critical` `#d03b3b` → `#e8736b` (the shipped value fails AA at 3.62:1)
-
-`check` enforces this and reports 64/64 text checks passing.
-
-## Editorial rules this composition obeys
-
-1. **The voice never reads the screen.** Every narration line was checked against
-   every on-screen string; where they converged, the screen text was changed or
-   cut, not the voice.
-2. **Nothing on screen is invented.** Each figure, name, CID and source path comes
-   from the project's own documentation, source, or a real run of its demos — see
-   the sourcing table in `brag-plan.md`.
-3. **Nothing editorialises.** No risers, no swells, no verdict animation. The lens
-   scene in particular is descriptive only, which is what the dashboard itself
-   says it is.
-4. **State the claims directly.** The prose in the narration, the captions and the
-   share copy inherits the project's own stance, per the Documentation Voice rule
-   in the root `CLAUDE.md`. No hedges, no soft-apologetics, no framing that
-   presents the claim as one option among several.
+1. The voice never reads the screen and the screen never repeats the voice.
+2. Every figure traces to the docs, the code, or a real run (source table in
+   `brag-plan.md`). Where docs and code disagree, the code wins: sixteen alert
+   fields, not fourteen.
+3. Nothing editorializes: no sting on `None`, no flourish on PASS.
+4. The limit is stated as the project states it, directly: legible, not prevented.
 
 ## Rebuild
 
 ```bash
 ./build.sh                 # check, render, poster, webm
-SKIP_RENDER=1 ./build.sh   # transcode an existing brag.mp4 only
+SKIP_RENDER=1 ./build.sh   # poster + transcode from an existing brag.mp4
 ```
 
-The narration WAVs in `composition/assets/voice/` are **source**, not build
-output: `build.sh` skips the TTS backend entirely and never regenerates them.
+The WAVs in `composition/assets/voice/` are source, not build output.

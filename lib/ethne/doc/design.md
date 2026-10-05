@@ -49,7 +49,7 @@ The KC↔AT integration already proposes a `CommunityBinding` (its meld proposal
 M1) that maps an AT group/gateway-subtree to a KC community DID and makes the
 gateway the **external face**. That is an *adapter.* It gives KC a handle to
 bind to. It deliberately does **not** build the *inside.* It punts on *which*
-cluster, with *what* boundary, standing for *what*. A relabelled cluster
+cluster, with *what* boundary, standing for *what*. A relabeled cluster
 wearing a community mask is not a coherent, governed, durable polity. Ethne
 builds the inside. It is also what finally *answers* the punted questions of
 M1. Ethne decides the boundary and the substrate that M1 then binds.

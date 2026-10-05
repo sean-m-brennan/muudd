@@ -37,7 +37,7 @@ fi
 export npm_config_ignore_scripts=true
 
 HF="npx --yes hyperframes@0.8.47"
-POSTER_AT="${POSTER_AT:-20.8}"   # Rule 1, all four substrates settled
+POSTER_AT="${POSTER_AT:-21.4}"   # absolute-measures scene, both gap readings settled
 
 if [[ "${SKIP_RENDER:-0}" != 1 ]]; then
     ( cd "$here/composition"

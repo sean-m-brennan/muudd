@@ -1,403 +1,243 @@
-# Brag Plan: Ethne (narrated cut)
+# Brag Plan: Ethne (narrated cut, re-concept 2026-10-01)
 
-Invoked as `/brag --voice`, so narration is on for this run. Sibling runs:
-AutonomousTrust (`../../autonomous_trust/doc/brag/`, bed *beauty-flow*), and
-MUUDD and Kith-Covenant in parallel on other beds. Same family, different tier.
+Invoked as `/brag --voice`, so narration is on for this run. This is a full
+re-concept. The 2026-09-18 cut (the argument spine: gap, discipline, charter,
+rite, border, `cargo tree`) is backed up in `previous-2026-09-18/`. Its palette,
+document shell, music treatment and ducking helper are reused here. Its angle
+and storyboard are not.
 
 ## What is this app?
 
-Ethne (Greek ἔθνη, "peoples") is the **polity tier**: it turns a set of
-cooperating agents into a community, being a bounded, self-governing entity that
-stands for a substrate, acts with one voice, and persists across the turnover of
-its members. It sits between a trust substrate below and a federation above, and
-it produces the entity the compact above it presumes.
-
-Source: `README.md` opening paragraph; `doc/concept.md` "From cooperation to
-community".
+Ethne (Greek ἔθνη, "peoples") is the **polity tier**. It turns a set of
+cooperating agents into a polity, "a bounded, self-governing community that
+stands for something, acts with one voice, and persists across the turnover of
+its members" (`doc/concept.md`). It reads the emergent structure and offers it
+back to the members for ratification into a charter.
 
 ## The angle
 
-**Emergence proposes, the polity ratifies, and the compact recognizes.**
+**A founding that has to tell on itself.**
 
-That sentence is the spine of the project and it is the spine of this video. The
-argument runs in one direction and never doubles back:
+The previous cut argued the tier's architecture. This one follows a single
+founding, and the scenario is the one `doc/charter.md` builds its central
+chapter around: three founders inside a thirty-node cluster charter the whole
+cluster as a polity of themselves. Ethne cannot stop that, and the documentation
+says so: a genuinely separate group and a faction capturing the cluster look
+the same, and telling them apart needs a judgment no rule can make. What it does
+instead is remove the silence. The founding has to say whom it excluded and why,
+permanently. Anyone holding the charter can re-run the legitimacy judgment from
+the charter alone, and the excluded can answer back, alone, even after the
+polity is gone.
 
-1. A cluster is not a community, and the gap is not rhetorical — it is four
-   specific properties the tier above takes for granted and the substrate below
-   does not supply.
-2. Closing the gap by imposing a structure betrays the trust layer; closing it
-   by relabelling the cluster betrays the compact. The interesting engineering
-   is the ratification step in between.
-3. The charter is what ratification produces, and it must account for everyone
-   the boundary showed and the roll does not name.
-4. Membership is not reception: the rite is five movements, and it is what
-   finally gates who decides anything.
-5. What crosses upward is seven artifacts in a vocabulary the compact already
-   has — and the confinement of that vocabulary to one crate is checked by
-   `cargo tree`, not asserted in a README.
+That is the capability: **accountability rather than prevention**, which is the
+charter chapter's own phrase for the construction. The video shows a mechanism
+that admits its own limit and then makes the limit legible.
 
-This is deliberately **not** AutonomousTrust's argument. AT's video is about a
-network that excludes a liar with nobody at the controls. This one never shows a
-trust graph, never shows an adversary, and never argues about detection. Its
-subject is constitution: what a community *is*, and what keeps it one.
+The picture carries the evidence (the thirty-node field that never cuts away,
+the record panel beside it with the real record kinds and figures). The voice
+carries the argument and never reads what is on screen.
 
 ## Hook (first 2-4 seconds)
 
-Dark frame. Monospace slug `MUUDD · PART III · THE POLITY TIER`, then the
-opening sentence of `doc/concept.md`, verbatim:
+Thirty nodes arrive in a field and wire themselves together. Beside them:
+*A cluster is not a community.* Then three questions the cluster cannot answer
+(`members?` / `stands for?` / `speaks for it?`), and on the word *boundary* a
+dashed slate hull appears around the nodes and keeps shifting.
 
-> **Nine machines that reliably deal with each other are not a community.**
-
-The voice does not say that line. It asks the first of the chapter's four
-questions underneath it instead, so picture and narration carry two different
-things at once.
+The voice says none of that text. It describes thirty machines that deal with
+each other and a boundary that will not hold still.
 
 ## Key moments (the middle)
 
-- **The four presumptions.** `BOUNDED · COHERENT · PERSISTENT · AGENTIVE` arrive
-  as four cards with the chapter's own glosses. The substrate below produces
-  none of them directly.
-- **The spine.** Three cards: *emergence proposes · the polity ratifies · the
-  compact recognizes*, each carrying what actually moves at that step.
-- **The founding, and what it excluded.** A charter card saying the four things
-  a charter says, beside a `BoundaryAttestation` readout — candidate 30, roll 3,
-  excluded 27 — and the accounting gate: `claims 30, accounts for 1 → REFUSED`.
-- **The rite.** Five numbered movements, from the recognition doctrine, in the
-  chapter's own words.
-- **`cargo tree`, on screen, real.** Two invocations run against this workspace
-  during planning. `en-cohesion` reaches only `en-*`. `en-uplift` is the one
-  crate that names `kc-ceremony`, `kc-conduct`, `kc-core`, `kc-identity`. Those
-  four lines tint gold under the words *"and the build checks that."*
+- **Ratify, not replace.** The two ruled-out moves (*impose a structure* /
+  *relabel the cluster*), then `FoundingProposal` → a majority co-signs →
+  `PolityCharter`. In the field the hull stops moving, goes solid, the nodes
+  sign gold one by one, and the boundary turns gold.
+- **Three inside thirty.** Everything but three nodes falls back. The gold hull
+  still claims the whole cluster. The other 27 go dim: *unrecorded*. Two
+  identical miniatures, *a genuinely separate group* = *a faction capturing it*.
+- **The attestation.** `BoundaryAttestation` counts to candidate 30 · roll 3 ·
+  exclusions 27, a tick lands under each excluded node, the two reasons the
+  substrate handover distinguishes appear, and `GENESIS-IMMUTABLE` stamps.
+- **The judgment, re-run.** Consent share = ratifiers ÷ everyone the boundary
+  showed. The chapter's own worked case, a faction of one, reads 0.033. Founding
+  basis: corroborated · narrowed · self-attested. No provider consulted.
+- **The excluded answer back.** One of the 27 lights, ringed. `BoundaryDissented`:
+  signed by the dissenter alone, no deciders, membership not required. The
+  charter dissolves in the field and the dissent stays lit.
 
 ## Outro / punchline
 
-Wordmark **Ethne** with **ἔθνη** beneath it, over the dimmed document, and the
-governing discipline as the tagline the voice never says: *Ratify emergence, do
-not replace it.*
+Field recedes. **Ethne**, **ἔθνη**, and the governing discipline the voice never
+says: *Ratify emergence, do not replace it.* The voice gives the other half:
+*Not prevention. Accountability.*
 
 ## User flow worth showing
 
-The tier is a Rust workspace plus a Python surface — no UI. The runnable
-material is `src/python/examples/polity_demo.py` (a polity's life end to end) and
-`src/rust/examples/polity_host/`, but the Python surface needs `maturin develop`
-against a conda env that is not provisioned in this sandbox, so the demo could
-not be executed and **no figure printed by it is quoted**.
-
-What *was* executed is `cargo tree`, which needs no build:
-
-```
-cargo tree -p en-cohesion --edges normal --depth 1
-cargo tree -p en-uplift   --edges normal --depth 1
-```
-
-Both ran successfully in `/home/user/Software/continuous-space/lib/muudd/lib/ethne`.
-Their output is on screen in scene 6, verbatim apart from the local `(path)`
-suffix `cargo tree` prints after each workspace crate, trimmed for legibility.
-That is the "show the thing" scene: the decoupling the README claims, being
-checked rather than claimed.
+The tier has no UI. The flow is the life of one founding, recreated from the
+record kinds `doc/charter.md` and `doc/crates.md` name: emergent cluster →
+`FoundingProposal` → `PolityCharter` with its `BoundaryAttestation` → founding
+legitimacy read model → `BoundaryDissented` → `CharterDissolution`. No program
+output is shown or quoted. Every figure is from the documentation (table below).
 
 ## Tone
 
-- Preset: **cinematic**
-- Creative direction: *a constitutional document, read aloud at the pace of
-  somebody who has thought about it.*
-- Interpretation: Wide dark frames, warm paper-white type over ink, long holds,
-  no motion that is not carrying an argument. Nothing arrives that the voice is
-  not already standing next to.
-- Voice: `am_michael` (Kokoro) at speed 0.96 — measured, unhurried, never
-  announcing.
+- Preset: **cinematic**, restrained.
+- Creative direction: *a capability film about a constitution, told through one
+  founding.*
+- Interpretation: one persistent field, long holds, a record panel that changes
+  beside it. Nothing celebrates; the stamp and the dissolution land flat.
+- Voice: `am_michael` (Kokoro) at speed 0.96. Calm, measured, not an announcer.
 
 ## Format: landscape — 1920x1080, 30fps
-## Duration: 46.0s, set by the measured narration
+## Duration: 48.0s, set by the measured narration
 
-The 15–25s creative law is deliberately exceeded under the skill's own voiceover
-carve-out: *"Scene durations must flex to match the generated audio … Do not
-hardcode scene lengths when voiceover is present; let the voice set the pace."*
-Seven clips total 38.51s of speech; the rest is breathing room, a 1.07s lead-in
-and a 1.5s tail under the fade.
+Seven clips total 41.39s of speech. The 15-25s creative law is exceeded under
+the skill's voiceover carve-out (*"let the voice set the pace"*), within the
+45-50s brief for this series.
 
-## Visual identity (authored, and why)
+## Visual identity (authored, reused from the previous cut)
 
-Ethne ships no UI, no CSS, and no images — the tier is markdown, Rust and
-Python. There is no project palette to lift, so one is authored here and
-documented rather than pretended to be sourced. It is deliberately a *document*
-register, and deliberately not AutonomousTrust's operations-dashboard navy:
-
-- Background `#0b0d12`; surface `#141821`; elevated `#1c212c`; border `#2b3242`
-- Text `#ece9e3` (warm paper white); muted `#c9c4b8`; dim `#aba598`
-- **Gold `#e3b25a`** — this tier. The polity, the charter, the ratified thing.
-- **Slate `#85a9cd`** — the substrate below (autonomous-trust).
-- **Jade `#86c9a5`** — the compact above (kith-covenant).
-- **Rust `#e0705f`** — refusal, used once, on the rejected accounting.
-- Display: generic sans stack; mono: generic mono stack. No `@font-face` ships
-  with the composition, so no named family is requested.
-
-All type is checked against WCAG AA at video sizes by `hyperframes check`.
-
-## Every figure on screen, and where it comes from
-
-| On screen | Source |
-|---|---|
-| "Nine machines that reliably deal with each other are not a community." | `doc/concept.md`, opening line, verbatim |
-| `autonomous-trust / "who cooperates?"`, `ethne / "what is a community, and what keeps it one?"`, `kith-covenant / "how do communities treat one another?"` | `README.md`, the stack diagram, verbatim |
-| CRATES 10 | `src/rust/`: en-archive, en-at, en-charter, en-cohesion, en-core, en-host, en-pyo3, en-store, en-substrate, en-uplift — the ten the README enumerates |
-| DECISIONS D1–D35 | `TODO.md` ("decisions D1-D35"); `doc/uplift.md` ("Design decisions D1 to D35"). The README still reads D34 and is stale. |
-| RUST 437 · PY 233 | `README.md` quick start: `cargo test --workspace --exclude en-pyo3` — 437 tests; `pytest src/python/tests/` — 233 tests |
-| BOUNDED / COHERENT / PERSISTENT / AGENTIVE and their glosses | `doc/concept.md`, "The gap, precisely" |
-| "emergent topological clusters rather than named, root-anchored, covenant-bearing entities" | `doc/concept.md`, same section, verbatim |
-| "Emergence proposes · the polity ratifies · the compact recognizes" | `README.md` and `doc/concept.md`, verbatim |
-| "the trust field, the cluster boundary, the earned reputations" | `doc/concept.md`, the block-quoted discipline, verbatim |
-| The four things a charter says | `doc/charter.md`: "who the members are, what the community holds above itself, what it commits to, and how those commitments may later change" |
-| candidate 30 · roll 3 · excluded 27 | `doc/charter.md`: three people inside a thirty-node cluster, "the other twenty-seven"; `BoundaryAttestation` holds "the candidate size the boundary actually showed and a reasoned exclusion for everyone it showed whom the roll does not name" |
-| `claims 30, accounts for 1 → REFUSED` | `src/python/examples/polity_demo.py`, the D21 section: the comment `# claims 30, accounts for 1` and the printed line "a charter claiming 30 and accounting for 1 is refused" |
-| "permanent and immutable" | `doc/charter.md`: "that statement is permanent and immutable" |
-| The five movements and their glosses | `doc/transmission.md`: "the naming of the substrate, the acknowledgment of fallenness, the recognition of others as peers, the commitment to the common virtues as dispositions, and the submission of the polity itself, which is not the ultimate" |
-| "Admission puts somebody on the roll. Induction is the distinct later step by which they acquire the substrate." | `doc/transmission.md`, condensed from its own two sentences |
-| The seven border artifacts | `doc/uplift.md`, "The seven artifacts" |
-| Both `cargo tree` blocks | executed in this workspace during planning; see above |
-| "Ratify emergence, do not replace it." | `README.md`, the governing discipline, verbatim |
-
-Nothing on screen is invented. Where a number exists in two places and the two
-disagree (D34 vs D35), the newer document wins and the disagreement is recorded
-above rather than smoothed over.
+Ethne ships no UI, CSS or images, so the palette is authored and documented as
+such: background `#0b0d12`, surface `#141821`, elevated `#1c212c`, border
+`#2b3242`; text `#ece9e3`, muted `#c9c4b8`, dim `#aba598`. **Slate `#85a9cd`** is
+the substrate and what emergence proposes; **gold `#e3b25a`** is this tier, the
+ratified thing; **paper white** marks the excluded member who speaks for himself.
+Generic sans and mono stacks (no `@font-face` ships). 60/60 text checks pass
+WCAG AA.
 
 ## Share copy (draft)
 
-Ethne is the polity tier: it turns a set of cooperating agents into a community
-with a ratified roll, a substrate it stands under, and offices it confers on
-itself. Emergence proposes, the polity ratifies, and the compact recognizes.
+Three nodes inside a thirty-node cluster charter the whole cluster as a polity
+of themselves. Ethne cannot stop that. It makes the founding say whom it left
+out, permanently, and lets the excluded answer back.
 
 ## Audio direction
 
-- Role: **narration-led.** Music is a bed underneath the voice, not a driver.
-- Music: `happy-beats-business-moves-vol-9-by-ende-dot-app.mp3` by
-  [ende.app](https://ende.app), bundled with the `/brag` skill. 114.84 BPM, beat
-  interval ≈ 0.5225s. Cut to the first 48s with a stream copy, no re-encode.
-- Treatment: the track is bright by nature, so it is **low-passed at 2600 Hz**
-  (`ffmpeg -af "lowpass=f=2600"`; the unfiltered cut is kept beside it in
-  `assets/music/` and the command is in `CREDITS.md`) and held low throughout —
-  0.24 in the gaps between lines, ducked to **0.11** for the full span of every
-  voice clip, 0.09 through the refusal, fading to silence over the last 1.2s.
-  The filter is a tonal decision, not a level one: measured off the first
-  render the gaps already sat 6–10 dB under the voice. What level could not fix
-  was character — a cheerful business-moves cut arguing with a constitutional
-  document read aloud. Rolling the top off leaves the pulse and the bass, which
-  is all this edit asks of it. `assets/audio-data.js` is extracted from the
-  filtered file, so what the picture breathes with is what the viewer hears.
-- Voice track: per-scene WAVs on their own tracks at gain 1.0, so every scene
-  boundary is timed to measured audio rather than guessed.
-- Music cue guidance: cue preset at
-  `skills/brag/assets/music/cues/happy-beats-business-moves-vol-9-by-ende-dot-app.music-cues.json`.
-  Three strong-cue locks only; everything else rides the beat grid, and
-  **narration wins any conflict.**
-- Audio-reactive treatment: subtle. Bass energy breathes the panel border
-  presence and a faint warmth behind the rail's lit tier. No bars, no spectrum,
-  nothing that competes with speech.
-- SFX posture: sparse and warm, low high-frequency-risk picks only
-  (`rollover2`, `bong_001`, `impactSoft_medium_001`, `impactSoft_medium_003`,
-  `click2`). A quiet tick per card, one soft impact on the refusal, one on the
-  wordmark. Nothing editorialises.
+- Role: **narration-led.** The bed sits under the voice.
+- Music: `happy-beats-business-moves-vol-9-by-ende-dot-app.lowpass.mp3`, the
+  same low-passed 48.05s cut as the previous version (ende.app, CC BY 4.0 with
+  an attribution-optional waiver; see `CREDITS.md`). 114.84 BPM, beat ≈ 0.5225s.
+- Treatment: 0.10 → 0.11 under the hook, 0.11 under every voice span, opening to
+  0.24 only in gaps longer than 0.75s, faded to silence over the last 1.2s
+  (46.8 → 48.0).
+- Music cue guidance: bundled preset
+  `assets/music/happy-beats-business-moves-vol-9-by-ende-dot-app.music-cues.json`.
+  Every narration clip starts on a beat-grid point. Strong-cue locks:
+  **7.396** (hull appears on *boundary*), **14.756** (the members sign),
+  **20.526** (the charter claims the cluster), **28.444** (attestation counters
+  settle on *left out*), **39.486** (the dissent record, on *answer back*),
+  **43.700** (wordmark with *Ethne*), **45.801** (tagline). Narration wins every
+  conflict.
+- Audio-reactive treatment: subtle. Bass breathes the panel borders and a faint
+  gold glow on the boundary. `audio-data.js` is unchanged (it ends at 46.27s;
+  the last frame holds through the fade).
+- SFX: five, all low high-frequency-risk: `rollover2` (signing), `bong_001`
+  (the claim), `impactSoft_medium_003` (the stamp), `click2` (the dissenter
+  lights), `impactSoft_medium_001` (wordmark).
+- Restraint rule: nothing marks the capture or the dissolution as drama.
 
 ## Voiceover script
 
-Seven clips, `hyperframes tts --voice am_michael --speed 0.96`. Each is written
-to stand *next to* the screen rather than read it.
+Seven clips, `hyperframes tts --voice am_michael --speed 0.96`. Measured with
+`ffprobe`; transcribed with `hyperframes transcribe` (whisper `small.en`), which
+returned every word of every line, so nothing was dropped.
 
-1. **hook** — "Ask a cluster who its members are. Nobody agreed to an answer."
-2. **gap** — "The tier above presumes four things of a community. A trust
-   substrate supplies none of them."
-3. **discipline** — "So this tier imposes nothing. It reads the emergent
-   structure and offers it back to be ratified."
-4. **charter** — "A founding is one signed document, and it must name everyone
-   it left out."
-5. **rite** — "Admission puts you on the roll. The rite is how you receive what
-   the roll is a list of."
-6. **border** — "Seven artifacts cross to the compact. Exactly one crate speaks
-   its vocabulary, and the build checks that."
-7. **lockup** — "Ethne. The tier that produces the entity the compact presumes."
-
-One spelling note: clip 7 is generated from the text `Ethnee.` rather than
-`Ethne.` Kokoro reads `Ethne` as *Ethan*; `Ethnee` gives ETH-nee, which is the
-Greek. The wordmark on screen is `Ethne` either way.
-
-### As synthesized
-
-Unlike the AutonomousTrust run, **nothing was dropped**. Each line was written
-short enough that Kokoro delivered it whole. Transcribed twice and independently
-— `whisper.cpp base.en` and `faster-whisper base.en` — and the two agree
-verbatim on all seven clips. The word onsets used for timing below come from
-`faster-whisper`, which reports them; the delivered audio is the authority for
-both:
-
-1. *"Ask a cluster who its members are. Nobody agreed to an answer."*
-2. *"The tier above presumes four things of a community. A trust substrate supplies none of them."*
-3. *"So this tier imposes nothing. It reads the emergent structure and offers it back to be ratified."*
-4. *"A founding is one signed document, and it must name everyone it left out."*
-5. *"Admission puts you on the roll. The rite is how you receive what the roll is a list of."* — transcribed as "role" / "The right"; homophones in the transcriber, not in the delivery.
-6. *"Seven artifacts cross to the compact. Exactly one crate speaks its vocabulary, and the build checks that."*
-7. *"Ethne, the tier that produces the entity the compact presumes."* — transcribed "Ethney".
-
-## Storyboard
-
-Durations below are the measured clips. The beats fix order and what must be
-visible.
-
-### Scene 1 — Hook · 0 → 6.1s
-Slug fades in; the concept.md sentence lands and holds through VO 1. No document
-yet.
-Sequential/interaction: none.
-Audio intent: bed enters at 0.10 and stays there; the voice is the first thing
-you notice.
-Transition: dramatic → Scene 2
-
-### Scene 2 — The gap · 6.1 → 13.0s
-The document frame enters on a strong cue. Left rail draws the three-tier stack
-with `ethne` lit. Main panel: `WHAT THE TIER ABOVE PRESUMES` and four cards
-arriving on alternating beats, then the chapter's own footnote about topological
-clusters.
-Sequential/interaction: yes — four cards, ~1.05s apart, all persisting.
-Audio intent: quiet competence under VO 2; one soft tick per card.
-Transition: clean cut → Scene 3
-
-### Scene 3 — The discipline · 13.0 → 20.5s
-Cards clear. `RATIFY EMERGENCE, DO NOT REPLACE IT`, then the spine as three
-cards on alternating beats, each carrying what moves at that step. The middle
-card is gold; the outer two are slate and jade, matching the rail.
-Sequential/interaction: yes — three cards, ~1.58s apart.
-Audio intent: bed opens slightly in the gap before VO 3; ticks on cards 1 and 3.
-Transition: clean cut → Scene 4
-
-### Scene 4 — The founding, and what it excluded · 20.5 → 26.1s
-Spine clears. The charter card lists the four things a charter says, revealed as
-a fast stagger and held. Beside it the `BoundaryAttestation` readout counts to
-candidate 30 / roll 3 / excluded 27, then the refusal stamp lands.
-Sequential/interaction: yes — four lines, then a counter, then one stamp.
-Audio intent: music at its lowest here; one dry impact on the refusal, nothing
-else.
-Transition: soft → Scene 5
-
-### Scene 5 — The rite · 26.1 → 32.4s
-Charter clears. `THE RITE — five movements`, the admission/induction line, then
-five numbered rows on alternating beats.
-Sequential/interaction: yes — five rows, ~1.05s apart, all persisting.
-Audio intent: a light tick per movement; the bed does not lift.
-Transition: clean → Scene 6
-
-### Scene 6 — The border, checked · 32.4 → 40.2s
-`WHAT CROSSES THE BORDER`: seven artifact chips stagger in and hold. Below them
-a terminal panel opens and the two real `cargo tree` invocations print, the
-`en-cohesion` block first, then `en-uplift`. On the last clause of VO 6 the four
-`kc-*` lines tint gold and a single caption settles: *one crate, checked by the
-build.*
-Sequential/interaction: yes — seven chips, then two terminal blocks, then one
-highlight.
-Audio intent: the bed's only open moment, still under 0.26; one soft impact on
-the highlight.
-Transition: dim → Scene 7
-
-### Scene 7 — Lockup · 40.2 → 46.0s
-Document recedes to 0.20. Wordmark **Ethne**, then **ἔθνη**, then *Ratify
-emergence, do not replace it.* Music credit settles last. Bed fades to silence.
-Audio intent: settle and release.
-
-**Music mood for this video:** cinematic — low, filtered, subordinate to speech.
-
-**Audio summary:** A low bed sits under seven narration clips, ducking to 0.11
-for every spoken span, opening to 0.26 in the gaps, dropping to 0.09 through the
-refusal, and fading to silence under the closing line.
-
----
-
-## Build notes (final figures)
-
-Written after the narration was generated and measured.
-
-**Final duration: 46.0s.** Seven Kokoro clips (`am_michael`, speed 0.96)
-totaling **38.51s** of speech.
-
-| Clip | Measured | Starts at | Ends |
+| # | File | Line | Measured |
 |---|---|---|---|
-| `vo-1-hook` | 4.245s | 1.068 | 5.313 |
-| `vo-2-gap` | 5.931s | 6.339 | 12.270 |
-| `vo-3-discipline` | 6.592s | 13.177 | 19.769 |
-| `vo-4-charter` | 5.013s | 20.538 | 25.551 |
-| `vo-5-rite` | 5.483s | 26.331 | 31.814 |
-| `vo-6-border` | 7.275s | 32.659 | 39.934 |
-| `vo-7-lockup` | 3.968s | 40.530 | 44.498 |
+| 1 | `vo-1-cluster.wav` | "Thirty machines deal with each other reliably. Ask who belongs, and all you get is a boundary that keeps moving." | 7.424s |
+| 2 | `vo-2-ratify.wav` | "Ethne doesn't impose a structure, or relabel the cluster. The substrate proposes. The members ratify, by signing." | 8.021s |
+| 3 | `vo-3-faction.wav` | "Nothing stops three of them chartering the whole cluster as a polity of themselves. A splinter and a capture look the same." | 7.573s |
+| 4 | `vo-4-account.wav` | "So the founding must say who it left out, and why. Permanently." | 4.181s |
+| 5 | `vo-5-rerun.wav` | "Anyone holding the charter can rerun that judgment and get the same answer, forever." | 5.547s |
+| 6 | `vo-6-dissent.wav` | "And any one of the twenty-seven can answer back, alone, even after the polity is gone." | 5.781s |
+| 7 | `vo-7-lockup.wav` | "Ethne. Not prevention. Accountability." | 2.859s |
 
-Every start is a beat-grid point of the track, so the voice itself is on the
-pulse. Gaps between lines run 0.60s to 1.02s.
+Total speech **41.386s**. Clips 2 and 7 are generated from the spelling
+`Ethnee` (Kokoro reads `Ethne` as *Ethan*; `Ethnee` gives ETH-nee). Every
+on-screen spelling is `Ethne`.
 
-Scene spans that follow: hook 0–6.1 · gap 6.1–13.0 · discipline 13.0–20.5 ·
-founding 20.5–26.1 · rite 26.1–32.4 · border 32.4–40.2 · lockup 40.2–46.0.
+A border beat ("six kinds of artifact carry the polity to the compact") was
+written and measured (6.34s) and cut for length: it took the film to 54s and
+belongs to a different film than this one.
 
-### Where the picture meets the word
+## Storyboard (final, from the measured clips)
 
-- **Beat-lock 1** — the document frame enters on strong cue **6.339s**
-  (intensity 1.00), which is also where VO 2 begins.
-- The four presumption cards ride alternating beats 7.396 / 8.441 / 9.497 /
-  **10.542** (the last is a strong cue at 1.00), under *"presumes four things of
-  a community."* The footnote lands on strong cue 11.598.
-- The spine cards land 14.756 / 16.335 / 17.914. Card 2, *the polity ratifies*,
-  sits 0.4s ahead of the word *ratified* at 18.82 — the picture arrives first
-  and the voice confirms it.
-- The boundary readout counts from 20.54 and settles on **beat-lock 2**, strong
-  cue **23.174s** (intensity 0.99), under *"it must name everyone it left out."*
-  The refusal stamp follows at 24.741.
-- The five movements ride alternating beats 26.854 / 27.910 / 28.955 / **30.012**
-  (strong cue, 1.00) / 31.057.
-- The seven artifact chips stagger from 32.659 and hold; the terminal blocks
-  print at 35.271 and 36.862.
-- **Beat-lock 3** — the four `kc-*` lines tint gold on **38.963s**, under *"and
-  the build checks that"* (word *build* at 38.86).
-- Wordmark on 41.065, ἔθνη on 42.121, tagline on strong cue **43.700s**.
+| Scene | Span | Narration | What is seen |
+|---|---|---|---|
+| 1 Hook | 0 → 8.75 | VO1 1.068 → 8.492 | 30 nodes and their edges arrive; *A cluster is not a community.*; three unanswerable questions on alternating beats; dashed slate hull on *boundary* (7.396), drifting |
+| 2 Ratify | 8.75 → 17.5 | VO2 8.963 → 16.984 | ✕ impose a structure / ✕ relabel the cluster; `FoundingProposal` (12.655), hull fixes and goes solid (13.177), nodes sign gold (14.756), `PolityCharter`, hull gold (16.335) |
+| 3 Three inside thirty | 17.5 → 25.95 | VO3 17.914 → 25.487 | 27 nodes fall back (18.437); *Charter · claims the cluster* (20.526); the 27 go dim, legend roll 3 / unrecorded 27 (21.595); two identical miniatures (22.64), `=` (23.174), *No rule can tell them apart.* (24.218) |
+| 4 The attestation | 25.95 → 30.8 | VO4 26.331 → 30.512 | `BoundaryAttestation` counts 30 / 3 / 27, settling on 28.444; 27 ticks land under the excluded; two exclusion reasons (28.955); `GENESIS-IMMUTABLE` stamp (29.478) |
+| 5 The judgment, re-run | 30.8 → 37.0 | VO5 31.057 → 36.604 | consent share formula (31.591); *a faction of one reads* 0.033 (33.17 → 34.226); founding basis chips (34.749); *no provider consulted · no cohesion input* (35.805) |
+| 6 The excluded answer back | 37.0 → 43.4 | VO6 37.373 → 43.154 | one excluded node lights and is ringed (38.429); `BoundaryDissented` record, rows on alternating beats from 39.486; charter dissolves in the field, *after dissolution: may still be filed* (42.121) |
+| 7 Lockup | 43.4 → 48.0 | VO7 43.700 → 46.559 | field recedes to 0.16; **Ethne** (43.7), **ἔθνη** (44.222), *Ratify emergence, do not replace it* (45.801), music credit (46.324) |
 
-### Audio outcome (measured off the render)
+No clip overruns its scene. Gaps between lines: 0.47, 0.93, 0.84, 0.55, 0.77,
+0.55s; every start is a beat of the bed.
 
-Measured off the **delivered** render (low-passed bed, 0.24 open / 0.11 duck):
-voice spans sit at −22.7 to −23.6 dB mean with peaks −1.9 to −4.7 dB; the gaps
-between lines drop to −30.1 to −33.2 dB (bed only), so speech clears the music
-by 6.5 to 10 dB throughout. The last 0.6s under the fade reaches −38.9 dB.
+Poster: **30.3s**, the settled attestation frame.
 
-For comparison, the same measurement on the unfiltered first render gave gaps of
-−29.8 to −33.2 dB — the level posture was already right, which is why the fix
-applied was tonal rather than another 3 dB.
+## Source table (every on-screen figure and spoken claim)
 
-### Deliverables
+| On screen / spoken | Source |
+|---|---|
+| Thirty nodes, one cluster; "three of them … the whole cluster as a polity of themselves" | `doc/charter.md`: "nothing stops three men inside a thirty-node cluster from chartering the whole cluster as a polity of themselves, with the other twenty-seven unrecorded rather than merely outvoted" |
+| "machines deal with each other reliably" | `doc/concept.md`: "Nine machines that reliably deal with each other are not a community, they are a cluster in a graph" (the count is the charter chapter's thirty) |
+| "A cluster is not a community." | `doc/concept.md`, same sentence, condensed |
+| "a boundary that keeps moving" | `doc/concept.md`: "no answer comes back that anyone agreed to, only a boundary that emerged and keeps moving" |
+| `members?` no answer anyone agreed to · `stands for?` behavior is not a commitment · `speaks for it?` nobody | `doc/concept.md`, opening paragraph: the same three questions and answers |
+| "Ratify emergence, do not replace it" | `README.md`: "The governing discipline is **ratify emergence, do not replace it**" |
+| ✕ Impose a structure: a diktat rather than a people · ✕ Relabel the cluster: the mask has no inside | `doc/concept.md`: "a community handed down is a diktat rather than a people … We could have relabeled the emergent cluster … since the mask has no inside" |
+| "The substrate proposes. The members ratify, by signing." | `doc/charter.md`: "The trust substrate proposes a boundary … and the members ratify it, or ratify something narrower, by signing" |
+| `FoundingProposal` — no authority on its own; a majority of the proposed roll co-signs; `PolityCharter` — the founding signed document | `doc/charter.md`: "A proposal carries no authority on its own"; "Ratifying that proposal, with a majority of the proposed roll co-signing, yields a `PolityCharter`"; `doc/concept.md`: "A *charter* is the founding signed artifact of a polity" |
+| roll 3 · unrecorded 27 | `doc/charter.md` (row 1) |
+| a genuinely separate group = a faction capturing it; "a splinter and a capture look the same"; *No rule can tell them apart.* | `doc/charter.md`: "a genuinely separate group of three inside a cluster of thirty is indistinguishable from a faction capturing it, and telling them apart needs a substantive judgment no rule can make" |
+| "So the founding must say who it left out, and why. Permanently." | `doc/charter.md`: "A founding must say what it excluded and why, that statement is permanent and immutable" |
+| `BoundaryAttestation` on every proposal and every charter; candidate size the boundary showed 30 · ratified roll 3 · reasoned exclusions 27 | `doc/charter.md`, "Founding exclusions": "Every proposal and every charter carries a `BoundaryAttestation`, holding the candidate size the boundary actually showed and a reasoned exclusion for everyone it showed whom the roll does not name" |
+| "3 + 27 = 30 · the numbers must add up" | `doc/charter.md`: "The numbers must add up, exclusions may not repeat, and nobody may be excluded and enrolled at once" |
+| Exclusion reasons: below a reputation floor · no reading at all | `doc/guardianship.md`, "The substrate handover": "The exclusions record which distinction applied, so an excluded party can read the difference between falling below a floor and having no reading at all" |
+| GENESIS-IMMUTABLE | `doc/charter.md`: "The attestation is genesis-immutable by construction" |
+| "Read from the charter alone"; *no provider consulted · no cohesion input*; "Anyone holding the charter can rerun that judgment and get the same answer, forever." | `doc/charter.md`: "Our read model computes the founding legitimacy from the charter alone, with no provider consulted and no cohesion input, so anyone holding the charter can re-run the judgment forever and get the same answer" |
+| consent share = ratifiers ÷ everyone the boundary showed; *a faction of one reads* 0.033 | `doc/charter.md`: "It reports a consent share, being ratifiers over everyone the boundary showed … and the faction of one described above reads 0.033" |
+| founding basis: corroborated · narrowed · self-attested | `doc/charter.md`: "It also reports a founding basis: corroborated, narrowed, or self-attested" |
+| `BoundaryDissented`; the reason recorded for an exclusion, rejected; signed by the dissenter alone; deciders none, and no majority; membership not required; "any one of the twenty-seven can answer back, alone" | `doc/charter.md`, "The excluded answer back": "A dissenter says either that he was never named at all, or that the reason recorded for his exclusion is rejected. It is signed by the dissenter alone, involves no deciders and no majority, and the dissenter need not be a member"; "a dissenter rejecting a reason must be among the exclusions" |
+| after dissolution: may still be filed; "even after the polity is gone"; *Charter dissolved* | `doc/charter.md`: "A dissent may be filed after dissolution, because otherwise founders silence the excluded by winding the polity up" |
+| "Not prevention. Accountability." | `doc/charter.md`: "The construction is accountability rather than prevention" |
+| Ethne · ἔθνη · the polity tier | `README.md`, opening line |
+| Chapter 17 — from cooperation to community; Chapter 18 — founding a polity | `doc/crates.md`: "chapters 17 through 22, beginning at [from cooperation to community]"; the README's chapter order puts *Founding a polity* second |
 
-Verified with `ffprobe` against the delivered file, not against intent:
+Nothing on screen is invented. The node layout, the hull, and the choice of
+which node dissents are illustration, and are labeled as a cluster view rather
+than as program output.
 
-- `brag.mp4` — 1920x1080, 30/1 fps, **46.000000s**, h264 + AAC 48 kHz stereo,
-  3.5 MB, `+faststart`
-- `brag.jpg` — 1920x1080 poster pulled at **39.6s**, the settled `cargo tree`
-  frame with the four `kc-*` lines already gold and the caption up. It is the
-  one frame in the video that is real output rather than authored type, and it
-  is postable on its own. Baked as frame 0 of the MP4 — verified by extracting
-  frame 0 and differencing it against `brag.jpg` (mean absolute difference
-  0.785/255, i.e. JPEG re-encode noise only).
-- `brag.webm` — vp9/opus, 2.8 MB
-- `composition-brief.md`, `share-copy.txt`, `CREDITS.md`, `build.sh`,
-  `composition/` (with `assets/voice/`, `assets/music/`, `assets/sfx/` and
-  `snapshots/`), `scripts/make_audio_data.py`
+## Documentation problems noticed (reported, not edited)
 
-### What could not be done
+*Items 1 to 3 were resolved in the documentation on 2026-10-02: every reference now
+says D1 to D40, `crates.md` follows the code's numbering (roll five, rite six,
+roster seven, compact records eight), and `uplift.md` covers the D40 records.*
 
-- **The Python demo was not run.** `src/python/examples/polity_demo.py` needs
-  `maturin develop` against the `ethne` conda env; conda is not on PATH in this
-  sandbox and `import ethne` fails. No figure it prints is quoted. The one line
-  taken from that file — `claims 30, accounts for 1 → REFUSED` — is taken from
-  the *source text* (an inline comment and a `print` string), not from output.
-- **`hyperframes transcribe` could not run**: the CLI's auto-clone of whisper.cpp
-  had failed silently and left `~/.cache/hyperframes/whisper/` empty.
-  `whisper.cpp base.en` was built out-of-band and `faster-whisper base.en`
-  installed into the session scratchpad; both were run over all seven clips and
-  agree verbatim. `base.en` mangles proper nouns — it renders *roll* as "role",
-  *rite* as "The right", and *Ethne* as "Ethney" — which is an ASR artifact, not
-  a delivery defect. The one genuine pronunciation problem, Kokoro reading
-  `Ethne` as *Ethan*, was fixed by respelling the TTS input `Ethnee` while
-  leaving the on-screen wordmark correct.
-- **`hyperframes check` is flaky at the default 10s navigation timeout** on a
-  loaded machine. The gate is run — and scripted in `build.sh` and
-  `composition/package.json` — with `--timeout 30000`.
-- **The Rust test suite was not run.** `437` and `233` are the README's figures,
-  cited as such. `cargo tree` *was* run, and is what scene 6 shows.
+1. **Decision range disagrees in four places.** `doc/design.md` says D1-D40 (D39
+   and D40 locked 2026-10-01). `README.md` says "D1 to D38". `doc/concept.md`,
+   `doc/charter.md`, `doc/guardianship.md`, `doc/transmission.md`,
+   `doc/cohesion.md` and `doc/uplift.md` all still link "Design decisions D1 to
+   D35".
+2. **Border-artifact count and numbering.** `doc/uplift.md` and `doc/concept.md`
+   say six kinds of artifact cross to the compact, matching the six in
+   `src/rust/en-uplift/src/lib.rs` (handoff, concern, fission, envoy, member
+   roll, rite, with fusion emitting fission's record types), plus a seventh, the
+   relay roster, that goes to the substrate instead. But `doc/crates.md` numbers
+   them differently: it calls `envoy_delegation` "the fourth border artifact",
+   `member_roll` "border artifact six", and `rendezvous_roster` "border artifact
+   seven", which leaves no slot for the rite and disagrees with the code's list,
+   where the roll is fifth and the rite sixth.
+3. **"and nothing else does" is now overtaken by D40.** `doc/uplift.md` says six
+   kinds of artifact cross "and nothing else does", but D40 and
+   `src/rust/en-uplift/src/compact.rs` add compact-member records the envoy and
+   root sign at the border (anti-spiral claims, feature acceptance, sponsorship,
+   examiner registry, anathema, lift). They are record types the compact already
+   has, so the "own vocabulary" claim still holds, but the closed count does
+   not. This film does not use the border count.
+4. **Stale snapshots.** `composition/snapshots/` still holds frames of the
+   2026-09-18 cut. They are not referenced by anything and will be replaced on
+   the next snapshot run.

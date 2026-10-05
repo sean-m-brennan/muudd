@@ -279,7 +279,7 @@ because the legitimacy of the founding does, where governing acts die with it.
 
 ## Further reading
 
-- [Design decisions D1 to D35](design.md): particularly D21 and D22 on the
+- [Design decisions D1 to D40](design.md): particularly D21 and D22 on the
   boundary attestation and its evidence, D23 on the substrate rules, D24 and D28
   on independence attestation, and D25 on succession.
 - [The crates](crates.md): the record kinds, the read models, and where each rule

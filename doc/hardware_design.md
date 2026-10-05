@@ -117,8 +117,8 @@ MUUDD traffic.
 
 ## Spectrum, and why unlicensed
 
-Every band above is unlicensed, and that is a design commitment rather than a
-budget decision.
+Every band above except 3.5 GHz is unlicensed, and that is a design commitment
+rather than a budget decision.
 
 A license is a permission, and a permission is a thing that can be withdrawn. It
 also attaches to a licensee, which means someone has to be the party of record,
@@ -135,7 +135,10 @@ exception in the upper 5 GHz band relaxes that trade specifically for fixed
 links, and it is the regulatory basis for the long ridgetop hops the backbone
 depends on. Whitespace carries a database obligation, which is a dependency on
 an outside service and therefore a genuine weakness, mitigated only because the
-query result is cacheable and the channel assignment is stable.
+query result is cacheable and the channel assignment is stable. The 3.5 GHz
+band is not Part 15 at all. Its general access tier falls under Part 96, which
+needs no individual license but does require registering each radio with a
+Spectrum Access System, a stronger form of the same outside dependency.
 
 ## Power
 
@@ -147,9 +150,10 @@ hundred watt-hours a day. At a latitude around thirty-nine degrees north,
 December yields roughly three peak sun hours, and at eighty percent system
 efficiency that requires about seven hundred watts of panel, so two
 four-hundred-watt panels give a modest margin for cloudy days. Three days of
-autonomy through an ice storm needs on the order of four hundred amp-hours at
-twelve volts, which a two-hundred amp-hour lithium iron phosphate bank at
-twenty-four volts supplies at eighty percent depth of discharge.
+autonomy through an ice storm needs on the order of five hundred amp-hours at
+twelve volts at eighty percent depth of discharge, and a two-hundred amp-hour
+lithium iron phosphate bank at twenty-four volts supplies a little over two of
+those days.
 
 Those numbers move with latitude, weather and load, and the method does not.
 Size the panel against the darkest month rather than the annual average, size

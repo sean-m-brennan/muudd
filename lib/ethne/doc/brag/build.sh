@@ -41,10 +41,10 @@ fi
 
 test -s "$here/brag.mp4"
 
-# Poster: the settled `cargo tree` frame -- the one moment in the video that is
-# real output rather than authored type, and the frame worth being the idle
+# Poster: the settled BoundaryAttestation frame (30 / 3 / 27, the 27 ticks and the
+# GENESIS-IMMUTABLE stamp all landed) -- the frame worth being the idle
 # thumbnail. Baked in as frame 0 so every platform's grabber picks it up.
-ffmpeg -y -loglevel warning -ss 39.6 -i "$here/brag.mp4" -frames:v 1 -q:v 2 "$here/brag.jpg"
+ffmpeg -y -loglevel warning -ss 30.3 -i "$here/brag.mp4" -frames:v 1 -q:v 2 "$here/brag.jpg"
 ffmpeg -y -loglevel warning -i "$here/brag.mp4" -i "$here/brag.jpg" \
     -filter_complex "[0:v][1:v]overlay=0:0:enable='eq(n,0)'[v]" \
     -map "[v]" -map 0:a? -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p \

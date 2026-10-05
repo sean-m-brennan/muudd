@@ -7,11 +7,10 @@
     <script src="assets/vendor/gsap.min.js"></script>
     <script src="assets/audio-data.js"></script>
     <style>
-      /* MUUDD ships no UI and no stylesheet, so unlike the sibling
-         AutonomousTrust cut there is no project palette to lift. These tokens are
-         authored from the subject matter — a ridge at night, a backbone link, a
-         solar array — and are documented in composition-brief.md so the choice is
-         reproducible rather than arbitrary. */
+      /* MUUDD ships no UI and no stylesheet, so there is no project palette to
+         lift. These tokens are authored from the subject (a ridge at night, a
+         backbone link, a solar array) and carried over unchanged from the
+         2026-09-18 cut so the two versions read as the same family. */
       :root {
         --bg: #0a0e0d;
         --surface: #111917;
@@ -19,21 +18,16 @@
         --border: #27332f;
         --border-soft: #202a27;
 
-        /* Ridge silhouette. Decorative only: it is not a terrain profile and
-           carries no reading. */
-        --ridge-far: #141c19;
-        --ridge-near: #1c2622;
-
         --text: #e6ece9;
-        /* Muted and dim are lifted well above a conventional UI value so every
-           label clears WCAG AA at video type sizes over the panel surfaces. */
+        /* Lifted well above a conventional UI value so every label clears WCAG
+           AA at video type sizes over the panel surfaces. */
         --muted: #c6d2cd;
         --dim: #aebab5;
 
-        --link: #6fd2e0; /* backbone / ridgetop relay / 5.8 GHz */
+        --link: #6fd2e0; /* backbone / radios */
         --valley: #8fc79a; /* valley relay */
         --solar: #f2ba5c; /* power */
-        --fiber: #f08c7a; /* the expensive column */
+        --fault: #f08c7a; /* the relay that dies */
 
         --radius: 8px;
 
@@ -73,46 +67,62 @@
 
       /* ---------------------------------------------------------------- Hook */
 
-      #hook {
+      #hook-bg {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+      }
+
+      #hook-text {
+        position: absolute;
+        inset: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
+        padding-top: 210px;
       }
 
       #hook-slug {
         font-family: var(--mono);
-        font-size: 26px;
+        font-size: 25px;
         letter-spacing: 0.22em;
         text-transform: uppercase;
         color: var(--muted);
-        margin-bottom: 44px;
+        margin-bottom: 56px;
+      }
+
+      #hook-kicker {
+        font-family: var(--mono);
+        font-size: 40px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
       }
 
       #hook-line {
-        font-size: 112px;
+        margin-top: 18px;
+        font-size: 150px;
         font-weight: 600;
         letter-spacing: -0.02em;
         color: var(--text);
       }
 
       #hook-cite {
-        margin-top: 44px;
+        margin-top: 30px;
         font-family: var(--mono);
         font-size: 21px;
         letter-spacing: 0.06em;
         color: var(--dim);
       }
 
-      /* -------------------------------------------------------- Survey frame */
+      /* ------------------------------------------------------------ Site sheet */
 
-      #survey {
+      #site {
         padding: 56px 64px 44px;
-        display: flex;
-        flex-direction: column;
       }
 
-      #survey-inner {
+      #site-inner {
         display: flex;
         flex-direction: column;
         height: 100%;
@@ -173,28 +183,27 @@
         height: 828px;
       }
 
-      #map-panel {
+      #site-panel {
         position: relative;
         flex: 0 0 1082px;
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 24px;
         overflow: hidden;
       }
 
-      #map-title {
+      #panel-title {
         position: absolute;
         top: 22px;
         left: 26px;
         font-family: var(--mono);
         font-size: 19px;
-        letter-spacing: 0.16em;
+        letter-spacing: 0.14em;
         text-transform: uppercase;
         color: var(--muted);
       }
 
-      #map-legend {
+      #topo-legend {
         position: absolute;
         bottom: 20px;
         left: 26px;
@@ -203,10 +212,10 @@
         font-family: var(--mono);
         font-size: 17px;
         letter-spacing: 0.08em;
-        color: var(--dim);
+        color: var(--muted);
       }
 
-      #map-legend span b {
+      #topo-legend b {
         font-weight: 600;
       }
 
@@ -218,9 +227,18 @@
         color: var(--valley);
       }
 
-      #map-svg {
+      .lg-house b {
+        color: var(--text);
+      }
+
+      .lg-down b {
+        color: var(--fault);
+      }
+
+      #site-svg {
         position: absolute;
-        inset: 24px;
+        left: 24px;
+        top: 24px;
         width: 1034px;
         height: 780px;
       }
@@ -231,7 +249,6 @@
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 26px 28px;
         overflow: hidden;
       }
 
@@ -253,7 +270,7 @@
         margin-top: 10px;
         font-family: var(--mono);
         font-size: 16px;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.05em;
         color: var(--dim);
         line-height: 1.45;
         min-height: 46px;
@@ -283,6 +300,22 @@
         text-align: right;
       }
 
+      .row .v.yes {
+        color: var(--link);
+      }
+
+      .row .v.no {
+        color: var(--fault);
+        font-weight: 700;
+      }
+
+      .row .v.quiet {
+        font-size: 17px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--dim);
+      }
+
       .row.big {
         margin-top: 14px;
         padding: 16px 0;
@@ -292,8 +325,8 @@
 
       .row.big .k {
         font-family: var(--mono);
-        font-size: 19px;
-        letter-spacing: 0.14em;
+        font-size: 18px;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
         color: var(--muted);
       }
@@ -312,52 +345,46 @@
         margin-top: 18px;
         font-family: var(--mono);
         font-size: 17px;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
         color: var(--dim);
         line-height: 1.5;
       }
 
-      /* Cost card is a three-column table. */
-      .crow {
-        display: flex;
-        align-items: baseline;
+      /* Radio card: frequency on top, what it is for underneath. */
+      .brow {
         padding: 13px 0;
         border-bottom: 1px solid var(--border-soft);
       }
 
-      .crow .k {
-        flex: 0 0 258px;
-        font-size: 17px;
-        color: var(--muted);
-      }
-
-      .crow .a,
-      .crow .b {
-        flex: 1;
+      .brow .bf {
         font-family: var(--mono);
-        font-size: 20px;
-        text-align: right;
-      }
-
-      .crow .a {
-        color: var(--fiber);
-      }
-
-      .crow .b {
+        font-size: 22px;
+        font-weight: 700;
         color: var(--link);
       }
 
-      .crow.head {
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--border);
+      .brow .bf span {
+        margin-left: 12px;
+        font-weight: 400;
+        color: var(--text);
       }
 
-      .crow.head .a,
-      .crow.head .b {
-        font-size: 17px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        font-weight: 700;
+      .brow .br {
+        margin-top: 6px;
+        font-size: 18px;
+        color: var(--muted);
+      }
+
+      #stat-mode,
+      #srcstrip,
+      #panel-title {
+        display: grid;
+      }
+
+      #stat-mode > span,
+      #srcstrip > span,
+      #panel-title > span {
+        grid-area: 1 / 1;
       }
 
       .srcstrip {
@@ -368,11 +395,9 @@
         color: var(--dim);
       }
 
-      /* ------------------------------------------------------- Scene 6 stack */
+      /* ---------------------------------------------------------- The stack */
 
       #stack {
-        position: absolute;
-        inset: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -402,7 +427,7 @@
 
       .tier .tq {
         font-size: 25px;
-        color: var(--dim);
+        color: var(--muted);
         flex: 1;
       }
 
@@ -410,7 +435,7 @@
         font-family: var(--mono);
         font-size: 18px;
         letter-spacing: 0.18em;
-        color: var(--dim);
+        color: var(--muted);
         border: 1px solid var(--border);
         border-radius: 999px;
         padding: 7px 18px;
@@ -441,6 +466,15 @@
         margin-top: 46px;
         font-size: 32px;
         color: var(--text);
+      }
+
+      #stack-src {
+        position: absolute;
+        bottom: 44px;
+        font-family: var(--mono);
+        font-size: 18px;
+        letter-spacing: 0.08em;
+        color: var(--dim);
       }
 
       /* ------------------------------------------------------------- Lockup */
@@ -486,123 +520,142 @@
     </style>
   </head>
   <body>
-    <!-- Narrated cut. Total length is set by the seven measured Kokoro clips
-         (39.10s of speech plus a 1.00s lead-in, ~0.70s between lines and a 1.29s
-         tail), not by the default 15-25s law — see composition-brief.md for the
-         voiceover carve-out. -->
+    <!-- Narrated cut. Total length (49.5s) is set by eight measured Kokoro clips
+         (43.09s of speech, a 0.80s lead-in, 0.60s between lines and a 1.40s
+         tail), under the /brag voiceover carve-out. -->
     <div
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="45.6"
+      data-duration="49.5"
       data-width="1920"
       data-height="1080"
     >
-      <!-- Scene 1 — Hook -->
-      <section id="hook" class="clip" data-start="0" data-duration="6" data-track-index="0">
-        <div id="hook-slug">Braxton County, West Virginia · 516 sq mi · 24 people per square mile</div>
-        <h1 id="hook-line">Payback never arrives.</h1>
-        <div id="hook-cite">doc/rural-network.md — the fiber arithmetic</div>
+      <!-- Scene 1 — Hook (VO 1, 0.80 -> 7.61) -->
+      <section id="hook" class="clip" data-start="0" data-duration="8.1" data-track-index="0">
+        <svg id="hook-bg" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="hook-text">
+          <div id="hook-slug">Ridgetop relay · Braxton County, West Virginia · 38.7°N</div>
+          <div id="hook-kicker">Site visits per year</div>
+          <div id="hook-line">Target: zero.</div>
+          <div id="hook-cite">doc/hardware_design.md — Nodes and radios</div>
+        </div>
       </section>
 
-      <!-- Scenes 2-6 — the survey frame, continuous -->
-      <section id="survey" class="clip" data-start="5.9" data-duration="34.4" data-track-index="1">
-        <div id="survey-inner">
+      <!-- Scenes 2-6 — one site sheet, continuous (7.80 -> 36.95) -->
+      <section id="site" class="clip" data-start="7.8" data-duration="29.15" data-track-index="1">
+        <div id="site-inner">
           <div class="topbar">
             <span class="brand">MUUDD</span>
             <span class="brand-sub">Physical layer</span>
             <span class="chips">
-              <span class="chip">Braxton County, WV</span>
-              <span class="chip">Relays <b id="stat-relays">0</b></span>
-              <span class="chip" id="stat-mode">Survey</span>
+              <span class="chip">Tier 1 · ridgetop relay</span>
+              <span class="chip">Visit target <b>0</b></span>
+              <span class="chip" id="stat-mode">Power</span>
             </span>
           </div>
 
-          <div class="body-row" id="body-row">
-            <div id="map-panel">
-              <div id="map-title">examples/appalachia/scenario.py — surveyed node coordinates</div>
-              <svg id="map-svg" viewBox="0 0 1082 780" xmlns="http://www.w3.org/2000/svg"></svg>
-              <div id="map-legend">
-                <span class="lg-ridge"><b>■</b> 8 ridgetop relays</span>
-                <span class="lg-valley"><b>■</b> 12 valley relays</span>
-                <span>Elevation 260–790 m</span>
+          <div class="body-row">
+            <div id="site-panel">
+              <svg id="site-svg" viewBox="0 0 1034 780" xmlns="http://www.w3.org/2000/svg"></svg>
+              <div id="panel-title">One ridgetop site · drawn from the bill of materials</div>
+              <div id="topo-legend">
+                <span class="lg-ridge"><b>■</b> ridgetop relay</span>
+                <span class="lg-valley"><b>■</b> valley relay</span>
+                <span class="lg-house"><b>•</b> household</span>
+                <span class="lg-down"><b>■</b> relay down</span>
               </div>
             </div>
 
             <div id="readout">
-              <!-- Card 0 — the four node tiers, while the county assembles -->
-              <div class="card" id="card-tiers">
-                <div class="card-title">Node tiers</div>
-                <div class="card-sub"><div>Four kinds of node, one software image</div><div>Distinguished by where they sit, not by what they run</div></div>
-                <div class="rows" id="tiers-rows"></div>
-                <div class="card-foot" id="tiers-foot">Gateways are the tier the design deliberately refuses to depend on.</div>
-              </div>
-
-              <!-- Card A — link budget -->
-              <div class="card" id="card-link">
-                <div class="card-title">Link budget</div>
-                <div class="card-sub"><div>Sutton hilltop → Burnsville hilltop</div><div>22 km · 5.8 GHz point-to-point</div></div>
-                <div class="rows" id="link-rows"></div>
-                <div class="row big" id="link-margin">
-                  <span class="k">Link margin</span>
-                  <span class="v">12.6 dB</span>
-                </div>
-                <div class="card-foot" id="link-foot">450+ Mbps aggregate, enough to backhaul hundreds of households.</div>
-              </div>
-
-              <!-- Card B — power budget -->
+              <!-- Power -->
               <div class="card" id="card-power">
                 <div class="card-title">Power budget</div>
-                <div class="card-sub"><div>Tier 1 hilltop relay · 38.7°N</div><div>Sized on the worst month, not the average</div></div>
+                <div class="card-sub"><div>Tier 1 ridgetop relay · Braxton County, 38.7°N</div><div>Solar and battery, no grid</div></div>
                 <div class="rows" id="power-rows"></div>
-                <div class="row big solar" id="power-autonomy">
-                  <span class="k">Autonomy</span>
-                  <span class="v">≈ 2.8 days</span>
+                <div class="row big solar" id="power-big">
+                  <span class="k">Panel margin over December</span>
+                  <span class="v">14 %</span>
                 </div>
-                <div class="card-foot" id="power-foot">$4,920 per node, priced to the connector.</div>
+                <div class="card-foot" id="power-foot">Battery target: three days of autonomy through an ice storm.</div>
               </div>
 
-              <!-- Card C — the ledger -->
-              <div class="card" id="card-cost">
-                <div class="card-title">Fiber against mesh</div>
-                <div class="card-sub"><div>Braxton County · 3,465 un- or underserved locations</div><div>Model A, fiber gateway</div></div>
-                <div class="rows" id="cost-rows"></div>
-                <div class="card-foot" id="cost-foot">The mesh figure already carries labour, a 10% spares pool, tooling and training.</div>
+              <!-- Radios -->
+              <div class="card" id="card-radio">
+                <div class="card-title">Radios</div>
+                <div class="card-sub"><div>Commodity parts · Part 15, no license</div><div>Lower bands bend around the ridge; higher bands carry more</div></div>
+                <div class="rows" id="radio-rows"></div>
+                <div class="card-foot" id="radio-foot">Excluded: amateur radio mesh. Part 97 prohibits encrypting the traffic.</div>
+              </div>
+
+              <!-- What a node knows -->
+              <div class="card" id="card-knows">
+                <div class="card-title">What a node knows</div>
+                <div class="card-sub"><div>Routing without a map</div><div>No route server · no controller · no consensus about paths</div></div>
+                <div class="rows" id="knows-rows"></div>
+                <div class="row big" id="knows-big">
+                  <span class="k">A wrong decision costs</span>
+                  <span class="v">a retransmission</span>
+                </div>
+              </div>
+
+              <!-- The image -->
+              <div class="card" id="card-image">
+                <div class="card-title">The node image</div>
+                <div class="card-sub"><div>A unikernel: the application, and only the OS it calls</div><div>Built from reviewable source</div></div>
+                <div class="rows" id="image-rows"></div>
+                <div class="card-foot" id="image-foot">Debugging is harder without a shell. The trade is accepted.</div>
+                <div class="row big" id="image-big">
+                  <span class="k">Review by one volunteer</span>
+                  <span class="v">an evening</span>
+                </div>
+              </div>
+
+              <!-- Remote diagnosis -->
+              <div class="card" id="card-repair">
+                <div class="card-title">Remote diagnosis</div>
+                <div class="card-sub"><div>Long-range, low-bandwidth 900 MHz radio on every node</div><div>Every part is a catalog part</div></div>
+                <div class="rows" id="repair-rows"></div>
+                <div class="row big solar" id="repair-big">
+                  <span class="k">Climbing the hill</span>
+                  <span class="v">1 trip, not 3</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="srcstrip" id="srcstrip">doc/rural-network.md · Minimum Node Density</div>
-        </div>
-
-        <!-- Scene 6 — the optional stack, over the receded survey frame -->
-        <div id="stack">
-          <div class="tier" id="tier-3">
-            <span class="tname">Kith-Covenant</span>
-            <span class="tq">how do communities treat one another?</span>
-            <span class="tb">Optional</span>
-          </div>
-          <div class="tier" id="tier-2">
-            <span class="tname">ethne</span>
-            <span class="tq">what is a community?</span>
-            <span class="tb">Optional</span>
-          </div>
-          <div class="tier" id="tier-1">
-            <span class="tname">AutonomousTrust</span>
-            <span class="tq">who may cooperate?</span>
-            <span class="tb">Optional</span>
-          </div>
-          <div class="tier base" id="tier-0">
-            <span class="tname">MUUDD</span>
-            <span class="tq">hardware that moves bits</span>
-            <span class="tb">This layer</span>
-          </div>
-          <div id="stack-cap">The physical layer neither knows nor cares which are present.</div>
+          <div class="srcstrip" id="srcstrip">doc/rural-network.md · Tier 1: Hilltop relay node · solar sizing</div>
         </div>
       </section>
 
-      <!-- Scene 7 — Lockup -->
-      <section id="lockup" class="clip" data-start="40" data-duration="5.6" data-track-index="2">
+      <!-- Scene 7 — the optional stack (VO 7, 37.05 -> 43.45) -->
+      <section id="stack" class="clip" data-start="36.55" data-duration="7.4" data-track-index="2">
+        <div class="tier" id="tier-3">
+          <span class="tname">Kith-Covenant</span>
+          <span class="tq">how do communities treat one another?</span>
+          <span class="tb">Optional</span>
+        </div>
+        <div class="tier" id="tier-2">
+          <span class="tname">ethne</span>
+          <span class="tq">what is a community?</span>
+          <span class="tb">Optional</span>
+        </div>
+        <div class="tier" id="tier-1">
+          <span class="tname">AutonomousTrust</span>
+          <span class="tq">who may cooperate?</span>
+          <span class="tb">Optional</span>
+        </div>
+        <div class="tier base" id="tier-0">
+          <span class="tname">MUUDD</span>
+          <span class="tq">hardware that moves bits</span>
+          <span class="tb">This layer</span>
+        </div>
+        <div id="stack-cap">The physical layer neither knows nor cares which.</div>
+        <div id="stack-src">README.md · doc/the-stack.md</div>
+      </section>
+
+      <!-- Scene 8 — Lockup (VO 8, 44.05 -> 48.10) -->
+      <section id="lockup" class="clip" data-start="43.6" data-duration="5.9" data-track-index="3">
         <div id="wordmark">MUUDD</div>
         <div id="wordmark-exp">Mesh-routed · User-owned · User-controlled · Dynamic Domains</div>
         <div id="wordmark-sub">Hardware that moves bits without asking permission.</div>
@@ -610,262 +663,291 @@
       </section>
 
       <!-- Audio -------------------------------------------------------------
-           Music bed. The source track is bright and upbeat, and ducking alone
-           left it arguing with the voice — so what plays here is a low-passed
-           copy (ffmpeg `lowpass=f=2600`), which takes the sibilance and the hats
-           out of the speech band and leaves the pulse. The unfiltered original
-           sits beside it in assets/music/ and CREDITS.md carries the command.
-           Level is carried entirely by timeline tweens: it enters very low under
-           the hook, opens to 0.22 in the gaps between narration lines, ducks to
-           0.13 for every voice span, and fades to silence under the closing line.
-           The track is 60s; the composition runs 45.6s. -->
+           Music bed: the low-passed copy (ffmpeg lowpass=f=2600) of the 60s
+           ende.app track, as in the previous cut; CREDITS.md has the command.
+           Level is carried by timeline tweens: very low under the hook, 0.22 in
+           the gaps, 0.13 under every voice span, fade to silence 48.5 -> 49.5. -->
       <audio
         id="bgm"
         src="assets/music/happy-beats-business-moves-vol-10-by-ende-dot-app-lowpass.mp3"
         data-start="0"
-        data-duration="45.6"
+        data-duration="49.5"
         data-track-index="10"
         data-volume="1"
       ></audio>
 
-      <!-- Narration. Seven Kokoro clips (am_michael @ 0.96), own tracks, gain 1.
-           Every scene boundary above is derived from these measured durations. -->
-      <audio id="vo-1" src="assets/voice/vo-1-hook.wav" data-start="1.00" data-duration="4.437" data-track-index="20" data-volume="1"></audio>
-      <audio id="vo-2" src="assets/voice/vo-2-backbone.wav" data-start="6.14" data-duration="6.784" data-track-index="21" data-volume="1"></audio>
-      <audio id="vo-3" src="assets/voice/vo-3-link.wav" data-start="13.62" data-duration="6.549" data-track-index="22" data-volume="1"></audio>
-      <audio id="vo-4" src="assets/voice/vo-4-power.wav" data-start="20.87" data-duration="6.869" data-track-index="23" data-volume="1"></audio>
-      <audio id="vo-5" src="assets/voice/vo-5-cost.wav" data-start="28.44" data-duration="4.715" data-track-index="24" data-volume="1"></audio>
-      <audio id="vo-6" src="assets/voice/vo-6-stack.wav" data-start="33.86" data-duration="5.696" data-track-index="25" data-volume="1"></audio>
-      <audio id="vo-7" src="assets/voice/vo-7-lockup.wav" data-start="40.26" data-duration="4.053" data-track-index="26" data-volume="1"></audio>
+      <!-- Narration. Eight Kokoro clips (am_michael @ 0.96), own tracks, gain 1.
+           Each sits wholly inside its scene window (see brag-plan.md). -->
+      <audio id="vo-1" src="assets/voice/vo-1-hook.wav" data-start="0.80" data-duration="6.805" data-track-index="20" data-volume="1"></audio>
+      <audio id="vo-2" src="assets/voice/vo-2-power.wav" data-start="8.21" data-duration="5.333" data-track-index="21" data-volume="1"></audio>
+      <audio id="vo-3" src="assets/voice/vo-3-radio.wav" data-start="14.14" data-duration="4.800" data-track-index="22" data-volume="1"></audio>
+      <audio id="vo-4" src="assets/voice/vo-4-failure.wav" data-start="19.54" data-duration="5.845" data-track-index="23" data-volume="1"></audio>
+      <audio id="vo-5" src="assets/voice/vo-5-image.wav" data-start="25.99" data-duration="5.888" data-track-index="24" data-volume="1"></audio>
+      <audio id="vo-6" src="assets/voice/vo-6-repair.wav" data-start="32.48" data-duration="3.968" data-track-index="25" data-volume="1"></audio>
+      <audio id="vo-7" src="assets/voice/vo-7-owned.wav" data-start="37.05" data-duration="6.400" data-track-index="26" data-volume="1"></audio>
+      <audio id="vo-8" src="assets/voice/vo-8-lockup.wav" data-start="44.05" data-duration="4.053" data-track-index="27" data-volume="1"></audio>
 
-      <!-- Ridgetop relays arrive one per beat (bundled preset grid, 109.96 BPM).
-           Quiet: these sit underneath narration. -->
-      <audio id="sfx-n1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="6.79" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-n2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="7.34" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-n3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="7.88" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-n4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="8.43" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-n5" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="8.97" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-n6" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="9.52" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-n7" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="10.06" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-n8" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="10.61" data-track-index="11" data-volume="0.20"></audio>
-      <!-- The valley block gets two ticks, not twelve. -->
-      <audio id="sfx-v1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="10.88" data-track-index="12" data-volume="0.16"></audio>
-      <audio id="sfx-v2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="12.64" data-track-index="12" data-volume="0.16"></audio>
+      <!-- Card swaps: warm, low high-frequency-risk, quiet. -->
+      <audio id="sfx-swap-1" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="7.88" data-track-index="11" data-volume="0.22"></audio>
+      <audio id="sfx-swap-2" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="13.88" data-track-index="11" data-volume="0.20"></audio>
+      <audio id="sfx-swap-3" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="19.26" data-track-index="11" data-volume="0.20"></audio>
+      <audio id="sfx-swap-4" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="25.61" data-track-index="11" data-volume="0.20"></audio>
+      <audio id="sfx-swap-5" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="32.15" data-track-index="11" data-volume="0.20"></audio>
 
-      <!-- Column swaps: warm, low high-frequency-risk, quiet. -->
-      <audio id="sfx-swap-1" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="13.34" data-track-index="13" data-volume="0.22"></audio>
-      <audio id="sfx-swap-2" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="20.70" data-track-index="13" data-volume="0.22"></audio>
-      <audio id="sfx-swap-3" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="28.34" data-track-index="13" data-volume="0.22"></audio>
+      <!-- The relay dies: one dry hit, nothing else. -->
+      <audio id="sfx-down" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="20.70" data-track-index="12" data-volume="0.30"></audio>
+      <!-- The packet takes the other path. -->
+      <audio id="sfx-reroute" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="23.97" data-track-index="13" data-volume="0.20"></audio>
 
-      <!-- The two beat-locked figures. -->
-      <audio id="sfx-margin" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="18.52" data-track-index="14" data-volume="0.20"></audio>
-      <audio id="sfx-autonomy" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="25.06" data-track-index="14" data-volume="0.20"></audio>
+      <!-- Beat-locked figures. -->
+      <audio id="sfx-zero" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="2.70" data-track-index="14" data-volume="0.18"></audio>
+      <audio id="sfx-margin" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="11.97" data-track-index="14" data-volume="0.18"></audio>
+      <audio id="sfx-evening" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="30.52" data-track-index="14" data-volume="0.18"></audio>
+      <audio id="sfx-trip" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="35.15" data-track-index="14" data-volume="0.18"></audio>
 
       <!-- Tier rows, alternating beats. -->
-      <audio id="sfx-t1" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="34.34" data-track-index="15" data-volume="0.17"></audio>
-      <audio id="sfx-t2" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="35.43" data-track-index="15" data-volume="0.17"></audio>
-      <audio id="sfx-t3" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="36.52" data-track-index="15" data-volume="0.17"></audio>
-      <audio id="sfx-t4" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="37.61" data-track-index="15" data-volume="0.20"></audio>
+      <audio id="sfx-t1" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="37.06" data-track-index="15" data-volume="0.15"></audio>
+      <audio id="sfx-t2" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="38.15" data-track-index="15" data-volume="0.15"></audio>
+      <audio id="sfx-t3" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="39.25" data-track-index="15" data-volume="0.15"></audio>
+      <audio id="sfx-t4" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="40.34" data-track-index="15" data-volume="0.18"></audio>
 
-      <audio id="sfx-lockup" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="40.88" data-track-index="16" data-volume="0.26"></audio>
+      <audio id="sfx-lockup" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="43.88" data-track-index="16" data-volume="0.26"></audio>
     </div>
 
     <script>
       /* ------------------------------------------------------------------
          Everything spatial is precomputed here, so no tween measures the DOM.
          ------------------------------------------------------------------ */
-      var SVG_NS = "http://www.w3.org/2000/svg";
-
+      var NS = "http://www.w3.org/2000/svg";
       var C_LINK = "#6fd2e0";
       var C_VALLEY = "#8fc79a";
       var C_SOLAR = "#f2ba5c";
+      var C_FAULT = "#f08c7a";
+      var C_TEXT = "#e6ece9";
+      var C_MUTED = "#c6d2cd";
+      var C_STEEL = "#3a4844";
+      var C_EDGE = "#4a5a55";
+      var MONO = "ui-monospace, Menlo, Consolas, monospace";
 
-      /* Surveyed node positions, verbatim from
-         lib/autonomous_trust/examples/appalachia/scenario.py (HILLTOP_NODES and
-         VALLEY_NODES), projected linearly into the map viewBox:
+      function el(tag, attrs, parent) {
+        var e = document.createElementNS(NS, tag);
+        for (var k in attrs) e.setAttribute(k, attrs[k]);
+        if (parent) parent.appendChild(e);
+        return e;
+      }
+      function txt(x, y, s, anchor, fill, size, parent) {
+        var t = el("text", {
+          x: x,
+          y: y,
+          "text-anchor": anchor,
+          fill: fill,
+          "font-family": MONO,
+          "font-size": size,
+          "letter-spacing": "1.1",
+        }, parent);
+        t.textContent = s;
+        return t;
+      }
 
-            x = 60  + (lon + 80.785) / 0.180 * 970
-            y = 92  + (38.875 - lat) / 0.270 * 614                              */
-      var RIDGE = [
-        { id: "sutton_hilltop", x: 464.2, y: 580.9, lx: 464.2, ly: 606, anch: "middle" },
-        { id: "burnsville_hilltop", x: 733.6, y: 148.9, lx: 733.6, ly: 176, anch: "middle" },
-        { id: "powell_mtn", x: 248.6, y: 444.5, lx: 248.6, ly: 422, anch: "middle" },
-        { id: "otter_creek_ridge", x: 949.2, y: 285.3, lx: 949.2, ly: 312, anch: "middle" },
-        { id: "flatwoods_hilltop", x: 841.4, y: 399.0, lx: 864, ly: 395, anch: "start" },
-        { id: "elk_ridge", x: 841.4, y: 535.4, lx: 864, ly: 532, anch: "start" },
-        { id: "birch_mtn", x: 194.7, y: 649.1, lx: 194.7, ly: 676, anch: "middle" },
-        { id: "centralia_ridge", x: 464.2, y: 353.5, lx: 464.2, ly: 331, anch: "middle" },
+      /* ---------------------------------------------------------- Hook art.
+         Decorative ridges and one mast on the crest. Not a terrain profile. */
+      var hb = document.getElementById("hook-bg");
+      el("path", { d: "M0,820 C300,760 520,840 820,790 C1100,744 1300,820 1560,780 C1720,756 1830,790 1920,770 L1920,1080 L0,1080 Z", fill: "#111816" }, hb);
+      el("path", { d: "M0,930 C260,880 560,940 860,880 C930,866 1010,866 1080,880 C1340,934 1640,890 1920,920 L1920,1080 L0,1080 Z", fill: "#1a231f" }, hb);
+      el("rect", { x: 966, y: 766, width: 8, height: 110, fill: C_STEEL }, hb);
+      el("line", { x1: 970, y1: 766, x2: 970, y2: 736, stroke: C_STEEL, "stroke-width": 3 }, hb);
+      el("polygon", { points: "906,842 950,830 952,852 908,864", fill: "#1b2b33", stroke: "#3d5560", "stroke-width": 1.5 }, hb);
+      el("circle", { cx: 970, cy: 732, r: 5, fill: C_LINK }, hb);
+      var hookHalo = el("circle", { cx: 970, cy: 732, r: 14, fill: C_LINK, "fill-opacity": 0.16 }, hb);
+
+      /* ------------------------------------------------------- Site drawing.
+         One Tier 1 relay as its bill of materials in doc/rural-network.md
+         describes it: mast, two 400 W panels, enclosure (router, battery,
+         charge controller), two backhaul dishes, a sector antenna, a TVWS
+         antenna and a LoRa whip. Proportions are schematic. */
+      var svg = document.getElementById("site-svg");
+
+      var gDraw = el("g", {}, svg);
+      el("path", { d: "M0,600 C200,560 330,610 520,575 C700,545 860,600 1034,570 L1034,780 L0,780 Z", fill: "#141c19" }, gDraw);
+      el("path", { d: "M0,700 C160,662 300,690 420,652 C470,636 560,634 610,650 C730,688 880,652 1034,690 L1034,780 L0,780 Z", fill: "#1c2622" }, gDraw);
+
+      /* Sun paths for the power scene: June high and dim, December low. */
+      var gSun = el("g", {}, gDraw);
+      /* A small inset in the upper left, clear of the hardware. */
+      el("line", { x1: 50, y1: 300, x2: 410, y2: 300, stroke: "#4a5a55", "stroke-width": 2 }, gSun);
+      var arcJun = el("path", { d: "M70,300 Q230,40 390,300", fill: "none", stroke: "#7d8a85", "stroke-width": 2, "stroke-dasharray": "6 8" }, gSun);
+      var arcDec = el("path", { d: "M120,300 Q230,170 340,300", fill: "none", stroke: C_SOLAR, "stroke-width": 3 }, gSun);
+      txt(230, 150, "June · 5.5 h", "middle", C_MUTED, 18, gSun);
+      txt(230, 330, "December · 3.0 h", "middle", C_SOLAR, 18, gSun);
+      var sunDot = el("circle", { cx: 230, cy: 235, r: 11, fill: C_SOLAR }, gSun);
+
+      /* Guy wires and mast. */
+      el("line", { x1: 517, y1: 200, x2: 330, y2: 664, stroke: "#2c3834", "stroke-width": 2 }, gDraw);
+      el("line", { x1: 517, y1: 200, x2: 704, y2: 664, stroke: "#2c3834", "stroke-width": 2 }, gDraw);
+      el("rect", { x: 511, y: 150, width: 12, height: 495, fill: C_STEEL }, gDraw);
+
+      /* Solar array, left of the mast. */
+      var gSolar = el("g", {}, gDraw);
+      el("line", { x1: 310, y1: 550, x2: 310, y2: 660, stroke: C_STEEL, "stroke-width": 5 }, gSolar);
+      el("line", { x1: 420, y1: 520, x2: 420, y2: 652, stroke: C_STEEL, "stroke-width": 5 }, gSolar);
+      el("line", { x1: 190, y1: 580, x2: 190, y2: 680, stroke: C_STEEL, "stroke-width": 5 }, gSolar);
+      var panelA = "180,500 300,470 310,550 190,580";
+      var panelB = "300,470 420,440 430,520 310,550";
+      el("polygon", { points: panelA, fill: "#1b2b33", stroke: "#3d5560", "stroke-width": 2 }, gSolar);
+      el("polygon", { points: panelB, fill: "#1b2b33", stroke: "#3d5560", "stroke-width": 2 }, gSolar);
+      var hiSolar = el("g", {}, gDraw);
+      el("polygon", { points: panelA, fill: C_SOLAR, "fill-opacity": 0.16, stroke: C_SOLAR, "stroke-width": 3 }, hiSolar);
+      el("polygon", { points: panelB, fill: C_SOLAR, "fill-opacity": 0.16, stroke: C_SOLAR, "stroke-width": 3 }, hiSolar);
+      el("path", { d: "M430,500 C480,505 500,540 527,546", fill: "none", stroke: C_SOLAR, "stroke-width": 2.5 }, hiSolar);
+
+      /* Enclosure: router, battery, charge controller. */
+      el("rect", { x: 527, y: 500, width: 92, height: 104, rx: 6, fill: "#18211e", stroke: C_EDGE, "stroke-width": 2 }, gDraw);
+      el("rect", { x: 539, y: 548, width: 68, height: 42, rx: 3, fill: "#202c28", stroke: C_EDGE, "stroke-width": 1.5 }, gDraw);
+      var ledHalo = el("circle", { cx: 603, cy: 518, r: 10, fill: C_LINK, "fill-opacity": 0.16 }, gDraw);
+      el("circle", { cx: 603, cy: 518, r: 4.5, fill: C_LINK }, gDraw);
+      var hiBox = el("rect", { x: 523, y: 496, width: 100, height: 112, rx: 8, fill: "none", stroke: C_LINK, "stroke-width": 3 }, gDraw);
+      var hiBatt = el("rect", { x: 537, y: 546, width: 72, height: 46, rx: 4, fill: C_SOLAR, "fill-opacity": 0.2, stroke: C_SOLAR, "stroke-width": 2.5 }, gDraw);
+
+      /* Radios. Beams first so they sit behind the hardware. */
+      var gBeams = el("g", {}, gDraw);
+      var beamL = el("polygon", { points: "464,214 0,168 0,262", fill: C_LINK, "fill-opacity": 0.1 }, gBeams);
+      var beamR = el("polygon", { points: "570,214 1034,168 1034,262", fill: C_LINK, "fill-opacity": 0.1 }, gBeams);
+      gDraw.insertBefore(gBeams, gSun);
+
+      var gRadios = el("g", {}, gDraw);
+      el("line", { x1: 492, y1: 214, x2: 511, y2: 214, stroke: C_STEEL, "stroke-width": 4 }, gRadios);
+      el("line", { x1: 523, y1: 214, x2: 542, y2: 214, stroke: C_STEEL, "stroke-width": 4 }, gRadios);
+      el("ellipse", { cx: 478, cy: 214, rx: 14, ry: 34, fill: "#24302c", stroke: C_EDGE, "stroke-width": 2 }, gRadios);
+      el("ellipse", { cx: 556, cy: 214, rx: 14, ry: 34, fill: "#24302c", stroke: C_EDGE, "stroke-width": 2 }, gRadios);
+      el("rect", { x: 525, y: 258, width: 16, height: 92, rx: 4, fill: "#24302c", stroke: C_EDGE, "stroke-width": 2 }, gRadios);
+      el("line", { x1: 440, y1: 392, x2: 511, y2: 392, stroke: C_EDGE, "stroke-width": 3 }, gRadios);
+      for (var yi = 0; yi < 5; yi++) {
+        el("line", { x1: 448 + yi * 14, y1: 378, x2: 448 + yi * 14, y2: 406, stroke: C_EDGE, "stroke-width": 2.5 }, gRadios);
+      }
+      el("line", { x1: 517, y1: 150, x2: 517, y2: 84, stroke: C_EDGE, "stroke-width": 3 }, gRadios);
+      el("circle", { cx: 517, cy: 80, r: 5, fill: C_EDGE }, gRadios);
+
+      var hiRadios = el("g", {}, gDraw);
+      el("ellipse", { cx: 478, cy: 214, rx: 14, ry: 34, fill: "none", stroke: C_LINK, "stroke-width": 3 }, hiRadios);
+      el("ellipse", { cx: 556, cy: 214, rx: 14, ry: 34, fill: "none", stroke: C_LINK, "stroke-width": 3 }, hiRadios);
+      el("rect", { x: 525, y: 258, width: 16, height: 92, rx: 4, fill: "none", stroke: C_LINK, "stroke-width": 3 }, hiRadios);
+      el("line", { x1: 440, y1: 392, x2: 511, y2: 392, stroke: C_LINK, "stroke-width": 3 }, hiRadios);
+      var hiLora = el("g", {}, gDraw);
+      el("line", { x1: 517, y1: 150, x2: 517, y2: 84, stroke: C_SOLAR, "stroke-width": 3.5 }, hiLora);
+      el("circle", { cx: 517, cy: 80, r: 6, fill: C_SOLAR }, hiLora);
+
+      /* Callouts, one group per scene. */
+      function leader(x1, y1, x2, y2, color, parent) {
+        el("line", { x1: x1, y1: y1, x2: x2, y2: y2, stroke: color, "stroke-width": 1.5, "stroke-opacity": 0.8 }, parent);
+      }
+      var coPower = el("g", {}, svg);
+      leader(305, 418, 305, 466, C_SOLAR, coPower);
+      txt(305, 406, "2 × 400 W panels", "middle", C_SOLAR, 19, coPower);
+      leader(611, 556, 724, 520, C_SOLAR, coPower);
+      txt(732, 526, "200 Ah LiFePO₄ · 24 V", "start", C_SOLAR, 19, coPower);
+
+      var coRadio = el("g", {}, svg);
+      txt(596, 152, "5.8 GHz backhaul × 2", "start", C_LINK, 19, coRadio);
+      leader(570, 186, 596, 160, C_LINK, coRadio);
+      txt(560, 310, "sector · valley access", "start", C_LINK, 19, coRadio);
+      txt(428, 398, "TV whitespace", "end", C_LINK, 19, coRadio);
+      txt(536, 86, "900 MHz LoRa", "start", C_LINK, 19, coRadio);
+
+      var coImage = el("g", {}, svg);
+      var ring = el("circle", { cx: 573, cy: 552, r: 86, fill: "none", stroke: C_LINK, "stroke-width": 3, transform: "rotate(-90 573 552)" }, coImage);
+      el("polygon", { points: "573,458 589,466 573,474", fill: C_LINK }, coImage);
+      txt(672, 520, "one immutable image", "start", C_LINK, 19, coImage);
+
+      var coRepair = el("g", {}, svg);
+      var telPath = el("path", { d: "M517,80 Q250,120 168,640", fill: "none", stroke: C_SOLAR, "stroke-width": 2.5, "stroke-dasharray": "8 9" }, coRepair);
+      el("polygon", { points: "128,676 168,640 208,676", fill: "#2c3834", stroke: C_MUTED, "stroke-width": 2 }, coRepair);
+      el("rect", { x: 136, y: 676, width: 64, height: 44, fill: "#202c28", stroke: C_MUTED, "stroke-width": 2 }, coRepair);
+      el("rect", { x: 160, y: 688, width: 16, height: 14, fill: C_SOLAR, "fill-opacity": 0.85 }, coRepair);
+      txt(222, 704, "household", "start", C_MUTED, 19, coRepair);
+
+      /* Telemetry pulses ride the dashed path, whip -> household. Points on the
+         quadratic are precomputed. */
+      function qpt(t) {
+        var a = (1 - t) * (1 - t), b = 2 * (1 - t) * t, c = t * t;
+        return { x: a * 517 + b * 250 + c * 168, y: a * 80 + b * 120 + c * 640 };
+      }
+      var PULSE_STEPS = 8;
+      var pulses = [];
+      for (var pi = 0; pi < 4; pi++) {
+        pulses.push(el("circle", { cx: 517, cy: 80, r: 6, fill: C_SOLAR }, coRepair));
+      }
+
+      /* -------------------------------------------------- Topology schematic.
+         Not a map. Four ridgetop relays, each linked to at least two others
+         (doc/rural-network.md, "Ridgetop backbone chain"), two valley relays
+         under each, three households behind each valley relay. */
+      var gTopo = el("g", {}, svg);
+      var R = [
+        { x: 170, y: 250 },
+        { x: 400, y: 140 },
+        { x: 630, y: 240 },
+        { x: 860, y: 170 },
       ];
-
-      var VALLEY = [
-        { id: "sutton_valley_1", x: 464.2, y: 592.3, to: 0 },
-        { id: "sutton_valley_2", x: 410.3, y: 608.2, to: 0 },
-        { id: "burnsville_valley_1", x: 760.6, y: 144.3, to: 1 },
-        { id: "burnsville_valley_2", x: 798.3, y: 130.7, to: 1 },
-        { id: "flatwoods_valley", x: 787.5, y: 417.2, to: 4 },
-        { id: "gassaway_valley", x: 140.8, y: 558.2, to: 6 },
-        { id: "centralia_valley", x: 518.1, y: 364.9, to: 7 },
-        { id: "birch_river_valley", x: 248.6, y: 671.9, to: 6 },
-        { id: "holly_junction", x: 625.8, y: 489.9, to: 7 },
-        { id: "strange_creek", x: 841.4, y: 512.7, to: 5 },
-        { id: "heaters_valley", x: 356.4, y: 467.2, to: 2 },
-        { id: "frametown_valley", x: 571.9, y: 626.4, to: 5 },
-      ];
-
-      /* Ridgetop backbone chain, plus the long Sutton-Burnsville hop the link
-         budget in doc/rural-network.md works in full (index 8). */
-      var BACKBONE = [
-        [6, 0],
-        [0, 2],
-        [2, 7],
-        [7, 4],
-        [4, 3],
-        [3, 1],
-        [0, 5],
-        [5, 4],
+      var EDGES = [
         [0, 1],
+        [1, 2],
+        [2, 3],
+        [0, 2],
+        [1, 3],
       ];
-      var HERO_EDGE = 8;
-
-      /* Decorative ridge silhouettes. Not a terrain profile, not labelled as
-         one, and nothing in the video reads a value off them. */
-      var RIDGE_PATHS = [
-        "M0,258 C120,222 210,300 320,268 C450,230 520,318 640,286 C770,252 860,330 1082,292 L1082,780 L0,780 Z",
-        "M0,430 C140,392 230,472 360,438 C500,402 570,490 700,456 C830,422 930,498 1082,462 L1082,780 L0,780 Z",
-        "M0,612 C150,578 250,654 390,620 C530,586 610,668 760,634 C890,604 980,672 1082,646 L1082,780 L0,780 Z",
+      var V = [
+        { x: 100, y: 470, to: 0 },
+        { x: 250, y: 480, to: 0 },
+        { x: 350, y: 470, to: 1 },
+        { x: 480, y: 465, to: 1 },
+        { x: 580, y: 480, to: 2 },
+        { x: 710, y: 470, to: 2 },
+        { x: 810, y: 470, to: 3 },
+        { x: 940, y: 460, to: 3 },
       ];
+      var DEAD = 1;
 
-      var svg = document.getElementById("map-svg");
-
-      /* Ridge silhouettes, furthest first. */
-      var ridgeFills = ["#141c19", "#18211d", "#1c2622"];
-      for (var rp = 0; rp < RIDGE_PATHS.length; rp++) {
-        var rpath = document.createElementNS(SVG_NS, "path");
-        rpath.setAttribute("d", RIDGE_PATHS[rp]);
-        rpath.setAttribute("fill", ridgeFills[rp]);
-        svg.appendChild(rpath);
+      var byRidgeV = [[], [], [], []];
+      for (var vi = 0; vi < V.length; vi++) {
+        var vg = el("g", {}, gTopo);
+        var vl = el("line", { x1: V[vi].x, y1: V[vi].y, x2: R[V[vi].to].x, y2: R[V[vi].to].y, stroke: C_VALLEY, "stroke-width": 1.8, "stroke-opacity": 0.6 }, vg);
+        var hx = [V[vi].x - 38, V[vi].x, V[vi].x + 38];
+        var hy = [V[vi].y + 150, V[vi].y + 165, V[vi].y + 150];
+        for (var hi = 0; hi < 3; hi++) {
+          el("line", { x1: V[vi].x, y1: V[vi].y, x2: hx[hi], y2: hy[hi], stroke: "#7d8a85", "stroke-width": 1.3, "stroke-opacity": 0.6 }, vg);
+          el("circle", { cx: hx[hi], cy: hy[hi], r: 5.5, fill: C_TEXT }, vg);
+        }
+        el("rect", { x: V[vi].x - 8, y: V[vi].y - 8, width: 16, height: 16, rx: 3, fill: C_VALLEY, stroke: "#0a0e0d", "stroke-width": 1.5 }, vg);
+        byRidgeV[V[vi].to].push(vg);
       }
 
-      /* Access links (valley -> ridgetop) sit behind the backbone. */
-      var accessEls = [];
-      for (var a = 0; a < VALLEY.length; a++) {
-        var al = document.createElementNS(SVG_NS, "line");
-        al.setAttribute("x1", VALLEY[a].x);
-        al.setAttribute("y1", VALLEY[a].y);
-        al.setAttribute("x2", RIDGE[VALLEY[a].to].x);
-        al.setAttribute("y2", RIDGE[VALLEY[a].to].y);
-        al.setAttribute("stroke", C_VALLEY);
-        al.setAttribute("stroke-width", "1.6");
-        al.setAttribute("stroke-opacity", "0.62");
-        svg.appendChild(al);
-        accessEls.push(al);
+      var edgeEls = [];
+      for (var ei = 0; ei < EDGES.length; ei++) {
+        var a0 = R[EDGES[ei][0]], a1 = R[EDGES[ei][1]];
+        edgeEls.push(el("line", { x1: a0.x, y1: a0.y, x2: a1.x, y2: a1.y, stroke: C_LINK, "stroke-width": 2.6, "stroke-opacity": 0.7 }, gTopo));
       }
 
-      var backboneEls = [];
-      for (var b = 0; b < BACKBONE.length; b++) {
-        var hero = b === HERO_EDGE;
-        var bl = document.createElementNS(SVG_NS, "line");
-        bl.setAttribute("x1", RIDGE[BACKBONE[b][0]].x);
-        bl.setAttribute("y1", RIDGE[BACKBONE[b][0]].y);
-        bl.setAttribute("x2", RIDGE[BACKBONE[b][1]].x);
-        bl.setAttribute("y2", RIDGE[BACKBONE[b][1]].y);
-        bl.setAttribute("stroke", C_LINK);
-        bl.setAttribute("stroke-width", hero ? "3.4" : "2.2");
-        bl.setAttribute("stroke-opacity", hero ? "0.4" : "0.62");
-        if (hero) bl.setAttribute("stroke-dasharray", "9 7");
-        svg.appendChild(bl);
-        backboneEls.push(bl);
+      var ridgeDots = [];
+      for (var ri = 0; ri < R.length; ri++) {
+        var rg = el("g", {}, gTopo);
+        el("circle", { cx: R[ri].x, cy: R[ri].y, r: 20, fill: C_LINK, "fill-opacity": 0.16 }, rg);
+        var rd = el("rect", { x: R[ri].x - 11, y: R[ri].y - 11, width: 22, height: 22, rx: 4, fill: C_LINK }, rg);
+        ridgeDots.push({ g: rg, dot: rd });
       }
+      var deadMark = el("g", {}, gTopo);
+      el("rect", { x: R[DEAD].x - 13, y: R[DEAD].y - 13, width: 26, height: 26, rx: 5, fill: C_FAULT }, deadMark);
+      el("circle", { cx: R[DEAD].x, cy: R[DEAD].y, r: 34, fill: "none", stroke: C_FAULT, "stroke-width": 2.5 }, deadMark);
+      txt(R[DEAD].x, R[DEAD].y - 48, "relay down", "middle", C_FAULT, 19, deadMark);
 
-      /* Valley relays. */
-      var valleyEls = [];
-      for (var v = 0; v < VALLEY.length; v++) {
-        var vg = document.createElementNS(SVG_NS, "g");
-        var vc = document.createElementNS(SVG_NS, "circle");
-        vc.setAttribute("cx", VALLEY[v].x);
-        vc.setAttribute("cy", VALLEY[v].y);
-        vc.setAttribute("r", "7");
-        vc.setAttribute("fill", C_VALLEY);
-        vc.setAttribute("stroke", "#0a0e0d");
-        vc.setAttribute("stroke-width", "1.5");
-        vg.appendChild(vc);
-        svg.appendChild(vg);
-        valleyEls.push(vg);
-      }
-
-      /* Ridgetop relays: a solar ring the power scene brings up, a dot, and the
-         node's real id from the scenario file. */
-      var ridgeEls = [];
-      for (var r = 0; r < RIDGE.length; r++) {
-        var g = document.createElementNS(SVG_NS, "g");
-
-        var ring = document.createElementNS(SVG_NS, "circle");
-        ring.setAttribute("cx", RIDGE[r].x);
-        ring.setAttribute("cy", RIDGE[r].y);
-        ring.setAttribute("r", "18");
-        ring.setAttribute("fill", "none");
-        ring.setAttribute("stroke", C_SOLAR);
-        ring.setAttribute("stroke-width", "2");
-        ring.setAttribute("opacity", "0");
-        g.appendChild(ring);
-
-        var halo = document.createElementNS(SVG_NS, "circle");
-        halo.setAttribute("cx", RIDGE[r].x);
-        halo.setAttribute("cy", RIDGE[r].y);
-        halo.setAttribute("r", "12");
-        halo.setAttribute("fill", C_LINK);
-        halo.setAttribute("fill-opacity", "0.18");
-        g.appendChild(halo);
-
-        var dot = document.createElementNS(SVG_NS, "circle");
-        dot.setAttribute("cx", RIDGE[r].x);
-        dot.setAttribute("cy", RIDGE[r].y);
-        dot.setAttribute("r", "7.5");
-        dot.setAttribute("fill", C_LINK);
-        g.appendChild(dot);
-
-        var label = document.createElementNS(SVG_NS, "text");
-        label.setAttribute("x", RIDGE[r].lx);
-        label.setAttribute("y", RIDGE[r].ly);
-        label.setAttribute("text-anchor", RIDGE[r].anch);
-        label.setAttribute("fill", "#c6d2cd");
-        label.setAttribute("font-family", "ui-monospace, Menlo, Consolas, monospace");
-        label.setAttribute("font-size", "18");
-        label.setAttribute("letter-spacing", "1.1");
-        label.textContent = RIDGE[r].id;
-        g.appendChild(label);
-
-        svg.appendChild(g);
-        ridgeEls.push({ g: g, dot: dot, ring: ring, halo: halo });
-      }
-
-      /* The hero link callout: the one hop doc/rural-network.md works in full. */
-      var heroMidX = (RIDGE[0].x + RIDGE[1].x) / 2;
-      var heroMidY = (RIDGE[0].y + RIDGE[1].y) / 2;
-      var heroG = document.createElementNS(SVG_NS, "g");
-      var heroBox = document.createElementNS(SVG_NS, "rect");
-      heroBox.setAttribute("x", heroMidX - 130);
-      heroBox.setAttribute("y", heroMidY - 26);
-      heroBox.setAttribute("width", "260");
-      heroBox.setAttribute("height", "52");
-      heroBox.setAttribute("rx", "8");
-      heroBox.setAttribute("fill", "#18211e");
-      heroBox.setAttribute("stroke", C_LINK);
-      heroG.appendChild(heroBox);
-      var heroText = document.createElementNS(SVG_NS, "text");
-      heroText.setAttribute("x", heroMidX);
-      heroText.setAttribute("y", heroMidY + 7);
-      heroText.setAttribute("text-anchor", "middle");
-      heroText.setAttribute("fill", C_LINK);
-      heroText.setAttribute("font-family", "ui-monospace, Menlo, Consolas, monospace");
-      heroText.setAttribute("font-size", "21");
-      heroText.setAttribute("letter-spacing", "1.4");
-      heroText.textContent = "22 km · 5.8 GHz";
-      heroG.appendChild(heroText);
-      svg.appendChild(heroG);
+      /* Packet routes: a household under the east ridge to a household under
+         the west ridge. Before: via the relay that dies. After: the other way. */
+      var ROUTE1 = [[940, 625], [940, 460], [860, 170], [400, 140], [170, 250], [100, 470], [100, 635]];
+      var ROUTE2 = [[940, 625], [940, 460], [860, 170], [630, 240], [170, 250], [100, 470], [100, 635]];
+      var pktHalo = el("circle", { cx: 940, cy: 625, r: 15, fill: C_TEXT, "fill-opacity": 0.2 }, gTopo);
+      var pkt = el("circle", { cx: 940, cy: 625, r: 7, fill: C_TEXT }, gTopo);
 
       /* ------------------------------------------------------------------
-         Readout rows, built from the project's own tables.
+         Readout rows, built from the project's own documents.
          ------------------------------------------------------------------ */
       function buildRows(hostId, data) {
         var host = document.getElementById(hostId);
@@ -877,7 +959,7 @@
           k.className = "k";
           k.textContent = data[i][0];
           var val = document.createElement("span");
-          val.className = "v";
+          val.className = "v" + (data[i][2] ? " " + data[i][2] : "");
           val.textContent = data[i][1];
           row.appendChild(k);
           row.appendChild(val);
@@ -887,352 +969,316 @@
         return out;
       }
 
-      /* doc/hardware_design.md — "Four tiers of node"; unit costs from the bills
-         of material in doc/rural-network.md. */
-      var tierRowEls = buildRows("tiers-rows", [
-        ["Ridgetop relay — the backbone", "$4,920"],
-        ["Valley relay — into the hollows", "$2,000"],
-        ["Household endpoint", "$200–600"],
-        ["Gateway — an uplink bolted on", "4 of 71"],
-      ]);
-
-      /* doc/rural-network.md — "Worked Example: Sutton to Burnsville Link" */
-      var linkRowEls = buildRows("link-rows", [
-        ["Free-space path loss, 22 km", "138.1 dB"],
-        ["Transmit power, Part 15 limit", "30 dBm"],
-        ["Antenna gain, 2 × 30 dBi dish", "+60 dB"],
-        ["Cable and connector losses", "−3 dB"],
-        ["Foliage margin, above canopy", "0 dB"],
-        ["Rain fade margin", "−1.3 dB"],
-        ["Received signal", "−52.4 dBm"],
-        ["Receiver sensitivity, MCS9", "−65 dBm"],
-      ]);
-
-      /* doc/rural-network.md — "Tier 1: Hilltop Relay Node", solar sizing */
-      var powerRowEls = buildRows("power-rows", [
+      /* doc/rural-network.md — "Tier 1: Hilltop relay node", solar sizing. */
+      var powerRows = buildRows("power-rows", [
         ["Continuous load, all radios", "70 W"],
         ["Daily energy", "1,680 Wh"],
-        ["December peak sun hours", "3.0 h"],
+        ["Peak sun hours, December", "3.0 h"],
         ["System efficiency", "80 %"],
         ["Panel required", "700 W"],
-        ["Panel installed", "2 × 400 W"],
-        ["Battery bank", "200 Ah LiFePO₄ 24 V"],
+        ["Panel fitted", "2 × 400 W"],
+        ["Battery bank", "200 Ah LiFePO₄ · 24 V"],
       ]);
 
-      /* doc/rural-network.md — "Cost Comparison: Fiber vs Mesh" (Model A) and
-         "Monthly Operating Costs". */
-      var COST = [
-        ["", "Fiber", "Mesh"],
-        ["Total infrastructure", "$38,200,000", "$1,278,607"],
-        ["Per demand point", "$46,000–78,000", "$527"],
-        ["Monthly, per household", "$70", "$2.12"],
-        ["Construction timeline", "3–5 years", "6–12 months"],
-        ["Community-owned", "Rarely", "Yes"],
+      /* doc/hardware_design.md — "Choosing a radio". */
+      var RADIOS = [
+        ["900 MHz", "LoRa", "monitoring, telemetry, emergency text · kilobits"],
+        ["470–698 MHz", "TV whitespace", "valley to ridge, no line of sight · 10–15 km"],
+        ["2.4 / 5 GHz", "WiFi", "relay to the houses around it · under 2 km"],
+        ["5.8 GHz", "point-to-point", "ridge to ridge · 20–50 km"],
       ];
-      var costHost = document.getElementById("cost-rows");
-      var costRowEls = [];
-      for (var c = 0; c < COST.length; c++) {
-        var crow = document.createElement("div");
-        crow.className = c === 0 ? "crow head" : "crow";
-        var ck = document.createElement("span");
-        ck.className = "k";
-        ck.textContent = COST[c][0];
-        var ca = document.createElement("span");
-        ca.className = "a";
-        ca.textContent = COST[c][1];
-        var cb = document.createElement("span");
-        cb.className = "b";
-        cb.textContent = COST[c][2];
-        crow.appendChild(ck);
-        crow.appendChild(ca);
-        crow.appendChild(cb);
-        costHost.appendChild(crow);
-        costRowEls.push(crow);
+      var radioHost = document.getElementById("radio-rows");
+      var radioRows = [];
+      for (var bi = 0; bi < RADIOS.length; bi++) {
+        var br = document.createElement("div");
+        br.className = "brow";
+        var bf = document.createElement("div");
+        bf.className = "bf";
+        bf.textContent = RADIOS[bi][0];
+        var bs = document.createElement("span");
+        bs.textContent = RADIOS[bi][1];
+        bf.appendChild(bs);
+        var bd = document.createElement("div");
+        bd.className = "br";
+        bd.textContent = RADIOS[bi][2];
+        br.appendChild(bf);
+        br.appendChild(bd);
+        radioHost.appendChild(br);
+        radioRows.push(br);
       }
 
-      var tierEls = [
-        document.getElementById("tier-0"),
-        document.getElementById("tier-1"),
-        document.getElementById("tier-2"),
-        document.getElementById("tier-3"),
-      ];
+      /* doc/software_architecture.md — "Routing without a map". */
+      var knowsRows = buildRows("knows-rows", [
+        ["Its own neighbors", "known", "yes"],
+        ["What they recently told it", "known", "yes"],
+        ["How its own traffic got through", "known", "yes"],
+        ["The topology of the network", "not known", "no"],
+      ]);
+
+      /* doc/software_architecture.md — "A unikernel, not an operating system". */
+      var imageRows = buildRows("image-rows", [
+        ["Programs", "six, a few hundred lines each"],
+        ["Shell", "none"],
+        ["Package manager", "none"],
+        ["Image size", "a few MB"],
+        ["Boot", "a fraction of a second"],
+        ["Build", "byte-for-byte reproducible"],
+      ]);
+
+      /* doc/hardware_design.md — "Repairability". */
+      var repairRows = buildRows("repair-rows", [
+        ["Battery voltage", "reported", "quiet"],
+        ["Panel current", "reported", "quiet"],
+        ["Radio link states", "reported", "quiet"],
+        ["Uptime", "reported", "quiet"],
+      ]);
+
+      var tierEls = ["#tier-3", "#tier-2", "#tier-1", "#tier-0"];
 
       /* ------------------------------------------------------------------
-         Beat times. Every value below is a measured grid point from
-         `npx hyperframes beats` (beats/assets/music/...json, 217 beats), which
-         resolves this track on a 0.2725s half-beat grid; the musical pulse used
-         here is every second point, 0.545s. The bundled preset in
-         assets/music/cues/ agrees with it to within 0.04s inside its own 0-25s
-         planning window. Strengths quoted in the comments are the measured ones.
+         Scene windows. Beat times are measured points from `hyperframes beats`
+         (beats/assets/music/...json); strengths in the comments are measured.
          ------------------------------------------------------------------ */
-      var ARRIVE = [6.79, 7.34, 7.88, 8.43, 8.97, 9.52, 10.06, 10.61];
+      var T_SITE = 7.8;
+      var T_RADIO = 13.88;
+      var T_FAIL = 19.26;
+      var T_IMAGE = 25.61;
+      var T_REPAIR = 32.15;
+      var T_SITE_OUT = 36.55;
+      var T_END = 49.5;
 
-      var T_LINK = 13.34;
-      var T_POWER = 20.55;
-      var T_COST = 28.15;
-      var T_STACK = 33.52;
-      var T_END = 45.6;
-
-      /* ------------------------------------------------------------------
-         Timeline.
-         ------------------------------------------------------------------ */
       var tl = gsap.timeline({ paused: true });
 
-      /* --- Scene 1: hook — holds through VO 1 (1.00 -> 5.44) --- */
-      tl.fromTo("#hook-slug", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.4);
-      // beat-grid: 1.34s (strength 0.38) — early enough to read before VO 1 lands on it
-      tl.fromTo("#hook-line", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 1.34);
-      tl.fromTo("#hook-cite", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 2.46);
-      tl.to(["#hook-slug", "#hook-line", "#hook-cite"], { opacity: 0, duration: 0.35 }, 5.55);
+      /* --- Scene 1: hook, under VO 1 (0.80 -> 7.61) --- */
+      tl.fromTo("#hook-slug", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.3);
+      // beat-grid: 1.06s (strength 0.64)
+      tl.fromTo("#hook-kicker", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 1.06);
+      // beat-grid: 2.70s, three beats later
+      tl.fromTo("#hook-line", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 2.7);
+      tl.fromTo("#hook-cite", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 3.6);
+      tl.to(["#hook-text", "#hook-bg"], { opacity: 0, duration: 0.4, ease: "power1.in" }, 7.62);
 
-      /* --- Initial state for everything inside the survey frame. Nothing here
-             is a .clip, so it is all safe to set. --- */
-      tl.set(
-        ridgeEls.map(function (n) {
-          return n.g;
-        }),
-        { opacity: 0 },
-        0,
-      );
-      tl.set(valleyEls, { opacity: 0 }, 0);
-      tl.set(accessEls, { opacity: 0 }, 0);
-      tl.set(backboneEls, { opacity: 0 }, 0);
-      tl.set(heroG, { opacity: 0 }, 0);
-      tl.set("#card-tiers", { opacity: 0 }, 0);
-      tl.set(tierRowEls, { opacity: 0 }, 0);
-      tl.set("#tiers-foot", { opacity: 0 }, 0);
-      tl.set("#card-link", { opacity: 0 }, 0);
-      tl.set("#card-power", { opacity: 0 }, 0);
-      tl.set("#card-cost", { opacity: 0 }, 0);
-      tl.set(linkRowEls, { opacity: 0 }, 0);
-      tl.set("#link-margin", { opacity: 0 }, 0);
-      tl.set("#link-foot", { opacity: 0 }, 0);
-      tl.set(powerRowEls, { opacity: 0 }, 0);
-      tl.set("#power-autonomy", { opacity: 0 }, 0);
-      tl.set("#power-foot", { opacity: 0 }, 0);
-      tl.set(costRowEls, { opacity: 0 }, 0);
-      tl.set("#cost-foot", { opacity: 0 }, 0);
-      tl.set("#stack", { opacity: 0 }, 0);
+      /* --- Initial state inside the site sheet (none of these is a .clip). --- */
+      tl.set(".card, #power-big, #power-foot, #radio-foot, #image-foot, #image-big, #repair-big, #knows-big, #topo-legend", { opacity: 0 }, 0);
+      tl.set([].concat(powerRows, radioRows, knowsRows, imageRows, repairRows), { opacity: 0 }, 0);
+      tl.set([gSun, hiSolar, hiBatt, hiBox, gBeams, hiRadios, hiLora, coPower, coRadio, coImage, coRepair, gTopo], { opacity: 0 }, 0);
+      tl.set(pulses, { opacity: 0 }, 0);
+      tl.set(deadMark, { opacity: 0 }, 0);
+      tl.set([pkt, pktHalo], { opacity: 0 }, 0);
       tl.set(tierEls, { opacity: 0 }, 0);
-      tl.set("#stack-cap", { opacity: 0 }, 0);
-      tl.set(
-        ridgeEls.map(function (n) {
-          return n.ring;
-        }),
-        { opacity: 0 },
-        0,
-      );
+      tl.set("#stack-cap, #stack-src", { opacity: 0 }, 0);
 
-      /* --- Scene 2: the county assembles, under VO 2 (6.14 -> 12.92) --- */
-      tl.fromTo("#survey-inner", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, 5.9);
+      var arcLen = arcDec.getTotalLength();
+      var ringLen = 2 * Math.PI * 86;
+      tl.set(arcDec, { attr: { "stroke-dasharray": arcLen + " " + arcLen, "stroke-dashoffset": arcLen } }, 0);
+      tl.set(ring, { attr: { "stroke-dasharray": ringLen + " " + ringLen, "stroke-dashoffset": ringLen } }, 0);
 
-      // beat-grid: ridgetop relays at 6.79, 7.34, 7.88, 8.43, 8.97, 9.52, 10.06, 10.61
-      for (var n = 0; n < ridgeEls.length; n++) {
-        tl.fromTo(
-          ridgeEls[n].g,
-          { opacity: 0, scale: 0.45, svgOrigin: RIDGE[n].x + " " + RIDGE[n].y },
-          { opacity: 1, scale: 1, duration: 0.34, ease: "back.out(2)" },
-          ARRIVE[n],
-        );
-      }
-
-      /* Backbone links follow the second of their two endpoints. */
-      function edgeTime(pair) {
-        return Math.max(ARRIVE[pair[0]], ARRIVE[pair[1]]) + 0.22;
-      }
-      for (var e = 0; e < backboneEls.length; e++) {
-        if (e === HERO_EDGE) continue;
-        tl.fromTo(backboneEls[e], { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power1.out" }, edgeTime(BACKBONE[e]));
-      }
-
-      // beat-grid: the valley block opens on 10.88 and runs to 12.64, a relay every 0.16s
-      for (var w = 0; w < valleyEls.length; w++) {
-        var vt = 10.88 + w * 0.16;
-        tl.fromTo(
-          valleyEls[w],
-          { opacity: 0, scale: 0.4, svgOrigin: VALLEY[w].x + " " + VALLEY[w].y },
-          { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(1.8)" },
-          vt,
-        );
-        tl.fromTo(accessEls[w], { opacity: 0 }, { opacity: 1, duration: 0.34, ease: "power1.out" }, vt + 0.12);
-      }
-
-      /* The readout column is not left empty while the county assembles: it
-         carries the four node tiers, which is what the map is made of.
-         beat-grid: card 6.79, rows 7.88 / 8.97 / 10.06 / 11.15, foot 12.24 */
-      tl.fromTo("#card-tiers", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, 6.79);
-      tl.fromTo(tierRowEls, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 1.09, ease: "power2.out" }, 7.88);
-      tl.fromTo("#tiers-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 12.24);
-      tl.to("#card-tiers", { opacity: 0, duration: 0.3, ease: "power1.in" }, 13.04);
-
-      /* Topbar readouts. */
-      var relayObj = { v: 0 };
-      var relayEl = document.getElementById("stat-relays");
+      /* Mode chip and source strip. */
       var modeEl = document.getElementById("stat-mode");
       var srcEl = document.getElementById("srcstrip");
-
-      function writeRelays() {
-        relayEl.textContent = String(Math.round(relayObj.v));
+      var titleEl = document.getElementById("panel-title");
+      var MODES = [
+        [T_SITE, "Power", "doc/rural-network.md · Tier 1: Hilltop relay node · solar sizing, 38.7°N", "One ridgetop site · drawn from the bill of materials"],
+        [T_RADIO, "Radios", "doc/hardware_design.md · Choosing a radio · Spectrum, and why unlicensed", "One ridgetop site · drawn from the bill of materials"],
+        [T_FAIL, "Failure", "doc/software_architecture.md · Routing without a map · doc/rural-network.md · Ridgetop backbone chain", "Backbone, schematic · each ridgetop links to at least two others"],
+        [T_IMAGE, "Software", "doc/software_architecture.md · Small pieces, composed · A unikernel", "One ridgetop site · drawn from the bill of materials"],
+        [T_REPAIR, "Repair", "doc/hardware_design.md · Repairability", "One ridgetop site · drawn from the bill of materials"],
+      ];
+      /* Seek-safe text swaps: every label exists from the start, stacked in one
+         grid cell, and only its opacity changes at the scene boundary. */
+      function layer(host, col) {
+        host.textContent = "";
+        var out = [];
+        for (var i = 0; i < MODES.length; i++) {
+          var sp = document.createElement("span");
+          sp.textContent = MODES[i][col];
+          host.appendChild(sp);
+          out.push(sp);
+        }
+        return out;
       }
-      tl.to(relayObj, { v: 8, duration: 3.82, ease: "none", onUpdate: writeRelays }, ARRIVE[0]);
-      tl.to(relayObj, { v: 20, duration: 1.92, ease: "none", onUpdate: writeRelays }, 10.88);
-
-      function setText(el, s) {
-        return function () {
-          el.textContent = s;
-        };
+      var LAYERS = [layer(modeEl, 1), layer(srcEl, 2), layer(titleEl, 3)];
+      for (var li = 0; li < LAYERS.length; li++) {
+        tl.set(LAYERS[li].slice(1), { opacity: 0 }, 0);
+        for (var mi = 1; mi < MODES.length; mi++) {
+          tl.set(LAYERS[li][mi - 1], { opacity: 0 }, MODES[mi][0]);
+          tl.set(LAYERS[li][mi], { opacity: 1 }, MODES[mi][0]);
+        }
       }
-      tl.call(setText(modeEl, "Survey"), [], 5.9);
-      tl.call(setText(modeEl, "Link budget"), [], T_LINK);
-      tl.call(setText(modeEl, "Power budget"), [], T_POWER);
-      tl.call(setText(modeEl, "Cost"), [], T_COST);
-      tl.call(setText(modeEl, "The optional stack"), [], T_STACK);
 
-      tl.call(setText(srcEl, "examples/appalachia/scenario.py · HILLTOP_NODES, VALLEY_NODES · run-simulation.sh"), [], 5.9);
-      tl.call(setText(srcEl, "doc/rural-network.md · Worked Example: Sutton to Burnsville Link"), [], T_LINK);
-      tl.call(setText(srcEl, "doc/rural-network.md · Tier 1: Hilltop Relay Node · solar sizing, 38.7°N"), [], T_POWER);
-      tl.call(setText(srcEl, "doc/rural-network.md · Cost Comparison: Fiber vs Mesh · Model A"), [], T_COST);
-      tl.call(setText(srcEl, "README.md · doc/the-stack.md"), [], T_STACK);
+      /* --- Scene 2: power, under VO 2 (8.21 -> 13.54) --- */
+      tl.fromTo("#site-inner", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, T_SITE);
+      // beat-locked: 7.88s (strength 0.73) — the power card
+      tl.fromTo("#card-power", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, 7.88);
+      tl.to(gSun, { opacity: 1, duration: 0.4 }, 8.4);
+      tl.fromTo(arcJun, { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power1.out" }, 8.4);
+      tl.to(arcDec, { attr: { "stroke-dashoffset": 0 }, duration: 1.1, ease: "power2.out" }, 8.6);
+      tl.fromTo(sunDot, { opacity: 0, scale: 0.4, svgOrigin: "230 235" }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 9.5);
+      tl.to(hiSolar, { opacity: 1, duration: 0.5, ease: "power2.out" }, 9.0);
+      tl.to(hiBatt, { opacity: 1, duration: 0.5, ease: "power2.out" }, 9.4);
+      tl.to(coPower, { opacity: 1, duration: 0.5, ease: "power2.out" }, 9.4);
+      /* Seven rows land quickly and hold as a full set, so nothing is gone
+         before it can be read. */
+      tl.fromTo(powerRows, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.42, ease: "power2.out" }, 8.43);
+      // beat-locked: 11.97s (strength 0.84) — panel margin, after "not the average"
+      tl.fromTo("#power-big", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 11.97);
+      tl.fromTo("#power-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 12.3);
 
-      /* --- Scene 3: the link budget, under VO 3 (13.62 -> 20.17) --- */
-      tl.fromTo(heroG, { opacity: 0, scale: 0.9, svgOrigin: heroMidX + " " + heroMidY }, { opacity: 1, scale: 1, duration: 0.4, ease: "power2.out" }, T_LINK);
-      tl.fromTo(backboneEls[HERO_EDGE], { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, T_LINK - 0.1);
-      tl.to(backboneEls[HERO_EDGE], { strokeOpacity: 0.95, strokeWidth: 4.4, duration: 0.6, ease: "power2.out" }, T_LINK + 0.2);
+      /* --- Scene 3: radios, under VO 3 (14.14 -> 18.94) --- */
+      tl.to("#card-power", { opacity: 0, duration: 0.3, ease: "power1.in" }, 13.55);
+      tl.to([coPower, gSun, hiSolar, hiBatt], { opacity: 0, duration: 0.3, ease: "power1.in" }, 13.55);
+      // beat-locked: 13.88s (strength 0.64) — the swap, before VO 3 begins
+      tl.fromTo("#card-radio", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, T_RADIO);
+      tl.to(hiRadios, { opacity: 1, duration: 0.5, ease: "power2.out" }, 14.15);
+      tl.to(gBeams, { opacity: 1, duration: 0.8, ease: "power2.out" }, 14.4);
+      tl.to(coRadio, { opacity: 1, duration: 0.5, ease: "power2.out" }, 14.6);
+      // beat-grid: every third beat, 14.43 / 15.25 / 16.07 / 16.89 (text, so held)
+      tl.fromTo(radioRows, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.32, stagger: 0.82, ease: "power2.out" }, 14.43);
+      tl.fromTo("#radio-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 17.6);
 
-      tl.fromTo("#card-link", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, T_LINK);
-      /* Eight rows land quickly and then hold as a full set, which is the
-         readability rule for sequential text: do not outrun reading, do not make
-         the viewer chase a line that has already gone. */
-      tl.fromTo(linkRowEls, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.42, ease: "power2.out" }, 13.88);
-      // beat-locked: 18.52s (measured strength 0.85) — "LINK MARGIN 12.6 dB"
-      tl.fromTo("#link-margin", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 18.52);
-      tl.fromTo("#link-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 19.52);
+      /* --- Scene 4: a relay dies, under VO 4 (19.54 -> 25.39) --- */
+      tl.to("#card-radio", { opacity: 0, duration: 0.35, ease: "power1.in" }, 18.95);
+      tl.to([gDraw, gBeams, hiRadios, coRadio], { opacity: 0, duration: 0.35, ease: "power1.in" }, 18.95);
+      tl.to(gTopo, { opacity: 1, duration: 0.4, ease: "power2.out" }, T_FAIL);
+      tl.to("#topo-legend", { opacity: 1, duration: 0.4, ease: "power2.out" }, T_FAIL);
+      tl.fromTo("#card-knows", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, T_FAIL);
 
-      /* --- Scene 4: the power budget, under VO 4 (20.87 -> 27.74) --- */
-      // beat-locked: 20.70s (measured strength 0.90) — the column swap, in the gap
-      // between VO 3 and VO 4
-      tl.to("#card-link", { opacity: 0, duration: 0.3, ease: "power1.in" }, 20.40);
-      tl.fromTo("#card-power", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, 20.70);
-      tl.to(backboneEls[HERO_EDGE], { strokeOpacity: 0.45, strokeWidth: 3.4, duration: 0.5, ease: "power1.inOut" }, 20.6);
-      /* The callout clears completely rather than ghosting at low opacity over
-         the node labels — it has done its job and the dashed hop still reads. */
-      tl.to(heroG, { opacity: 0, duration: 0.5, ease: "power1.inOut" }, 20.60);
+      function runPacket(route, t0, dur) {
+        var segs = [], total = 0;
+        for (var i = 1; i < route.length; i++) {
+          var dx = route[i][0] - route[i - 1][0], dy = route[i][1] - route[i - 1][1];
+          var len = Math.sqrt(dx * dx + dy * dy);
+          segs.push(len);
+          total += len;
+        }
+        tl.set([pkt, pktHalo], { attr: { cx: route[0][0], cy: route[0][1] } }, t0);
+        tl.to([pkt, pktHalo], { opacity: 1, duration: 0.12 }, t0);
+        var t = t0;
+        for (var j = 1; j < route.length; j++) {
+          var d = (dur * segs[j - 1]) / total;
+          tl.to([pkt, pktHalo], { attr: { cx: route[j][0], cy: route[j][1] }, duration: d, ease: "none" }, t);
+          t += d;
+        }
+        tl.to([pkt, pktHalo], { opacity: 0, duration: 0.15 }, t);
+      }
 
-      /* The relays pick up a solar ring while the power budget is on screen. */
-      tl.to(
-        ridgeEls.map(function (n) {
-          return n.ring;
-        }),
-        { opacity: 0.85, duration: 0.5, stagger: 0.07, ease: "power2.out" },
-        20.97,
-      );
+      runPacket(ROUTE1, 19.4, 1.15);
+      // beat-locked: 20.70s (strength 0.90) — the relay dies, under "dies"
+      tl.to(ridgeDots[DEAD].g, { opacity: 0.25, duration: 0.25, ease: "power1.in" }, 20.7);
+      tl.fromTo(deadMark, { opacity: 0, scale: 0.6, svgOrigin: R[DEAD].x + " " + R[DEAD].y }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 20.7);
+      tl.to([edgeEls[0], edgeEls[1], edgeEls[4]], { opacity: 0.08, duration: 0.5, ease: "power1.in" }, 20.8);
+      /* The households behind it go quiet, under "go quiet" (22.40). */
+      tl.to(byRidgeV[DEAD], { opacity: 0.2, duration: 0.7, ease: "power1.inOut" }, 22.2);
+      // beat-grid: rows 20.97 / 21.52 / 22.06 / 22.61
+      tl.fromTo(knowsRows, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.545, ease: "power2.out" }, 20.97);
+      // beat-locked: 23.97s (strength 0.78) — the packet takes the other path,
+      // just ahead of "routes around it"
+      tl.to([edgeEls[2], edgeEls[3]], { attr: { "stroke-width": 4.2, "stroke-opacity": 1 }, duration: 0.4, ease: "power2.out" }, 23.97);
+      runPacket(ROUTE2, 23.97, 1.25);
+      tl.fromTo("#knows-big", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 23.2);
 
-      tl.fromTo(powerRowEls, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.545, ease: "power2.out" }, 21.25);
-      // beat-locked: 25.06s (measured strength 0.82) — the autonomy figure, landing
-      // under "against the longest outage"
-      tl.fromTo("#power-autonomy", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 25.06);
-      tl.fromTo("#power-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 26.15);
+      /* --- Scene 5: the image, under VO 5 (25.99 -> 31.88) --- */
+      tl.to("#card-knows, #topo-legend", { opacity: 0, duration: 0.3, ease: "power1.in" }, 25.32);
+      tl.to(gTopo, { opacity: 0, duration: 0.3, ease: "power1.in" }, 25.32);
+      // beat-grid: 25.61s (strength 0.58) — the swap
+      tl.to(gDraw, { opacity: 1, duration: 0.45, ease: "power2.out" }, T_IMAGE);
+      tl.fromTo("#card-image", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, T_IMAGE);
+      tl.to(hiBox, { opacity: 1, duration: 0.5, ease: "power2.out" }, 26.0);
+      tl.fromTo(imageRows, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.45, ease: "power2.out" }, 26.1);
+      tl.fromTo("#image-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 28.9);
+      /* The restart loop draws under "reboot" (29.92). */
+      tl.to(coImage, { opacity: 1, duration: 0.3 }, 29.8);
+      tl.to(ring, { attr: { "stroke-dashoffset": 0 }, duration: 0.8, ease: "power2.inOut" }, 29.85);
+      // beat-locked: 30.52s (strength 0.91) — reviewable in an evening
+      tl.fromTo("#image-big", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 30.52);
 
-      /* --- Scene 5: the ledger, under VO 5 (28.44 -> 33.16) --- */
-      tl.to("#card-power", { opacity: 0, duration: 0.3, ease: "power1.in" }, 28.00);
-      tl.to(
-        ridgeEls.map(function (n) {
-          return n.ring;
-        }),
-        { opacity: 0, duration: 0.4, ease: "power1.in" },
-        28.00,
-      );
-      // beat-locked: 28.34s (measured strength 0.84) — the ledger panel
-      tl.fromTo("#card-cost", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, 28.34);
-      // beat-grid: rows at 28.88, 29.43, 29.97, 30.52, 31.06, 31.61
-      tl.fromTo(costRowEls, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.32, stagger: 0.545, ease: "power2.out" }, 28.88);
-      tl.fromTo("#cost-foot", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 32.70);
+      /* --- Scene 6: remote diagnosis, under VO 6 (32.48 -> 36.45) --- */
+      tl.to("#card-image", { opacity: 0, duration: 0.3, ease: "power1.in" }, 31.85);
+      tl.to([coImage, hiBox], { opacity: 0, duration: 0.3, ease: "power1.in" }, 31.85);
+      // beat-grid: 32.15s (strength 0.62)
+      tl.fromTo("#card-repair", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" }, T_REPAIR);
+      tl.to(hiLora, { opacity: 1, duration: 0.45, ease: "power2.out" }, 32.3);
+      tl.to(coRepair, { opacity: 1, duration: 0.5, ease: "power2.out" }, 32.5);
+      tl.fromTo(repairRows, { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.545, ease: "power2.out" }, 32.7);
+      for (var pj = 0; pj < pulses.length; pj++) {
+        var p0 = 33.1 + pj * 0.42;
+        var frames = [];
+        for (var s = 1; s <= PULSE_STEPS; s++) {
+          var q = qpt(s / PULSE_STEPS);
+          frames.push({ attr: { cx: q.x, cy: q.y }, duration: 0.9 / PULSE_STEPS, ease: "none" });
+        }
+        tl.set(pulses[pj], { attr: { cx: 517, cy: 80 } }, p0);
+        tl.to(pulses[pj], { opacity: 1, duration: 0.1 }, p0);
+        tl.to(pulses[pj], { keyframes: frames }, p0);
+        tl.to(pulses[pj], { opacity: 0, duration: 0.15 }, p0 + 0.9);
+      }
+      // beat-locked: 35.15s (strength 0.78) — one trip, not three
+      tl.fromTo("#repair-big", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 35.15);
+      tl.to("#site-inner", { opacity: 0, duration: 0.4, ease: "power1.in" }, T_SITE_OUT);
 
-      /* --- Scene 6: the optional stack, under VO 6 (33.86 -> 39.56) --- */
-      /* The survey clears completely rather than sitting behind the tiers at low
-         opacity: dimmed text under opaque cards is unreadable text, and `check`
-         is right to call it. The topbar stays, so the frame is still the same
-         document — only its contents have been put down. */
-      tl.to(["#body-row", "#srcstrip"], { opacity: 0, duration: 0.6, ease: "power2.inOut" }, T_STACK);
-      tl.to("#stack", { opacity: 1, duration: 0.3 }, T_STACK + 0.45);
-
-      /* Built upward from the base: the three optional tiers arrive first as dim
-         outlines, and the layer this video is about lands last and solid. */
-      // beat-grid: tiers at 34.34, 35.43, 36.52, 37.61
-      var TIER_T = [34.34, 35.43, 36.52, 37.61];
-      tl.fromTo("#tier-3", { opacity: 0, y: -18 }, { opacity: 0.62, y: 0, duration: 0.4, ease: "power2.out" }, TIER_T[0]);
-      tl.fromTo("#tier-2", { opacity: 0, y: -18 }, { opacity: 0.62, y: 0, duration: 0.4, ease: "power2.out" }, TIER_T[1]);
-      tl.fromTo("#tier-1", { opacity: 0, y: -18 }, { opacity: 0.62, y: 0, duration: 0.4, ease: "power2.out" }, TIER_T[2]);
+      /* --- Scene 7: the optional stack, under VO 7 (37.05 -> 43.45) --- */
+      /* Built upward toward the base: three optional tiers as dim outlines, then
+         the layer this video is about, solid. */
+      // beat-locked: 37.06 (0.91), 38.15 (0.98), 39.25 (0.86), 40.34 (0.89)
+      var TIER_T = [37.06, 38.15, 39.25, 40.34];
+      for (var ti = 0; ti < 3; ti++) {
+        tl.fromTo(tierEls[ti], { opacity: 0, y: -18 }, { opacity: 0.7, y: 0, duration: 0.4, ease: "power2.out" }, TIER_T[ti]);
+      }
       tl.fromTo("#tier-0", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, TIER_T[3]);
-      tl.fromTo("#stack-cap", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 38.70);
+      tl.fromTo("#stack-cap", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 40.9);
+      tl.fromTo("#stack-src", { opacity: 0 }, { opacity: 1, duration: 0.45 }, 41.2);
+      tl.to("#tier-3, #tier-2, #tier-1, #tier-0, #stack-cap, #stack-src", { opacity: 0, duration: 0.35, ease: "power1.in" }, 43.5);
 
-      tl.to("#stack", { opacity: 0, duration: 0.4, ease: "power1.in" }, 39.90);
-      tl.to("#survey-inner", { opacity: 0, duration: 0.5, ease: "power1.inOut" }, 39.79);
-
-      /* --- Scene 7: lockup, under VO 7 (40.26 -> 44.31) --- */
-      // beat-locked: tagline on 42.52s, the strongest beat in the track (1.00);
-      // wordmark 40.88 (0.67), expansion 41.43 (0.92), credit 43.61 (0.89)
-      tl.fromTo("#wordmark", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 40.88);
-      tl.fromTo("#wordmark-exp", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 41.43);
-      tl.fromTo("#wordmark-sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 42.52);
-      tl.fromTo("#music-credit", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 43.61);
+      /* --- Scene 8: lockup, under VO 8 (44.05 -> 48.10) --- */
+      // beat-grid: wordmark 43.88 (0.64), expansion 45.79 (0.69);
+      // beat-locked: tagline 46.88 (0.88); credit 47.43 (0.69)
+      tl.fromTo("#wordmark", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 43.88);
+      tl.fromTo("#wordmark-exp", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 45.79);
+      tl.fromTo("#wordmark-sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 46.88);
+      tl.fromTo("#music-credit", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 47.43);
 
       /* ------------------------------------------------------------------
-         Music bed. Narration-led: 0.22 in the gaps, 0.13 under every voice span,
-         entering very low under the hook and fading to silence at the end. The
-         source is the low-passed copy; see the <audio> comment above.
+         Music bed: 0.22 in the gaps, 0.13 under every voice span, entering low
+         under the hook, fading to silence over the last second.
          ------------------------------------------------------------------ */
       var BED_OPEN = 0.22;
       var BED_DUCK = 0.13;
       var LEAD = 0.3;
-
       var VO = [
-        { start: 1.0, dur: 4.437, gapAfter: 0.2 },
-        { start: 6.14, dur: 6.784, gapAfter: 0.2 },
-        { start: 13.62, dur: 6.549, gapAfter: 0.2 },
-        { start: 20.87, dur: 6.869, gapAfter: 0.2 },
-        { start: 28.44, dur: 4.715, gapAfter: 0.2 },
-        { start: 33.86, dur: 5.696, gapAfter: 0.2 },
-        { start: 40.26, dur: 4.053, gapAfter: 0.2 },
+        [0.8, 6.805],
+        [8.21, 5.333],
+        [14.14, 4.8],
+        [19.54, 5.845],
+        [25.99, 5.888],
+        [32.48, 3.968],
+        [37.05, 6.4],
+        [44.05, 4.053],
       ];
-
       tl.set("#bgm", { volume: 0.09 }, 0);
-      for (var q = 0; q < VO.length; q++) {
-        var cur = VO[q];
-        var ends = cur.start + cur.dur;
-        var isLast = q === VO.length - 1;
-        tl.to("#bgm", { volume: BED_DUCK, duration: 0.35, ease: "power1.inOut" }, Math.max(0, cur.start - LEAD));
-        if (!isLast) {
-          tl.to("#bgm", { volume: BED_OPEN, duration: 0.45, ease: "power1.inOut" }, ends + cur.gapAfter);
+      for (var vq = 0; vq < VO.length; vq++) {
+        tl.to("#bgm", { volume: BED_DUCK, duration: 0.3, ease: "power1.inOut" }, Math.max(0, VO[vq][0] - LEAD));
+        if (vq < VO.length - 1) {
+          tl.to("#bgm", { volume: BED_OPEN, duration: 0.25, ease: "power1.inOut" }, VO[vq][0] + VO[vq][1] + 0.05);
         }
       }
       tl.to("#bgm", { volume: 0, duration: 1.0, ease: "power1.in" }, T_END - 1.0);
 
       /* ------------------------------------------------------------------
-         Audio-reactive layer. Deliberately small: bass energy breathes the relay
-         halos and the link stroke presence. No bars, no spectrum, no pulsing
-         type — nothing that competes with speech.
+         Audio-reactive layer, deliberately small: bass energy breathes the
+         status-LED halos and the radio beams. Nothing that competes with speech.
          ------------------------------------------------------------------ */
       var AD = window.AUDIO_DATA;
       if (AD && AD.frames && AD.frames.length) {
-        var haloNodes = ridgeEls.map(function (x) {
-          return x.halo;
-        });
-
         var applyBands = function (bands) {
           var bass = bands[0];
           var low = bands[1];
-          var rr = 12 + bass * 4.5;
-          for (var h = 0; h < haloNodes.length; h++) {
-            haloNodes[h].setAttribute("r", rr.toFixed(2));
-            haloNodes[h].style.fillOpacity = String(0.12 + bass * 0.14);
-          }
-          for (var k2 = 0; k2 < backboneEls.length; k2++) {
-            if (k2 === HERO_EDGE) continue;
-            backboneEls[k2].style.strokeOpacity = String(0.5 + low * 0.26);
-          }
+          ledHalo.setAttribute("r", (10 + bass * 4).toFixed(2));
+          ledHalo.style.fillOpacity = String(0.12 + bass * 0.14);
+          hookHalo.setAttribute("r", (14 + bass * 5).toFixed(2));
+          hookHalo.style.fillOpacity = String(0.1 + bass * 0.14);
+          beamL.style.fillOpacity = String(0.07 + low * 0.06);
+          beamR.style.fillOpacity = String(0.07 + low * 0.06);
         };
-
         var maxFrame = Math.min(AD.frames.length, Math.ceil(T_END * AD.fps));
         for (var f = 0; f < maxFrame; f++) {
           tl.call(

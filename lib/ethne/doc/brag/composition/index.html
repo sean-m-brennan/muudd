@@ -7,17 +7,12 @@
     <script src="assets/vendor/gsap.min.js"></script>
     <script src="assets/audio-data.js"></script>
     <style>
-      /* Ethne ships no UI, no CSS and no images: the tier is markdown, Rust and
-         Python. There is no project stylesheet to lift, so this palette is
-         authored for the video and documented as authored in brag-plan.md.
-         It is a document register — warm paper-white over ink — and deliberately
-         not AutonomousTrust's operations-dashboard navy.
-
-         The three tier colours are load-bearing rather than decorative:
-           slate  = the substrate below   (autonomous-trust)
-           gold   = this tier             (ethne)
-           jade   = the compact above     (kith-covenant)
-         and they are used consistently everywhere the stack appears. */
+      /* Ethne ships no UI, no CSS and no images. The palette is authored for
+         the video and documented as authored in brag-plan.md. Tier colours are
+         load-bearing:
+           slate = the substrate below (what emergence proposes)
+           gold  = this tier (what the polity ratifies)
+           paper = the excluded, speaking for themselves */
       :root {
         --bg: #0b0d12;
         --surface: #141821;
@@ -31,10 +26,7 @@
         --gold-deep: #6b5426;
         --slate: #85a9cd;
         --jade: #86c9a5;
-        --rust: #e0705f;
         --radius: 10px;
-        /* Generic on purpose: no @font-face ships with this composition, and a
-           named family without one is a lint error. */
         --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         --mono: ui-monospace, Menlo, Consolas, monospace;
       }
@@ -68,39 +60,8 @@
         inset: 0;
       }
 
-      /* ---- Scene 1: hook ------------------------------------------------ */
-      #hook {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 48px;
-        padding: 0 200px;
-      }
-
-      #hook-slug {
-        font-family: var(--mono);
-        font-size: 22px;
-        letter-spacing: 0.34em;
-        color: var(--dim);
-        text-transform: uppercase;
-      }
-
-      #hook-line {
-        font-size: 78px;
-        font-weight: 700;
-        line-height: 1.16;
-        letter-spacing: -0.02em;
-        text-align: center;
-        color: var(--text);
-      }
-
-      /* ---- The document shell ------------------------------------------- */
-      #doc {
-        display: block;
-      }
-
-      #doc-inner {
+      /* ---- Persistent frame: topbar, field panel, record panel ---------- */
+      #frame-inner {
         position: absolute;
         inset: 0;
       }
@@ -140,7 +101,8 @@
         letter-spacing: 0.08em;
       }
 
-      #phase {
+      .topchip {
+        margin-left: auto;
         font-family: var(--mono);
         font-size: 17px;
         padding: 6px 14px;
@@ -148,37 +110,6 @@
         border: 1px solid var(--border);
         border-radius: var(--radius);
         color: var(--muted);
-      }
-
-      .keystats {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .chip {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 10px;
-        padding: 6px 14px;
-        border-radius: var(--radius);
-        background: var(--surface);
-        border: 1px solid var(--border);
-      }
-
-      .chip-label {
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--dim);
-        font-size: 13px;
-      }
-
-      .chip-value {
-        font-family: var(--mono);
-        font-size: 17px;
-        font-weight: 600;
-        color: var(--text);
       }
 
       .panel {
@@ -193,7 +124,6 @@
         height: 54px;
         display: flex;
         align-items: center;
-        gap: 12px;
         padding: 0 24px;
         border-bottom: 1px solid var(--border);
         color: var(--muted);
@@ -203,450 +133,484 @@
         font-weight: 600;
       }
 
-      /* ---- Left rail: the stack ------------------------------------------ */
-      #rail-panel {
+      #field-panel {
         left: 28px;
         top: 98px;
-        width: 420px;
+        width: 972px;
         height: 954px;
       }
 
-      #rail-body {
+      #field-svg {
         position: absolute;
-        left: 0;
-        top: 54px;
-        width: 420px;
-        height: 900px;
-        padding: 34px 26px;
+        left: 16px;
+        top: 74px;
+        width: 940px;
+        height: 860px;
+      }
+
+      #record-panel {
+        left: 1028px;
+        top: 98px;
+        width: 864px;
+        height: 954px;
+      }
+
+      /* ---- Scene layer: everything a scene adds, in frame coordinates --- */
+      .rec-head {
+        position: absolute;
+        left: 1029px;
+        top: 99px;
+        width: 862px;
+        height: 53px;
         display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+        align-items: center;
+        padding: 0 24px;
+        background: var(--surface);
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 17px;
+        font-weight: 600;
       }
 
-      .tier {
-        border: 1px solid var(--border);
-        background: var(--surface-2);
-        border-radius: var(--radius);
-        padding: 22px 22px 24px;
+      .rec-body {
+        position: absolute;
+        left: 1028px;
+        top: 152px;
+        width: 864px;
+        height: 900px;
+        padding: 44px 46px;
       }
 
-      .tier-name {
+      .field-status {
+        position: absolute;
+        left: 52px;
+        top: 168px;
         font-family: var(--mono);
-        font-size: 25px;
-        font-weight: 700;
-        letter-spacing: 0.01em;
-        margin-bottom: 12px;
+        font-size: 19px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        padding: 7px 14px;
+        border-radius: 6px;
+        background: var(--surface-2);
+        border: 1px solid var(--border-muted);
       }
 
-      .tier-q {
-        font-size: 21px;
-        line-height: 1.34;
+      .field-legend {
+        position: absolute;
+        left: 52px;
+        top: 980px;
+        width: 924px;
+        display: flex;
+        gap: 36px;
+        font-size: 22px;
         color: var(--muted);
       }
 
-      #tier-at .tier-name {
-        color: var(--slate);
-      }
-      #tier-en .tier-name {
-        color: var(--gold);
-      }
-      #tier-kc .tier-name {
-        color: var(--jade);
+      .lg {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
       }
 
-      #tier-en {
+      .lg b {
+        font-family: var(--mono);
+        font-size: 24px;
+        color: var(--text);
+      }
+
+      .dot {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+      }
+
+      .dot-gold {
+        background: var(--gold);
+      }
+      .dot-dim {
+        background: #2b3242;
+        border: 2px solid #5a6578;
+      }
+      .dot-ring {
+        background: var(--text);
+        box-shadow: 0 0 0 4px #0b0d12, 0 0 0 6px var(--text);
+      }
+
+      .title {
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin-bottom: 10px;
+      }
+
+      .sub {
+        font-size: 23px;
+        line-height: 1.4;
+        color: var(--muted);
+      }
+
+      .mono {
+        font-family: var(--mono);
+      }
+
+      /* Scene 1 — hook */
+      #hook-slug {
+        font-family: var(--mono);
+        font-size: 20px;
+        letter-spacing: 0.3em;
+        color: var(--dim);
+        text-transform: uppercase;
+        margin-top: 40px;
+      }
+
+      #hook-line {
+        margin-top: 34px;
+        font-size: 66px;
+        font-weight: 700;
+        line-height: 1.14;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+
+      #hook-q {
+        margin-top: 70px;
+      }
+
+      .q-row {
+        display: flex;
+        align-items: baseline;
+        gap: 22px;
+        padding: 16px 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .q-k {
+        width: 220px;
+        font-family: var(--mono);
+        font-size: 24px;
+        color: var(--slate);
+      }
+
+      .q-v {
+        font-size: 26px;
+        color: var(--muted);
+      }
+
+      /* Scene 2 — ratify */
+      .not-row {
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+        padding: 18px 22px;
+        margin-top: 16px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        border-radius: var(--radius);
+      }
+
+      .not-x {
+        font-family: var(--mono);
+        font-size: 24px;
+        color: var(--dim);
+        width: 30px;
+      }
+
+      .not-k {
+        font-size: 26px;
+        font-weight: 700;
+        width: 290px;
+      }
+
+      .not-v {
+        font-size: 23px;
+        color: var(--muted);
+        font-style: italic;
+      }
+
+      #flow {
+        margin-top: 44px;
+      }
+
+      .step {
+        padding: 18px 24px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border-muted);
+        background: var(--surface-2);
+      }
+
+      .step-name {
+        font-family: var(--mono);
+        font-size: 27px;
+        font-weight: 700;
+      }
+
+      .step-note {
+        margin-top: 6px;
+        font-size: 22px;
+        color: var(--muted);
+      }
+
+      #step-prop .step-name {
+        color: var(--slate);
+      }
+      #step-charter {
         border-color: var(--gold-deep);
         background: #211d16;
       }
-
-      .rail-arrow {
-        text-align: center;
-        font-size: 30px;
-        line-height: 1;
-        color: #8a93a3;
-        padding: 4px 0;
-      }
-
-      /* ---- Main stage ----------------------------------------------------- */
-      #stage-panel {
-        left: 468px;
-        top: 98px;
-        width: 1424px;
-        height: 954px;
-      }
-
-      #stage-body {
-        position: absolute;
-        left: 0;
-        top: 54px;
-        width: 1424px;
-        height: 900px;
-      }
-
-      .stage-scene {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 1424px;
-        height: 900px;
-        padding: 44px 48px;
-      }
-
-      .stage-title {
-        font-size: 30px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
+      #step-charter .step-name {
         color: var(--gold);
-        margin-bottom: 8px;
       }
 
-      .stage-sub {
+      .step-arrow {
+        padding: 10px 0 10px 26px;
         font-size: 22px;
-        line-height: 1.4;
         color: var(--muted);
       }
 
-      /* Scene 2 — the four presumptions */
-      #s-gap-grid {
-        position: absolute;
-        left: 48px;
-        top: 152px;
-        width: 1328px;
+      /* Scene 3 — three inside thirty */
+      #cmp {
+        margin-top: 46px;
         display: flex;
-        flex-wrap: wrap;
-        gap: 28px;
+        align-items: center;
+        gap: 22px;
       }
 
-      .presume {
-        width: 650px;
-        height: 250px;
-        border: 1px solid var(--border);
+      .cmp-card {
+        width: 340px;
+        border: 1px solid var(--border-muted);
         background: var(--surface-2);
         border-radius: var(--radius);
-        padding: 30px 32px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+        padding: 18px 18px 20px;
       }
 
-      .presume-label {
-        font-size: 40px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: var(--jade);
+      .cmp-card svg {
+        display: block;
+        width: 304px;
+        height: 278px;
       }
 
-      .presume-note {
+      .cmp-cap {
+        margin-top: 12px;
         font-size: 23px;
-        line-height: 1.38;
-        color: var(--muted);
+        line-height: 1.3;
+        color: var(--text);
+        text-align: center;
       }
 
-      #s-gap-foot {
-        position: absolute;
-        left: 48px;
-        top: 720px;
-        width: 1328px;
-        font-size: 26px;
-        line-height: 1.4;
-        color: var(--dim);
-        border-left: 3px solid var(--slate);
+      #cmp-eq {
+        font-family: var(--mono);
+        font-size: 56px;
+        color: var(--gold);
+        width: 40px;
+        text-align: center;
+      }
+
+      #cmp-foot {
+        margin-top: 34px;
+        font-size: 30px;
+        color: var(--text);
+        border-left: 3px solid var(--gold);
         padding-left: 22px;
       }
 
-      /* Scene 3 — the spine */
-      #s-spine-row {
-        position: absolute;
-        left: 48px;
-        top: 236px;
-        width: 1328px;
-        display: flex;
-        gap: 26px;
-      }
-
-      .spine {
-        width: 425px;
-        height: 420px;
-        border: 1px solid var(--border);
-        background: var(--surface-2);
-        border-radius: var(--radius);
-        padding: 32px 30px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-
-      .spine-num {
-        font-family: var(--mono);
-        font-size: 17px;
-        letter-spacing: 0.2em;
-        color: var(--dim);
-      }
-
-      .spine-who {
-        font-size: 36px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        text-transform: uppercase;
-      }
-
-      .spine-verb {
-        font-size: 30px;
-        font-style: italic;
-        color: var(--text);
-        margin-top: 4px;
-      }
-
-      .spine-note {
-        font-size: 21px;
-        line-height: 1.42;
-        color: var(--muted);
-      }
-
-      #spine-1 .spine-who {
-        color: var(--slate);
-      }
-      #spine-2 .spine-who {
-        color: var(--gold);
-      }
-      #spine-3 .spine-who {
-        color: var(--jade);
-      }
-      #spine-2 {
-        border-color: var(--gold-deep);
-        background: #211d16;
-      }
-
-      /* Scene 4 — the founding */
-      #s-charter-card {
-        position: absolute;
-        left: 48px;
-        top: 168px;
-        width: 780px;
-        height: 500px;
+      /* Scene 4 — the attestation */
+      #attest {
+        margin-top: 34px;
         border: 1px solid var(--border-muted);
         background: var(--surface-2);
         border-radius: var(--radius);
-        padding: 30px 34px;
-      }
-
-      #s-charter-card .card-head {
-        font-family: var(--mono);
-        font-size: 19px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--gold);
-        margin-bottom: 26px;
-      }
-
-      .charter-line {
-        font-size: 26px;
-        line-height: 1.32;
-        color: var(--text);
-        padding: 12px 0 12px 26px;
-        border-left: 3px solid var(--gold-deep);
-        margin-bottom: 14px;
-      }
-
-      #s-attest {
-        position: absolute;
-        left: 872px;
-        top: 168px;
-        width: 504px;
-        height: 500px;
-        border: 1px solid var(--border-muted);
-        background: var(--surface-2);
-        border-radius: var(--radius);
-        padding: 30px 32px;
-      }
-
-      #s-attest .card-head {
-        font-family: var(--mono);
-        font-size: 19px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin-bottom: 26px;
+        padding: 22px 30px 26px;
       }
 
       .attest-row {
         display: flex;
         align-items: baseline;
         justify-content: space-between;
-        padding: 14px 0;
+        padding: 12px 0;
         border-bottom: 1px solid var(--border);
       }
 
       .attest-k {
-        font-size: 23px;
+        font-size: 25px;
         color: var(--muted);
       }
 
       .attest-v {
         font-family: var(--mono);
-        font-size: 44px;
+        font-size: 50px;
         font-weight: 700;
         color: var(--text);
       }
 
-      #attest-excluded .attest-v {
+      #row-excl .attest-v {
         color: var(--gold);
       }
 
-      #attest-note {
-        margin-top: 20px;
-        font-size: 20px;
-        line-height: 1.38;
-        color: var(--dim);
-      }
-
-      #s-refused {
-        position: absolute;
-        left: 48px;
-        top: 712px;
-        width: 1328px;
-        border: 1px solid #5b2d27;
-        background: #201316;
-        border-radius: var(--radius);
-        padding: 24px 30px;
-        display: flex;
-        align-items: center;
-        gap: 26px;
-      }
-
-      #refused-stamp {
+      #ledger {
+        margin-top: 16px;
         font-family: var(--mono);
-        font-size: 26px;
-        font-weight: 700;
-        letter-spacing: 0.16em;
-        color: var(--rust);
-        border: 2px solid var(--rust);
-        border-radius: 6px;
-        padding: 8px 18px;
-      }
-
-      #refused-text {
-        font-family: var(--mono);
-        font-size: 26px;
-        color: var(--text);
-      }
-
-      /* Scene 5 — the rite */
-      #s-rite-list {
-        position: absolute;
-        left: 48px;
-        top: 246px;
-        width: 1328px;
-      }
-
-      .movement {
-        display: flex;
-        align-items: center;
-        gap: 28px;
-        padding: 16px 26px;
-        margin-bottom: 14px;
-        border: 1px solid var(--border);
-        border-left: 3px solid var(--gold-deep);
-        background: var(--surface-2);
-        border-radius: 0 var(--radius) var(--radius) 0;
-      }
-
-      .mv-num {
-        font-family: var(--mono);
-        font-size: 24px;
-        color: var(--gold);
-        width: 46px;
-      }
-
-      .mv-name {
-        font-size: 31px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        width: 310px;
-      }
-
-      .mv-of {
-        font-size: 25px;
+        font-size: 23px;
         color: var(--muted);
       }
 
-      /* Scene 6 — what crosses, and the check */
-      #s-artifacts {
-        position: absolute;
-        left: 48px;
-        top: 146px;
-        width: 1328px;
+      #reasons {
+        margin-top: 26px;
         display: flex;
         gap: 16px;
       }
 
-      .artifact {
-        width: 176px;
-        min-height: 104px;
-        padding: 14px 15px;
+      .reason {
+        flex: 1;
+        padding: 14px 18px;
         border: 1px solid var(--border);
-        background: var(--surface-2);
-        border-radius: var(--radius);
-        font-size: 19px;
-        line-height: 1.3;
-        color: var(--text);
-      }
-
-      .artifact i {
-        display: block;
-        font-family: var(--mono);
-        font-style: normal;
-        font-size: 14px;
-        letter-spacing: 0.16em;
-        color: var(--jade);
-        margin-bottom: 8px;
-      }
-
-      #s-term {
-        position: absolute;
-        left: 48px;
-        top: 278px;
-        width: 1328px;
-        height: 578px;
-        border: 1px solid var(--border-muted);
-        background: #0a0c11;
-        border-radius: var(--radius);
-        padding: 24px 30px;
-        font-family: var(--mono);
+        border-left: 3px solid var(--border-muted);
+        border-radius: 0 var(--radius) var(--radius) 0;
         font-size: 22px;
-        line-height: 1.42;
-      }
-
-      .t-cmd {
-        color: var(--jade);
-      }
-      .t-root {
         color: var(--text);
       }
-      .t-en {
-        color: var(--muted);
+
+      .reason i {
+        display: block;
+        font-style: normal;
+        font-family: var(--mono);
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        color: var(--dim);
+        margin-bottom: 6px;
       }
-      .t-kc {
+
+      #stamp {
+        margin-top: 30px;
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        color: var(--gold);
+        border: 2px solid var(--gold);
+        border-radius: 6px;
+        padding: 8px 18px;
+      }
+
+      /* Scene 5 — legitimacy */
+      #recap {
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 20px;
         color: var(--dim);
       }
-      .t-blank {
-        height: 14px;
+
+      #formula {
+        margin-top: 36px;
+        padding: 24px 28px;
+        border: 1px solid var(--border-muted);
+        background: var(--surface-2);
+        border-radius: var(--radius);
       }
 
-      #term-caption {
-        margin-top: 14px;
-        text-align: right;
+      .f-k {
         font-family: var(--mono);
-        font-size: 21px;
+        font-size: 18px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--dim);
+      }
+
+      .f-eq {
+        margin-top: 12px;
+        font-size: 30px;
         line-height: 1.3;
-        letter-spacing: 0.06em;
+        color: var(--text);
+      }
+
+      #reading {
+        margin-top: 26px;
+        display: flex;
+        align-items: baseline;
+        gap: 24px;
+      }
+
+      #reading-k {
+        font-size: 25px;
+        color: var(--muted);
+      }
+
+      #v-share {
+        font-family: var(--mono);
+        font-size: 88px;
+        font-weight: 700;
         color: var(--gold);
       }
 
-      /* ---- Scene 7: lockup ------------------------------------------------ */
-      #lockup {
+      #basis {
+        margin-top: 26px;
+      }
+
+      .chips {
+        margin-top: 12px;
+        display: flex;
+        gap: 14px;
+      }
+
+      .chip {
+        font-family: var(--mono);
+        font-size: 22px;
+        padding: 8px 16px;
+        border-radius: var(--radius);
+        background: var(--surface-2);
+        border: 1px solid var(--border-muted);
+        color: var(--text);
+      }
+
+      #alone {
+        margin-top: 30px;
+        font-size: 24px;
+        color: var(--muted);
+        border-left: 3px solid var(--slate);
+        padding-left: 20px;
+      }
+
+      /* Scene 6 — dissent */
+      #dissent-card {
+        margin-top: 34px;
+        border: 1px solid var(--border-muted);
+        background: var(--surface-2);
+        border-radius: var(--radius);
+        padding: 10px 30px 14px;
+      }
+
+      .d-row {
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .d-row:last-child {
+        border-bottom: 0;
+      }
+
+      .d-k {
+        width: 290px;
+        font-family: var(--mono);
+        font-size: 21px;
+        color: var(--dim);
+      }
+
+      .d-v {
+        font-size: 27px;
+        color: var(--text);
+      }
+
+      /* ---- Lockup -------------------------------------------------------- */
+      #lockup-inner {
+        position: absolute;
+        inset: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -688,626 +652,592 @@
     </style>
   </head>
   <body>
-    <!-- Narrated cut. Total length is set by seven measured Kokoro clips
-         (38.51s of speech plus breathing room), not by the default 15-25s law —
-         see composition-brief.md for the carve-out. -->
+    <!-- Narrated cut, 48.0s. Length is set by seven measured Kokoro clips
+         (41.39s of speech), under the skill's voiceover carve-out. -->
     <div
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="46"
+      data-duration="48"
       data-width="1920"
       data-height="1080"
     >
-      <!-- Scene 1 — Hook. The opening sentence of doc/concept.md, verbatim.
-           The voice deliberately says something else over it. -->
-      <section id="hook" class="clip" data-start="0" data-duration="6.3" data-track-index="0">
-        <div id="hook-slug">MUUDD · Part III · The polity tier</div>
-        <h1 id="hook-line">
-          Nine machines that reliably deal with each other are not a community.
-        </h1>
-      </section>
-
-      <!-- Scenes 2-6 — one continuous document -->
-      <section id="doc" class="clip" data-start="6.1" data-duration="34.3" data-track-index="1">
-        <div id="doc-inner">
+      <!-- Persistent frame: the thirty-node cluster on the left, the record on
+           the right. Scenes 1-6 change what the field shows and what the record
+           says; the field itself never cuts away. -->
+      <section id="frame" class="clip" data-start="0" data-duration="48" data-track-index="1">
+        <div id="frame-inner">
           <div class="topbar">
             <span class="brand">Ethne</span>
             <span class="brand-gr">ἔθνη</span>
             <span class="tagline">The polity tier</span>
-            <span id="phase">The gap</span>
-            <span class="keystats">
-              <span class="chip"
-                ><span class="chip-label">Crates</span
-                ><span class="chip-value">10</span></span
-              >
-              <span class="chip"
-                ><span class="chip-label">Decisions</span
-                ><span class="chip-value">D1–D35</span></span
-              >
-              <span class="chip"
-                ><span class="chip-label">Tests</span
-                ><span class="chip-value">437 + 233</span></span
-              >
-            </span>
+            <span class="topchip">Founding a polity</span>
           </div>
 
-          <!-- The stack, verbatim from the README diagram. -->
-          <div class="panel" id="rail-panel">
-            <div class="panel-header">The stack</div>
-            <div id="rail-body">
-              <div class="tier" id="tier-at">
-                <div class="tier-name">autonomous-trust</div>
-                <div class="tier-q">“who cooperates?”</div>
-              </div>
-              <div class="rail-arrow">▲</div>
-              <div class="tier" id="tier-en">
-                <div class="tier-name">ethne</div>
-                <div class="tier-q">“what is a community, and what keeps it one?”</div>
-              </div>
-              <div class="rail-arrow">▲</div>
-              <div class="tier" id="tier-kc">
-                <div class="tier-name">kith-covenant</div>
-                <div class="tier-q">“how do communities treat one another?”</div>
-              </div>
-            </div>
+          <div class="panel" id="field-panel">
+            <div class="panel-header">Cluster view</div>
+            <svg id="field-svg" viewBox="0 0 940 860" xmlns="http://www.w3.org/2000/svg">
+              <g id="hull-g">
+                <ellipse
+                  id="hull"
+                  cx="470"
+                  cy="420"
+                  rx="404"
+                  ry="350"
+                  fill="none"
+                  stroke="#85a9cd"
+                  stroke-width="3"
+                  stroke-dasharray="14 12"
+                />
+              </g>
+              <g id="edges"></g>
+              <g id="marks"></g>
+              <g id="nodes"></g>
+              <circle id="ring" cx="143" cy="425" r="26" fill="none" stroke="#ece9e3" stroke-width="3" />
+            </svg>
           </div>
 
-          <div class="panel" id="stage-panel">
-            <div class="panel-header" id="stage-header">Chapter 17 — from cooperation to community</div>
-            <div id="stage-body">
-              <!-- Scene 2 -->
-              <div class="stage-scene" id="s-gap">
-                <div class="stage-title">What the tier above presumes</div>
-                <div class="stage-sub">
-                  The compact takes a community as its atomic actor, and quietly presumes four
-                  things about that actor.
-                </div>
-                <div id="s-gap-grid">
-                  <div class="presume" id="presume-1">
-                    <span class="presume-label">Bounded</span>
-                    <span class="presume-note">It has a known membership.</span>
-                  </div>
-                  <div class="presume" id="presume-2">
-                    <span class="presume-label">Coherent</span>
-                    <span class="presume-note"
-                      >It stands for a substrate and can speak through delegates.</span
-                    >
-                  </div>
-                  <div class="presume" id="presume-3">
-                    <span class="presume-label">Persistent</span>
-                    <span class="presume-note">It outlives its current members.</span>
-                  </div>
-                  <div class="presume" id="presume-4">
-                    <span class="presume-label">Agentive</span>
-                    <span class="presume-note"
-                      >It can consent, be sponsored, and be held responsible as a unit.</span
-                    >
-                  </div>
-                </div>
-                <div id="s-gap-foot">
-                  A trust substrate produces none of the four directly: its groups and gateway
-                  subtrees are emergent topological clusters rather than named, root-anchored,
-                  covenant-bearing entities.
-                </div>
-              </div>
-
-              <!-- Scene 3 -->
-              <div class="stage-scene" id="s-spine">
-                <div class="stage-title">Ratify emergence, do not replace it</div>
-                <div class="stage-sub">
-                  Impose a structure and the community becomes a diktat rather than a people.
-                  Relabel the cluster and the mask has no inside.
-                </div>
-                <div id="s-spine-row">
-                  <div class="spine" id="spine-1">
-                    <span class="spine-num">01</span>
-                    <span>
-                      <span class="spine-who">Emergence</span>
-                      <span class="spine-verb">proposes</span>
-                    </span>
-                    <span class="spine-note"
-                      >the trust field, the cluster boundary, the earned reputations</span
-                    >
-                  </div>
-                  <div class="spine" id="spine-2">
-                    <span class="spine-num">02</span>
-                    <span>
-                      <span class="spine-who">The polity</span>
-                      <span class="spine-verb">ratifies</span>
-                    </span>
-                    <span class="spine-note"
-                      >one signed charter: the roll, the substrate, the commitments, the
-                      offices</span
-                    >
-                  </div>
-                  <div class="spine" id="spine-3">
-                    <span class="spine-num">03</span>
-                    <span>
-                      <span class="spine-who">The compact</span>
-                      <span class="spine-verb">recognizes</span>
-                    </span>
-                    <span class="spine-note"
-                      >a community identity, in vocabulary it already has</span
-                    >
-                  </div>
-                </div>
-              </div>
-
-              <!-- Scene 4 -->
-              <div class="stage-scene" id="s-charter">
-                <div class="stage-title">The founding act</div>
-                <div class="stage-sub">
-                  A proposal carries no authority whatever on its own. Only ratification plus
-                  co-signing yields a charter.
-                </div>
-                <div id="s-charter-card">
-                  <div class="card-head">PolityCharter — one signed document</div>
-                  <div class="charter-line" id="cl-1">who the members are</div>
-                  <div class="charter-line" id="cl-2">what the community holds above itself</div>
-                  <div class="charter-line" id="cl-3">what it commits to</div>
-                  <div class="charter-line" id="cl-4">
-                    how those commitments may later change
-                  </div>
-                </div>
-                <div id="s-attest">
-                  <div class="card-head">BoundaryAttestation</div>
-                  <div class="attest-row" id="attest-candidate">
-                    <span class="attest-k">candidate size</span>
-                    <span class="attest-v" id="v-candidate">0</span>
-                  </div>
-                  <div class="attest-row" id="attest-roll">
-                    <span class="attest-k">ratified roll</span>
-                    <span class="attest-v" id="v-roll">0</span>
-                  </div>
-                  <div class="attest-row" id="attest-excluded">
-                    <span class="attest-k">excluded</span>
-                    <span class="attest-v" id="v-excluded">0</span>
-                  </div>
-                  <div id="attest-note">
-                    A reasoned exclusion for every member the boundary showed and the roll does
-                    not name. Permanent and immutable.
-                  </div>
-                </div>
-                <div id="s-refused">
-                  <span id="refused-stamp">REFUSED</span>
-                  <span id="refused-text">a charter claiming 30 and accounting for 1</span>
-                </div>
-              </div>
-
-              <!-- Scene 5 -->
-              <div class="stage-scene" id="s-rite">
-                <div class="stage-title">The rite — five movements</div>
-                <div class="stage-sub">
-                  Admission puts somebody on the roll. Induction is the distinct later step by
-                  which they actually acquire the substrate.
-                </div>
-                <div id="s-rite-list">
-                  <div class="movement" id="mv-1">
-                    <span class="mv-num">01</span><span class="mv-name">naming</span
-                    ><span class="mv-of">of the substrate</span>
-                  </div>
-                  <div class="movement" id="mv-2">
-                    <span class="mv-num">02</span><span class="mv-name">acknowledgment</span
-                    ><span class="mv-of">of fallenness</span>
-                  </div>
-                  <div class="movement" id="mv-3">
-                    <span class="mv-num">03</span><span class="mv-name">recognition</span
-                    ><span class="mv-of">of others as peers</span>
-                  </div>
-                  <div class="movement" id="mv-4">
-                    <span class="mv-num">04</span><span class="mv-name">commitment</span
-                    ><span class="mv-of">to the common virtues as dispositions</span>
-                  </div>
-                  <div class="movement" id="mv-5">
-                    <span class="mv-num">05</span><span class="mv-name">submission</span
-                    ><span class="mv-of">of the polity itself, which is not the ultimate</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Scene 6 -->
-              <div class="stage-scene" id="s-border">
-                <div class="stage-title">What crosses the border</div>
-                <div id="s-artifacts">
-                  <div class="artifact" id="art-1"><i>01</i>community identity</div>
-                  <div class="artifact" id="art-2"><i>02</i>concern</div>
-                  <div class="artifact" id="art-3"><i>03</i>fission</div>
-                  <div class="artifact" id="art-4"><i>04</i>fusion</div>
-                  <div class="artifact" id="art-5"><i>05</i>envoy delegation</div>
-                  <div class="artifact" id="art-6"><i>06</i>member roll</div>
-                  <div class="artifact" id="art-7"><i>07</i>rite</div>
-                </div>
-                <!-- Real output. Both invocations were run against this workspace;
-                     only cargo's trailing local (path) suffix is trimmed. -->
-                <div id="s-term">
-                  <div id="term-a">
-                    <div class="t-cmd">$ cargo tree -p en-cohesion --edges normal --depth 1</div>
-                    <div class="t-root">en-cohesion v0.1.0</div>
-                    <div class="t-en">├── en-charter v0.1.0</div>
-                    <div class="t-en">├── en-core v0.1.0</div>
-                    <div class="t-en">└── en-substrate v0.1.0</div>
-                    <div class="t-blank"></div>
-                  </div>
-                  <div id="term-b">
-                    <div class="t-cmd">$ cargo tree -p en-uplift --edges normal --depth 1</div>
-                    <div class="t-root">en-uplift v0.1.0</div>
-                    <div class="t-en">├── en-charter v0.1.0</div>
-                    <div class="t-en">├── en-cohesion v0.1.0</div>
-                    <div class="t-en">├── en-core v0.1.0</div>
-                    <div class="t-en">├── en-substrate v0.1.0</div>
-                    <div class="t-kc" id="kc-1">├── kc-ceremony v0.1.0</div>
-                    <div class="t-kc" id="kc-2">├── kc-conduct v0.1.0</div>
-                    <div class="t-kc" id="kc-3">├── kc-core v0.1.0</div>
-                    <div class="t-kc" id="kc-4">└── kc-identity v0.1.0</div>
-                  </div>
-                  <div id="term-caption">one crate, checked by the build</div>
-                </div>
-              </div>
-            </div>
+          <div class="panel" id="record-panel">
+            <div class="panel-header"></div>
           </div>
         </div>
       </section>
 
-      <!-- Scene 7 — Lockup -->
-      <section id="lockup" class="clip" data-start="40.2" data-duration="5.8" data-track-index="2">
-        <div id="wordmark">Ethne</div>
-        <div id="wordmark-gr">ἔθνη</div>
-        <div id="wordmark-sub">Ratify emergence, do not replace it</div>
-        <div id="music-credit">
-          Music: “Happy Beats — Business Moves Vol. 9” by ende.app
+      <!-- Scene 1 — Hook · 0 → 8.75 -->
+      <section id="sc1" class="clip" data-start="0" data-duration="8.75" data-track-index="2">
+        <div class="rec-head">What a cluster can answer</div>
+        <div class="rec-body" id="sc1-body">
+          <div id="hook-slug">One cluster · thirty nodes</div>
+          <h1 id="hook-line">A cluster is not a community.</h1>
+          <div id="hook-q">
+            <div class="q-row" id="q1">
+              <span class="q-k">members?</span><span class="q-v">no answer anyone agreed to</span>
+            </div>
+            <div class="q-row" id="q2">
+              <span class="q-k">stands for?</span><span class="q-v">behavior is not a commitment</span>
+            </div>
+            <div class="q-row" id="q3">
+              <span class="q-k">speaks for it?</span><span class="q-v">nobody</span>
+            </div>
+          </div>
+        </div>
+        <div class="field-status" id="st1" style="color: #85a9cd">Emergent boundary</div>
+      </section>
+
+      <!-- Scene 2 — Ratify · 8.75 → 17.5 -->
+      <section id="sc2" class="clip" data-start="8.75" data-duration="8.75" data-track-index="2">
+        <div class="rec-head">Chapter 17 — from cooperation to community</div>
+        <div class="rec-body" id="sc2-body">
+          <div class="title">Ratify emergence, do not replace it</div>
+          <div class="not-row" id="not1">
+            <span class="not-x">✕</span><span class="not-k">Impose a structure</span
+            ><span class="not-v">a diktat rather than a people</span>
+          </div>
+          <div class="not-row" id="not2">
+            <span class="not-x">✕</span><span class="not-k">Relabel the cluster</span
+            ><span class="not-v">the mask has no inside</span>
+          </div>
+          <div id="flow">
+            <div class="step" id="step-prop">
+              <div class="step-name">FoundingProposal</div>
+              <div class="step-note">no authority on its own</div>
+            </div>
+            <div class="step-arrow" id="step-arrow">↓ a majority of the proposed roll co-signs</div>
+            <div class="step" id="step-charter">
+              <div class="step-name">PolityCharter</div>
+              <div class="step-note">the founding signed document</div>
+            </div>
+          </div>
+        </div>
+        <div class="field-status" id="st2a" style="color: #85a9cd">Proposed boundary</div>
+        <div class="field-status" id="st2b" style="color: #e3b25a">Ratified · charter</div>
+      </section>
+
+      <!-- Scene 3 — Three inside thirty · 17.5 → 25.95 -->
+      <section id="sc3" class="clip" data-start="17.5" data-duration="8.45" data-track-index="2">
+        <div class="rec-head">Chapter 18 — founding a polity</div>
+        <div class="rec-body" id="sc3-body">
+          <div class="title">Three inside thirty</div>
+          <div class="sub">The founders choose the roll. The charter claims the cluster.</div>
+          <div id="cmp">
+            <div class="cmp-card" id="cmp-a">
+              <svg class="mini" viewBox="0 0 940 860"></svg>
+              <div class="cmp-cap">a genuinely separate group</div>
+            </div>
+            <div id="cmp-eq">=</div>
+            <div class="cmp-card" id="cmp-b">
+              <svg class="mini" viewBox="0 0 940 860"></svg>
+              <div class="cmp-cap">a faction capturing it</div>
+            </div>
+          </div>
+          <div id="cmp-foot">No rule can tell them apart.</div>
+        </div>
+        <div class="field-status" id="st3" style="color: #e3b25a">Charter · claims the cluster</div>
+        <div class="field-legend" id="lg3">
+          <span class="lg"><span class="dot dot-gold"></span>roll <b>3</b></span>
+          <span class="lg"><span class="dot dot-dim"></span>unrecorded <b>27</b></span>
         </div>
       </section>
 
-      <!-- Audio -------------------------------------------------------------
-           Music bed. The source track is bright by nature — a "happy beats"
-           business-moves cut — and beside a document read aloud it sat next to
-           the voice rather than under it. The file played here is a low-passed
-           copy (ffmpeg lowpass f=2600); the unfiltered original is kept beside
-           it in assets/music/ and the regeneration command is in CREDITS.md.
+      <!-- Scene 4 — The attestation · 25.95 → 30.8 -->
+      <section id="sc4" class="clip" data-start="25.95" data-duration="4.85" data-track-index="2">
+        <div class="rec-head">Founding exclusions</div>
+        <div class="rec-body" id="sc4-body">
+          <div class="title">BoundaryAttestation</div>
+          <div class="sub">on every proposal and every charter</div>
+          <div id="attest">
+            <div class="attest-row">
+              <span class="attest-k">candidate size the boundary showed</span
+              ><span class="attest-v" id="v-cand">0</span>
+            </div>
+            <div class="attest-row">
+              <span class="attest-k">ratified roll</span><span class="attest-v" id="v-roll">0</span>
+            </div>
+            <div class="attest-row" id="row-excl">
+              <span class="attest-k">reasoned exclusions</span
+              ><span class="attest-v" id="v-excl">0</span>
+            </div>
+            <div id="ledger">3 + 27 = 30 · the numbers must add up</div>
+          </div>
+          <div id="reasons">
+            <div class="reason" id="rs1"><i>EXCLUDED</i>below a reputation floor</div>
+            <div class="reason" id="rs2"><i>EXCLUDED</i>no reading at all</div>
+          </div>
+          <div id="stamp">GENESIS-IMMUTABLE</div>
+        </div>
+        <div class="field-status" id="st4" style="color: #e3b25a">Charter · exclusions recorded</div>
+        <div class="field-legend" id="lg4">
+          <span class="lg"><span class="dot dot-gold"></span>roll <b>3</b></span>
+          <span class="lg"><span class="dot dot-dim"></span>excluded, with a reason <b>27</b></span>
+        </div>
+      </section>
 
-           Level is carried entirely by timeline tweens: it enters very low under
-           the hook, opens to 0.24 in the gaps between narration lines, ducks to
-           0.11 for every voice span, drops hardest through the refusal, and
-           fades to silence under the closing line. -->
+      <!-- Scene 5 — The judgment, re-run · 30.8 → 37.0 -->
+      <section id="sc5" class="clip" data-start="30.8" data-duration="6.2" data-track-index="2">
+        <div class="rec-head">Founding legitimacy</div>
+        <div class="rec-body" id="sc5-body">
+          <div class="title">Read from the charter alone</div>
+          <div id="recap">candidate 30 · roll 3 · excluded 27</div>
+          <div id="formula">
+            <div class="f-k">consent share</div>
+            <div class="f-eq">ratifiers ÷ everyone the boundary showed</div>
+            <div id="reading">
+              <span id="reading-k">a faction of one reads</span><span id="v-share">0.000</span>
+            </div>
+          </div>
+          <div id="basis">
+            <div class="f-k">founding basis</div>
+            <div class="chips">
+              <span class="chip">corroborated</span><span class="chip">narrowed</span
+              ><span class="chip">self-attested</span>
+            </div>
+          </div>
+          <div id="alone">no provider consulted · no cohesion input</div>
+        </div>
+        <div class="field-status" id="st5" style="color: #e3b25a">Charter · on record</div>
+      </section>
+
+      <!-- Scene 6 — The excluded answer back · 37.0 → 43.4 -->
+      <section id="sc6" class="clip" data-start="37" data-duration="6.4" data-track-index="2">
+        <div class="rec-head">The excluded answer back</div>
+        <div class="rec-body" id="sc6-body">
+          <div class="title">BoundaryDissented</div>
+          <div class="sub">the reason recorded for an exclusion, rejected</div>
+          <div id="dissent-card">
+            <div class="d-row" id="d1"><span class="d-k">signed by</span><span class="d-v">the dissenter alone</span></div>
+            <div class="d-row" id="d2"><span class="d-k">deciders</span><span class="d-v">none, and no majority</span></div>
+            <div class="d-row" id="d3"><span class="d-k">membership</span><span class="d-v">not required</span></div>
+            <div class="d-row" id="d4"><span class="d-k">after dissolution</span><span class="d-v">may still be filed</span></div>
+          </div>
+        </div>
+        <div class="field-status" id="st6a" style="color: #e3b25a">Charter · on record</div>
+        <div class="field-status" id="st6b" style="color: #aba598">Charter dissolved</div>
+        <div class="field-legend" id="lg6">
+          <span class="lg"><span class="dot dot-ring"></span>one of the 27 · dissent on record</span>
+        </div>
+      </section>
+
+      <!-- Scene 7 — Lockup · 43.4 → 48.0 -->
+      <section id="lockup" class="clip" data-start="43.4" data-duration="4.6" data-track-index="3">
+        <div id="lockup-inner">
+          <div id="wordmark">Ethne</div>
+          <div id="wordmark-gr">ἔθνη</div>
+          <div id="wordmark-sub">Ratify emergence, do not replace it</div>
+        </div>
+        <div id="music-credit">Music: “Happy Beats — Business Moves Vol. 9” by ende.app</div>
+      </section>
+
+      <!-- Audio ------------------------------------------------------------
+           Music bed: the low-passed cut of the bundled ende.app track (see
+           CREDITS.md). Level is carried by timeline tweens generated from the
+           VO table below. -->
       <audio
         id="bgm"
         src="assets/music/happy-beats-business-moves-vol-9-by-ende-dot-app.lowpass.mp3"
         data-start="0"
-        data-duration="46"
+        data-duration="48"
         data-track-index="10"
         data-volume="1"
       ></audio>
 
-      <!-- Narration. Seven Kokoro clips (am_michael @ 0.96), own tracks, gain 1.
-           Every scene boundary below is derived from these measured durations,
-           and every start is a beat-grid point of the track. -->
-      <audio id="vo-1" src="assets/voice/vo-1-hook.wav" data-start="1.068" data-duration="4.245" data-track-index="20" data-volume="1"></audio>
-      <audio id="vo-2" src="assets/voice/vo-2-gap.wav" data-start="6.339" data-duration="5.931" data-track-index="21" data-volume="1"></audio>
-      <audio id="vo-3" src="assets/voice/vo-3-discipline.wav" data-start="13.177" data-duration="6.592" data-track-index="22" data-volume="1"></audio>
-      <audio id="vo-4" src="assets/voice/vo-4-charter.wav" data-start="20.538" data-duration="5.013" data-track-index="23" data-volume="1"></audio>
-      <audio id="vo-5" src="assets/voice/vo-5-rite.wav" data-start="26.331" data-duration="5.483" data-track-index="24" data-volume="1"></audio>
-      <audio id="vo-6" src="assets/voice/vo-6-border.wav" data-start="32.659" data-duration="7.275" data-track-index="25" data-volume="1"></audio>
-      <audio id="vo-7" src="assets/voice/vo-7-lockup.wav" data-start="40.530" data-duration="3.968" data-track-index="26" data-volume="1"></audio>
+      <!-- Narration: seven Kokoro clips (am_michael @ 0.96), each inside its
+           scene, each starting on a beat of the bed. -->
+      <audio id="vo-1" src="assets/voice/vo-1-cluster.wav" data-start="1.068" data-duration="7.424" data-track-index="20" data-volume="1"></audio>
+      <audio id="vo-2" src="assets/voice/vo-2-ratify.wav" data-start="8.963" data-duration="8.021" data-track-index="21" data-volume="1"></audio>
+      <audio id="vo-3" src="assets/voice/vo-3-faction.wav" data-start="17.914" data-duration="7.573" data-track-index="22" data-volume="1"></audio>
+      <audio id="vo-4" src="assets/voice/vo-4-account.wav" data-start="26.331" data-duration="4.181" data-track-index="23" data-volume="1"></audio>
+      <audio id="vo-5" src="assets/voice/vo-5-rerun.wav" data-start="31.057" data-duration="5.547" data-track-index="24" data-volume="1"></audio>
+      <audio id="vo-6" src="assets/voice/vo-6-dissent.wav" data-start="37.373" data-duration="5.781" data-track-index="25" data-volume="1"></audio>
+      <audio id="vo-7" src="assets/voice/vo-7-lockup.wav" data-start="43.7" data-duration="2.859" data-track-index="26" data-volume="1"></audio>
 
-      <!-- Card arrivals, on the beat grid. Quiet: these sit under narration. -->
-      <audio id="sfx-p1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="7.396" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-p2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="8.441" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-p3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="9.497" data-track-index="11" data-volume="0.20"></audio>
-      <audio id="sfx-p4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="10.542" data-track-index="11" data-volume="0.20"></audio>
-
-      <audio id="sfx-sp1" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="14.756" data-track-index="12" data-volume="0.18"></audio>
-      <audio id="sfx-sp3" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="17.914" data-track-index="12" data-volume="0.18"></audio>
-
-      <!-- The refusal: one dry impact, nothing else. -->
-      <audio id="sfx-refuse" src="assets/sfx/impactSoft_medium_003.ogg" data-duration="0.14" data-start="24.741" data-track-index="13" data-volume="0.34"></audio>
-
-      <audio id="sfx-m1" src="assets/sfx/click2.ogg" data-duration="0.06" data-start="26.854" data-track-index="14" data-volume="0.16"></audio>
-      <audio id="sfx-m2" src="assets/sfx/click2.ogg" data-duration="0.06" data-start="27.910" data-track-index="14" data-volume="0.16"></audio>
-      <audio id="sfx-m3" src="assets/sfx/click2.ogg" data-duration="0.06" data-start="28.955" data-track-index="14" data-volume="0.16"></audio>
-      <audio id="sfx-m4" src="assets/sfx/click2.ogg" data-duration="0.06" data-start="30.012" data-track-index="14" data-volume="0.16"></audio>
-      <audio id="sfx-m5" src="assets/sfx/click2.ogg" data-duration="0.06" data-start="31.057" data-track-index="14" data-volume="0.16"></audio>
-
-      <audio id="sfx-check" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="38.963" data-track-index="15" data-volume="0.30"></audio>
-      <audio id="sfx-lockup" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="41.065" data-track-index="15" data-volume="0.26"></audio>
+      <!-- SFX: sparse, low high-frequency-risk picks only. -->
+      <audio id="sfx-sign" src="assets/sfx/rollover2.ogg" data-start="14.756" data-duration="0.06" data-track-index="11" data-volume="0.20"></audio>
+      <audio id="sfx-claim" src="assets/sfx/bong_001.ogg" data-start="20.526" data-duration="0.12" data-track-index="12" data-volume="0.18"></audio>
+      <audio id="sfx-stamp" src="assets/sfx/impactSoft_medium_003.ogg" data-start="29.478" data-duration="0.14" data-track-index="13" data-volume="0.32"></audio>
+      <audio id="sfx-dissent" src="assets/sfx/click2.ogg" data-start="38.429" data-duration="0.06" data-track-index="14" data-volume="0.18"></audio>
+      <audio id="sfx-lockup" src="assets/sfx/impactSoft_medium_001.ogg" data-start="43.7" data-duration="0.18" data-track-index="15" data-volume="0.26"></audio>
     </div>
 
     <script>
       /* ------------------------------------------------------------------
-         Narration clock. These are the measured Kokoro clip lengths; every
-         scene boundary in the timeline is derived from them, and the music
-         ducking below is generated from this table rather than hand-written.
+         Narration clock: measured Kokoro clip lengths. Scene spans and the
+         music ducking are derived from this table.
          ------------------------------------------------------------------ */
       var VO = [
-        { id: "#vo-1", start: 1.068, dur: 4.245, gapAfter: 0.32 },
-        { id: "#vo-2", start: 6.339, dur: 5.931, gapAfter: 0.3 },
-        { id: "#vo-3", start: 13.177, dur: 6.592, gapAfter: 0.28 },
-        { id: "#vo-4", start: 20.538, dur: 5.013, gapAfter: 0.24 },
-        { id: "#vo-5", start: 26.331, dur: 5.483, gapAfter: 0.3 },
-        { id: "#vo-6", start: 32.659, dur: 7.275, gapAfter: 0.22 },
-        { id: "#vo-7", start: 40.53, dur: 3.968, gapAfter: 0.0 },
+        { start: 1.068, dur: 7.424 },
+        { start: 8.963, dur: 8.021 },
+        { start: 17.914, dur: 7.573 },
+        { start: 26.331, dur: 4.181 },
+        { start: 31.057, dur: 5.547 },
+        { start: 37.373, dur: 5.781 },
+        { start: 43.7, dur: 2.859 },
       ];
+      var T_END = 48.0;
 
-      /* Beat grid at 114.84 BPM (interval 0.5225s), from the track's bundled cue
-         preset. Narration wins any conflict: every value below is the grid point
-         nearest a narration moment the visual was meeting anyway, never the
-         other way round. */
-      var T_DOC = 6.339; // beat-locked: strong cue 6.339s (intensity 1.00)
-      var T_PRESUME = [7.396, 8.441, 9.497, 10.542]; // beat-grid, alternating beats
-      var T_GAPFOOT = 11.598; // beat-locked-ish: strong cue 11.598 (0.99)
-      var T_SPINE_IN = 13.177; // beat-grid — vo-3 starts here
-      var T_SPINE = [14.756, 16.335, 17.914]; // beat-grid, every third beat
-      var T_CHARTER_IN = 20.538; // beat-grid — vo-4 starts here
-      var T_ATTEST_START = 21.061; // beat-grid; the hit it feeds is T_ATTEST_HIT
-      var T_ATTEST_DUR = 2.113; /* tuned so the count settles exactly on the cue */
-      var T_ATTEST_HIT = 23.174; // beat-locked: strong cue 23.174s (intensity 0.99)
-      var T_REFUSED = 24.741; // beat-grid — inside the tail of vo-4
-      var T_RITE_IN = 26.331; // beat-grid — vo-5 starts here
-      var T_MOVE = [26.854, 27.91, 28.955, 30.012, 31.057]; // beat-grid
-      var T_BORDER_IN = 32.659; // beat-grid — vo-6 starts here
-      var T_ART0 = 32.659; // artifact chips stagger from here
-      var T_TERM_A = 35.271; // beat-grid
-      var T_TERM_B = 36.862; // beat-grid
-      var T_KC = 38.963; // beat-locked: strong cue 38.963s, under "the build checks that"
-      var T_LOCK_DIM = 40.2;
-      var T_WORDMARK = 41.065; // beat-grid
-      var T_WORDGR = 42.121; // beat-grid
-      var T_WORDSUB = 43.7; // beat-locked: strong cue 43.700s (intensity 0.99)
-      var T_CREDIT = 44.745; // beat-grid; holds to T_END
-      var T_END = 46.0;
-
-      var STAGES = ["#s-gap", "#s-spine", "#s-charter", "#s-rite", "#s-border"];
-
-      var phaseEl = document.getElementById("phase");
-      var headerEl = document.getElementById("stage-header");
-      function setChapter(phase, header) {
-        return function () {
-          phaseEl.textContent = phase;
-          headerEl.textContent = header;
-        };
-      }
+      /* Scene spans (absolute seconds), matching the clip attributes above. */
+      var SC = {
+        sc1: [0, 8.75],
+        sc2: [8.75, 17.5],
+        sc3: [17.5, 25.95],
+        sc4: [25.95, 30.8],
+        sc5: [30.8, 37.0],
+        sc6: [37.0, 43.4],
+      };
 
       /* ------------------------------------------------------------------
-         Timeline.
+         The cluster: thirty nodes and their nearest-neighbour edges, laid out
+         once (seed 7, minimum spacing 92) and frozen here as constants so the
+         render is deterministic. Nodes 2, 22 and 23 are the three founders;
+         node 3 is the excluded member who dissents.
          ------------------------------------------------------------------ */
+      var NODES = [
+        [340, 197], [582, 146], [497, 334], [143, 425], [414, 629], [192, 243],
+        [564, 707], [735, 285], [234, 472], [603, 374], [332, 475], [688, 547],
+        [640, 284], [615, 480], [451, 525], [306, 366], [491, 194], [224, 594],
+        [808, 386], [583, 612], [154, 528], [706, 377], [399, 322], [451, 422],
+        [786, 556], [320, 573], [208, 352], [653, 675], [464, 712], [704, 192],
+      ];
+      var EDGES = [
+        [0, 5], [0, 16], [0, 22], [1, 16], [1, 29], [2, 16], [2, 22], [2, 23],
+        [3, 8], [3, 26], [4, 14], [4, 25], [4, 28], [5, 26], [6, 19], [6, 27],
+        [6, 28], [7, 12], [7, 18], [7, 21], [7, 29], [8, 10], [8, 20], [9, 12],
+        [9, 13], [9, 21], [10, 25], [11, 13], [11, 24], [12, 29], [14, 23],
+        [15, 22], [15, 26], [17, 20], [17, 25], [18, 21], [18, 24], [19, 27],
+      ];
+      var FOUNDERS = [2, 22, 23];
+      var DISSENTER = 3;
+      var EXCLUDED = [];
+      for (var e0 = 0; e0 < 30; e0++) {
+        if (FOUNDERS.indexOf(e0) < 0) EXCLUDED.push(e0);
+      }
+
+      var NS = "http://www.w3.org/2000/svg";
+      function el(tag, attrs, parent) {
+        var n = document.createElementNS(NS, tag);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        parent.appendChild(n);
+        return n;
+      }
+
+      var gEdges = document.getElementById("edges");
+      var gNodes = document.getElementById("nodes");
+      var gMarks = document.getElementById("marks");
+      var edgeEls = [];
+      var nodeEls = [];
+      var markEls = [];
+      for (var ei = 0; ei < EDGES.length; ei++) {
+        var a = NODES[EDGES[ei][0]];
+        var b = NODES[EDGES[ei][1]];
+        edgeEls.push(
+          el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: "#3d4658", "stroke-width": 2 }, gEdges),
+        );
+      }
+      for (var ni = 0; ni < NODES.length; ni++) {
+        nodeEls.push(
+          el(
+            "circle",
+            { id: "n" + ni, cx: NODES[ni][0], cy: NODES[ni][1], r: 14, fill: "#2b3242", stroke: "#85a9cd", "stroke-width": 2.5 },
+            gNodes,
+          ),
+        );
+      }
+      /* A short tick under each excluded node: the reasoned exclusion. */
+      for (var mi = 0; mi < EXCLUDED.length; mi++) {
+        var p = NODES[EXCLUDED[mi]];
+        markEls.push(
+          el("line", { x1: p[0] - 13, y1: p[1] + 26, x2: p[0] + 13, y2: p[1] + 26, stroke: "#aba598", "stroke-width": 3 }, gMarks),
+        );
+      }
+
+      /* The two identical miniatures for "a splinter and a capture". */
+      var minis = document.querySelectorAll("svg.mini");
+      for (var si = 0; si < minis.length; si++) {
+        el("ellipse", { cx: 470, cy: 420, rx: 404, ry: 350, fill: "none", stroke: "#e3b25a", "stroke-width": 8 }, minis[si]);
+        for (var mj = 0; mj < NODES.length; mj++) {
+          var founder = FOUNDERS.indexOf(mj) >= 0;
+          el(
+            "circle",
+            { cx: NODES[mj][0], cy: NODES[mj][1], r: 26, fill: founder ? "#e3b25a" : "#2b3242", stroke: founder ? "#e3b25a" : "#5a6578", "stroke-width": 6 },
+            minis[si],
+          );
+        }
+      }
+
+      var founderEls = FOUNDERS.map(function (i) { return nodeEls[i]; });
+      var excludedEls = EXCLUDED.map(function (i) { return nodeEls[i]; });
+
       var tl = gsap.timeline({ paused: true });
 
-      /* Everything inside the document starts hidden; nothing here is a .clip.
-         These are immediate gsap.set calls outside the timeline rather than
-         tl.set(..., 0): a zero-duration set at position 0 does not render while
-         the playhead sits exactly at 0, so frame 0 would show the un-hidden
-         state. */
-      gsap.set(STAGES, { opacity: 0 });
+      /* Hidden-at-start state, set outside the timeline so frame 0 is right. */
+      gsap.set(nodeEls, { opacity: 0 });
+      gsap.set(edgeEls, { opacity: 0 });
+      gsap.set(markEls, { opacity: 0 });
+      gsap.set(["#hull-g", "#ring"], { opacity: 0 });
       gsap.set(
         [
-          "#presume-1",
-          "#presume-2",
-          "#presume-3",
-          "#presume-4",
-          "#s-gap-foot",
-          "#spine-1",
-          "#spine-2",
-          "#spine-3",
-          "#cl-1",
-          "#cl-2",
-          "#cl-3",
-          "#cl-4",
-          "#s-attest",
-          "#s-refused",
-          "#mv-1",
-          "#mv-2",
-          "#mv-3",
-          "#mv-4",
-          "#mv-5",
-          "#art-1",
-          "#art-2",
-          "#art-3",
-          "#art-4",
-          "#art-5",
-          "#art-6",
-          "#art-7",
-          "#term-a",
-          "#term-b",
-          "#term-caption",
+          "#sc1-body", "#hook-slug", "#hook-line", "#q1", "#q2", "#q3", "#st1",
+          "#sc2-body", "#not1", "#not2", "#step-prop", "#step-arrow", "#step-charter", "#st2a", "#st2b",
+          "#sc3-body", "#cmp-a", "#cmp-b", "#cmp-eq", "#cmp-foot", "#st3", "#lg3",
+          "#sc4-body", "#attest", "#ledger", "#rs1", "#rs2", "#stamp", "#st4", "#lg4",
+          "#sc5-body", "#formula", "#reading", "#basis", "#alone", "#st5",
+          "#sc6-body", "#dissent-card", "#d1", "#d2", "#d3", "#d4", "#st6a", "#st6b", "#lg6",
+          "#wordmark", "#wordmark-gr", "#wordmark-sub", "#music-credit",
         ],
         { opacity: 0 },
       );
 
-      /* --- Scene 1: hook — holds through VO 1 (1.068 → 5.313) --- */
-      tl.fromTo("#hook-slug", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.42);
-      tl.fromTo("#hook-line", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.591);
-      tl.to("#hook-slug", { opacity: 0, duration: 0.34 }, 5.7);
-      tl.to("#hook-line", { opacity: 0, duration: 0.34 }, 5.7);
-
-      /* --- Scene 2: the gap, under VO 2 (6.339 → 12.270) --- */
-      /* beat-locked: strong cue 6.339s — the document arrives with the voice. */
-      tl.fromTo("#doc-inner", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.out" }, T_DOC);
-      tl.fromTo(
-        ["#rail-panel", "#stage-panel"],
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: "power2.out" },
-        T_DOC + 0.06,
-      );
-      tl.call(setChapter("The gap", "Chapter 17 — from cooperation to community"), [], T_DOC);
-      tl.fromTo("#s-gap", { opacity: 0 }, { opacity: 1, duration: 0.3 }, T_DOC + 0.4);
-
-      /* beat-grid: 7.396, 8.441, 9.497, 10.542 — alternating beats, 1.05s apart,
-         comfortably over the reading floor for a one-word label. */
-      for (var p = 0; p < 4; p++) {
-        tl.fromTo(
-          "#presume-" + (p + 1),
-          { opacity: 0, y: 22 },
-          { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
-          T_PRESUME[p],
-        );
+      function sceneIn(sel, t) {
+        tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" }, t);
       }
-      tl.fromTo("#s-gap-foot", { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.45, ease: "power2.out" }, T_GAPFOOT);
-
-      /* --- Scene 3: the discipline, under VO 3 (13.177 → 19.769) --- */
-      tl.to("#s-gap", { opacity: 0, duration: 0.32, ease: "power1.in" }, T_SPINE_IN - 0.34);
-      tl.call(setChapter("The discipline", "The load-bearing commitment of the whole tier"), [], T_SPINE_IN);
-      tl.fromTo("#s-spine", { opacity: 0 }, { opacity: 1, duration: 0.3 }, T_SPINE_IN);
-
-      /* beat-grid: 14.756, 16.335, 17.914 — every third beat, 1.58s apart. Card 2
-         lands 0.4s ahead of the word "ratified" (18.82), so the picture arrives
-         first and the voice confirms it. */
-      for (var s = 0; s < 3; s++) {
-        tl.fromTo(
-          "#spine-" + (s + 1),
-          { opacity: 0, y: 26 },
-          { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" },
-          T_SPINE[s],
-        );
+      function sceneOut(sel, end) {
+        tl.to(sel, { opacity: 0, duration: 0.3, ease: "power1.in" }, end - 0.34);
+      }
+      function rise(sel, t, d) {
+        tl.fromTo(sel, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: d || 0.4, ease: "power2.out" }, t);
       }
 
-      /* --- Scene 4: the founding, under VO 4 (20.538 → 25.551) --- */
-      tl.to("#s-spine", { opacity: 0, duration: 0.32, ease: "power1.in" }, T_CHARTER_IN - 0.34);
-      tl.call(setChapter("The founding", "Chapter 18 — founding a polity"), [], T_CHARTER_IN);
-      tl.fromTo("#s-charter", { opacity: 0 }, { opacity: 1, duration: 0.3 }, T_CHARTER_IN);
-
-      /* The four lines are a fast stagger held as a set rather than a beat
-         sequence: at 0.52s the grid outruns reading a six-word line. */
-      tl.fromTo(
-        ["#cl-1", "#cl-2", "#cl-3", "#cl-4"],
-        { opacity: 0, x: 18 },
-        { opacity: 1, x: 0, duration: 0.36, stagger: 0.16, ease: "power2.out" },
-        T_CHARTER_IN + 0.3,
+      /* --- Scene 1: the cluster. VO 1 1.068 → 8.492 --- */
+      tl.fromTo(nodeEls, { opacity: 0 }, { opacity: 1, duration: 0.3, stagger: 0.05, ease: "power1.out" }, 0.3);
+      tl.fromTo(edgeEls, { opacity: 0 }, { opacity: 1, duration: 0.5, stagger: 0.02, ease: "power1.out" }, 1.4);
+      sceneIn("#sc1-body", 0.3);
+      rise("#hook-slug", 0.5);
+      rise("#hook-line", 1.591, 0.5); // beat-locked: strong cue 1.591s
+      /* beat-grid: the three questions on alternating beats under "Ask who belongs". */
+      rise("#q1", 4.226);
+      rise("#q2", 5.282);
+      rise("#q3", 6.339);
+      /* beat-locked: strong cue 7.396s, under the word "boundary" (7.33). */
+      tl.fromTo("#hull-g", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 7.396);
+      rise("#st1", 7.396);
+      /* The emergent boundary keeps moving until it is proposed. */
+      tl.to(
+        "#hull-g",
+        {
+          keyframes: [
+            { scaleX: 1.03, scaleY: 0.97, rotation: 1.2, duration: 1.4, ease: "sine.inOut" },
+            { scaleX: 0.975, scaleY: 1.025, rotation: -0.8, duration: 1.5, ease: "sine.inOut" },
+            { scaleX: 1.02, scaleY: 0.985, rotation: 0.6, duration: 1.3, ease: "sine.inOut" },
+            { scaleX: 1, scaleY: 1, rotation: 0, duration: 0.9, ease: "power2.out" },
+          ],
+          svgOrigin: "470 420",
+        },
+        7.4,
       );
-      tl.fromTo("#s-attest", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, T_ATTEST_START - 0.4);
+      tl.to("#hull", { attr: { "stroke-dashoffset": -104 }, duration: 5.1, ease: "none" }, 7.4);
+      sceneOut("#sc1-body", SC.sc1[1]);
+      sceneOut("#st1", SC.sc1[1]);
 
-      /* The counters are tuned so all three settle exactly on the strong cue at
-         23.174 — which is where the voice says "everyone it left out". */
-      var att = { candidate: 0, roll: 0, excluded: 0 };
-      var vCand = document.getElementById("v-candidate");
-      var vRoll = document.getElementById("v-roll");
-      var vExcl = document.getElementById("v-excluded");
+      /* --- Scene 2: ratify. VO 2 8.963 → 16.984 --- */
+      sceneIn("#sc2-body", SC.sc2[0]);
+      rise("#not1", 9.497); // beat-locked: strong cue 9.497s, "doesn't impose"
+      rise("#not2", 10.542); // beat-locked: strong cue 10.542s, "or relabel"
+      /* beat-locked: strong cue 12.655s — the substrate proposes (word 12.92). */
+      rise("#step-prop", 12.655);
+      tl.fromTo("#st2a", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 13.177);
+      tl.to("#hull", { attr: { "stroke-dasharray": "14 0" }, duration: 0.4, ease: "power2.out" }, 13.177);
+      /* beat-locked: strong cue 14.756s — the members sign (word "ratify" 15.50). */
+      rise("#step-arrow", 14.756);
+      tl.to(nodeEls, { attr: { fill: "#e3b25a", stroke: "#e3b25a" }, duration: 0.25, stagger: 0.035, ease: "power1.out" }, 14.756);
+      tl.to("#st2a", { opacity: 0, duration: 0.25 }, 16.2);
+      tl.to("#hull", { attr: { stroke: "#e3b25a" }, duration: 0.4, ease: "power2.out" }, 16.335);
+      tl.fromTo("#st2b", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 16.335);
+      rise("#step-charter", 16.335); // beat-grid
+      sceneOut("#sc2-body", SC.sc2[1]);
+      sceneOut("#st2b", SC.sc2[1]);
+
+      /* --- Scene 3: three inside thirty. VO 3 17.914 → 25.487 --- */
+      sceneIn("#sc3-body", SC.sc3[0]);
+      /* beat-grid 18.437 — "three of them" (18.69): everyone but the three founders
+         stops being gold. */
+      tl.to(excludedEls, { attr: { fill: "#2b3242", stroke: "#85a9cd" }, duration: 0.4, ease: "power1.inOut" }, 18.437);
+      /* beat-locked: strong cue 20.526s — "the whole cluster" (20.42). */
+      tl.fromTo("#st3", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 20.526);
+      tl.fromTo("#hull", { attr: { "stroke-width": 3 } }, { attr: { "stroke-width": 5 }, duration: 0.4, ease: "power2.out", immediateRender: false }, 20.526);
+      /* beat-grid 21.595 — "a polity of themselves": the 27 go unrecorded. */
+      tl.to(excludedEls, { attr: { stroke: "#5a6578" }, opacity: 0.45, duration: 0.5, ease: "power1.inOut" }, 21.595);
+      tl.to(edgeEls, { opacity: 0.35, duration: 0.5 }, 21.595);
+      rise("#lg3", 21.595);
+      /* beat-locked: strong cue 22.640s — the two miniatures, ahead of "a splinter
+         and a capture" (23.08) so the picture arrives first. */
+      rise("#cmp-a", 22.64);
+      rise("#cmp-b", 22.64);
+      tl.fromTo("#cmp-eq", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 23.174); // beat-locked 23.174
+      rise("#cmp-foot", 24.218); // beat-grid, under "look the same" (24.57)
+      sceneOut("#sc3-body", SC.sc3[1]);
+      sceneOut(["#st3", "#lg3"], SC.sc3[1]);
+
+      /* --- Scene 4: the attestation. VO 4 26.331 → 30.512 --- */
+      sceneIn("#sc4-body", SC.sc4[0]);
+      rise("#attest", 26.1);
+      tl.fromTo("#st4", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 26.1);
+      rise("#lg4", 26.1);
+      var att = { c: 0, r: 0, x: 0 };
+      var vC = document.getElementById("v-cand");
+      var vR = document.getElementById("v-roll");
+      var vX = document.getElementById("v-excl");
+      /* Tuned so the three counters settle on strong cue 28.444s, which is where
+         the voice reaches "left out" (28.24). */
       tl.to(
         att,
         {
-          candidate: 30,
-          roll: 3,
-          excluded: 27,
-          duration: T_ATTEST_DUR,
+          c: 30,
+          r: 3,
+          x: 27,
+          duration: 1.844,
           ease: "power2.out",
           onUpdate: function () {
-            vCand.textContent = String(Math.round(att.candidate));
-            vRoll.textContent = String(Math.round(att.roll));
-            vExcl.textContent = String(Math.round(att.excluded));
+            vC.textContent = String(Math.round(att.c));
+            vR.textContent = String(Math.round(att.r));
+            vX.textContent = String(Math.round(att.x));
           },
         },
-        T_ATTEST_START,
+        26.6,
       );
+      /* The 27 exclusion ticks land one by one across the count. */
+      tl.fromTo(markEls, { opacity: 0 }, { opacity: 1, duration: 0.2, stagger: 0.06, ease: "power1.out" }, 26.854);
+      tl.fromTo("#ledger", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 28.444); // beat-locked 28.444
+      rise("#rs1", 28.955); // beat-locked: strong cue 28.955s, "and why" (29.0)
+      rise("#rs2", 28.955);
+      /* beat-grid 29.478 — "Permanently" (29.62). One soft impact. */
+      tl.fromTo("#stamp", { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 0.3, ease: "power3.out" }, 29.478);
+      sceneOut("#sc4-body", SC.sc4[1]);
+      sceneOut(["#st4", "#lg4"], SC.sc4[1]);
 
-      /* beat-grid 24.741s — one dry impact, nothing else. */
-      tl.fromTo("#s-refused", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" }, T_REFUSED);
-
-      /* --- Scene 5: the rite, under VO 5 (26.331 → 31.814) --- */
-      tl.to("#s-charter", { opacity: 0, duration: 0.3, ease: "power1.in" }, T_RITE_IN - 0.32);
-      tl.call(setChapter("The rite", "Chapter 20 — how a member receives the substrate"), [], T_RITE_IN);
-      tl.fromTo("#s-rite", { opacity: 0 }, { opacity: 1, duration: 0.3 }, T_RITE_IN);
-
-      /* beat-grid: 26.854 … 31.057, alternating beats. */
-      for (var m = 0; m < 5; m++) {
-        tl.fromTo(
-          "#mv-" + (m + 1),
-          { opacity: 0, x: 24 },
-          { opacity: 1, x: 0, duration: 0.36, ease: "power2.out" },
-          T_MOVE[m],
-        );
-      }
-
-      /* --- Scene 6: the border, under VO 6 (32.659 → 39.934) --- */
-      tl.to("#s-rite", { opacity: 0, duration: 0.3, ease: "power1.in" }, T_BORDER_IN - 0.32);
-      tl.call(setChapter("The border", "Chapter 22 — what crosses to the compact"), [], T_BORDER_IN);
-      tl.fromTo("#s-border", { opacity: 0 }, { opacity: 1, duration: 0.3 }, T_BORDER_IN);
-
-      /* Seven short chips revealed quickly and then held as a set — the beat grid
-         at 0.52s would outrun them individually, and holding the full row is the
-         readable form. */
-      tl.fromTo(
-        ["#art-1", "#art-2", "#art-3", "#art-4", "#art-5", "#art-6", "#art-7"],
-        { opacity: 0, y: 16 },
-        { opacity: 1, y: 0, duration: 0.34, stagger: 0.19, ease: "power2.out" },
-        T_ART0 + 0.2,
+      /* --- Scene 5: the judgment, re-run. VO 5 31.057 → 36.604 --- */
+      sceneIn("#sc5-body", SC.sc5[0]);
+      tl.fromTo("#st5", { opacity: 0 }, { opacity: 1, duration: 0.3 }, SC.sc5[0]);
+      rise("#formula", 31.591); // beat-grid, "holding the charter" (31.5)
+      var share = { v: 0 };
+      var vS = document.getElementById("v-share");
+      /* beat-grid 33.170 → settles 34.226 under "the same answer" (34.45). */
+      tl.fromTo("#reading", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 33.17);
+      tl.to(
+        share,
+        {
+          v: 0.033,
+          duration: 1.056,
+          ease: "power2.out",
+          onUpdate: function () {
+            vS.textContent = share.v.toFixed(3);
+          },
+        },
+        33.17,
       );
+      rise("#basis", 34.749); // beat-grid
+      rise("#alone", 35.805); // beat-grid, "forever" (35.70)
+      /* The charter's boundary brightens once as the judgment is read back. */
+      tl.to("#hull", { attr: { "stroke-width": 7 }, duration: 0.3, ease: "power2.out" }, 34.226);
+      tl.to("#hull", { attr: { "stroke-width": 5 }, duration: 0.6, ease: "power2.inOut" }, 34.6);
+      sceneOut("#sc5-body", SC.sc5[1]);
+      sceneOut("#st5", SC.sc5[1]);
 
-      /* Real cargo tree output, printed in two blocks. */ // beat-grid 35.271, 36.862
-      tl.fromTo("#term-a", { opacity: 0 }, { opacity: 1, duration: 0.34, ease: "power1.out" }, T_TERM_A);
-      tl.fromTo("#term-b", { opacity: 0 }, { opacity: 1, duration: 0.34, ease: "power1.out" }, T_TERM_B);
+      /* --- Scene 6: the excluded answer back. VO 6 37.373 → 43.154 --- */
+      sceneIn("#sc6-body", SC.sc6[0]);
+      tl.fromTo("#st6a", { opacity: 0 }, { opacity: 1, duration: 0.3 }, SC.sc6[0]);
+      /* beat-grid 38.429 — "the twenty-seven" (38.67): one of them lights. */
+      tl.to(nodeEls[DISSENTER], { opacity: 1, attr: { fill: "#ece9e3", stroke: "#ece9e3" }, duration: 0.35, ease: "power2.out" }, 38.429);
+      tl.fromTo("#ring", { opacity: 0, scale: 0.6, svgOrigin: "143 425" }, { opacity: 1, scale: 1, svgOrigin: "143 425", duration: 0.45, ease: "power3.out" }, 38.429);
+      rise("#lg6", 38.429);
+      /* beat-locked: strong cue 39.486s — "answer back" (39.51). */
+      rise("#dissent-card", 39.486);
+      rise("#d1", 39.486);
+      rise("#d2", 40.008);
+      rise("#d3", 40.53);
+      /* beat-grid 42.121 — "after the polity is gone" (41.44 → 42.7): the charter
+         dissolves; the dissent stays lit. */
+      tl.to("#hull", { attr: { stroke: "#5a6578", "stroke-dasharray": "6 14", "stroke-width": 3 }, duration: 0.6, ease: "power2.inOut" }, 42.121);
+      tl.to(founderEls, { opacity: 0.35, attr: { fill: "#2b3242", stroke: "#5a6578" }, duration: 0.6, ease: "power2.inOut" }, 42.121);
+      tl.to("#st6a", { opacity: 0, duration: 0.25 }, 41.9);
+      tl.fromTo("#st6b", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 42.121);
+      rise("#d4", 42.121);
+      sceneOut("#sc6-body", SC.sc6[1]);
+      sceneOut(["#st6b", "#lg6"], SC.sc6[1]);
 
-      /* beat-locked: strong cue 38.963s — the four kc-* lines are the only place
-         in the workspace a governance crate of the compact is named, and the
-         voice is saying "the build checks that" over exactly this. */
-      tl.to(["#kc-1", "#kc-2", "#kc-3", "#kc-4"], { color: "#e3b25a", duration: 0.4, ease: "power2.out" }, T_KC);
-      tl.fromTo("#term-caption", { opacity: 0, x: 14 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, T_KC + 0.12);
-
-      /* --- Scene 7: lockup, under VO 7 (40.530 → 44.498) --- */
-      tl.to("#doc-inner", { opacity: 0.2, duration: 0.55, ease: "power2.inOut" }, T_LOCK_DIM);
-      tl.fromTo("#wordmark", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, T_WORDMARK);
-      tl.fromTo("#wordmark-gr", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, T_WORDGR);
-      /* beat-locked: strong cue 43.700s — the governing discipline, which the
-         voice deliberately never says. */
-      tl.fromTo("#wordmark-sub", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, T_WORDSUB);
-      tl.fromTo("#music-credit", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, T_CREDIT);
+      /* --- Scene 7: lockup. VO 7 43.700 → 46.559 --- */
+      tl.to("#frame-inner", { opacity: 0.16, duration: 0.6, ease: "power2.inOut" }, 43.2);
+      /* beat-locked: strong cue 43.700s — the wordmark lands with the voice. */
+      tl.fromTo("#wordmark", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 43.7);
+      rise("#wordmark-gr", 44.222);
+      /* beat-locked: strong cue 45.801s — the discipline, which the voice never says. */
+      rise("#wordmark-sub", 45.801, 0.45);
+      tl.fromTo("#music-credit", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 46.324);
 
       /* ------------------------------------------------------------------
-         Music: narration-led ducking, generated from the VO table above so the
-         bed can never drift out of sync with the measured clips.
-
-         0.24 in the gaps · 0.11 under every voice span · 0.09 through the
-         refusal, recovering only to 0.19 afterward · fade to silence under the
-         last line. Nothing here editorialises: no risers, no swells.
+         Music: ducked under every voice span, open in the gaps, faded out.
          ------------------------------------------------------------------ */
       var BED_OPEN = 0.24;
       var BED_DUCK = 0.11;
-      var LEAD = 0.2; /* duck slightly ahead of the word */
-
       tl.fromTo("#bgm", { volume: 0.1 }, { volume: BED_DUCK, duration: 1.0, ease: "power1.inOut" }, 0);
-
       for (var vi = 0; vi < VO.length; vi++) {
         var cur = VO[vi];
-        var ends = cur.start + cur.dur;
-        var isRefusal = cur.id === "#vo-4";
-        var isLast = vi === VO.length - 1;
-
         if (vi > 0) {
-          tl.to("#bgm", { volume: isRefusal ? 0.09 : BED_DUCK, duration: 0.35, ease: "power1.inOut" }, cur.start - LEAD);
+          tl.to("#bgm", { volume: BED_DUCK, duration: 0.3, ease: "power1.inOut" }, cur.start - 0.3);
         }
-
-        if (!isLast) {
-          /* After the refusal the bed recovers only part-way: a charter was just
-             rejected, and nothing about that is a flourish. */
-          var back = isRefusal ? 0.19 : BED_OPEN;
-          tl.to("#bgm", { volume: back, duration: 0.45, ease: "power1.inOut" }, ends + cur.gapAfter);
+        if (vi < VO.length - 1) {
+          var gap = VO[vi + 1].start - (cur.start + cur.dur);
+          if (gap > 0.75) {
+            tl.to("#bgm", { volume: BED_OPEN, duration: 0.3, ease: "power1.inOut" }, cur.start + cur.dur + 0.05);
+          }
         }
       }
-
       tl.to("#bgm", { volume: 0, duration: 1.2, ease: "power1.in" }, T_END - 1.2);
 
       /* ------------------------------------------------------------------
-         Audio-reactive layer. Deliberately small: bass energy breathes the panel
-         borders and a faint warmth behind the lit tier in the rail. No bars, no
-         spectrum, no pulsing type — nothing that competes with speech.
+         Audio-reactive layer: bass energy breathes the panel borders and a
+         faint warmth on the boundary. No bars, no spectrum.
          ------------------------------------------------------------------ */
       var AD = window.AUDIO_DATA;
       if (AD && AD.frames && AD.frames.length) {
-        var panels = [
-          document.getElementById("rail-panel"),
-          document.getElementById("stage-panel"),
-        ];
-        var litTier = document.getElementById("tier-en");
-
+        var panels = [document.getElementById("field-panel"), document.getElementById("record-panel")];
+        var hullG = document.getElementById("hull-g");
         var applyBands = function (bands) {
           var bass = bands[0];
           var low = bands[1];
           for (var q = 0; q < panels.length; q++) {
-            panels[q].style.borderColor =
-              "rgba(61, 70, 88, " + (0.55 + low * 0.4).toFixed(3) + ")";
+            panels[q].style.borderColor = "rgba(61, 70, 88, " + (0.55 + low * 0.4).toFixed(3) + ")";
           }
-          litTier.style.boxShadow =
-            "0 0 " + (10 + bass * 16).toFixed(1) + "px rgba(227, 178, 90, 0.16)";
+          hullG.style.filter = "drop-shadow(0 0 " + (4 + bass * 10).toFixed(1) + "px rgba(227, 178, 90, 0.22))";
         };
-
         var maxFrame = Math.min(AD.frames.length, Math.ceil(T_END * AD.fps));
         for (var f = 0; f < maxFrame; f++) {
           tl.call(
@@ -1322,7 +1252,6 @@
         }
       }
 
-      window.__timelines = window.__timelines || {};
       window.__timelines["main"] = tl;
       tl.seek(0);
     </script>
