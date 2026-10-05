@@ -180,7 +180,7 @@ names come from.
 
 ## Further reading
 
-- [Design decisions D1 to D35](design.md): D15 for the chartered edge, D18 for
+- [Design decisions D1 to D40](design.md): D15 for the chartered edge, D18 for
   what the provider knows against what it saw, and D27 for the backing an asserted
   edge must carry.
 - [The human behind the machine](../../autonomous_trust/doc/architecture/operator-attended.md):

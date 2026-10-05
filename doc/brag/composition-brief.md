@@ -1,197 +1,120 @@
-# Hyperframes Composition Brief: MUUDD (narrated cut)
+# Hyperframes Composition Brief: MUUDD (narrated cut, re-concept 2026-10-01)
 
 ## Objective
 
-Create a short, narrated launch-style brag video for **MUUDD** — the physical
-layer of a user-owned communications network — built entirely out of figures the
-project has already published.
+A short narrated capability film for **MUUDD**, the physical layer of a
+user-owned communications network: one ridgetop relay, designed so that nobody
+has to climb up to it, followed through power, radios, failure, software and
+repair, ending on ownership and the optional stack.
 
 ## Output
 
-- Composition directory: `lib/muudd/brag-output/composition/`
-- Rendered video: `lib/muudd/brag-output/brag.mp4`
-- Format: landscape — 1920x1080, 30fps
-- Duration: **45.6s**, set by the measured narration (see the voiceover carve-out
-  below), not by the default 15–25s law
+- Composition directory: `lib/muudd/doc/brag/composition/`
+- Rendered video: `lib/muudd/doc/brag/brag.mp4` (rendered later by `build.sh`)
+- Format: landscape, 1920x1080, 30fps
+- Duration: **49.5s**, set by the eight measured narration clips (voiceover
+  carve-out), not by the default 15-25s law
 
 ## Source Material
 
 - Project root: `/home/user/Software/continuous-space/lib/muudd`
-- Primary files read:
-  - `README.md`
-  - `doc/muudd.md`, `doc/hardware_design.md`, `doc/the-stack.md`
-  - `doc/rural-network.md` (appendix A — the worked county deployment; this is
-    where nearly every on-screen figure comes from)
-  - `doc/narrative-order.json`, `docs/network_simulation.md`
-  - `run-simulation.sh`, `baseline-results.json`
-  - `lib/autonomous_trust/examples/appalachia/scenario.py` (the surveyed node
-    coordinates the map is drawn from)
-  - `apps/agora/README.md`, `apps/stele/CODE_SHARING_PLAN.md` (read, and
-    deliberately not shown — see Scope)
+- Primary files read: `README.md`, `doc/narrative-order.json`, Part I
+  (`doc/muudd.md`, `doc/audience_profile.md`, `doc/hardware_design.md`,
+  `doc/device_model.md`, `doc/software_architecture.md`,
+  `doc/anonymous_communication.md`, `doc/verifiable_infrastructure.md`,
+  `doc/the-stack.md`) and appendix A `doc/rural-network.md`
 - Product name: **MUUDD** (Mesh-routed User-owned User-controlled Dynamic Domains)
-- Tagline / strongest claim: *"Hardware that moves bits without asking permission."*
-- Key visual moment to recreate: the Braxton County node map, built from the
-  project's own surveyed latitudes and longitudes, with the worked Sutton ↔
-  Burnsville link budget beside it.
+- Strongest claim: the design target is zero site visits a year
+  (`doc/hardware_design.md`)
+- Key visuals to recreate: the Tier 1 relay as its bill of materials describes
+  it; the radio ladder; a backbone where each ridgetop links to at least two
+  others; the unikernel image spec; the remote-diagnosis fields
+- Copy that must appear verbatim:
+  - `Target: zero.`
+  - `The physical layer neither knows nor cares which.`
+  - `who may cooperate?` / `what is a community?` /
+    `how do communities treat one another?`
+  - `Hardware that moves bits without asking permission.`
+  - every figure in the source table of `brag-plan.md`
 
-### Copy that must appear verbatim
+### Scope
 
-- `Payback never arrives.`
-- `Hardware that moves bits without asking permission.`
-- `The physical layer neither knows nor cares which are present.`
-- `who may cooperate?` / `what is a community?` /
-  `how do communities treat one another?`
-- Every numeric readout listed in the "Show the thing" table of `brag-plan.md`.
-
-### Scope — the one thing this video must not get wrong
-
-MUUDD proper is **only** the physical layer. AutonomousTrust, ethne and
-Kith-Covenant are three optional tiers above it, each answering a question the
-layer below it cannot, and none of them is required. The separability *is* the
-design claim. The three tiers appear exactly once, in scene 6, as dim outlined
-rows above a solid base — never as part of MUUDD, and never as features.
-
-Consequences for the composition:
-
-- Do **not** show `apps/agora` or `apps/stele`. Agora is an AutonomousTrust/ethne
-  client; Stele is an unbuilt design plan. No Flutter build was attempted.
-- Do **not** put `baseline-results.json` on screen. Those are AutonomousTrust
-  protocol measurements (identity convergence, reputation stability, negotiation
-  RTT, bandwidth overhead), not physical-layer ones.
+MUUDD proper is only the physical layer. AutonomousTrust, ethne and
+Kith-Covenant appear once, in scene 7, as dim outlined optional rows above a
+solid base, never as features of MUUDD. Nothing from `lib/autonomous_trust/` is
+shown or used; the schematic in scene 4 is authored and labeled *schematic*.
 
 ## Creative Direction
 
 - Tone preset: **cinematic**
-- Creative direction: *a surveyor's report, read at night.*
-- Interpretation: wide dark frames, monospace figures, long holds, no flourish.
-  Nothing celebrates and nothing sells; the cost comparison lands hard because the
-  numbers land hard. Restraint tightens further under narration — fewer captions,
-  more silence around the voice.
-- Angle: **priced to the connector.** The convincing thing about the physical layer
-  is not that it is principled but that the arithmetic is finished. The video is a
-  costing: a ridge map from the project's own surveyed coordinates and three
-  readouts a person could buy equipment from, turning at the end on the scoping
-  claim that all of it is the *whole* of MUUDD.
-- Hook: slug `BRAXTON COUNTY, WEST VIRGINIA · 516 SQ MI · 24 PEOPLE PER SQUARE
-  MILE`, then **Payback never arrives.** The voice says neither.
-- Outro / punchline: wordmark **MUUDD**, the expansion, and *Hardware that moves
-  bits without asking permission.*
-- Avoid:
-  - Generic SaaS language
-  - Abstract filler visuals
-  - Any figure not traceable to the project's own documents
-  - Any suggestion that the upper tiers are part of MUUDD
+- Creative direction: *one relay through one winter, with nobody coming.*
+- Interpretation: wide dark frames, monospace figures, fast-in then hold, no
+  flourish. The relay dying is routine: one dry hit, no sting, no red flash.
+- Angle: every physical-layer chapter answers the same constraint, a relay
+  nobody should have to visit. The video shows those answers on one site.
+- Hook: night ridge, one mast; slug, `SITE VISITS PER YEAR`, **Target: zero.**
+- Outro: wordmark, expansion, *Hardware that moves bits without asking
+  permission.* The voice says *Nobody bills for it. Nobody can switch it off from
+  a distance.*
+- Avoid: generic SaaS language; abstract filler; any figure not in the source
+  table; any suggestion the upper tiers are part of MUUDD; reading on-screen
+  text in the narration.
 
 ## Visual Identity
 
-MUUDD ships no UI and no stylesheet, so unlike the sibling AutonomousTrust cut
-there is no project palette to lift. The palette is authored from the subject — a
-ridge at night, a backbone link, a solar array — and stated here so it is
-reproducible.
-
-- Background `#0a0e0d` · surface `#111917` · elevated `#18211e` · border `#27332f`
-- Ridge silhouette `#1c2622` / `#141c19` (decorative; carries no reading)
-- Text `#e6ece9` · muted `#c6d2cd` · dim `#aebab5` — the latter two lifted for
-  WCAG AA at video type sizes
-- Backbone link / ridgetop relay / 5.8 GHz `#6fd2e0`
-- Valley relay `#8fc79a`
-- Solar / power `#f2ba5c`
-- Fiber column `#f08c7a`
-- Display font: generic sans stack. Body/figures: generic mono stack. No font ships
-  with the composition and a named family without an `@font-face` is a lint error.
-- Visual references from the project: the four node tiers of
-  `doc/hardware_design.md`; the surveyed coordinates and node ids of
-  `examples/appalachia/scenario.py`; the table layout of
-  `doc/rural-network.md` § Cost Comparison.
+Carried over from the 2026-09-18 cut (authored; MUUDD ships no stylesheet):
+background `#0a0e0d`, surface `#111917`, elevated `#18211e`, border `#27332f`;
+text `#e6ece9`, muted `#c6d2cd`, dim `#aebab5`; link/radio `#6fd2e0`, valley
+`#8fc79a`, solar `#f2ba5c`, fault `#f08c7a`. Generic sans and mono stacks (a
+named family without `@font-face` is a lint error).
 
 ## Storyboard
 
-Use the storyboard in `brag-output/brag-plan.md` as the creative contract.
+`brag-plan.md` is the creative contract. Summary:
 
-1. **Hook** — 6.0s — slug, then **Payback never arrives.**, then its attribution
-2. **The county assembles** — 7.45s — 8 ridgetop + 12 valley relays at real
-   coordinates, links drawing in, counters running
-2b. The readout column carries the four node tiers through scene 2, so it is
-   never an empty panel.
-3. **The link budget** — 7.2s — nine worked rows, ending on `LINK MARGIN 12.6 dB`
-   and `450+ Mbps aggregate`
-4. **The power budget** — 7.6s — seven solar-sizing rows, `≈2.8 DAYS AUTONOMY`,
-   `$4,920 PER NODE`
-5. **The ledger** — 5.45s — FIBER against MESH, five paired rows
-6. **The stack** — 6.6s — three dim optional tiers above one solid base, plus the
-   verbatim caption
-7. **Lockup** — 5.6s — wordmark, expansion, tagline
+1. **Hook**, 0-7.95: ridge, mast, `Target: zero.`
+2. **Power**, 7.95-13.88: site sheet; panels and battery lit; sun-arc inset;
+   sizing rows; 14% margin
+3. **Radios**, 13.88-19.26: antennas and beams; four bands; Part 97 exclusion
+4. **A relay dies**, 19.26-25.61: schematic; packet, death, quiet households,
+   reroute; what a node knows; a retransmission
+5. **The image**, 25.61-32.15: enclosure, restart ring, image spec, an evening
+6. **Remote diagnosis**, 32.15-36.75: LoRa telemetry to a household; 1 trip,
+   not 3
+7. **The stack**, 36.75-43.76: three optional tiers above MUUDD
+8. **Lockup**, 43.76-49.5
 
 ## Audio
 
-- Audio role: **narration-led** — a low bed under the voice, never a co-star.
-- Audio arc: bed enters very low under the hook, opens to 0.22 only in the gaps
-  between lines, ducks to 0.13 for the full span of every voice clip, and fades to
-  silence over the last 1.0s.
+- Role: narration-led.
 - Music: `assets/music/happy-beats-business-moves-vol-10-by-ende-dot-app-lowpass.mp3`
-  (ende.app, 109.96 BPM, 60s). Chosen so this cut does not repeat the
-  AutonomousTrust cut's "Beauty Flow" bed.
-- Music treatment: the track is bright and upbeat and ducking alone left it in the
-  speech band, so what plays is a **low-passed copy** (`ffmpeg -af
-  "lowpass=f=2600"`) with the unfiltered original kept beside it. Never above
-  **0.22**; ducked to 0.13 under every voice span; 1.0s fade to silence from
-  44.6s. `CREDITS.md` carries the command and the reasoning.
-- Music cue guidance: the bundled preset at
-  `assets/music/cues/…music-cues.json` covers only 0–25s, so the composition is
-  timed against `npx hyperframes beats` run on the wired project, which writes
-  217 beats for the whole track to
-  `beats/assets/music/happy-beats-business-moves-vol-10-by-ende-dot-app.mp3.json`.
-  It resolves the track on a 0.2725s half-beat grid (reported 220 BPM); the pulse
-  used here is every second point, 0.545s, which agrees with the preset to within
-  0.04s inside the preset's own window. Narration wins every conflict.
-- Audio-reactive treatment: **subtle** — bass energy breathes the relay halos and
-  the link stroke opacity on the map. No waveform, bars, or pulsing type.
-- Audio-coupled moments:
-  - Ridgetop arrivals (scene 2) — eight beat-grid entrances
-  - `LINK MARGIN 12.6 dB` (scene 3) — beat lock at 18.52s (strength 0.85)
-  - Power column swap (scene 4) — beat lock at 20.70s (strength 0.90)
-  - `≈2.8 DAYS AUTONOMY` (scene 4) — beat lock at 25.06s (strength 0.82)
-  - Tier rows (scene 6) — alternating beats 34.34 / 35.43 / 36.52 / 37.61
-  - Tagline (scene 7) — beat lock at 42.52s, the strongest beat in the track (1.00)
-- SFX selection guidance: sparse, warm, and **low high-frequency-risk only**, per
-  `skills/brag/assets/sfx/sfx-analysis.json`. Chosen: `ui/rollover2.ogg` (low) for
-  node arrivals, `interface/bong_001.ogg` (low) for the two locked figures and the
-  tier rows, `impact/impactSoft_medium_001.ogg` (low) for column swaps and the
-  lockup. `interface/drop_001.ogg` was considered and rejected — medium HF risk.
-- SFX analysis guidance:
-  `/home/user/.claude/plugins/cache/brag/brag/0.2.2/skills/brag/assets/sfx/sfx-analysis.md`
-- Audio files: already copied into `composition/assets/{music,sfx,voice}/`.
+  (reused). 0.09 under the hook, 0.22 in gaps, 0.13 under voice, fade to 0 over
+  48.5-49.5s. `data-duration` 49.5.
+- Cue source: `beats/assets/music/happy-beats-business-moves-vol-10-by-ende-dot-app.mp3.json`
+  (from `hyperframes beats`, reused). Locks marked `// beat-locked` in the
+  timeline: 7.88, 11.97, 13.88, 20.70, 23.97, 30.52, 35.15, tier rows 37.06 /
+  38.15 / 39.25 / 40.34, tagline 46.88.
+- Audio-reactive: subtle; `assets/audio-data.js` (reused, covers 60s) drives the
+  LED halos and the backhaul beam fill.
+- SFX (reused, all low HF risk): `impactSoft_medium_001` for swaps, the relay
+  dying and the lockup; `bong_001` for four locked figures and the tier rows;
+  `rollover2` for the reroute.
 
-## Voiceover (enabled — `/brag --voice`)
+## Voiceover
 
-Seven Kokoro clips, `am_michael` at speed 0.96, on their own ascending track
-indices at gain 1.0, already generated into `composition/assets/voice/`. Scene
-boundaries are derived from the **measured** WAV durations; nothing is guessed.
-Script and the transcribed "As synthesized" pass are in `brag-plan.md`.
-
-The 15–25s creative law is deliberately exceeded under the skill's own carve-out:
-*"Scene durations must flex to match the generated audio … Do not hardcode scene
-lengths when voiceover is present; let the voice set the pace."*
-
-The narration carries the argument; the frame carries the evidence. No line of
-narration reads a figure that is on screen at the same moment.
+Eight Kokoro clips, `am_michael` at speed 0.96, in `composition/assets/voice/`
+(`vo-1-hook` … `vo-8-lockup`), each on its own track at gain 1 and each wholly
+inside its scene window. Lines, durations and start times are in `brag-plan.md`.
 
 ## Hyperframes Instructions
 
-Load `hyperframes-core`, `hyperframes-animation`, `hyperframes-creative`,
-`hyperframes-keyframes`, `hyperframes-cli`. `/brag` owns this workflow — do not
-enter the `hyperframes` entry-point intent interview.
-
-Requirements:
-
-- One paused GSAP timeline registered at `window.__timelines["main"]`.
-- Three `.clip` sections only (hook, survey frame, lockup); every sub-scene inside
-  the survey frame is an opacity/position tween on a child, never a clip.
-- Everything spatial precomputed in JS — no tween measures the DOM.
-- Show real project material in at least one scene (scene 2 and 3 both do).
-- All text passes WCAG AA at video type sizes; `check` is the single gate and must
-  report **0 errors**.
-- Keep the composition deterministic: no clocks, no unseeded random, no `repeat: -1`.
-- Run `npx --yes hyperframes@0.8.47 check --timeout 30000` before render. The
-  default 10s navigation timeout is flaky when several renders share the box; the
-  failure is the headless browser starting slowly, not the composition.
+- One paused GSAP timeline at `window.__timelines["main"]`.
+- Four `.clip` sections (hook, site sheet, stack, lockup); everything inside the
+  site sheet is an opacity/transform tween on a child, never a clip.
+- Text swaps are stacked labels toggled with `tl.set` opacity at scene
+  boundaries, not `tl.call` text writes, so every seek lands on the right label.
+- Spatial values precomputed at setup; no tween measures the DOM.
+- Gate: `npm run check` (pins `hyperframes@0.8.47 check --timeout 30000`), zero
+  errors. Result on 2026-10-01: 0 errors, 89/89 text checks pass WCAG AA, 0
+  layout, motion or runtime findings; one accepted warning,
+  `composition_file_too_large`.

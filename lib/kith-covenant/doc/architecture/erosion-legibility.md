@@ -9,8 +9,9 @@ capture lens in `kith-covenant` and `ethne`.*
 
 The capture-resistance work (`capture_resistance.md`, the §10 harness) is built
 against an **adversary**, someone who wants something, coordinates to get it, and
-leaves traces because coordination is a kind of action. All seven capture moves are
-of that shape.
+leaves traces because coordination is a kind of action. Six of the seven capture moves
+are of that shape; the seventh, ceremony-cost tracking, watches rites decay with nobody
+acting (the harness's ceremony-hollowing scenario has no adversary).
 
 A different failure needs no adversary. Every party is sincere; the standard simply
 falls, together, for everyone at once. Rites are held a little later each cycle and

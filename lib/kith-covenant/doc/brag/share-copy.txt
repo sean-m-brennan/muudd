@@ -1,5 +1,5 @@
 Kith-Covenant.
-Two communities with different gods, different languages and different loyalties, cooperating with no authority standing above either — the problem the Hittites and Egyptians already had in 1259 BCE, worked out as a protocol with fifteen Rust crates behind it.
+A compact between communities can fail without anyone capturing it. Rites lapse, offices sit empty, and every detector that waits for an act reads clean. So the compact measures against references it cannot move, signs for its silences, and scores that failure in a harness whose criteria are written before the run.
 Cooperation without a sovereign.
 
 ---

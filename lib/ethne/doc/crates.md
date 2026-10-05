@@ -649,8 +649,14 @@ artifact and the only one an office produces, taking the derived `EnvoyState`
 rather than the archive.
 
 `member_roll` (D26) publishes the roll from `charter_state` under the root key
-of the polity as the `MemberRoll` of the compact tier, being border artifact six
-and the feed for the whistleblower ring one tier up.
+of the polity as the `MemberRoll` of the compact tier, being border artifact
+five and the feed for the whistleblower ring one tier up.
+
+`intra_rite` (D35) is border artifact six. It carries the five-movement ceremony
+of the polity as the records the intra rite of the compact takes: a `Reciter`
+delegation naming the polity's `Inductor`, a witness registry naming the members
+present for every movement, and the recitation, which crosses unsigned for the
+reciter and the witnesses to seal.
 
 `rendezvous_roster` (D36, module `rendezvous`) is border artifact seven and the
 one that crosses to the substrate rather than to the compact: the members holding
@@ -661,6 +667,16 @@ an area hub (D38), and the file then carries an `areas` object naming each hub's
 geohash areas under its own hint; with no hub the object is left out and the file is
 byte for byte the D36 one. It adds no compact-tier crate, only `serde_json`, `sha2` and
 `hex`.
+
+The module `compact` (D40) holds what the polity signs as a member of a compact
+once it is in one, being border artifact eight: `anti_spiral_claims`,
+`feature_acceptance` for a verdict on another participant's claims,
+`sponsorship`, `examiner_registry`, `anathema` and `lift`. Each returns its
+payload unsigned, because the key that signs it is on another device. Each
+except the examining roster checks the acts the roll has in force and refuses a
+record none covers, through `mandate` or, where a Join or an Admit act will do,
+through `CompactState::covers` directly. The examining roster is the root's to
+sign and needs no act.
 
 ## `en-store`
 
@@ -775,4 +791,4 @@ an unguarded machine as guarded and attended. The live couplings
 
 ---
 
-*Next: [Design decisions D1 to D35](design.md)*
+*Next: [Design decisions D1 to D40](design.md)*

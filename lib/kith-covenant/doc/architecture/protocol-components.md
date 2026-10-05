@@ -286,7 +286,7 @@ Two limits are worth stating plainly. First, "drawn by lot" is
 not enforced. A verifiable lot needs a randomness beacon the
 compact does not have, so terms, rotation, and composition are
 enforced while selection fairness remains social. Second,
-`compact_label` is a self-declared string, so a mislabelled
+`compact_label` is a self-declared string, so a mislabeled
 record reads as the formation of some other compact. It cannot
 forge the roll of this compact, and a consumer reading by label
 never sees it, which makes this accountability rather than

@@ -283,7 +283,7 @@ of a rule worth stating plainly, that a demo is not a test.
 
 ## Further reading
 
-- [Design decisions D1 to D35](design.md): D16 for observations and the
+- [Design decisions D1 to D40](design.md): D16 for observations and the
   time-based measures, D17 and D19 for pruning and the recommendation, D20 for the
   store and the host cycle, D28 for watchers rather than filings, and D31 for the
   omitted-readings report.

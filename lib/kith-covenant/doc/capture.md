@@ -113,11 +113,12 @@ because the term limit retired the seats before the interval elapsed.
 
 The rule that comes out of it generalizes past this compact. **Only absolute
 measures see sincere drift.** A measure that fires on an act cannot see the
-absence of acts. The alert now carries fourteen dimensions, and only four of
+absence of acts. The alert now carries sixteen dimensions, and only four of
 them fire on an act. Seven fire on omission or against a pinned baseline,
-including silent and unstaffed standing functions, and three fire on
+including silent and unstaffed standing functions, three fire on
 intensification, being a compact that enforces harder and narrower than it
-recites.
+recites, and two read the recited object itself, measuring how much of what
+the compact undertook its conduct still covers.
 
 Two record types close the specific holes. An *attested null* is the signed
 account by a community of one window in a standing function it holds, whose

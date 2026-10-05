@@ -16,7 +16,8 @@
 
 This generalizes the hand-authored refusal cases (the per-crate authority tests,
 the ``*_demo.py`` scripts that build archives the protocol must reject) into a
-time-evolving simulator that runs the **seven capture-resistance scenarios** and
+time-evolving simulator that runs the **eight capture-resistance scenarios** (the
+seven strengthening moves, with admissions tested twice) and
 scores each against **falsification criteria stated in advance** (the module
 constants below): a supported scenario *fails* if the capture is not detected
 within ``MAX_DETECTION_LATENCY_STEPS`` of the step its signal appears, or if
@@ -1828,7 +1829,7 @@ def _scenario_narrowed_object(p: HarnessParams) -> ScenarioResult:
 
 # --- Unsupported scenarios (detector deferred past this MVP) -----------------
 #
-# All seven capture-resistance scenarios now have a built detector; none remain
+# All eight capture-resistance scenarios now have a built detector; none remain
 # deferred. The list is kept (empty) so the harness structure still distinguishes
 # supported from unsupported should a future scenario be added.
 
@@ -1865,8 +1866,9 @@ SCENARIOS: tuple[Callable[[HarnessParams], ScenarioResult], ...] = (
 
 
 def run_harness(params: Optional[HarnessParams] = None) -> HarnessReport:
-    """Run the seven capture-resistance scenarios plus the six that have no
-    adversary, and score the supported ones against the falsification criteria.
+    """Run the eight capture-resistance scenarios plus the six that have no
+    adversary (fourteen in all), and score the supported ones against the
+    falsification criteria.
     Returns a `HarnessReport`. Each scenario builds a fresh, time-evolving archive
     through the public API.
 

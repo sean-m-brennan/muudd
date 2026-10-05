@@ -164,7 +164,7 @@ summarizing it after.
 
 ## Further reading
 
-- [Design decisions D1 to D35](design.md): D29 for the movements and D34 for
+- [Design decisions D1 to D40](design.md): D29 for the movements and D34 for
   extending the rite to renewal, including what measuring the change found.
 - [Two layers of recognition](../../kith-covenant/doc/recognition.md): the
   doctrine these five movements come from, and why the binding work happens

@@ -425,7 +425,7 @@ internet gateways.
 | Enclosure | NEMA 4X weatherproof box, 24"×20"×10" | \$150 |
 | Mast/tower | 40 ft guyed steel mast or self-supporting pole | \$800 |
 | Solar panel | 400 W monocrystalline (×2 panels) | \$500 |
-| Battery bank | 200 Ah LiFePO4 (12V or 24V system) | \$800 |
+| Battery bank | 200 Ah LiFePO4, 24V system | \$800 |
 | Charge controller | Victron SmartSolar MPPT 100/30 | \$180 |
 | PoE injectors | Passive/802.3af PoE for radio power | \$60 |
 | Lightning protection | PolyPhaser or Transtector surge suppressors (×4) | \$200 |
@@ -454,11 +454,12 @@ requirement, adequate for cloudy-day buffering.
 
 Battery sizing (3 days autonomy for extended cloud cover / ice storms):
 
-    Battery capacity = 1,680 × 3 / 12V = 420 Ah at 12V
+    Battery capacity = 1,680 × 3 / (12V × 0.80) = 525 Ah at 12V (80% DoD)
 
 A 200 Ah LiFePO4 battery at 24V (= 400 Ah equivalent at 12V) provides
-approximately 2.8 days of autonomy with 80% depth of discharge, acceptable with
-the conservative panel sizing providing daily recharge margin.
+approximately 2.3 days of autonomy with 80% depth of discharge (2.8 days at
+100%), short of the 3-day target but acceptable with the conservative panel
+sizing providing daily recharge margin.
 
 ### Tier 2: Valley relay node
 
@@ -485,8 +486,11 @@ surrounding households.
 | **Total per node** | | **\$1,540-\$2,640** |
 
 Valley relay power budget is approximately 35 W continuous (840 Wh/day). A
-single 200 W panel at 3.0 peak sun hours yields 480 Wh (with losses),
-supplementing the 100 Ah battery for approximately 1.7 days autonomy. Grid power
+single 200 W panel at 3.0 peak sun hours yields 480 Wh (with losses), 360 Wh
+short of the daily load, so the budget does not close on solar in December. The
+100 Ah battery (1,200 Wh at 12V) alone carries the load for approximately 1.1
+days at 80% depth of discharge (1.4 days at 100%). Closing the December budget
+on solar takes about 350 W of panel and a larger charge controller. Grid power
 (if available at the relay site) can replace or supplement solar.
 
 ### Tier 3: Household endpoint
@@ -880,15 +884,17 @@ adds no protocol overhead worth counting.
 
 ### Trust-based network admission
 
-AutonomousTrust's identity and reputation protocol does one thing for the mesh
-that nothing else in the stack does. It **keeps a rogue node from joining the
-network or intercepting traffic**.
+AutonomousTrust is optional, and a mesh without it routes on link quality
+alone, which works fine among honest neighbors. Where it is installed, its
+identity and reputation protocol does one thing for the mesh that nothing else
+in the stack does. It **keeps a rogue node from joining the network or
+intercepting traffic**.
 
 When a new node joins the network:
-1. The node generates a cryptographic identity (public/private key pair) through AutonomousTrust
-2. An existing trusted node (community maintainer) vouches for the new node through the trust protocol
-3. The new node receives a signed certificate that the network recognizes
-4. Mesh routing protocols only forward traffic through nodes with valid trust credentials
+1. The node generates its own cryptographic identity (public/private key pair) through AutonomousTrust
+2. The node announces itself, and the existing members of the group vote on admitting it; a majority admits it
+3. No certificate is issued; the new node starts at zero standing and earns reach through observed conduct
+4. Mesh routing weighs each neighbor's standing alongside link quality, so traffic favors nodes with a record of good behavior
 5. Misbehaving nodes (e.g., traffic manipulation, excessive resource consumption) accumulate negative reputation scores and can be automatically isolated
 
 No centralized authentication server is needed anywhere in that, because trust
@@ -897,11 +903,11 @@ already has.
 
 ### Encrypted communications
 
-All MUUDD traffic is end-to-end encrypted via AutonomousTrust's channel
-protocol. This means:
+Where AutonomousTrust is installed, MUUDD traffic is end-to-end encrypted via
+its channel protocol. This means:
 - **Relay nodes cannot read traffic** they forward (only encrypted ciphertext transits intermediate hops)
 - **Network operators cannot surveil users** (a core property for community trust)
-- **Part 97 amateur spectrum cannot be used** (encryption prohibition), reinforcing the design choice to use Part 15 unlicensed spectrum
+- **Part 97 amateur spectrum cannot be used** (encryption prohibition), reinforcing the design choice to use Part 15 unlicensed spectrum and Part 96 CBRS general authorized access
 
 ### Resilience and partition tolerance
 

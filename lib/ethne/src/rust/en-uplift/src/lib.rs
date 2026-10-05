@@ -51,6 +51,11 @@
 //!    AT's own signed `at-relay-roster` file (design **D36**). The one artifact that
 //!    crosses to the trust substrate rather than to KC, and in the substrate's
 //!    format rather than KC's; see [`rendezvous`].
+//! 8. **Compact records** — once the polity is in a compact, what its envoy and root
+//!    sign there as a member: the anti-spiral claims, a verdict on another
+//!    participant's claims, a sponsorship, the examining roster, an anathema and its
+//!    lift (design **D40**). Each builder refuses to draft a record no act of the roll
+//!    in force covers; see [`compact`].
 //!
 //! # Why this crate exists (the confined coupling)
 //!
@@ -1340,7 +1345,7 @@ mod tests {
         assert!(matches!(err, KcError::InvalidDid(_)), "got {err:?}");
     }
 
-    // --- border artifact #6: the member roll ---------------------------------
+    // --- border artifact #5: the member roll ---------------------------------
 
     fn members(n: usize) -> Vec<DidKey> {
         (0..n)

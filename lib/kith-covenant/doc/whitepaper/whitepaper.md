@@ -750,7 +750,7 @@ of the five movements, with full sample language for a range of
 traditions, edge cases, and the *open/closed-materialism* distinction
 for atheists, is [`background/recognition_protocols.md` "the
 kith-covenant recognition
-statement"](../background/recognition_protocols.md#kith-covenants-recognition-statement);
+statement"](../background/recognition_protocols.md#the-kith-covenant-recognition-statement);
 the list above restates it without modification.
 
 **Inter-community layer. Thin grammar and credentialing.** What

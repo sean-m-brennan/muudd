@@ -51,49 +51,50 @@ order.json).
 9. [Trust as a live value](lib/autonomous_trust/doc/concept.md)
 10. [How a node is built](lib/autonomous_trust/doc/architecture/overview.md)
 11. [Becoming a peer](lib/autonomous_trust/doc/architecture/identity-protocol.md)
-12. [Getting work done](lib/autonomous_trust/doc/architecture/negotiation.md)
-13. [Earning standing](lib/autonomous_trust/doc/architecture/reputation.md)
-14. [Standing turned into capability](lib/autonomous_trust/doc/architecture/trust-tiers.md)
-15. [The human behind the machine](lib/autonomous_trust/doc/architecture/operator-attended.md)
-16. [A worked scenario](lib/autonomous_trust/doc/example-application.md)
+12. [First contact](lib/autonomous_trust/doc/architecture/first-contact.md)
+13. [Getting work done](lib/autonomous_trust/doc/architecture/negotiation.md)
+14. [Earning standing](lib/autonomous_trust/doc/architecture/reputation.md)
+15. [Standing turned into capability](lib/autonomous_trust/doc/architecture/trust-tiers.md)
+16. [The human behind the machine](lib/autonomous_trust/doc/architecture/operator-attended.md)
+17. [A worked scenario](lib/autonomous_trust/doc/example-application.md)
 
 ### Part III: Ethne, what a community is
 
-17. [From cooperation to community](lib/ethne/doc/concept.md)
-18. [Founding a polity](lib/ethne/doc/charter.md)
-19. [Which human answers for which machine](lib/ethne/doc/guardianship.md)
-20. [The rite](lib/ethne/doc/transmission.md)
-21. [Watching for erosion](lib/ethne/doc/cohesion.md)
-22. [Crossing to the compact](lib/ethne/doc/uplift.md)
+18. [From cooperation to community](lib/ethne/doc/concept.md)
+19. [Founding a polity](lib/ethne/doc/charter.md)
+20. [Which human answers for which machine](lib/ethne/doc/guardianship.md)
+21. [The rite](lib/ethne/doc/transmission.md)
+22. [Watching for erosion](lib/ethne/doc/cohesion.md)
+23. [Crossing to the compact](lib/ethne/doc/uplift.md)
 
 ### Part IV: Kith-Covenant, how communities treat one another
 
-23. [Cooperation without a sovereign](lib/kith-covenant/doc/concept.md)
-24. [The ground each community stands on](lib/kith-covenant/doc/substrate.md)
-25. [Two layers of recognition](lib/kith-covenant/doc/recognition.md)
-26. [Four categories of standing](lib/kith-covenant/doc/standing.md)
-27. [When communities disagree](lib/kith-covenant/doc/disputes.md)
-28. [The five commons](lib/kith-covenant/doc/commons.md)
-29. [Protected dissent](lib/kith-covenant/doc/jester.md)
-30. [Machines as delegates](lib/kith-covenant/doc/machines.md)
-31. [Capture resistance](lib/kith-covenant/doc/capture.md)
-32. [What only humans can do](lib/kith-covenant/doc/limits.md)
+24. [Cooperation without a sovereign](lib/kith-covenant/doc/concept.md)
+25. [The ground each community stands on](lib/kith-covenant/doc/substrate.md)
+26. [Two layers of recognition](lib/kith-covenant/doc/recognition.md)
+27. [Four categories of standing](lib/kith-covenant/doc/standing.md)
+28. [When communities disagree](lib/kith-covenant/doc/disputes.md)
+29. [The five commons](lib/kith-covenant/doc/commons.md)
+30. [Protected dissent](lib/kith-covenant/doc/jester.md)
+31. [Machines as delegates](lib/kith-covenant/doc/machines.md)
+32. [Capture resistance](lib/kith-covenant/doc/capture.md)
+33. [What only humans can do](lib/kith-covenant/doc/limits.md)
 
 ### Appendices
 
-The reference corpus, chained after chapter 32 and linked from the chapters that
+The reference corpus, chained after chapter 33 and linked from the chapters that
 draw on it.
 
 - **A**: [MUUDD reference](doc/rural-network.md). A rural deployment worked in
   full, gateway uplinks, the simulation framework, and the case for
   decentralization.
 - **B**: [AutonomousTrust reference](lib/autonomous_trust/doc/architecture/process-architecture.md).
-  Process architecture through to the whitepapers, thirty documents.
+  Process architecture through to the whitepapers, thirty-seven documents.
 - **C**: [Ethne reference](lib/ethne/doc/crates.md). The crates, the design
-  decisions D1 to D34, and the toolchain.
+  decisions D1 to D40, and the toolchain.
 - **D**: [Kith-Covenant reference](lib/kith-covenant/doc/background/justus_hostis.md).
-  Twenty-two background studies, seven architecture documents, and the
-  whitepaper.
+  Twenty-two background studies, the crates, nine architecture documents,
+  and the whitepaper.
 
 ## Repository layout
 

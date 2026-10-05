@@ -67,7 +67,7 @@ To run the pieces individually:
 
 ```bash
 # Rust core
-cargo test --workspace --exclude kc-pyo3     # 379 unit and property tests
+cargo test --workspace --exclude kc-pyo3     # 753 unit and property tests
 cargo run -p two_communities_demo            # end-to-end ceremony with audit trail
 
 # Python bindings (conda env active)

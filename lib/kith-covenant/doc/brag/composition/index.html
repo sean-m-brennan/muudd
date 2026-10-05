@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1920, height=1080" />
-    <title>Kith-Covenant — Brag (narrated)</title>
+    <title>Kith-Covenant — The Quiet Polity</title>
     <script src="assets/vendor/gsap.min.js"></script>
     <style>
       /* Design tokens lifted from the project's own capture-signal dashboard,
          dark theme:  src/python/dashboard/static/index.html
-         Three colours are lifted from the shipped values because they fail WCAG
-         AA at video type sizes over --surface; the ordering ink > ink-2 > muted
-         and the hue of each is preserved. */
+         Three colours are lifted from the shipped values because they fail or
+         barely pass WCAG AA at video type sizes over --surface; the ordering
+         ink > ink-2 > muted and the hue of each is preserved. */
       :root {
         --plane: #0d0d0d;
         --surface: #1a1a19;
@@ -26,6 +26,7 @@
         /* text-weight variant of --series-1 (#3987e5 is 4.78:1 — too close to the line) */
         --series-1-text: #5a9df0;
         --good: #0ca30c;
+        --good-text: #3fc23f;
         --warning: #fab219;
         /* dashboard ships --critical #d03b3b (3.62:1 — fails AA) */
         --critical: #e8736b;
@@ -62,12 +63,32 @@
         inset: 0;
       }
 
+      .scene {
+        padding: 0 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
       .eyebrow {
         font-family: var(--mono);
         font-size: 20px;
         letter-spacing: 0.30em;
         text-transform: uppercase;
         color: var(--muted);
+      }
+
+      .head {
+        display: flex;
+        align-items: baseline;
+        gap: 32px;
+        margin-bottom: 60px;
+      }
+
+      .title {
+        font-size: 60px;
+        font-weight: 660;
+        letter-spacing: -0.01em;
       }
 
       .cite {
@@ -80,13 +101,41 @@
         color: var(--muted);
       }
 
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 34px 40px 38px;
+      }
+
+      .panel-path {
+        font-family: var(--mono);
+        font-size: 20px;
+        color: var(--muted);
+        padding-bottom: 16px;
+        margin-bottom: 22px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 30px;
+        line-height: 1.9;
+        color: var(--ink-2);
+      }
+
+      .kv .v {
+        color: var(--ink);
+      }
+
       /* ---- Scene 1: hook ------------------------------------------------ */
       #hook {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 46px;
       }
 
       #hook-slug {
@@ -95,551 +144,388 @@
         letter-spacing: 0.34em;
         text-transform: uppercase;
         color: var(--ink-2);
+        margin-bottom: 40px;
       }
 
       #hook-line {
-        font-size: 104px;
+        font-size: 112px;
         font-weight: 700;
         letter-spacing: -0.02em;
         color: var(--ink);
+        margin-bottom: 110px;
       }
 
-      #hook-rule {
-        width: 360px;
+      #tl {
+        position: relative;
+        width: 1400px;
+        height: 150px;
+      }
+
+      #tl-track {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 40px;
         height: 2px;
         background: var(--axis);
+        transform-origin: left center;
       }
 
-      /* ---- Scene 2: the inversion --------------------------------------- */
-      #inv {
-        padding: 0 120px;
+      .tl-mark {
+        position: absolute;
+        top: 0;
+        width: 320px;
+        margin-left: -160px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        align-items: center;
       }
 
-      #inv-head {
-        display: flex;
-        align-items: baseline;
-        gap: 32px;
-        margin-bottom: 64px;
+      .tl-dot {
+        width: 26px;
+        height: 26px;
+        margin-top: 28px;
+        border-radius: 50%;
+        background: var(--series-1);
       }
 
-      #inv-title {
-        font-size: 62px;
-        font-weight: 660;
-        letter-spacing: -0.01em;
+      .tl-ring {
+        width: 26px;
+        height: 26px;
+        margin-top: 28px;
+        border-radius: 50%;
+        border: 2px dashed var(--muted);
+        background: var(--plane);
       }
 
-      .inv-colhead {
-        display: grid;
-        grid-template-columns: 1fr 96px 1.2fr;
-        gap: 0 32px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .inv-colhead span {
+      .tl-label {
+        margin-top: 22px;
         font-family: var(--mono);
         font-size: 22px;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-
-      .inv-row {
-        display: grid;
-        grid-template-columns: 1fr 96px 1.2fr;
-        gap: 0 32px;
-        align-items: center;
-        padding: 34px 0;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .inv-a {
-        font-size: 35px;
         color: var(--ink-2);
-      }
-
-      .inv-arrow {
-        font-family: var(--mono);
-        font-size: 34px;
-        color: var(--series-1-text);
         text-align: center;
       }
 
-      .inv-b {
-        font-size: 35px;
-        color: var(--ink);
-        font-weight: 560;
-      }
-
-      /* ---- Scene 3: what each community anchors to ----------------------- */
-      #anch {
-        padding: 0 120px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-
-      #anch-head {
-        display: flex;
-        align-items: baseline;
-        gap: 32px;
-        margin-bottom: 66px;
-      }
-
-      #anch-chip {
-        font-family: var(--mono);
-        font-size: 21px;
-        letter-spacing: 0.14em;
-        color: var(--plane);
-        background: var(--warning);
-        border-radius: 6px;
-        padding: 6px 14px;
-        font-weight: 700;
-      }
-
-      #anch-title {
-        font-size: 60px;
-        font-weight: 660;
-        letter-spacing: -0.01em;
-      }
-
-      #anch-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 32px;
-      }
-
-      .anch-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 38px 30px 42px;
-        min-height: 330px;
-      }
-
-      .anch-who {
-        font-family: var(--mono);
-        font-size: 18px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+      .tl-label.dim {
         color: var(--muted);
-        margin-bottom: 34px;
       }
 
-      .anch-name {
-        font-size: 46px;
-        font-weight: 660;
-        letter-spacing: -0.01em;
-        color: var(--ink);
-        line-height: 1.12;
-      }
-
-      #anch-note {
-        margin-top: 52px;
-        display: flex;
-        align-items: baseline;
-        gap: 22px;
-      }
-
-      #anch-note-num {
+      #tl-end {
+        position: absolute;
+        right: 0;
+        top: 24px;
+        width: 340px;
+        margin-right: -360px;
         font-family: var(--mono);
-        font-size: 46px;
-        font-weight: 700;
-        color: var(--series-1-text);
+        font-size: 22px;
+        color: var(--muted);
       }
 
-      #anch-note-txt {
-        font-size: 32px;
-        color: var(--ink-2);
-        max-width: 1180px;
-      }
-
-      /* ---- Scene 4: the filter, as code ---------------------------------- */
-      #filt {
-        padding: 0 120px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-
-      #filt-head {
-        display: flex;
-        align-items: baseline;
-        gap: 32px;
-        margin-bottom: 58px;
-      }
-
-      #filt-title {
-        font-size: 60px;
-        font-weight: 660;
-        letter-spacing: -0.01em;
-      }
-
-      #filt-body {
+      /* ---- Scene 2: the polity that stopped ----------------------------- */
+      #stop-body {
         display: grid;
-        grid-template-columns: 840px 1fr;
-        gap: 56px;
+        grid-template-columns: 1fr 820px;
+        gap: 72px;
         align-items: center;
       }
 
-      #code-panel {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 34px 38px 38px;
+      .stop-row {
+        display: flex;
+        align-items: baseline;
+        gap: 24px;
+        padding: 26px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 40px;
+        color: var(--ink);
       }
 
-      #code-path {
+      .stop-row .n {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--muted);
+        width: 34px;
+        flex: none;
+      }
+
+      #stop-sev {
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+      }
+
+      #stop-sev .v {
+        color: var(--series-1-text);
+        font-weight: 700;
+      }
+
+      /* ---- Scene 3: a reference that cannot move ------------------------ */
+      #pin-body {
+        display: grid;
+        grid-template-columns: 760px 1fr;
+        gap: 72px;
+        align-items: center;
+      }
+
+      #pin-chart-label {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--muted);
+        margin-bottom: 22px;
+      }
+
+      #pin-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 34px;
+        height: 330px;
+        border-bottom: 2px solid var(--axis);
+        padding: 0 10px;
+      }
+
+      .pin-bar {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        height: 100%;
+      }
+
+      .pin-bar .val {
+        font-family: var(--mono);
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 12px;
+      }
+
+      .pin-bar .bar {
+        width: 100%;
+        background: var(--series-1);
+        border-radius: 6px 6px 0 0;
+      }
+
+      .pin-bar.first .bar {
+        background: var(--warning);
+      }
+
+      #pin-xlab {
+        display: flex;
+        gap: 34px;
+        padding: 14px 10px 0;
+      }
+
+      #pin-xlab span {
+        flex: 1;
+        text-align: center;
         font-family: var(--mono);
         font-size: 20px;
         color: var(--muted);
-        padding-bottom: 16px;
-        margin-bottom: 20px;
+      }
+
+      .pin-read {
+        padding: 30px 0;
         border-bottom: 1px solid var(--border);
+      }
+
+      .pin-read .q {
+        font-size: 32px;
+        color: var(--ink-2);
+        margin-bottom: 14px;
+      }
+
+      .pin-read .code {
+        font-family: var(--mono);
+        font-size: 30px;
+        color: var(--ink);
+      }
+
+      .pin-read .ans {
+        font-weight: 700;
+      }
+
+      .ans.false {
+        color: var(--muted);
+      }
+
+      .ans.true {
+        color: var(--warning);
+      }
+
+      /* ---- Scene 4: the signed null ------------------------------------- */
+      #null-body {
+        display: grid;
+        grid-template-columns: 500px 1fr;
+        gap: 48px;
+        align-items: center;
+      }
+
+      #null-office .big {
+        font-family: var(--mono);
+        font-size: 64px;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1.25;
+      }
+
+      #null-office .lbl {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--muted);
+        margin-bottom: 20px;
+      }
+
+      #null-office .sub {
+        font-size: 28px;
+        color: var(--ink-2);
+        margin-top: 22px;
+        line-height: 1.35;
       }
 
       .code-line {
         font-family: var(--mono);
-        font-size: 29px;
-        line-height: 1.72;
+        font-size: 28px;
+        line-height: 1.7;
         color: var(--ink-2);
         white-space: pre;
+        border-radius: 6px;
+        padding: 0 10px;
       }
 
-      .code-line.variant {
+      .code-line.kw {
         color: var(--series-1-text);
       }
 
-      .gloss-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 24px;
-        padding: 24px 0;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .gloss-n {
-        font-family: var(--mono);
-        font-size: 23px;
+      .code-line.cm {
         color: var(--muted);
-        width: 34px;
-        flex: none;
-        padding-top: 7px;
+        font-size: 24px;
+        white-space: normal;
+        padding-left: 66px;
+        line-height: 1.45;
+        margin: 4px 0 8px;
       }
 
-      .gloss-t {
-        font-size: 32px;
+      #null-acts-hl {
+        position: absolute;
+        inset: 0;
+        border-radius: 6px;
+        background: rgba(250, 178, 25, 0.14);
+        border-left: 4px solid var(--warning);
+      }
+
+      #null-acts {
+        position: relative;
         color: var(--ink);
-        line-height: 1.32;
       }
 
-      /* ---- Scene 5: the ceremony ---------------------------------------- */
-      #cer {
-        padding: 0 120px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+      #null-acts span {
+        position: relative;
       }
 
-      #cer-head {
-        display: flex;
-        align-items: baseline;
-        gap: 32px;
-        margin-bottom: 56px;
-      }
-
-      #cer-title {
-        font-size: 60px;
-        font-weight: 660;
-        letter-spacing: -0.01em;
-      }
-
-      #cer-grid {
+      /* ---- Scene 5: what the alert reads now ---------------------------- */
+      #wide-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 52px;
+        grid-template-columns: 1fr 1.25fr 1.05fr 1.05fr;
+        gap: 28px;
       }
 
-      .cer-card {
+      .wcol {
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 14px;
-        padding: 38px 42px 44px;
+        padding: 26px 26px 30px;
+        min-height: 560px;
       }
 
-      .cer-name {
-        font-size: 48px;
-        font-weight: 680;
-        letter-spacing: 0.01em;
-        margin-bottom: 6px;
-      }
-
-      .cer-layer {
+      .wcol h3 {
         font-family: var(--mono);
-        font-size: 21px;
-        letter-spacing: 0.08em;
+        font-size: 19px;
+        font-weight: 400;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--muted);
-        margin-bottom: 24px;
+        line-height: 1.45;
+        margin-bottom: 22px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
       }
 
-      .cer-kv {
+      .wf {
+        position: relative;
+        font-family: var(--mono);
+        font-size: 23px;
+        line-height: 1.95;
+        color: var(--ink-2);
+        padding: 0 8px;
+        border-radius: 6px;
+      }
+
+      .wf .hl {
+        position: absolute;
+        inset: 0;
+        border-radius: 6px;
+        background: rgba(250, 178, 25, 0.16);
+        border-left: 4px solid var(--warning);
+      }
+
+      .wf span.t {
+        position: relative;
+      }
+
+      /* ---- Scene 6: the harness ----------------------------------------- */
+      #harn-panel {
+        padding: 32px 40px 36px;
+      }
+
+      #harn-cmd {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--muted);
+        margin-bottom: 18px;
+      }
+
+      #harn-sum {
+        font-family: var(--mono);
+        font-size: 30px;
+        color: var(--ink);
+        padding-bottom: 22px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .hrow {
         display: grid;
-        grid-template-columns: 196px 1fr;
-        gap: 12px 22px;
+        grid-template-columns: 130px 1fr 110px 380px;
+        gap: 0 24px;
+        align-items: baseline;
+        padding: 15px 0;
+        border-bottom: 1px solid var(--grid);
         font-family: var(--mono);
         font-size: 27px;
       }
 
-      .cer-k {
+      .hrow .mv {
         color: var(--muted);
       }
 
-      .cer-v {
-        color: var(--ink-2);
+      .hrow .nm {
+        color: var(--ink);
       }
 
-      #cer-bridge {
-        margin-top: 50px;
-        background: var(--surface-2);
-        border: 1px solid var(--series-1);
-        border-radius: 14px;
-        padding: 32px 42px;
-        display: flex;
-        align-items: center;
-        gap: 34px;
-      }
-
-      #cer-bridge-tag {
-        font-family: var(--mono);
-        font-size: 22px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--series-1-text);
+      .hrow .ok {
+        color: var(--good-text);
         font-weight: 700;
       }
 
-      #cer-bridge-body {
-        font-family: var(--mono);
-        font-size: 28px;
+      .hrow .mt {
         color: var(--ink-2);
       }
 
-      #cer-tally {
-        margin-top: 44px;
-        display: flex;
-        align-items: baseline;
-        gap: 34px;
-        flex-wrap: wrap;
-      }
-
-      .tally-item {
+      #harn-foot {
+        margin-top: 22px;
         font-family: var(--mono);
         font-size: 24px;
-        color: var(--muted);
-      }
-
-      .tally-item b {
-        color: var(--ink);
-        font-weight: 700;
-      }
-
-      #cer-verify {
-        font-family: var(--mono);
-        font-size: 26px;
-        color: var(--good);
-        font-weight: 700;
-      }
-
-      /* ---- Scene 6: the lenses (the project's own dashboard) ------------- */
-      #lens {
-        padding: 0;
-      }
-
-      #lens-top {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        height: 104px;
-        display: flex;
-        align-items: center;
-        gap: 26px;
-        padding: 0 72px;
-        border-bottom: 1px solid var(--border);
-        background: var(--plane);
-      }
-
-      #lens-brand {
-        font-size: 34px;
-        font-weight: 700;
-        letter-spacing: -0.01em;
-      }
-
-      #lens-sub {
-        font-size: 23px;
         color: var(--ink-2);
-      }
-
-      #lens-badge {
-        margin-left: auto;
-        font-family: var(--mono);
-        font-size: 22px;
-        color: var(--good);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 8px 22px;
-        font-weight: 700;
-      }
-
-      #lens-note {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 104px;
-        padding: 16px 72px;
-        font-size: 22px;
-        color: var(--ink-2);
-        background: var(--surface);
-        border-bottom: 1px solid var(--border);
-      }
-
-      #lens-grid {
-        position: absolute;
-        left: 72px;
-        right: 72px;
-        top: 200px;
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: 1fr 1fr;
-        gap: 26px;
-        height: 800px;
-      }
-
-      .lcard {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 22px 26px 24px;
-        overflow: hidden;
-      }
-
-      .lcard h2 {
-        font-size: 25px;
-        font-weight: 620;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-
-      .ltag {
-        font-size: 17px;
-        font-weight: 700;
-        color: var(--series-1-text);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        padding: 3px 12px;
-        letter-spacing: 0.02em;
-      }
-
-      .ldesc {
-        font-size: 19px;
-        color: var(--muted);
-        margin: 4px 0 18px;
-      }
-
-      .lstat {
-        display: flex;
-        align-items: baseline;
-        gap: 14px;
-      }
-
-      .lstat .num {
-        font-size: 66px;
-        font-weight: 700;
-        line-height: 1;
-        letter-spacing: -0.02em;
-        color: var(--critical);
-      }
-
-      .lstat .status {
-        font-size: 21px;
-        font-weight: 700;
-        color: var(--critical);
-      }
-
-      .lkv {
-        margin-top: 16px;
-        font-size: 20px;
-        color: var(--ink-2);
-      }
-
-      .lkv div {
-        display: flex;
-        justify-content: space-between;
-        padding: 6px 0;
-        border-top: 1px solid var(--border);
-      }
-
-      .lkv .k {
-        color: var(--muted);
-      }
-
-      .lbars {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-
-      .lbar-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 6px 12px;
-        align-items: center;
-      }
-
-      .lbar-label {
-        font-size: 20px;
-        color: var(--ink-2);
-        white-space: nowrap;
-      }
-
-      .lbar-val {
-        font-size: 20px;
-        color: var(--ink-2);
-      }
-
-      .lbar-track {
-        grid-column: 1 / -1;
-        height: 12px;
-        background: var(--grid);
-        border-radius: 5px;
-        overflow: hidden;
-      }
-
-      .lbar-fill {
-        height: 100%;
-        background: var(--series-1);
-        border-radius: 5px;
-      }
-
-      .lflags {
-        margin-top: 14px;
-        font-size: 19px;
-        color: var(--critical);
-        font-weight: 620;
-      }
-
-      .lstanding {
-        font-size: 60px;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: var(--critical);
-        line-height: 1;
       }
 
       /* ---- Scene 7: lockup ---------------------------------------------- */
@@ -682,283 +568,179 @@
     </style>
   </head>
   <body>
-    <!-- Narrated cut. Total length is set by the seven measured Kokoro clips
-         (46.46s of speech plus ~0.6s of air between lines), not by the default
+    <!-- Narrated cut, 50.0s. Total length is set by seven measured Kokoro clips
+         (44.20s of speech, ~0.55s of air between lines), not by the default
          15-25s law — see composition-brief.md for the voiceover carve-out. -->
     <div
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="52"
+      data-duration="50"
       data-width="1920"
       data-height="1080"
     >
-      <!-- Scene 1 — Hook ------------------------------------------------- -->
-      <section id="hook" class="clip" data-start="0" data-duration="7.3" data-track-index="0">
-        <div id="hook-slug">Parity treaty · Hittite and Egyptian · 1259 BCE</div>
-        <div id="hook-rule"></div>
-        <h1 id="hook-line">The oldest problem in governance.</h1>
+      <!-- Scene 1 — Hook: the quiet polity -------------------------------- -->
+      <section id="hook" class="clip" data-start="0" data-duration="7.0" data-track-index="0">
+        <div id="hook-slug">Harness scenario · the quiet polity</div>
+        <h1 id="hook-line">No adversary.</h1>
+        <div id="tl">
+          <div id="tl-track"></div>
+          <div class="tl-mark" id="tl-m1" style="left: 0px">
+            <div class="tl-dot"></div>
+            <div class="tl-label">one rite sealed</div>
+          </div>
+          <div class="tl-mark" id="tl-m2" style="left: 560px">
+            <div class="tl-ring"></div>
+            <div class="tl-label dim">re-affirmation due</div>
+          </div>
+          <div class="tl-mark" id="tl-m3" style="left: 1120px">
+            <div class="tl-ring"></div>
+            <div class="tl-label dim">re-affirmation due</div>
+          </div>
+          <div id="tl-end">never another</div>
+        </div>
       </section>
 
-      <!-- Scene 2 — The inversion ---------------------------------------- -->
-      <section id="inv" class="clip" data-start="7.1" data-duration="7.45" data-track-index="1">
-        <div id="inv-head">
-          <span class="eyebrow">The central move</span>
-          <span id="inv-title">Invert each ingredient.</span>
+      <!-- Scene 2 — The polity that stopped -------------------------------- -->
+      <section id="stop" class="clip scene" data-start="6.65" data-duration="8.12" data-track-index="1">
+        <div class="head" id="stop-head">
+          <span class="eyebrow">Finding K1</span>
+          <span class="title">A polity that simply stops.</span>
         </div>
-        <div class="inv-colhead" id="inv-colhead">
-          <span>Bounded conflict requires</span><span></span><span>Cooperation primitives</span>
+        <div id="stop-body">
+          <div>
+            <div class="stop-row" id="stop-1"><span class="n">01</span><span>no rites sealed</span></div>
+            <div class="stop-row" id="stop-2"><span class="n">02</span><span>no disputes filed</span></div>
+            <div class="stop-row" id="stop-3"><span class="n">03</span><span>no observer reports published</span></div>
+            <div class="stop-row" id="stop-4"><span class="n">04</span><span>every cadence lapsed</span></div>
+          </div>
+          <div class="panel" id="stop-panel">
+            <div class="panel-path">erosion_alert · its three inputs, before the audit</div>
+            <div class="kv"><span>list_contraction</span><span class="v">false</span></div>
+            <div class="kv"><span>fast_contraction</span><span class="v">false</span></div>
+            <div class="kv"><span>fast_deviations</span><span class="v">0</span></div>
+            <div class="kv" id="stop-sev"><span>severity</span><span class="v">ErosionSeverity::None</span></div>
+          </div>
         </div>
-        <div class="inv-row" id="inv-row-1">
-          <div class="inv-a">Recognition as legitimate peers</div>
-          <div class="inv-arrow">→</div>
-          <div class="inv-b">Standing-recognition baselines</div>
-        </div>
-        <div class="inv-row" id="inv-row-2">
-          <div class="inv-a">Symmetric rules binding both sides</div>
-          <div class="inv-arrow">→</div>
-          <div class="inv-b">Procedures equal regardless of size or wealth</div>
-        </div>
-        <div class="inv-row" id="inv-row-3">
-          <div class="inv-a">Protected channels for envoys and the wounded</div>
-          <div class="inv-arrow">→</div>
-          <div class="inv-b">Never-target: life support, rescue, children, communications</div>
-        </div>
-        <div class="inv-row" id="inv-row-4">
-          <div class="inv-a">A defined ending</div>
-          <div class="inv-arrow">→</div>
-          <div class="inv-b">Termination procedures that include re-entry</div>
-        </div>
-        <div class="cite" id="inv-cite">doc/concept.md — the inversion argument</div>
+        <div class="cite" id="stop-cite">doc/architecture/erosion-legibility.md — the erosion alert cannot see omission</div>
       </section>
 
-      <!-- Scene 3 — What each community anchors to ------------------------ -->
-      <section id="anch" class="clip" data-start="14.35" data-duration="7.35" data-track-index="2">
-        <div id="anch-head">
-          <span id="anch-chip">Rule 1</span>
-          <span id="anch-title">Each party names its own.</span>
+      <!-- Scene 3 — A reference the polity cannot move --------------------- -->
+      <section id="pin" class="clip scene" data-start="14.42" data-duration="7.6" data-track-index="2">
+        <div class="head" id="pin-head">
+          <span class="title">Only absolute measures see sincere drift.</span>
         </div>
-        <div id="anch-grid">
-          <div class="anch-card" id="anch-1">
-            <div class="anch-who">A Christian community</div>
-            <div class="anch-name">the Trinity</div>
+        <div id="pin-body">
+          <div id="pin-chart">
+            <div id="pin-chart-label">re-affirmation gaps, seconds</div>
+            <div id="pin-bars">
+              <div class="pin-bar first" id="pin-b1"><span class="val">100</span><div class="bar" style="height: 66px"></div></div>
+              <div class="pin-bar" id="pin-b2"><span class="val">400</span><div class="bar" style="height: 264px"></div></div>
+              <div class="pin-bar" id="pin-b3"><span class="val">400</span><div class="bar" style="height: 264px"></div></div>
+              <div class="pin-bar" id="pin-b4"><span class="val">400</span><div class="bar" style="height: 264px"></div></div>
+            </div>
+            <div id="pin-xlab"><span>first</span><span>2</span><span>3</span><span>latest</span></div>
           </div>
-          <div class="anch-card" id="anch-2">
-            <div class="anch-who">A Muslim community</div>
-            <div class="anch-name">Allah</div>
-          </div>
-          <div class="anch-card" id="anch-3">
-            <div class="anch-who">A Haudenosaunee community</div>
-            <div class="anch-name">Shöñgwa'ya'di:söñ</div>
-          </div>
-          <div class="anch-card" id="anch-4">
-            <div class="anch-who">A Buddhist community</div>
-            <div class="anch-name">the Dharma</div>
+          <div>
+            <div class="pin-read" id="pin-r1">
+              <div class="q">Against the median of the prior gaps</div>
+              <div class="code">latest_gap_widening <span class="ans false">false</span></div>
+            </div>
+            <div class="pin-read" id="pin-r2">
+              <div class="q">Against the founding gap</div>
+              <div class="code">gap_widening_since_founding <span class="ans true">true</span></div>
+            </div>
           </div>
         </div>
-        <div id="anch-note">
-          <span id="anch-note-num">≈23 centuries</span>
-          <span id="anch-note-txt"
-            >the Buddhist sangha — the single longest-running voluntary
-            cross-community network in the set</span
-          >
-        </div>
-        <div class="cite" id="anch-cite">README.md · doc/substrate.md</div>
+        <div class="cite" id="pin-cite">kc-reputation · the_rolling_gap_reading_goes_quiet_once_the_drift_becomes_the_baseline</div>
       </section>
 
-      <!-- Scene 4 — The filter, as the project's own enum ----------------- -->
-      <section id="filt" class="clip" data-start="21.5" data-duration="8.15" data-track-index="3">
-        <div id="filt-head">
-          <span class="eyebrow">The filter · full membership</span>
-          <span id="filt-title">Five features, read in practice.</span>
+      <!-- Scene 4 — The signed null ---------------------------------------- -->
+      <section id="null" class="clip scene" data-start="21.62" data-duration="7.06" data-track-index="3">
+        <div class="head" id="null-head">
+          <span class="eyebrow">Attested null</span>
+          <span class="title">An empty list, signed.</span>
         </div>
-        <div id="filt-body">
-          <div id="code-panel">
-            <div id="code-path">src/rust/kc-ceremony/src/inter/anti_spiral.rs</div>
-            <div class="code-line">pub enum AntiSpiralFeature {</div>
-            <div class="code-line variant" id="code-1">    FallenActorAnthropology,</div>
-            <div class="code-line variant" id="code-2">    GraceOverMerit,</div>
-            <div class="code-line variant" id="code-3">    ScapegoatDisarming,</div>
-            <div class="code-line variant" id="code-4">    EnemyLoveOperational,</div>
-            <div class="code-line variant" id="code-5">    NonUltimacyOfCompact,</div>
-            <div class="code-line">}</div>
+        <div id="null-body">
+          <div class="panel" id="null-office">
+            <div class="lbl">measured, before the fix</div>
+            <div class="big">0 mediators</div>
+            <div class="big">0 observers</div>
+            <div class="big">43 years</div>
+            <div class="sub">read clean on every instrument</div>
           </div>
-          <div id="filt-gloss">
-            <div class="gloss-row" id="gloss-1">
-              <span class="gloss-n">01</span
-              ><span class="gloss-t">everyone can fail, including the most virtuous</span>
-            </div>
-            <div class="gloss-row" id="gloss-2">
-              <span class="gloss-n">02</span
-              ><span class="gloss-t">virtue is received rather than earned</span>
-            </div>
-            <div class="gloss-row" id="gloss-3">
-              <span class="gloss-n">03</span
-              ><span class="gloss-t">victim-selection as communal hygiene is refused</span>
-            </div>
-            <div class="gloss-row" id="gloss-4">
-              <span class="gloss-n">04</span
-              ><span class="gloss-t">moral obligation extends to strangers</span>
-            </div>
-            <div class="gloss-row" id="gloss-5">
-              <span class="gloss-n">05</span
-              ><span class="gloss-t">the political community is not the final thing</span>
-            </div>
+          <div class="panel" id="null-code">
+            <div class="panel-path">src/rust/kc-conduct/src/record.rs</div>
+            <div class="code-line kw">pub struct ActivityAttestation {</div>
+            <div class="code-line">    pub function: AttestedFunction,</div>
+            <div class="code-line">    pub attesting_community: DidKey,</div>
+            <div class="code-line">    pub window_start: Timestamp,</div>
+            <div class="code-line">    pub window_end: Timestamp,</div>
+            <div class="code-line" id="null-acts"><div id="null-acts-hl"></div><span>    pub acts: Vec&lt;Cid&gt;,</span></div>
+            <div class="code-line cm" id="null-note">/// Legally empty, and an empty list is the signed null rather than an omission.</div>
+            <div class="code-line">    pub statement: String,</div>
+            <div class="code-line">    pub attested_at: Timestamp,</div>
+            <div class="code-line kw">}</div>
           </div>
         </div>
       </section>
 
-      <!-- Scene 5 — The ceremony, from the demo's own output -------------- -->
-      <section id="cer" class="clip" data-start="29.45" data-duration="8.15" data-track-index="4">
-        <div id="cer-head">
-          <span class="eyebrow">Recognition · two layers</span>
-          <span id="cer-title">Each side seals its own.</span>
+      <!-- Scene 5 — What the alert reads now -------------------------------- -->
+      <section id="wide" class="clip scene" data-start="28.28" data-duration="8.3" data-track-index="4">
+        <div class="head" id="wide-head">
+          <span class="eyebrow">pub struct ErosionAlert</span>
+          <span class="title">Sixteen readings, four kinds.</span>
         </div>
-        <div id="cer-grid">
-          <div class="cer-card" id="cer-a">
-            <div class="cer-name">Alpha</div>
-            <div class="cer-layer">Intra-community rite · its own tradition</div>
-            <div class="cer-kv">
-              <span class="cer-k">did</span
-              ><span class="cer-v">did:key:z6Mkr37ipCjyL7mJfXgM7…</span>
-              <span class="cer-k">intra-rite</span
-              ><span class="cer-v">b3:d93165b54f9f4c5c3108…</span>
-            </div>
+        <div id="wide-grid">
+          <div class="wcol" id="wcol-1">
+            <h3>fires on an act</h3>
+            <div class="wf"><span class="t">list_contraction</span></div>
+            <div class="wf"><span class="t">minimum_contraction</span></div>
+            <div class="wf"><span class="t">fast_contraction</span></div>
+            <div class="wf"><span class="t">active_fast_deviations</span></div>
           </div>
-          <div class="cer-card" id="cer-b">
-            <div class="cer-name">Beta</div>
-            <div class="cer-layer">Intra-community rite · its own tradition</div>
-            <div class="cer-kv">
-              <span class="cer-k">did</span
-              ><span class="cer-v">did:key:z6Mkh2sP2dNrJbAP9E…</span>
-              <span class="cer-k">intra-rite</span
-              ><span class="cer-v">b3:af778ba03497e3dfe7a9…</span>
-            </div>
+          <div class="wcol" id="wcol-2">
+            <h3>fires on omission or a pinned baseline</h3>
+            <div class="wf"><span class="t">overdue_reaffirmations</span></div>
+            <div class="wf"><span class="t">hollowing_communities</span></div>
+            <div class="wf"><span class="t">thinning_deliberation</span></div>
+            <div class="wf"><span class="t">overdue_reexaminations</span></div>
+            <div class="wf"><span class="t">silent_functions</span></div>
+            <div class="wf"><span class="t">unstaffed_functions</span></div>
+            <div class="wf" id="wf-grievance"><div class="hl" id="hl-grievance"></div><span class="t">unanswered_grievances</span></div>
+          </div>
+          <div class="wcol" id="wcol-3">
+            <h3>fires on intensification</h3>
+            <div class="wf"><span class="t">enforcement_convergence</span></div>
+            <div class="wf"><span class="t">enforcement_direction</span></div>
+            <div class="wf" id="wf-accuser"><div class="hl" id="hl-accuser"></div><span class="t">reporter_targeting</span></div>
+          </div>
+          <div class="wcol" id="wcol-4">
+            <h3>against the object its members recited</h3>
+            <div class="wf" id="wf-cov"><div class="hl" id="hl-cov"></div><span class="t">commitment_coverage</span></div>
+            <div class="wf" id="wf-con"><div class="hl" id="hl-con"></div><span class="t">commitment_contraction</span></div>
           </div>
         </div>
-        <div id="cer-bridge">
-          <span id="cer-bridge-tag">Inter-community witness</span>
-          <span id="cer-bridge-body"
-            >compact: alpha-beta-compact · b3:af66c3f9333db2c8a546…</span
-          >
-        </div>
-        <div id="cer-tally">
-          <span class="tally-item">CommunityIdentityPublished <b>2</b></span>
-          <span class="tally-item">IntraCommunityRite <b>2</b></span>
-          <span class="tally-item">SpeakerDelegated <b>4</b></span>
-          <span class="tally-item">WitnessRegistryUpdated <b>2</b></span>
-          <span class="tally-item">InterCommunityWitness <b>1</b></span>
-          <span id="cer-verify">11 entries · reloaded from JSON · all verify OK</span>
-        </div>
-        <div class="cite" id="cer-cite">src/python/examples/two_communities_demo.py</div>
+        <div class="cite" id="wide-cite">src/rust/kc-reputation/src/analytics.rs — field order as declared</div>
       </section>
 
-      <!-- Scene 6 — The lenses, over the seeded signed commons ------------ -->
-      <section id="lens" class="clip" data-start="37.4" data-duration="7.9" data-track-index="5">
-        <div id="lens-top">
-          <span id="lens-brand">kith-covenant</span>
-          <span id="lens-sub">capture-signal lenses over a signed audit commons</span>
-          <span id="lens-badge">✓ 25 entries verify</span>
-        </div>
-        <div id="lens-note">Adjudication is the mediator pool's work.</div>
-        <div id="lens-grid">
-          <div class="lcard" id="lcard-1">
-            <h2>Sponsor stake &amp; taint <span class="ltag">Hub</span></h2>
-            <p class="ldesc">Does this sponsor's vouching precede misconduct?</p>
-            <div class="lstat"><span class="num">50%</span><span class="status">● taint high</span></div>
-            <div class="lkv">
-              <div><span class="k">sponsees</span><span>2</span></div>
-              <div><span class="k">tainted (adverse in probation)</span><span>1</span></div>
-            </div>
-          </div>
-
-          <div class="lcard" id="lcard-2">
-            <h2>Composition drift</h2>
-            <p class="ldesc">Who is concentrating admissions.</p>
-            <div class="lbars">
-              <div class="lbar-row">
-                <span class="lbar-label">z6MkpyQuNbjZ1RcT…</span><span class="lbar-val">2</span>
-                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
-              </div>
-            </div>
-            <div class="lkv">
-              <div><span class="k">vouching edges on record</span><span>2</span></div>
-            </div>
-          </div>
-
-          <div class="lcard" id="lcard-3">
-            <h2>Ceremony-cost decay <span class="ltag">Reaffirmer</span></h2>
-            <p class="ldesc">Re-affirmation witness count across rites.</p>
-            <svg id="decay-svg" width="440" height="190" viewBox="0 0 440 190" aria-hidden="true">
-              <line x1="34" y1="162" x2="424" y2="162" stroke="#4a4a46" stroke-width="1.5" />
-              <line x1="34" y1="30" x2="34" y2="162" stroke="#4a4a46" stroke-width="1.5" />
-              <polyline
-                id="decay-line"
-                points="70,38 224,102 396,162"
-                fill="none"
-                stroke="#3987e5"
-                stroke-width="4"
-              />
-              <circle cx="70" cy="38" r="7" fill="#3987e5" />
-              <circle cx="224" cy="102" r="7" fill="#3987e5" />
-              <circle cx="396" cy="162" r="7" fill="#3987e5" />
-              <text x="70" y="24" fill="#ffffff" font-size="22" font-weight="700" text-anchor="middle">5</text>
-              <text x="224" y="88" fill="#ffffff" font-size="22" font-weight="700" text-anchor="middle">3</text>
-              <text x="396" y="148" fill="#ffffff" font-size="22" font-weight="700" text-anchor="middle">1</text>
-              <text x="70" y="186" fill="#a3a199" font-size="19" text-anchor="middle">r1</text>
-              <text x="224" y="186" fill="#a3a199" font-size="19" text-anchor="middle">r2</text>
-              <text x="396" y="186" fill="#a3a199" font-size="19" text-anchor="middle">r3</text>
-            </svg>
-            <div class="lflags">● witnesses declined&nbsp;&nbsp;● gaps widening</div>
-          </div>
-
-          <div class="lcard" id="lcard-4">
-            <h2>Feature concern <span class="ltag">Drifting entrant</span></h2>
-            <p class="ldesc">Behavioural shadow of a hollow substrate.</p>
-            <div class="lbars">
-              <div class="lbar-row">
-                <span class="lbar-label">EnemyLoveOperational</span><span class="lbar-val">1</span>
-                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
-              </div>
-              <div class="lbar-row">
-                <span class="lbar-label">NonUltimacyOfCompact</span><span class="lbar-val">1</span>
-                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
-              </div>
-            </div>
-            <div class="lkv">
-              <div><span class="k">evidence CIDs</span><span>2</span></div>
-            </div>
-          </div>
-
-          <div class="lcard" id="lcard-5">
-            <h2>Rejection pattern</h2>
-            <p class="ldesc">Concentration of non-admissions by rejector.</p>
-            <div class="lbars">
-              <div class="lbar-row">
-                <span class="lbar-label">z6MkmQsTkMXG2mhg…</span><span class="lbar-val">2</span>
-                <span class="lbar-track"><span class="lbar-fill" style="width: 100%"></span></span>
-              </div>
-            </div>
-            <div class="lkv">
-              <div><span class="k">cited feature</span><span>FallenActorAnthropology</span></div>
-            </div>
-          </div>
-
-          <div class="lcard" id="lcard-6">
-            <h2>Recognition standing <span class="ltag">Designated</span></h2>
-            <p class="ldesc">Derived standing and record counts.</p>
-            <div class="lstanding">Anathema</div>
-            <div class="lkv">
-              <div><span class="k">conduct records</span><span>1</span></div>
-              <div><span class="k">re-affirmation rites</span><span>0</span></div>
-              <div><span class="k">disputes (filed + against)</span><span>0</span></div>
-            </div>
-          </div>
+      <!-- Scene 6 — The harness, a real run --------------------------------- -->
+      <section id="harn" class="clip scene" data-start="36.18" data-duration="8.55" data-track-index="5">
+        <div class="panel" id="harn-panel">
+          <div id="harn-cmd">$ python src/python/examples/capture_harness_demo.py</div>
+          <div id="harn-sum">Capture-resistance harness: 14 supported scenarios, 14/14 passed</div>
+          <div class="hrow" id="hrow-1"><span class="mv">move 8</span><span class="nm">the quiet polity</span><span class="ok">PASS</span><span class="mt">latency 0 · damage 0 ≤ 1</span></div>
+          <div class="hrow" id="hrow-2"><span class="mv">move 9</span><span class="nm">the abandoned office</span><span class="ok">PASS</span><span class="mt">latency 0 · damage 0 ≤ 1</span></div>
+          <div class="hrow" id="hrow-3"><span class="mv">move 10</span><span class="nm">the substituted object</span><span class="ok">PASS</span><span class="mt">latency 0 · damage 1 ≤ 2</span></div>
+          <div class="hrow" id="hrow-4"><span class="mv">move 11</span><span class="nm">the buried grievance</span><span class="ok">PASS</span><span class="mt">latency 0 · damage 1 ≤ 1</span></div>
+          <div class="hrow" id="hrow-5"><span class="mv">move 12</span><span class="nm">the answered accuser</span><span class="ok">PASS</span><span class="mt">latency 0 · damage 0 ≤ 2</span></div>
+          <div class="hrow" id="hrow-6"><span class="mv">move 13</span><span class="nm">the narrowed object</span><span class="ok">PASS</span><span class="mt">latency 0 · damage 2 ≤ 3</span></div>
+          <div id="harn-foot">10 drawn rounds · seed 20260729 · no failures</div>
         </div>
       </section>
 
-      <!-- Scene 7 — Lockup ----------------------------------------------- -->
-      <section id="lock" class="clip" data-start="45.1" data-duration="6.9" data-track-index="6">
+      <!-- Scene 7 — Lockup ------------------------------------------------- -->
+      <section id="lock" class="clip" data-start="44.37" data-duration="5.63" data-track-index="6">
         <div id="wordmark">Kith-Covenant</div>
         <div id="wordmark-rule"></div>
         <div id="wordmark-sub">Cooperation without a sovereign.</div>
@@ -968,131 +750,113 @@
       </section>
 
       <!-- Audio -------------------------------------------------------------
-           Music bed. Level is carried entirely by timeline tweens: it enters
-           very low under the hook, holds at 0.13 beneath every narration line,
-           opens a hair to 0.16 across the lockup, and fades out under the last
-           words. Nothing here editorialises: no risers, no swells.
-
-           The source track is bright for a bed sitting under speech, so what
-           plays is a low-passed copy (ffmpeg lowpass f=2600, -7.4 dB above
-           4 kHz). The unfiltered original is kept beside it in assets/music/;
-           see CREDITS.md for the regeneration command. -->
+           Music bed: the low-passed copy of the ende.app track (ffmpeg lowpass
+           f=2600; see CREDITS.md). Level is carried by timeline tweens: 0.10 in,
+           0.13 beneath every narration line, a hair more across the lockup, then
+           a 1.2s fade to silence at 50.0s. No risers, no swells. -->
       <audio
         id="bgm"
         src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.lowpass2600.mp3"
         data-start="0"
-        data-duration="52"
+        data-duration="50"
         data-track-index="10"
         data-volume="1"
       ></audio>
 
       <!-- Narration. Seven Kokoro clips (am_michael @ 0.96), own tracks, gain 1.
-           Every scene boundary above is derived from these measured durations. -->
-      <audio id="vo-1" src="assets/voice/vo-1-hook.wav" data-start="0.90" data-duration="5.973" data-track-index="20" data-volume="1"></audio>
-      <audio id="vo-2" src="assets/voice/vo-2-inversion.wav" data-start="7.47" data-duration="6.549" data-track-index="21" data-volume="1"></audio>
-      <audio id="vo-3" src="assets/voice/vo-3-rule-one.wav" data-start="14.63" data-duration="6.635" data-track-index="22" data-volume="1"></audio>
-      <audio id="vo-4" src="assets/voice/vo-4-rule-two.wav" data-start="21.87" data-duration="7.296" data-track-index="23" data-volume="1"></audio>
-      <audio id="vo-5" src="assets/voice/vo-5-ceremony.wav" data-start="29.77" data-duration="7.339" data-track-index="24" data-volume="1"></audio>
-      <audio id="vo-6" src="assets/voice/vo-6-lenses.wav" data-start="37.71" data-duration="7.083" data-track-index="25" data-volume="1"></audio>
-      <audio id="vo-7" src="assets/voice/vo-7-lockup.wav" data-start="45.40" data-duration="5.589" data-track-index="26" data-volume="1"></audio>
+           Each clip sits wholly inside its scene; durations are ffprobe-measured. -->
+      <audio id="vo-1" src="assets/voice/vo-1-hook.wav" data-start="0.80" data-duration="5.547" data-track-index="20" data-volume="1"></audio>
+      <audio id="vo-2" src="assets/voice/vo-2-stopped.wav" data-start="6.95" data-duration="7.189" data-track-index="21" data-volume="1"></audio>
+      <audio id="vo-3" src="assets/voice/vo-3-pinned.wav" data-start="14.70" data-duration="6.635" data-track-index="22" data-volume="1"></audio>
+      <audio id="vo-4" src="assets/voice/vo-4-null.wav" data-start="21.90" data-duration="6.101" data-track-index="23" data-volume="1"></audio>
+      <audio id="vo-5" src="assets/voice/vo-5-widened.wav" data-start="28.55" data-duration="7.360" data-track-index="24" data-volume="1"></audio>
+      <audio id="vo-6" src="assets/voice/vo-6-harness.wav" data-start="36.45" data-duration="7.595" data-track-index="25" data-volume="1"></audio>
+      <audio id="vo-7" src="assets/voice/vo-7-lockup.wav" data-start="44.70" data-duration="3.776" data-track-index="26" data-volume="1"></audio>
 
-      <!-- Sparse, warm ticks on sequential arrivals. Every one sits on the
-           extrapolated 109.96 BPM grid (0.5573 + n*0.5455). -->
-      <!-- beat-grid: inversion rows at 8.194 / 9.285 / 10.376 / 11.467 -->
-      <audio id="sfx-inv-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="8.194" data-track-index="11" data-volume="0.18"></audio>
-      <audio id="sfx-inv-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="9.285" data-track-index="11" data-volume="0.18"></audio>
-      <audio id="sfx-inv-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="10.376" data-track-index="11" data-volume="0.18"></audio>
-      <audio id="sfx-inv-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="11.467" data-track-index="11" data-volume="0.18"></audio>
-
-      <!-- beat-locked: anchor cards 3 and 4 land on strong cues 17.468 / 18.559 -->
-      <audio id="sfx-anch-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="15.286" data-track-index="11" data-volume="0.18"></audio>
-      <audio id="sfx-anch-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="16.377" data-track-index="11" data-volume="0.18"></audio>
-      <audio id="sfx-anch-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="17.468" data-track-index="11" data-volume="0.18"></audio>
-      <audio id="sfx-anch-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="18.559" data-track-index="11" data-volume="0.18"></audio>
-
-      <!-- beat-locked: the code panel opens on strong cue 21.832 -->
-      <audio id="sfx-code" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="21.832" data-track-index="12" data-volume="0.20"></audio>
-      <!-- beat-grid: glosses at 22.923 / 24.014 / 25.105 / 26.196 / 27.287 -->
-      <audio id="sfx-gl-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="22.923" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-gl-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="24.014" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-gl-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="25.105" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-gl-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="26.196" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-gl-5" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="27.287" data-track-index="11" data-volume="0.16"></audio>
-
-      <!-- beat-grid: ceremony cards 30.014 / 31.105, the witness bridge 32.742 -->
-      <audio id="sfx-cer-1" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="30.014" data-track-index="13" data-volume="0.22"></audio>
-      <audio id="sfx-cer-2" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="31.105" data-track-index="13" data-volume="0.22"></audio>
-      <audio id="sfx-cer-3" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="32.742" data-track-index="12" data-volume="0.22"></audio>
-      <audio id="sfx-cer-4" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="34.924" data-track-index="13" data-volume="0.20"></audio>
-
-      <!-- beat-grid: six lens cards, every other beat from 38.197 -->
-      <audio id="sfx-len-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="38.197" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-len-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="39.288" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-len-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="40.379" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-len-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="41.470" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-len-5" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="42.561" data-track-index="11" data-volume="0.16"></audio>
-      <audio id="sfx-len-6" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="43.652" data-track-index="11" data-volume="0.16"></audio>
-
-      <!-- beat-grid: the wordmark settles at 45.834 -->
-      <audio id="sfx-lock" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="45.834" data-track-index="14" data-volume="0.26"></audio>
+      <!-- SFX. Sparse and warm, low-HF-risk picks only. Every start equals the
+           timeline constant it accompanies (see the script below). -->
+      <!-- hook: the one sealed rite lands on beat 2.739 -->
+      <audio id="sfx-hook" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="2.739" data-track-index="13" data-volume="0.20"></audio>
+      <!-- beat-grid: the four lapses, every other beat from 7.649 -->
+      <audio id="sfx-st-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="7.649" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-st-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="8.742" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-st-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="9.831" data-track-index="11" data-volume="0.18"></audio>
+      <audio id="sfx-st-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="10.925" data-track-index="11" data-volume="0.18"></audio>
+      <!-- beat-locked: strong cue 12.550, the severity row -->
+      <audio id="sfx-st-sev" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="12.55" data-track-index="13" data-volume="0.20"></audio>
+      <!-- beat-grid: four gap bars, one per beat from strong cue 15.836 -->
+      <audio id="sfx-pb-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="15.836" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-pb-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="16.377" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-pb-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="16.923" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-pb-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="17.473" data-track-index="11" data-volume="0.16"></audio>
+      <!-- beat-grid 20.195: the pinned reading — the first structural accent -->
+      <audio id="sfx-pin" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="20.195" data-track-index="12" data-volume="0.20"></audio>
+      <!-- beat-locked: strong cue 22.930, the attestation record opens -->
+      <audio id="sfx-null" src="assets/sfx/bong_001.ogg" data-duration="0.12" data-start="22.93" data-track-index="12" data-volume="0.20"></audio>
+      <!-- beat-grid: four alert columns -->
+      <audio id="sfx-w-1" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="28.923" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-w-2" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="29.469" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-w-3" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="30.56" data-track-index="11" data-volume="0.16"></audio>
+      <audio id="sfx-w-4" src="assets/sfx/rollover2.ogg" data-duration="0.06" data-start="31.651" data-track-index="11" data-volume="0.16"></audio>
+      <!-- beat-locked: strong cues, six harness rows every other beat -->
+      <audio id="sfx-h-1" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="37.105" data-track-index="13" data-volume="0.18"></audio>
+      <audio id="sfx-h-2" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="38.197" data-track-index="13" data-volume="0.18"></audio>
+      <audio id="sfx-h-3" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="39.288" data-track-index="13" data-volume="0.18"></audio>
+      <audio id="sfx-h-4" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="40.38" data-track-index="13" data-volume="0.18"></audio>
+      <audio id="sfx-h-5" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="41.471" data-track-index="13" data-volume="0.18"></audio>
+      <audio id="sfx-h-6" src="assets/sfx/click_002.ogg" data-duration="0.05" data-start="42.562" data-track-index="13" data-volume="0.18"></audio>
+      <!-- beat-locked: strong cue 44.745, the wordmark -->
+      <audio id="sfx-lock" src="assets/sfx/impactSoft_medium_001.ogg" data-duration="0.18" data-start="44.745" data-track-index="14" data-volume="0.26"></audio>
     </div>
 
     <script>
       /* ------------------------------------------------------------------
-         Kith-Covenant — narrated brag cut.
+         Kith-Covenant — narrated brag cut, "the quiet polity".
 
-         Everything on screen is the project's own material: the treaty date and
-         the two rules from README.md, the inversion table from doc/concept.md,
-         the sangha figure from doc/substrate.md, the enum verbatim from
-         src/rust/kc-ceremony/src/inter/anti_spiral.rs, the ceremony CIDs from a
-         real run of src/python/examples/two_communities_demo.py, and the lens
-         values from the seeded commons behind src/python/dashboard.
+         Every figure on screen is the project's own: the four lapses and the
+         three act-triggered inputs from doc/architecture/erosion-legibility.md
+         (Finding K1); the [100, 400, 400, 400] gaps and both readings from the
+         kc-reputation test that pins them; the 43-year empty office from the
+         same document and test file; ActivityAttestation verbatim from
+         src/rust/kc-conduct/src/record.rs; the sixteen ErosionAlert fields in
+         declared order from src/rust/kc-reputation/src/analytics.rs; the
+         harness rows from a real run of capture_harness_demo.py.
 
-         Beat grid: happy-beats-business-moves-vol-12, tempo 109.96 BPM. The
-         bundled cue preset analyses only the first 25s, so cues beyond that are
-         extrapolated on the measured grid t = 0.5573 + n * 0.5455.
+         Beat grid: happy-beats-business-moves-vol-12, 109.96 BPM, beats and
+         strongCues from the shipped cue preset (beat spacing 0.5455s).
+         Sequential text snaps every OTHER beat (1.091s) for readability.
          ------------------------------------------------------------------ */
 
-      var T_END = 52.0;
-
-      /* Measured narration. These seven numbers set every boundary above. */
-      var VO = [
-        { id: "#vo-1", start: 0.9, dur: 5.973 },
-        { id: "#vo-2", start: 7.47, dur: 6.549 },
-        { id: "#vo-3", start: 14.63, dur: 6.635 },
-        { id: "#vo-4", start: 21.87, dur: 7.296 },
-        { id: "#vo-5", start: 29.77, dur: 7.339 },
-        { id: "#vo-6", start: 37.71, dur: 7.083 },
-        { id: "#vo-7", start: 45.4, dur: 5.589 },
-      ];
+      var T_END = 50.0;
 
       var tl = gsap.timeline({ paused: true });
 
       /* Nothing is visible until its own scene brings it up. */
       var HIDDEN = [
-        "#hook-slug", "#hook-rule", "#hook-line",
-        "#inv-head", "#inv-colhead", "#inv-row-1", "#inv-row-2", "#inv-row-3", "#inv-row-4", "#inv-cite",
-        "#anch-head", "#anch-1", "#anch-2", "#anch-3", "#anch-4", "#anch-note", "#anch-cite",
-        "#filt-head", "#code-panel", "#code-1", "#code-2", "#code-3", "#code-4", "#code-5",
-        "#gloss-1", "#gloss-2", "#gloss-3", "#gloss-4", "#gloss-5",
-        "#cer-head", "#cer-a", "#cer-b", "#cer-bridge", "#cer-tally", "#cer-cite",
-        "#lens-top", "#lens-note",
-        "#lcard-1", "#lcard-2", "#lcard-3", "#lcard-4", "#lcard-5", "#lcard-6",
+        "#hook-slug", "#hook-line", "#tl-track", "#tl-m1", "#tl-m2", "#tl-m3", "#tl-end",
+        "#stop-head", "#stop-1", "#stop-2", "#stop-3", "#stop-4", "#stop-panel", "#stop-sev", "#stop-cite",
+        "#pin-head", "#pin-chart-label", "#pin-b1", "#pin-b2", "#pin-b3", "#pin-b4", "#pin-xlab",
+        "#pin-r1", "#pin-r2", "#pin-cite",
+        "#null-head", "#null-office", "#null-code", "#null-acts-hl", "#null-note",
+        "#wide-head", "#wcol-1", "#wcol-2", "#wcol-3", "#wcol-4",
+        "#hl-cov", "#hl-con", "#hl-grievance", "#hl-accuser", "#wide-cite",
+        "#harn-panel", "#harn-sum",
+        "#hrow-1", "#hrow-2", "#hrow-3", "#hrow-4", "#hrow-5", "#hrow-6", "#harn-foot",
         "#wordmark", "#wordmark-rule", "#wordmark-sub", "#music-credit",
       ];
       for (var h = 0; h < HIDDEN.length; h++) {
         tl.set(HIDDEN[h], { opacity: 0 }, 0);
       }
 
-      /* Scene shells crossfade rather than cut: slow, cinematic, 0.45s in. */
+      /* Scene shells crossfade rather than cut: 0.45s in, 0.35s out. */
       var SCENES = [
-        { sel: "#hook", inAt: 0.0, outAt: 7.1 },
-        { sel: "#inv", inAt: 7.1, outAt: 14.35 },
-        { sel: "#anch", inAt: 14.35, outAt: 21.5 },
-        { sel: "#filt", inAt: 21.5, outAt: 29.45 },
-        { sel: "#cer", inAt: 29.45, outAt: 37.4 },
-        { sel: "#lens", inAt: 37.4, outAt: 45.1 },
-        { sel: "#lock", inAt: 45.1, outAt: T_END },
+        { sel: "#hook", inAt: 0.0, outAt: 6.65 },
+        { sel: "#stop", inAt: 6.65, outAt: 14.42 },
+        { sel: "#pin", inAt: 14.42, outAt: 21.62 },
+        { sel: "#null", inAt: 21.62, outAt: 28.28 },
+        { sel: "#wide", inAt: 28.28, outAt: 36.18 },
+        { sel: "#harn", inAt: 36.18, outAt: 44.37 },
+        { sel: "#lock", inAt: 44.37, outAt: T_END },
       ];
       for (var s = 0; s < SCENES.length; s++) {
         var sc = SCENES[s];
@@ -1102,113 +866,106 @@
         }
       }
 
+      function up(sel, at, dy) {
+        tl.fromTo(sel, { opacity: 0, y: dy || 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, at);
+      }
+      function fade(sel, at, d) {
+        tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d || 0.4, ease: "power1.out" }, at);
+      }
+
       /* ---- Scene 1 — hook ---------------------------------------------- */
-      /* The slug carries the date; the voice never says it. */
-      tl.fromTo("#hook-slug", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 0.45);
-      tl.fromTo("#hook-rule", { opacity: 0, scaleX: 0.2 }, { opacity: 1, scaleX: 1, duration: 0.7, ease: "power2.out" }, 1.1);
-      /* beat-grid 1.648s — the claim lands, then holds for five seconds. */
-      tl.fromTo("#hook-line", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.648);
+      /* The claim lands first, on beat 1.103; the voice never says it. */
+      fade("#hook-slug", 0.3, 0.5);
+      up("#hook-line", 1.103, 30);
+      /* beat-grid 2.194 / 2.739: the track, then the one rite the polity seals. */
+      tl.fromTo("#tl-track", { opacity: 0, scaleX: 0.05 }, { opacity: 1, scaleX: 1, duration: 2.2, ease: "power1.inOut" }, 2.194);
+      up("#tl-m1", 2.739, 12);
+      /* beat-grid 3.830 / 4.921: the cadences that pass unanswered. */
+      fade("#tl-m2", 3.83, 0.45);
+      fade("#tl-m3", 4.921, 0.45);
+      fade("#tl-end", 5.467, 0.45);
 
-      /* ---- Scene 2 — the inversion ------------------------------------- */
-      tl.fromTo("#inv-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 7.3);
-      tl.fromTo("#inv-colhead", { opacity: 0 }, { opacity: 1, duration: 0.35 }, 7.649);
-      /* beat-grid: one row every other beat (1.091s), the readable spacing. */
-      var INV_ROWS = [8.194, 9.285, 10.376, 11.467];
-      for (var r = 0; r < INV_ROWS.length; r++) {
-        tl.fromTo(
-          "#inv-row-" + (r + 1),
-          { opacity: 0, x: 26 },
-          { opacity: 1, x: 0, duration: 0.42, ease: "power2.out" },
-          INV_ROWS[r],
-        );
+      /* ---- Scene 2 — the polity that stopped ---------------------------- */
+      up("#stop-head", 6.85);
+      /* beat-grid: one lapse every other beat, all persisting. */
+      var STOP = [7.649, 8.742, 9.831, 10.925];
+      for (var i = 0; i < STOP.length; i++) {
+        tl.fromTo("#stop-" + (i + 1), { opacity: 0, x: 24 }, { opacity: 1, x: 0, duration: 0.42, ease: "power2.out" }, STOP[i]);
       }
-      tl.fromTo("#inv-cite", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 12.558);
+      /* beat-grid 11.467: the alert's three act-triggered inputs, all quiet. */
+      up("#stop-panel", 11.467, 22);
+      /* beat-locked: strong cue 12.550 — severity None, under "scored nothing". */
+      fade("#stop-sev", 12.55, 0.35);
+      fade("#stop-cite", 13.1);
 
-      /* ---- Scene 3 — the four substrates -------------------------------- */
-      tl.fromTo("#anch-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 14.55);
-      /* beat-grid 15.286 / 16.377, then strong cues 17.468 and 18.559. */
-      var ANCH = [15.286, 16.377, 17.468, 18.559];
-      for (var a = 0; a < ANCH.length; a++) {
-        tl.fromTo(
-          "#anch-" + (a + 1),
-          { opacity: 0, y: 24 },
-          { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" },
-          ANCH[a],
-        );
+      /* ---- Scene 3 — a reference that cannot move ----------------------- */
+      up("#pin-head", 14.62);
+      fade("#pin-chart-label", 15.286);
+      /* beat-grid: four gap bars, one per beat (labels are 3-digit numbers,
+         held to the end of the scene, so a single-beat spacing is readable). */
+      var BARS = [15.836, 16.377, 16.923, 17.473];
+      for (var b = 0; b < BARS.length; b++) {
+        tl.fromTo("#pin-b" + (b + 1), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, BARS[b]);
       }
-      /* beat-locked: strong cue 19.650 — the longevity figure. */
-      tl.fromTo("#anch-note", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 19.65);
-      tl.fromTo("#anch-cite", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 20.195);
+      fade("#pin-xlab", 17.473);
+      /* beat-locked: strong cue 18.564 — the rolling reading, which has gone quiet. */
+      up("#pin-r1", 18.564, 14);
+      /* beat-grid 20.195 — the pinned reading, under "the founding rite". */
+      up("#pin-r2", 20.195, 14);
+      fade("#pin-cite", 20.74);
 
-      /* ---- Scene 4 — the filter, as code -------------------------------- */
-      tl.fromTo("#filt-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 21.7);
-      /* beat-locked: 21.832 — the source file opens. */
-      tl.fromTo("#code-panel", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 21.832);
-      /* beat-grid: variant + its plain-language gloss arrive together, every
-         other beat from strong cue 22.923. */
-      var FILT = [22.923, 24.014, 25.105, 26.196, 27.287];
-      for (var f = 0; f < FILT.length; f++) {
-        tl.fromTo("#code-" + (f + 1), { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, FILT[f]);
-        tl.fromTo(
-          "#gloss-" + (f + 1),
-          { opacity: 0, x: 22 },
-          { opacity: 1, x: 0, duration: 0.42, ease: "power2.out" },
-          FILT[f] + 0.06,
-        );
+      /* ---- Scene 4 — the signed null ------------------------------------ */
+      up("#null-head", 21.82);
+      /* beat-locked: strong cue 22.372 — the empty office, as measured. */
+      up("#null-office", 22.372, 22);
+      /* beat-locked: strong cue 22.930 — the record that answers it. */
+      up("#null-code", 22.93, 22);
+      /* beat-locked: strong cue 24.555 — the acts list lights, under "every window". */
+      fade("#null-acts-hl", 24.555, 0.35);
+      /* beat-locked: strong cue 26.738 — the doc comment, under "nothing happened". */
+      fade("#null-note", 26.738, 0.4);
+
+      /* ---- Scene 5 — what the alert reads now --------------------------- */
+      up("#wide-head", 28.48);
+      /* beat-grid: the four kinds of reading, one per beat then one per two. */
+      var WCOL = [28.923, 29.469, 30.56, 31.651];
+      for (var w = 0; w < WCOL.length; w++) {
+        up("#wcol-" + (w + 1), WCOL[w], 22);
       }
+      /* Highlights follow the narration word for word (natural timing):
+         "narrower than the recitation" -> the recited-object pair,
+         "a grievance buried" 33.287, "an accuser answered" 34.65. */
+      fade("#hl-cov", 32.2, 0.35);
+      fade("#hl-con", 32.2, 0.35);
+      fade("#hl-grievance", 33.287, 0.35);
+      fade("#hl-accuser", 34.65, 0.35);
+      fade("#wide-cite", 35.2);
 
-      /* ---- Scene 5 — the ceremony --------------------------------------- */
-      tl.fromTo("#cer-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 29.65);
-      /* beat-grid 30.014 / 31.105 — each community's own rite, sealed apart. */
-      tl.fromTo("#cer-a", { opacity: 0, x: -28 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 30.014);
-      tl.fromTo("#cer-b", { opacity: 0, x: 28 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 31.105);
-      /* beat-grid 32.742 — only then does the thin inter-community record cross. */
-      tl.fromTo("#cer-bridge", { opacity: 0, scaleX: 0.86 }, { opacity: 1, scaleX: 1, duration: 0.5, ease: "power2.out" }, 32.742);
-      /* beat-grid 34.924 — the audit trail, and the whole archive re-verifying. */
-      tl.fromTo("#cer-tally", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 34.924);
-      tl.fromTo("#cer-cite", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 35.469);
-
-      /* ---- Scene 6 — the lenses ----------------------------------------- */
-      tl.fromTo("#lens-top", { opacity: 0, y: -16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 37.6);
-      tl.fromTo("#lens-note", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 37.9);
-      /* beat-grid: six cards, every other beat from 38.197. Descriptive only —
-         nothing here animates a verdict. */
-      var LENS = [38.197, 39.288, 40.379, 41.47, 42.561, 43.652];
-      for (var L = 0; L < LENS.length; L++) {
-        tl.fromTo(
-          "#lcard-" + (L + 1),
-          { opacity: 0, y: 22 },
-          { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" },
-          LENS[L],
-        );
+      /* ---- Scene 6 — the harness ---------------------------------------- */
+      fade("#harn-panel", 36.3, 0.45);
+      /* beat-locked: strong cue 36.548 — the summary line. */
+      fade("#harn-sum", 36.548, 0.35);
+      /* beat-locked: six strong cues, every other beat from 37.105. */
+      var HROW = [37.105, 38.197, 39.288, 40.38, 41.471, 42.562];
+      for (var r = 0; r < HROW.length; r++) {
+        tl.fromTo("#hrow-" + (r + 1), { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.36, ease: "power2.out" }, HROW[r]);
       }
-      /* The decay line draws itself once its card is up: 5 witnesses, then 3,
-         then 1. The flags beneath it are the analytics' own booleans. */
-      tl.fromTo(
-        "#decay-line",
-        { strokeDasharray: 420, strokeDashoffset: 420 },
-        { strokeDashoffset: 0, duration: 1.0, ease: "none" },
-        40.6,
-      );
+      /* beat-grid 43.105 — the continuous run beneath them. */
+      fade("#harn-foot", 43.105, 0.35);
 
       /* ---- Scene 7 — lockup --------------------------------------------- */
-      /* beat-grid 45.834 — the wordmark. */
-      tl.fromTo("#wordmark", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 45.834);
-      tl.fromTo("#wordmark-rule", { opacity: 0, scaleX: 0.2 }, { opacity: 1, scaleX: 1, duration: 0.6, ease: "power2.out" }, 46.652);
-      /* beat-grid 47.470 — the chapter title the voice deliberately never says. */
-      tl.fromTo("#wordmark-sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 47.47);
-      tl.fromTo("#music-credit", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 48.561);
+      /* beat-locked: strong cue 44.745 — the wordmark. */
+      up("#wordmark", 44.745, 26);
+      tl.fromTo("#wordmark-rule", { opacity: 0, scaleX: 0.2 }, { opacity: 1, scaleX: 1, duration: 0.6, ease: "power2.out" }, 45.279);
+      /* strong cue 46.370 — the chapter title the voice never says. */
+      up("#wordmark-sub", 46.37, 16);
+      /* beat-grid 47.468 — the music credit. */
+      fade("#music-credit", 47.468, 0.5);
 
-      /* ------------------------------------------------------------------
-         Music: narration-led. The gaps between lines are ~0.6s, which is too
-         short to open a bed into without audible pumping, so the level simply
-         holds beneath the voice for the whole argument and opens a hair across
-         the lockup. No risers, no swells; if a cue and a word collide, the word
-         wins.
-         ------------------------------------------------------------------ */
+      /* ---- Music level -------------------------------------------------- */
       var BED_DUCK = 0.13;
       tl.fromTo("#bgm", { volume: 0.1 }, { volume: BED_DUCK, duration: 1.0, ease: "power1.inOut" }, 0);
-      tl.to("#bgm", { volume: 0.16, duration: 0.8, ease: "power1.inOut" }, 44.85);
+      tl.to("#bgm", { volume: 0.16, duration: 0.8, ease: "power1.inOut" }, 47.9);
       tl.to("#bgm", { volume: 0, duration: 1.2, ease: "power1.in" }, T_END - 1.2);
 
       window.__timelines["main"] = tl;

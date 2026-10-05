@@ -115,8 +115,9 @@ build that entity, and it does not know how the entity was built.
 
 Between it and the trust substrate sits the polity tier of Part III, which
 produces exactly the party this one presumes. That tier hands over six artifacts
-in vocabulary the compact already speaks, and the compact never learns it
-exists. The compact depends on neither lower tier.
+in vocabulary the compact already speaks, then signs the compact's own records
+as a member, and the compact never learns it exists. The compact depends on
+neither lower tier.
 
 The division of anthropology between the tiers is worth restating, because it
 looks like an inconsistency and is not. The trust substrate handles anonymous
