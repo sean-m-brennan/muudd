@@ -679,6 +679,12 @@ pub enum Office {
     /// after the harm. The roll keeps the last word: it may revoke the office at a
     /// majority, and the policy's actions are its own decision, not the holder's.
     Moderator,
+    /// Authorizes the polity's software releases (design **D41**). Holding it is
+    /// what lets a member sign a [`ReleaseAuthorization`], and the authorization is
+    /// what makes a release the polity's: a finding against that release lands on
+    /// the officer who authorized it, because answerability is accepted with the
+    /// office, never assigned after the fact.
+    ReleaseOfficer,
     /// A polity-specific office named by the string.
     Other(String),
 }
@@ -1611,4 +1617,63 @@ pub struct ContentPolicyAmendment {
     /// The members deciding it; they must co-sign.
     pub deciders: Vec<DidKey>,
     pub decided_at: Timestamp,
+}
+
+/// A release officer's authorization of one commit of one repository as the
+/// polity's release (design **D41**).
+///
+/// **Signed by the officer alone**, and refused unless the officer holds
+/// [`Office::ReleaseOfficer`] at `authorized_at`. The roll decides *who* may
+/// release, by conferring and revoking the office; the officer decides *what*, and
+/// answers for it. A safety finding against the commit lands on the officer as
+/// well as on the polity, which is the reason the act is the officer's own and not
+/// a majority's: a release decided by everyone would be answered for by no one.
+///
+/// `built_by` names the member machine that built the release, when one did. Its
+/// guardian (design **D15**) then answers for the machine, so a team cannot
+/// dissolve accountability by shipping from a box nobody owns. It must be on the
+/// roll when the release is authorized.
+///
+/// The fields are the ones Stele's repository ad carries, and are held to Stele's
+/// canonical-form rules (no `|`, no control characters), so the exported
+/// authorization can be checked against an ad byte for byte.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReleaseAuthorization {
+    pub polity: DidKey,
+    /// The authorizing officer, and the sole signer.
+    pub officer: DidKey,
+    /// The repository's name, as the polity publishes it.
+    pub repo: String,
+    /// Its clone URL.
+    pub url: String,
+    /// The released commit, as lowercase hex (40 or 64 characters).
+    pub commit: String,
+    /// The member machine that built the release, if one did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built_by: Option<DidKey>,
+    pub authorized_at: Timestamp,
+}
+
+/// Longest repository name a [`ReleaseAuthorization`] accepts.
+pub const RELEASE_REPO_MAX: usize = 128;
+/// Longest clone URL a [`ReleaseAuthorization`] accepts.
+pub const RELEASE_URL_MAX: usize = 1024;
+
+impl ReleaseAuthorization {
+    /// Whether the authorization can be carried in a Stele ad unambiguously.
+    /// `Err` names the first problem.
+    pub fn check_shape(&self) -> Result<(), String> {
+        let bad = |c: char| c == '|' || c.is_control();
+        if self.repo.is_empty() || self.repo.len() > RELEASE_REPO_MAX || self.repo.chars().any(bad) {
+            return Err(format!("repo {:?} cannot be carried in a release", self.repo));
+        }
+        if self.url.is_empty() || self.url.len() > RELEASE_URL_MAX || self.url.chars().any(bad) {
+            return Err(format!("url {:?} cannot be carried in a release", self.url));
+        }
+        let hex = |c: char| c.is_ascii_digit() || ('a'..='f').contains(&c);
+        if !matches!(self.commit.len(), 40 | 64) || !self.commit.chars().all(hex) {
+            return Err(format!("commit {:?} is not a lowercase hex object id", self.commit));
+        }
+        Ok(())
+    }
 }

@@ -2292,6 +2292,53 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     continue;
                 }
             }
+            CharterEntry::ReleaseAuthorized(s) => {
+                let r = &s.payload;
+                let prior = reconstruct(archive, &r.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("release for {} precedes its charter", r.polity)));
+                    continue;
+                }
+                // A dissolved polity releases nothing in its own name (D41).
+                if prior.dissolved {
+                    out.push((*cid, format!("release for {} after its dissolution", r.polity)));
+                    continue;
+                }
+                // The officer answers for the release, so the officer alone signs it:
+                // nobody puts a release in somebody else's name.
+                let signers = e.signer_dids();
+                let sole: BTreeSet<String> =
+                    std::iter::once(r.officer.as_str().to_string()).collect();
+                if signers != sole {
+                    out.push((*cid, "a release must be signed by exactly its officer".into()));
+                    continue;
+                }
+                if let Err(why) = r.check_shape() {
+                    out.push((*cid, format!("release by {}: {why}", r.officer)));
+                    continue;
+                }
+                // Who may release is the roll's decision, made by conferring the
+                // office; a holder who has not received the substrate (D29) holds
+                // nothing yet.
+                if !effective_holders(&prior, &Office::ReleaseOfficer).contains(r.officer.as_str()) {
+                    out.push((*cid, format!(
+                        "{} authorized a release without holding ReleaseOfficer",
+                        r.officer
+                    )));
+                    continue;
+                }
+                // The machine that built it must be the polity's, or its guardian
+                // edge (D15) names nobody this polity can hold to account.
+                if let Some(m) = &r.built_by {
+                    if !prior.members.contains(m) {
+                        out.push((*cid, format!(
+                            "release by {} names builder {m}, who is not on the roll",
+                            r.officer
+                        )));
+                        continue;
+                    }
+                }
+            }
             CharterEntry::ContentPolicyAmended(s) => {
                 let a = &s.payload;
                 let prior = reconstruct(archive, &a.polity, idx);

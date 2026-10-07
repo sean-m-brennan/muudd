@@ -629,6 +629,90 @@ pub fn content_policy_state(
     out
 }
 
+/// One release the polity authorized (design **D41**).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleaseListing {
+    /// The record's CID in the charter log.
+    pub cid: Cid,
+    pub officer: DidKey,
+    pub repo: String,
+    pub url: String,
+    pub commit: String,
+    pub built_by: Option<DidKey>,
+    pub authorized_at: Timestamp,
+}
+
+/// Who may release for the polity as of a query time, and every release it has
+/// authorized by then (design **D41**).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReleaseState {
+    /// The members holding [`Office::ReleaseOfficer`] who also hold the substrate
+    /// (D29), sorted by DID: the officers whose authorizations the polity stands
+    /// behind from now on.
+    pub officers: Vec<DidKey>,
+    /// Every accepted authorization made by `as_of`, in log order.
+    pub releases: Vec<ReleaseListing>,
+}
+
+impl ReleaseState {
+    /// The authorizations of `commit` of the repository at `url`.
+    pub fn of(&self, url: &str, commit: &str) -> Vec<&ReleaseListing> {
+        self.releases.iter().filter(|r| r.url == url && r.commit == commit).collect()
+    }
+}
+
+/// Who may release for the polity as of `as_of`, and what it has released
+/// (design **D41**).
+///
+/// **Releases are never withdrawn.** A release stays listed after its officer
+/// resigns, is revoked or leaves the roll, and after the polity dissolves, because
+/// answerability for shipped code is not something a later act can take back: a
+/// polity that could unlist a release by revoking its officer could unlist any
+/// finding against it. Only the *officers* list moves with the office.
+///
+/// **Only authorizations the authority pass accepts are read**, as for
+/// [`rendezvous_state`], so one signed by a member who never held the office, or
+/// held it without the substrate, is simply not there.
+pub fn release_state(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> ReleaseState {
+    let refused: Vec<Cid> =
+        crate::authority_violations(archive).into_iter().map(|(cid, _)| cid).collect();
+    let mut releases = Vec::new();
+    for (cid, e) in archive.iter() {
+        let CharterEntry::ReleaseAuthorized(s) = e else { continue };
+        let r = &s.payload;
+        if &r.polity != polity || r.authorized_at > as_of || refused.contains(cid) {
+            continue;
+        }
+        releases.push(ReleaseListing {
+            cid: *cid,
+            officer: r.officer.clone(),
+            repo: r.repo.clone(),
+            url: r.url.clone(),
+            commit: r.commit.clone(),
+            built_by: r.built_by.clone(),
+            authorized_at: r.authorized_at,
+        });
+    }
+    let mut officers = Vec::new();
+    if !charter_state(archive, polity, as_of).dissolved {
+        let offices = office_state(archive, polity, as_of);
+        let affirmed = affirmation_state(archive, polity, as_of);
+        officers = offices
+            .holders(&Office::ReleaseOfficer)
+            .into_iter()
+            .filter(|h| affirmed.is_inducted(h))
+            .cloned()
+            .collect();
+        officers.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        officers.dedup();
+    }
+    ReleaseState { officers, releases }
+}
+
 /// Who may speak for the polity beyond it as of `as_of` — raw standings
 /// (`Authorize` − `Resign`/`Revoke`) intersected with the current roll and with
 /// the standings that have not expired.

@@ -182,6 +182,15 @@ replacement is the one place this border departs from the member roll, which onl
 ever widens: a roster that could not shrink would keep a revoked operator's relay in
 every client's list.
 
+Two more cross to an application rather than the compact (D41). A polity that
+publishes software tells Stele who it is and what it has released: a **team roster**
+under the root key, listing the members' AT nodes (each having consented with its own
+AT key), the release officers and the guardian edges; and a **release
+authorization** for each commit, signed by the officer who answers for it. Stele
+checks both with keys alone and never reads a charter. A newer roster replaces the
+last, but a release Stele has once verified stays the team's, because answerability
+for shipped code is not something a later roster can take back.
+
 ## Deliberate omissions
 
 Naming the omissions is as useful as naming the artifacts.

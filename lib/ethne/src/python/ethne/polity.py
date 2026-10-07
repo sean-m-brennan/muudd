@@ -72,6 +72,7 @@ propose_charter = _core.propose_charter
 #: `Moderator` (D37) labels content posted in the polity's name.
 OFFICES = (
     "Convener", "Inductor", "EnvoyAuthorizer", "CharterKeeper", "RendezvousOperator", "Moderator",
+    "ReleaseOfficer",
 )
 #: What a content label does under a polity's content policy (D37), loosest first.
 LABEL_ACTIONS = ("Allow", "Warn", "Hide")

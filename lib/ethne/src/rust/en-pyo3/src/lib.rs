@@ -61,6 +61,7 @@ use en_charter::{
     OfficeKind, OfficeState, PolityCharter, PruneRecommendation, PruneRoute, RetentionPolicy,
     Substrate, Movement, RiteMovement, rite_state, Rite,
     rendezvous_state, RelayEndpoint,
+    release_state, ReleaseAuthorization,
     content_policy_state, ContentPolicy, ContentPolicyAmendment,
     compact_state, CompactAct, CompactActKind,
 };
@@ -288,6 +289,7 @@ fn parse_office(s: &str) -> Office {
         "CharterKeeper" => Office::CharterKeeper,
         "RendezvousOperator" => Office::RendezvousOperator,
         "Moderator" => Office::Moderator,
+        "ReleaseOfficer" => Office::ReleaseOfficer,
         other => Office::Other(other.to_string()),
     }
 }
@@ -330,6 +332,7 @@ fn office_name(o: &Office) -> String {
         Office::CharterKeeper => "CharterKeeper".into(),
         Office::RendezvousOperator => "RendezvousOperator".into(),
         Office::Moderator => "Moderator".into(),
+        Office::ReleaseOfficer => "ReleaseOfficer".into(),
         Office::Other(s) => s.clone(),
     }
 }
@@ -3371,6 +3374,128 @@ impl PyArchive {
         .map_err(en_err_to_py)
     }
 
+    /// A release officer authorizes one commit as the polity's release (design
+    /// **D41**). Signed by the officer alone; the authority pass refuses it unless
+    /// the officer holds `ReleaseOfficer`, and refuses a `built_by` machine that is
+    /// not on the roll. Returns the entry's CID.
+    #[pyo3(signature = (polity_did, officer_did, officer_priv, repo, url, commit, built_by=None, authorized_at=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn authorize_release(
+        &mut self,
+        polity_did: &str,
+        officer_did: &str,
+        officer_priv: &[u8],
+        repo: &str,
+        url: &str,
+        commit: &str,
+        built_by: Option<&str>,
+        authorized_at: Option<i64>,
+    ) -> PyResult<String> {
+        let signers = Signers::only(officer_did, officer_priv)?;
+        let record = ReleaseAuthorization {
+            polity: parse_did(polity_did)?,
+            officer: parse_did(officer_did)?,
+            repo: repo.to_string(),
+            url: url.to_string(),
+            commit: commit.to_string(),
+            built_by: built_by.map(parse_did).transpose()?,
+            authorized_at: ts_or_now(authorized_at)?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::ReleaseAuthorized(signed))
+    }
+
+    /// Who may release for the polity as of `as_of`, and what it has released
+    /// (design **D41**): `(officers, releases)`, where `officers` are the DIDs
+    /// holding `ReleaseOfficer` with the substrate, and each release is
+    /// `(cid, officer_did, repo, url, commit, built_by_did_or_None, authorized_at)`.
+    /// Releases stay listed after their officer leaves the office.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    #[allow(clippy::type_complexity)]
+    fn release_state(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<(Vec<String>, Vec<(String, String, String, String, String, Option<String>, i64)>)> {
+        let st = release_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        Ok((
+            st.officers.iter().map(|d| d.as_str().to_string()).collect(),
+            st.releases
+                .into_iter()
+                .map(|r| {
+                    (r.cid.to_string(), r.officer.as_str().to_string(), r.repo, r.url, r.commit,
+                     r.built_by.map(|b| b.as_str().to_string()), r.authorized_at.as_second())
+                })
+                .collect(),
+        ))
+    }
+
+    /// Emit the polity's team roster as Stele's signed `stele-team` file (border
+    /// artifact #9, design **D41**), read from this log as of `as_of`. `members` is
+    /// a list of `(did, at_uuid, consent_hex)`, where each consent is that member's
+    /// AT node signing `stele_consent_message(...)` with its own AT key. Release
+    /// officers and guardian edges come from this log. `seq` must exceed every seq
+    /// published before.
+    #[pyo3(signature = (polity_did, members, root_priv, root_pub, seq, as_of=None))]
+    fn stele_team_roster(
+        &self,
+        polity_did: &str,
+        members: Vec<(String, String, String)>,
+        root_priv: &[u8],
+        root_pub: &[u8],
+        seq: u64,
+        as_of: Option<i64>,
+    ) -> PyResult<String> {
+        let polity = parse_did(polity_did)?;
+        let charter = self.charter_of(&polity)?;
+        let at = ts_or_now(as_of)?;
+        let listed = members
+            .into_iter()
+            .map(|(did, at_uuid, consent)| {
+                Ok(en_uplift::TeamMember { did: parse_did(&did)?, at_uuid, consent })
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        en_uplift::stele_team_roster(
+            &charter,
+            &listed,
+            &release_state(&self.inner, &polity, at),
+            &guardian_state(&self.inner, &polity, at),
+            &priv_from_bytes(root_priv),
+            &pub_from_bytes(root_pub),
+            seq,
+        )
+        .map_err(en_err_to_py)
+    }
+
+    /// Emit one release as Stele's signed `stele-release` file (border artifact #10,
+    /// design **D41**), signed by its officer. `cid` names an authorization this
+    /// log accepted (see `release_state`); anything else is an error.
+    #[pyo3(signature = (polity_did, cid, officer_priv, officer_pub, as_of=None))]
+    fn stele_release_authorization(
+        &self,
+        polity_did: &str,
+        cid: &str,
+        officer_priv: &[u8],
+        officer_pub: &[u8],
+        as_of: Option<i64>,
+    ) -> PyResult<String> {
+        let polity = parse_did(polity_did)?;
+        let charter = self.charter_of(&polity)?;
+        let st = release_state(&self.inner, &polity, ts_or_now(as_of)?);
+        let listing = st
+            .releases
+            .iter()
+            .find(|r| r.cid.to_string() == cid)
+            .ok_or_else(|| PyValueError::new_err(format!("no accepted release {cid} for {polity}")))?;
+        en_uplift::stele_release_authorization(
+            &charter,
+            listing,
+            &priv_from_bytes(officer_priv),
+            &pub_from_bytes(officer_pub),
+        )
+        .map_err(en_err_to_py)
+    }
+
     /// Emit KC's `MemberRoll` (JSON) for this polity — the border artifact that gives
     /// it a real anonymous whistleblower channel. The roll is read from this log as of
     /// `as_of` (the founding roll plus admissions minus departures), so it names
@@ -5483,6 +5608,13 @@ fn at_ffi_available() -> bool {
 /// caller could obtain came from `generate_ed25519_keypair`, for a key it had just made —
 /// so a host holding an observed peer's key had to reimplement multicodec-plus-multibase
 /// itself and had no way to know if it had got it right.
+/// The bytes a member's AT node signs, with its own AT key, to consent to being
+/// listed on the Stele team roster whose root key is `issuer_hex` (design **D41**).
+#[pyfunction]
+fn stele_consent_message(issuer_hex: &str, did: &str, at_uuid: &str) -> PyResult<Vec<u8>> {
+    Ok(en_uplift::consent_message(issuer_hex, &parse_did(did)?, at_uuid))
+}
+
 #[pyfunction]
 fn did_from_ed25519_pubkey(pubkey: Vec<u8>) -> PyResult<String> {
     Ok(signing_key_did(&pubkey).map_err(en_err_to_py)?.into_string())
@@ -5550,6 +5682,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(cohesion_report, m)?)?;
     m.add_function(wrap_pyfunction!(coherence_concern, m)?)?;
     m.add_function(wrap_pyfunction!(did_from_ed25519_pubkey, m)?)?;
+    m.add_function(wrap_pyfunction!(stele_consent_message, m)?)?;
     m.add_function(wrap_pyfunction!(at_ffi_available, m)?)?;
     Ok(())
 }

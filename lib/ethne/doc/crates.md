@@ -668,6 +668,14 @@ geohash areas under its own hint; with no hub the object is left out and the fil
 byte for byte the D36 one. It adds no compact-tier crate, only `serde_json`, `sha2` and
 `hex`.
 
+The module `stele` (D41) holds border artifacts nine and ten, which cross to Stele:
+`stele_team_roster` (the root-signed `stele-team` file listing members' AT nodes with
+each node's consent, the release officers from `release_state`, and the guardian edges
+from `guardian_state`) and `stele_release_authorization` (one accepted release, signed
+by its officer as a `stele-release` file). `consent_message` gives the bytes a member's
+AT node signs. Both files are byte-pinned. Like `rendezvous`, it needs only
+`serde_json` and `hex`.
+
 The module `compact` (D40) holds what the polity signs as a member of a compact
 once it is in one, being border artifact eight: `anti_spiral_claims`,
 `feature_acceptance` for a verdict on another participant's claims,
