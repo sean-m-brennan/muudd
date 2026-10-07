@@ -76,6 +76,8 @@
 
 pub mod rendezvous;
 pub use rendezvous::rendezvous_roster;
+pub mod stele;
+pub use stele::{consent_message, stele_release_authorization, stele_team_roster, TeamMember};
 pub mod compact;
 pub use compact::{
     anathema, anti_spiral_claims, examiner_registry, feature_acceptance, lift, mandate, sponsorship,

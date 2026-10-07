@@ -304,6 +304,26 @@ def withdraw_relay_endpoint(
     )
 
 
+def authorize_release(
+    archive,
+    polity_did: str,
+    officer: Signer,
+    repo: str,
+    url: str,
+    commit: str,
+    built_by: Optional[str] = None,
+    authorized_at: Optional[int] = None,
+) -> str:
+    """A release officer authorizes one commit as the polity's release (D41).
+    Signed by the officer alone, and authorized only while it holds
+    ``ReleaseOfficer``. ``built_by`` is the DID of the member machine that built
+    it, if one did; its guardian then answers for the machine. ``commit`` is the
+    lowercase hex object id."""
+    return archive.authorize_release(
+        polity_did, officer.did, officer.priv, repo, url, commit, built_by, authorized_at
+    )
+
+
 def resign_office(
     archive,
     polity_did: str,
@@ -933,6 +953,7 @@ __all__ = [
     "resign_office",
     "declare_relay_endpoint",
     "withdraw_relay_endpoint",
+    "authorize_release",
     "amend_content_policy",
     "content_policy_state",
     "decide_compact_act",

@@ -149,6 +149,49 @@ def roster_dict(roster_text: str) -> dict:
     return json.loads(json.loads(roster_text)["body"])
 
 
+def stele_consent_message(issuer_hex: str, did: str, at_uuid: str) -> bytes:
+    """The bytes a member's AT node signs, with its own AT key, to consent to being
+    listed on a Stele team roster (D41). ``issuer_hex`` is the polity root key."""
+    return bytes(_core.stele_consent_message(issuer_hex, did, at_uuid))
+
+
+def stele_team_roster(
+    archive,
+    polity_did: str,
+    members,
+    root_priv: bytes,
+    root_pub: bytes,
+    seq: int,
+    as_of: Optional[int] = None,
+) -> str:
+    """The polity's team roster as Stele's signed ``stele-team`` file (D41):
+    ``{"body": <exact JSON>, "sig": <hex>}``, signed by the polity root key over
+    ``"stele-team-v1|" + body``.
+
+    ``members`` is a list of ``(did, at_uuid, consent_hex)``: each member acting
+    through an AT node, with that node's own signature over
+    :func:`stele_consent_message`. A node that did not consent cannot be listed,
+    which is what keeps a team from claiming an outside auditor as a teammate.
+    Release officers and guardian edges are read from the log as of ``as_of``.
+    A higher ``seq`` replaces the previous roster whole.
+    """
+    return archive.stele_team_roster(polity_did, list(members), root_priv, root_pub, seq, as_of)
+
+
+def stele_release_authorization(
+    archive,
+    polity_did: str,
+    cid: str,
+    officer_priv: bytes,
+    officer_pub: bytes,
+    as_of: Optional[int] = None,
+) -> str:
+    """One accepted release (``cid`` from ``Archive.release_state``) as Stele's
+    signed ``stele-release`` file (D41), signed by its officer over
+    ``"stele-release-v1|" + body``."""
+    return archive.stele_release_authorization(polity_did, cid, officer_priv, officer_pub, as_of)
+
+
 def intra_rite(
     archive,
     polity_did: str,
@@ -284,5 +327,8 @@ __all__ = [
     "member_roll",
     "rendezvous_roster",
     "roster_dict",
+    "stele_consent_message",
+    "stele_team_roster",
+    "stele_release_authorization",
     "rite_dict",
 ]

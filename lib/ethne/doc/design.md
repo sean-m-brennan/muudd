@@ -2634,6 +2634,46 @@ KC cannot see on its own and AT cannot decide on its own.
  default of three from two communities), not a rotated pool. *There is no record for
  leaving a compact.*
 
+- **D41. A release officer authorizes the polity's software releases, and a team
+ roster tells Stele who answers for them (locked 2026-10-07).** Stele (`apps/stele`)
+ grades a repository's safety from verifier attestations its viewer checks for itself.
+ A polity that publishes code needs three things from this tier: who may release in
+ its name, who answers for a release that turns out unsafe, and which AT nodes are the
+ team's, so that a teammate is not counted as an independent witness about its own team.
+
+ *An office, and an act signed by the office-holder.* `Office::ReleaseOfficer` is
+ conferred and revoked by the roll like any office. `CharterEntry::ReleaseAuthorized`
+ carries a `ReleaseAuthorization` (repo, url, commit, an optional `built_by` member
+ machine, and `authorized_at`). It is signed by the officer alone and refused unless
+ the officer holds the office with the substrate (D29), and unless any `built_by` is on
+ the roll. The officer signs alone because answerability is accepted with the office,
+ never assigned: a release decided by a majority would be answered for by no one. The
+ `built_by` machine's guardian (D15) answers for the machine. The fields obey Stele's
+ canonical-form rules (no `|`, no control characters, a lowercase hex object id).
+
+ *Releases are never withdrawn.* `release_state` lists every accepted authorization,
+ and keeps listing it after the officer resigns, is revoked or leaves, and after the
+ polity dissolves. A polity that could unlist a release by revoking its officer could
+ unlist any finding against it. Only the `officers` list moves with the office.
+
+ *Two border artifacts, in Stele's vocabulary* (module `stele`; numbers nine and ten).
+ The **team roster** is `{body, sig}` under the root key with the domain
+ `stele-team-v1|`. It lists the members acting through AT nodes, the release officers
+ and the guardian edges whose ends are both listed. Each member carries its **AT node's
+ consent**, a signature over `stele-team-member-v1|issuer|did|at_uuid` by that node's
+ own key, which Stele checks against its AT roster. Without the consent, the root could
+ list an outside auditor as a teammate, and Stele does not count a teammate toward an
+ attestation about its team, so that would expel the auditor without expelling anyone.
+ A higher `seq` replaces the roster, as D36's relay roster does. The **release
+ authorization** is `{body, sig}` under the officer's key with the domain
+ `stele-release-v1|`, exported only from an accepted record. Both are byte-pinned in
+ en-uplift.
+
+ **Honest limits.** *A teammate the roster does not list looks like an outsider.* The
+ roster stops a misdeclaration that would silence an auditor; it cannot make a team
+ declare everyone. *The root key cannot rotate* (D36's limit). *Consents are carried,
+ not checked here*: they are AT signatures, which only an AT roster can verify.
+
 ## Questions and resolutions (round 2)
 
 - **Q9. AT operator-attended signal (D8 prerequisite).** AT must expose, per

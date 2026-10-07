@@ -6885,3 +6885,143 @@ fn a_lapsed_act_covers_nothing() {
     assert!(compact_state(&a, &p.polity, t(500)).acts.is_empty(), "lapsed");
 }
 
+
+// ---------------------------------------------------------------------------
+// D41 — the release office, and the releases it lets a member authorize.
+// ---------------------------------------------------------------------------
+
+const RELEASE_COMMIT: &str = "c3cd66ac5a89e0d1f2a3b4c5d6e7f8091a2b3c4d";
+
+impl Polity {
+    /// Member `officer`'s authorization of `commit`, signed by member `signer`
+    /// (normally the same member; a different one forges it).
+    fn release(&self, officer: usize, signer: usize, commit: &str, built_by: Option<usize>, at: i64) -> CharterEntry {
+        let r = ReleaseAuthorization {
+            polity: self.polity.clone(),
+            officer: self.ids[officer].1.clone(),
+            repo: "demo".into(),
+            url: "http://localhost:3000/stele/demo.git".into(),
+            commit: commit.into(),
+            built_by: built_by.map(|b| self.ids[b].1.clone()),
+            authorized_at: t(at),
+        };
+        CharterEntry::ReleaseAuthorized(Signed::build(r, &self.signers(&[signer])).unwrap())
+    }
+}
+
+fn released(a: &Archive<CharterEntry>, p: &Polity, at: i64) -> Vec<(DidKey, String)> {
+    release_state(a, &p.polity, t(at))
+        .releases
+        .into_iter()
+        .map(|r| (r.officer, r.commit))
+        .collect()
+}
+
+#[test]
+fn an_officer_authorizes_a_release_and_it_is_listed() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::ReleaseOfficer, 2, &[0, 1], 200)).unwrap();
+    a.append(p.release(2, 2, RELEASE_COMMIT, Some(1), 300)).unwrap();
+
+    verify_all(&a).unwrap();
+    check_authority(&a).expect("an officer's own authorization is authorized");
+    assert_eq!(released(&a, &p, 400), vec![(p.ids[2].1.clone(), RELEASE_COMMIT.into())]);
+    let st = release_state(&a, &p.polity, t(400));
+    assert_eq!(st.officers, vec![p.ids[2].1.clone()]);
+    assert_eq!(st.of("http://localhost:3000/stele/demo.git", RELEASE_COMMIT).len(), 1);
+    assert_eq!(st.releases[0].built_by, Some(p.ids[1].1.clone()));
+    assert!(released(&a, &p, 250).is_empty(), "not before it was authorized");
+}
+
+#[test]
+fn a_member_without_the_release_office_cannot_release() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.release(1, 1, RELEASE_COMMIT, None, 300)).unwrap();
+    assert!(violation(&a, "without holding ReleaseOfficer"));
+    assert!(released(&a, &p, 400).is_empty());
+    assert!(release_state(&a, &p.polity, t(400)).officers.is_empty());
+}
+
+#[test]
+fn nobody_releases_in_an_officers_name() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::ReleaseOfficer, 2, &[0, 1], 200)).unwrap();
+    // Member 0 signs an authorization that names member 2, who holds the office.
+    a.append(p.release(2, 0, RELEASE_COMMIT, None, 300)).unwrap();
+    verify_all(&a).expect("the signature itself is valid");
+    assert!(violation(&a, "signed by exactly its officer"));
+    assert!(released(&a, &p, 400).is_empty(), "the read-model runs the authority pass itself");
+}
+
+#[test]
+fn a_release_must_be_carriable_in_a_stele_ad() {
+    let p = Polity::new(3);
+    for bad in [&RELEASE_COMMIT.to_uppercase()[..], "c3cd66ac", "zz"] {
+        let mut a = Archive::new();
+        a.append(p.charter_seasoned(vec![])).unwrap();
+        a.append(p.confer(Office::ReleaseOfficer, 2, &[0, 1], 200)).unwrap();
+        a.append(p.release(2, 2, bad, None, 300)).unwrap();
+        assert!(violation(&a, "release by"), "{bad:?} was accepted");
+    }
+    let mut r = ReleaseAuthorization {
+        polity: p.polity.clone(),
+        officer: p.ids[2].1.clone(),
+        repo: "de|mo".into(),
+        url: "u".into(),
+        commit: RELEASE_COMMIT.into(),
+        built_by: None,
+        authorized_at: t(300),
+    };
+    assert!(r.check_shape().is_err(), "a '|' would split Stele's canonical form");
+    r.repo = "demo".into();
+    r.url = "http://x\n".into();
+    assert!(r.check_shape().is_err());
+    r.url = "http://x".into();
+    r.commit = "a".repeat(64);
+    assert!(r.check_shape().is_ok(), "a sha-256 object id is a commit too");
+}
+
+#[test]
+fn the_builder_must_be_on_the_roll() {
+    let p = Polity::new(3);
+    let outsider = Polity::new(1);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::ReleaseOfficer, 2, &[0, 1], 200)).unwrap();
+    let r = ReleaseAuthorization {
+        polity: p.polity.clone(),
+        officer: p.ids[2].1.clone(),
+        repo: "demo".into(),
+        url: "http://localhost:3000/stele/demo.git".into(),
+        commit: RELEASE_COMMIT.into(),
+        built_by: Some(outsider.ids[0].1.clone()),
+        authorized_at: t(300),
+    };
+    a.append(CharterEntry::ReleaseAuthorized(Signed::build(r, &p.signers(&[2])).unwrap())).unwrap();
+    assert!(violation(&a, "is not on the roll"));
+    assert!(released(&a, &p, 400).is_empty());
+}
+
+#[test]
+fn a_release_outlives_its_officers_office() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.confer(Office::ReleaseOfficer, 2, &[0, 1], 200)).unwrap();
+    a.append(p.release(2, 2, RELEASE_COMMIT, None, 300)).unwrap();
+    a.append(p.revoke_office(Office::ReleaseOfficer, 2, &[0, 1], 500)).unwrap();
+    check_authority(&a).unwrap();
+    let st = release_state(&a, &p.polity, t(600));
+    assert!(st.officers.is_empty(), "the office is gone");
+    assert_eq!(st.releases.len(), 1, "the answerability is not");
+    // And a revoked officer releases nothing more.
+    a.append(p.release(2, 2, &"b".repeat(40), None, 700)).unwrap();
+    assert!(violation(&a, "without holding ReleaseOfficer"));
+    assert_eq!(release_state(&a, &p.polity, t(800)).releases.len(), 1);
+}

@@ -69,6 +69,7 @@ pub use record::{
     MembershipKind, Observation,
     AttestedRole, IndependenceKind, ObservationPruning, Office, OfficeChange, OfficeKind,
     PolityCharter, RelayEndpoint, RELAY_AREAS_MAX, is_geohash_area,
+    ReleaseAuthorization, RELEASE_REPO_MAX, RELEASE_URL_MAX,
     IndependenceAttestation, Substrate, SubstrateDisavowal,
     Movement, RiteMovement,
 };
@@ -88,4 +89,5 @@ pub use state::{
     rendezvous_state, RelayListing, RendezvousState,
     content_policy_state, ContentPolicyState,
     compact_state, CompactState,
+    release_state, ReleaseListing, ReleaseState,
 };

@@ -73,12 +73,13 @@ section of it, and each links to the next at its foot.
 5. [Watching for erosion](doc/cohesion.md): observations, pruning, the graded
    measures, the store, and the host loop.
 6. [Crossing to the compact](doc/uplift.md): the six border artifacts, the
-   relay roster that crosses to the substrate instead, and what deliberately
-   does not cross.
+   relay roster that crosses to the substrate instead, the team roster and
+   release authorizations that cross to Stele, and what deliberately does not
+   cross.
 
 The reference corpus is appendix C of the same chain: [the
 crates](doc/crates.md), the numbered [design decisions D1 to
-D40](doc/design.md), and [build and
+D41](doc/design.md), and [build and
 toolchain](doc/architecture/build-and-toolchain.md).
 
 Outstanding scope is in [TODO.md](TODO.md).
