@@ -634,6 +634,11 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
     // read as a tightening and pass at a bare majority.
     let mut policies: std::collections::BTreeMap<String, crate::ContentPolicy> =
         std::collections::BTreeMap::new();
+    // D42 — the Stele profile each polity lives under, advanced only by accepted
+    // amendments, for the same reason. A polity that never amended one is under
+    // Stele's own reading, `stele-default`.
+    let mut profiles: std::collections::BTreeMap<String, crate::SteleProfile> =
+        std::collections::BTreeMap::new();
     for (idx, (cid, e)) in archive.iter().enumerate() {
         match e {
             CharterEntry::PolityChartered(s) => {
@@ -2396,6 +2401,59 @@ pub fn authority_violations(archive: &Archive<CharterEntry>) -> Vec<(Cid, String
                     }
                 }
                 policies.insert(key, a.policy.clone());
+            }
+            CharterEntry::SteleProfileAmended(s) => {
+                let a = &s.payload;
+                let prior = reconstruct(archive, &a.polity, idx);
+                if !prior.chartered {
+                    out.push((*cid, format!("Stele profile for {} precedes its charter", a.polity)));
+                    continue;
+                }
+                if prior.dissolved {
+                    out.push((*cid, format!("Stele profile for {} after its dissolution", a.polity)));
+                    continue;
+                }
+                if let Err(why) = a.profile.check_shape() {
+                    out.push((*cid, format!("Stele profile of {}: {why}", a.polity)));
+                    continue;
+                }
+                let members = did_set(&prior.members);
+                let deciders = did_set(&a.deciders);
+                if a.deciders.is_empty() {
+                    out.push((*cid, "Stele profile amendment has no deciders".into()));
+                    continue;
+                }
+                if deciders.len() != a.deciders.len() {
+                    out.push((*cid, "duplicate decider".into()));
+                    continue;
+                }
+                if !deciders.is_subset(&members) {
+                    out.push((*cid, "decider is not a member of the polity".into()));
+                    continue;
+                }
+                if e.signer_dids() != deciders {
+                    out.push((*cid, "amendment signers must be exactly the deciders".into()));
+                    continue;
+                }
+                // D29 weight and D11's asymmetry, exactly as for a content policy.
+                let m = seasoned_members(&prior).len();
+                let weighed = deciding_weight(&prior, &a.deciders);
+                let key = a.polity.as_str().to_string();
+                let in_force = profiles.get(&key).cloned().unwrap_or_default();
+                let need = if a.profile.is_loosening_of(&in_force) {
+                    majority(m) + 1
+                } else {
+                    majority(m)
+                };
+                if weighed < need {
+                    out.push((*cid, if need > majority(m) {
+                        format!("loosening the Stele profile needs more than a majority (>= {need}), got {weighed}")
+                    } else {
+                        format!("a Stele profile needs a majority (>= {need}), got {weighed}")
+                    }));
+                    continue;
+                }
+                profiles.insert(key, a.profile.clone());
             }
             CharterEntry::CompactActDecided(s) => {
                 // D40: the roll's mandate for its envoy at KC's border. The same

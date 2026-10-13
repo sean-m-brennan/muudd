@@ -70,6 +70,8 @@ pub use record::{
     AttestedRole, IndependenceKind, ObservationPruning, Office, OfficeChange, OfficeKind,
     PolityCharter, RelayEndpoint, RELAY_AREAS_MAX, is_geohash_area,
     ReleaseAuthorization, RELEASE_REPO_MAX, RELEASE_URL_MAX,
+    check_stele_check, SeverityFloor, SteleProfile, SteleProfileAmendment, TeamCoupling, DepsCoupling,
+    STELE_CHECK_CHANNELS, STELE_PROFILE_CHECKS_MAX, STELE_PROFILE_NAME_MAX,
     IndependenceAttestation, Substrate, SubstrateDisavowal,
     Movement, RiteMovement,
 };
@@ -90,4 +92,5 @@ pub use state::{
     content_policy_state, ContentPolicyState,
     compact_state, CompactState,
     release_state, ReleaseListing, ReleaseState,
+    stele_profile_state, SteleProfileState,
 };

@@ -1619,6 +1619,227 @@ pub struct ContentPolicyAmendment {
     pub decided_at: Timestamp,
 }
 
+/// The least a finding must be rated for a [`SteleProfile`] to count it (design
+/// **D42**). Ordered from the loosest to the strictest bar, so a higher floor sets
+/// more findings aside. There is no `Critical` floor: a confirmed critical finding
+/// always counts, whatever profile a consumer applies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SeverityFloor {
+    /// Every finding counts.
+    #[default]
+    Low,
+    /// Findings rated low are concerns, not failures.
+    Medium,
+    /// Findings rated low or medium are concerns, not failures.
+    High,
+}
+
+/// Whether a repository's verdict also answers for its team (design **D42**).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TeamCoupling {
+    /// The team's standing is shown beside the repository's and changes nothing.
+    #[default]
+    Show,
+    /// The repository stands no better than its team.
+    Worst,
+}
+
+/// Whether a repository's verdict also answers for what it is built from: its
+/// worst dependency that resolves to a repository Stele reads (design **D42**,
+/// the supply-chain view).
+///
+/// Serialized only when it is [`DepsCoupling::Worst`], so a profile that leaves it
+/// at [`DepsCoupling::Show`] has exactly the bytes, signature and CID it had
+/// before the field existed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DepsCoupling {
+    /// Dependencies' standings are shown beside the repository's and change nothing.
+    #[default]
+    Show,
+    /// The repository stands no better than its worst resolved dependency.
+    Worst,
+}
+
+impl DepsCoupling {
+    /// Whether this is the default, which a profile leaves unwritten.
+    pub fn is_show(&self) -> bool {
+        *self == DepsCoupling::Show
+    }
+}
+
+/// The longest profile name, in bytes.
+pub const STELE_PROFILE_NAME_MAX: usize = 64;
+/// The most checks a profile may require, and the most it may set aside.
+pub const STELE_PROFILE_CHECKS_MAX: usize = 16;
+/// The evidence channels a Stele check is filed under. A replication is filed
+/// under the channel of what it replicates, so it is not one of them.
+pub const STELE_CHECK_CHANNELS: [&str; 4] = ["probe", "certificate", "self_consistency", "physical"];
+
+/// What "safe enough" means to whoever follows a polity's Stele profile (design
+/// **D42**).
+///
+/// The chain Stele reads records neutral facts with reasons: which verifier ran
+/// which scanner on which commit, what it found, and who agreed. A profile is a
+/// reading of those facts, never a change to them. Like a [`ContentPolicy`], it
+/// binds no reader: a consumer applies it because they follow the polity, and may
+/// set it aside for its own.
+///
+/// It can tighten Stele's reading freely and relax it only inside floors that no
+/// profile may cross. [`SteleProfile::check_shape`] refuses one that tries, so a
+/// refused profile never reaches a reader at all.
+///
+/// [`SteleProfile::default`] is Stele's own reading, `stele-default`, and it is
+/// the profile of a polity that has never amended one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SteleProfile {
+    /// Shown beside every verdict read under the profile.
+    pub name: String,
+    /// How many counted verifiers must agree before a check is confirmed (1..=16).
+    pub replicas: u8,
+    /// The least AT tier (1..=4) at which a verifier counts, in the reader's roster.
+    pub tier: u8,
+    /// `scanner:channel` checks that must be present and confirmed clean before a
+    /// repository reads as verified safe.
+    pub require: BTreeSet<String>,
+    /// `scanner:channel` checks the profile sets aside: still shown, never counted.
+    pub ignore: BTreeSet<String>,
+    /// Findings rated below this are concerns, not failures.
+    pub severity_floor: SeverityFloor,
+    /// How long a clean reading lasts at full weight, in days (0..=30).
+    pub onset_days: u16,
+    /// The half-life of a clean reading after that, in days (1..=365). A failure
+    /// never fades, under any profile.
+    pub half_life_days: u16,
+    /// Whether the team's standing caps the repository's.
+    pub team: TeamCoupling,
+    /// Whether the worst resolved dependency caps the repository's. Absent reads
+    /// as [`DepsCoupling::Show`].
+    #[serde(default, skip_serializing_if = "DepsCoupling::is_show")]
+    pub deps: DepsCoupling,
+}
+
+impl Default for SteleProfile {
+    fn default() -> Self {
+        SteleProfile {
+            name: "stele-default".into(),
+            replicas: 2,
+            tier: 3,
+            require: BTreeSet::new(),
+            ignore: BTreeSet::new(),
+            severity_floor: SeverityFloor::Low,
+            onset_days: 1,
+            half_life_days: 30,
+            team: TeamCoupling::Show,
+            deps: DepsCoupling::Show,
+        }
+    }
+}
+
+impl SteleProfile {
+    /// Whether this profile lets anything read safer than `prev` would — the
+    /// question that sets the quorum, as for a [`ContentPolicy`]: tightening takes
+    /// a majority, loosening more than one.
+    ///
+    /// Loosening is any of: fewer agreeing verifiers, a lower tier, a check no
+    /// longer required, a check newly set aside, a higher severity floor, a longer
+    /// onset or half-life, or a team or dependency that no longer caps its
+    /// repositories. A
+    /// change that tightens one rule and loosens another is a loosening. The name
+    /// is not a rule.
+    pub fn is_loosening_of(&self, prev: &SteleProfile) -> bool {
+        self.replicas < prev.replicas
+            || self.tier < prev.tier
+            || !self.require.is_superset(&prev.require)
+            || !self.ignore.is_subset(&prev.ignore)
+            || self.severity_floor > prev.severity_floor
+            || self.onset_days > prev.onset_days
+            || self.half_life_days > prev.half_life_days
+            || (prev.team == TeamCoupling::Worst && self.team == TeamCoupling::Show)
+            || (prev.deps == DepsCoupling::Worst && self.deps == DepsCoupling::Show)
+    }
+
+    /// Whether the profile stays inside Stele's floors and can travel. `Err` names
+    /// the first problem.
+    ///
+    /// The floors: at least one counted verifier, a real AT tier, a severity floor
+    /// no higher than [`SeverityFloor::High`] (the type itself has no higher one),
+    /// a freshness the reader can still see change, and well-formed checks that are
+    /// not both required and set aside.
+    pub fn check_shape(&self) -> Result<(), String> {
+        let name_ok = |c: char| {
+            c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.'
+        };
+        if self.name.is_empty() || self.name.len() > STELE_PROFILE_NAME_MAX || !self.name.chars().all(name_ok) {
+            return Err(format!(
+                "profile name {:?} must be 1..={STELE_PROFILE_NAME_MAX} of [a-z0-9._-]",
+                self.name
+            ));
+        }
+        if !(1..=16).contains(&self.replicas) {
+            return Err(format!("replicas {} must be 1..=16", self.replicas));
+        }
+        if !(1..=4).contains(&self.tier) {
+            return Err(format!("tier {} is not a counting AT tier (1..=4)", self.tier));
+        }
+        if self.onset_days > 30 {
+            return Err(format!("onset_days {} exceeds 30", self.onset_days));
+        }
+        if !(1..=365).contains(&self.half_life_days) {
+            return Err(format!("half_life_days {} must be 1..=365", self.half_life_days));
+        }
+        for (what, set) in [("require", &self.require), ("ignore", &self.ignore)] {
+            if set.len() > STELE_PROFILE_CHECKS_MAX {
+                return Err(format!(
+                    "{what} names {} checks, more than {STELE_PROFILE_CHECKS_MAX}",
+                    set.len()
+                ));
+            }
+            for check in set {
+                check_stele_check(check)?;
+            }
+        }
+        if let Some(both) = self.require.intersection(&self.ignore).next() {
+            return Err(format!("check {both:?} is both required and set aside"));
+        }
+        Ok(())
+    }
+}
+
+/// Whether `check` names a Stele check: `scanner:channel`, with a scanner of
+/// 1..=32 bytes of `[a-z0-9._-]` and a channel from [`STELE_CHECK_CHANNELS`].
+pub fn check_stele_check(check: &str) -> Result<(), String> {
+    let ok = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '.';
+    let Some((scanner, channel)) = check.split_once(':') else {
+        return Err(format!("check {check:?} is not scanner:channel"));
+    };
+    if scanner.is_empty() || scanner.len() > 32 || !scanner.chars().all(ok) {
+        return Err(format!("check {check:?}: scanner must be 1..=32 of [a-z0-9._-]"));
+    }
+    if !STELE_CHECK_CHANNELS.contains(&channel) {
+        return Err(format!(
+            "check {check:?}: channel must be one of {}",
+            STELE_CHECK_CHANNELS.join(", ")
+        ));
+    }
+    Ok(())
+}
+
+/// The roll replacing its polity's [`SteleProfile`] whole (design **D42**), under
+/// the rule a [`ContentPolicyAmendment`] follows: a majority to tighten, more than
+/// a majority to loosen ([`SteleProfile::is_loosening_of`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SteleProfileAmendment {
+    pub polity: DidKey,
+    pub profile: SteleProfile,
+    pub rationale: String,
+    /// The members deciding it; they must co-sign.
+    pub deciders: Vec<DidKey>,
+    pub decided_at: Timestamp,
+}
+
 /// A release officer's authorization of one commit of one repository as the
 /// polity's release (design **D41**).
 ///

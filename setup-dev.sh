@@ -32,7 +32,7 @@ SIM_DIR="$AT_DIR/src/autonomous-trust-simulator"
 SIM_CONFIG="$SIM_DIR/config"
 
 ENV_NAME="muudd_simulation"
-ENV_YAML="$SIM_CONFIG/simulation_environ.yaml"
+ENV_YAML="$SIM_CONFIG/simulation_environ.yml"
 MINIFORGE_HOME="$HOME/.miniforge3"
 
 # Colors

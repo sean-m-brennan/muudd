@@ -33,13 +33,13 @@ substrate provider among others.
 ## Quick start
 
 The build needs a per-component **conda** env, consistent with the rest of
-continuous-space. `environment.yaml` pins `python==3.13.*`, `rust`, `rust-src`,
+continuous-space. `environment.yml` pins `python==3.13.*`, `rust`, `rust-src`,
 `maturin`, and `pytest` from conda-forge, and `run-tests.sh` errors early with
 an instruction if any of them is missing.
 
 ```bash
 cd lib/muudd/lib/ethne
-conda env create -f environment.yaml   # first time only
+conda env create -f environment.yml   # first time only
 conda activate ethne
 
 # Rust tier (en-pyo3 is a cdylib with no test harness of its own)

@@ -112,6 +112,19 @@ amendments only, and the moderators: inducted holders of `Moderator`, who label
 content alone. The policy artifact, the labels and the verdict belong to the
 consumer (Agora's `ethne_ffi`).
 
+### Stele profile (D42)
+
+`SteleProfile` carries what "safe enough" means to whoever follows the polity in
+Stele: `replicas`, `tier`, `require` and `ignore` (`scanner:channel` checks),
+`severity_floor` (`SeverityFloor { Low, Medium, High }`), `onset_days`,
+`half_life_days` and `team` (`TeamCoupling { Show, Worst }`). `check_shape` holds
+Stele's floors. `SteleProfileAmendment` (`CharterEntry::SteleProfileAmended`)
+replaces it whole under D37's rule: a majority tightens it, and a loosening, as
+`SteleProfile::is_loosening_of` decides, needs a majority plus one.
+`stele_profile_state` derives the profile in force from accepted amendments only,
+with `set_by` and `seq` (the count of accepted amendments). A polity that never
+amended one is under `SteleProfile::default()`, Stele's own `stele-default`.
+
 ### The chartered node-to-guardian edge
 
 A `Derivation` (D15) says which members are derived parties and which human each
@@ -675,6 +688,10 @@ from `guardian_state`) and `stele_release_authorization` (one accepted release, 
 by its officer as a `stele-release` file). `consent_message` gives the bytes a member's
 AT node signs. Both files are byte-pinned. Like `rendezvous`, it needs only
 `serde_json` and `hex`.
+
+The same module holds border artifact eleven (D42): `stele_profile`, the profile
+the roll last decided, as the root-signed `stele-profile` file with its `seq` and
+`set_by`, exported only from accepted amendments. It too is byte-pinned.
 
 The module `compact` (D40) holds what the polity signs as a member of a compact
 once it is in one, being border artifact eight: `anti_spiral_claims`,

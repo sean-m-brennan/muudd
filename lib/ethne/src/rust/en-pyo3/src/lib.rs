@@ -63,6 +63,7 @@ use en_charter::{
     rendezvous_state, RelayEndpoint,
     release_state, ReleaseAuthorization,
     content_policy_state, ContentPolicy, ContentPolicyAmendment,
+    stele_profile_state, SteleProfile, SteleProfileAmendment,
     compact_state, CompactAct, CompactActKind,
 };
 use en_charter::{
@@ -1957,6 +1958,72 @@ impl PyArchive {
         ))
     }
 
+    // ---- Stele profile (D42) ----------------------------------------------
+
+    /// Replace the polity's Stele profile whole (design **D42**). `profile_json`
+    /// is a `SteleProfile` as JSON: `{"name", "replicas", "tier", "require",
+    /// "ignore", "severity_floor": "low"|"medium"|"high", "onset_days",
+    /// "half_life_days", "team": "show"|"worst", "deps": "show"|"worst"}`, `deps`
+    /// optional and written back only when "worst". A majority tightens; loosening
+    /// anything needs a majority + 1. Returns the entry's CID.
+    #[pyo3(signature = (
+        polity_did, profile_json, rationale=String::new(),
+        decider_dids=Vec::new(), decider_privs=Vec::new(), decided_at=None,
+    ))]
+    fn amend_stele_profile(
+        &mut self,
+        polity_did: &str,
+        profile_json: &str,
+        rationale: String,
+        decider_dids: Vec<String>,
+        decider_privs: Vec<Vec<u8>>,
+        decided_at: Option<i64>,
+    ) -> PyResult<String> {
+        let profile: SteleProfile = serde_json::from_str(profile_json).map_err(json_err_to_py)?;
+        let signers = Signers::new(decider_dids, decider_privs)?;
+        let record = SteleProfileAmendment {
+            polity: parse_did(polity_did)?,
+            profile,
+            rationale,
+            deciders: parse_dids(&signers.dids)?,
+            decided_at: ts_or_now(decided_at)?,
+        };
+        let signed = Signed::build(record, &signers.pairs()).map_err(en_err_to_py)?;
+        self.append(CharterEntry::SteleProfileAmended(signed))
+    }
+
+    /// The polity's Stele profile as of `as_of` (design **D42**):
+    /// `(profile_json, set_by_cid_or_None, seq)`. Only accepted amendments are
+    /// read; a polity that never amended one is under `stele-default`.
+    #[pyo3(signature = (polity_did, as_of=None))]
+    fn stele_profile_state(
+        &self,
+        polity_did: &str,
+        as_of: Option<i64>,
+    ) -> PyResult<(String, Option<String>, u64)> {
+        let st = stele_profile_state(&self.inner, &parse_did(polity_did)?, ts_or_now(as_of)?);
+        let profile = serde_json::to_string(&st.profile).map_err(json_err_to_py)?;
+        Ok((profile, st.set_by.map(|c| c.to_string()), st.seq))
+    }
+
+    /// Emit the polity's Stele profile as Stele's signed `stele-profile` file
+    /// (border artifact #11, design **D42**), signed by the polity root key. Only
+    /// the profile the roll last decided, as of `as_of`, can be exported.
+    #[pyo3(signature = (polity_did, root_priv, root_pub, as_of=None))]
+    fn stele_profile(
+        &self,
+        polity_did: &str,
+        root_priv: &[u8],
+        root_pub: &[u8],
+        as_of: Option<i64>,
+    ) -> PyResult<String> {
+        let polity = parse_did(polity_did)?;
+        let charter = self.charter_of(&polity)?;
+        let st = stele_profile_state(&self.inner, &polity, ts_or_now(as_of)?);
+        en_uplift::stele_profile(&charter, &st, &priv_from_bytes(root_priv), &pub_from_bytes(root_pub))
+            .map_err(en_err_to_py)
+    }
+
     // ---- Compact acts (D40) ------------------------------------------------
 
     /// Record the roll's decision about a kith-covenant compact (design **D40**).
@@ -3460,6 +3527,49 @@ impl PyArchive {
             &listed,
             &release_state(&self.inner, &polity, at),
             &guardian_state(&self.inner, &polity, at),
+            &priv_from_bytes(root_priv),
+            &pub_from_bytes(root_pub),
+            seq,
+        )
+        .map_err(en_err_to_py)
+    }
+
+    /// Emit the polity's group anchor as Stele's signed `stele-group-anchor` file
+    /// (border artifact #12, design **D43**). `members` is a list of
+    /// `(at_uuid, pubkey_hex, tier, consent_hex)`, each consent the node signing
+    /// `stele_anchor_consent_message(...)` with the key it is listed with;
+    /// `checkpoints` is a list of `(group_uuid, epoch, root_hex, first_index, count)`.
+    /// Both come from the minting node's AT roster. `seq` must exceed every seq
+    /// published before.
+    #[pyo3(signature = (polity_did, group_uuid, members, checkpoints, root_priv, root_pub, seq))]
+    #[allow(clippy::too_many_arguments)]
+    fn stele_group_anchor(
+        &self,
+        polity_did: &str,
+        group_uuid: &str,
+        members: Vec<(String, String, u8, String)>,
+        checkpoints: Vec<(String, u64, String, u64, u64)>,
+        root_priv: &[u8],
+        root_pub: &[u8],
+        seq: u64,
+    ) -> PyResult<String> {
+        let polity = parse_did(polity_did)?;
+        let charter = self.charter_of(&polity)?;
+        let listed: Vec<en_uplift::AnchorMember> = members
+            .into_iter()
+            .map(|(at_uuid, pubkey, tier, consent)| en_uplift::AnchorMember { at_uuid, pubkey, tier, consent })
+            .collect();
+        let cks: Vec<en_uplift::AnchorCheckpoint> = checkpoints
+            .into_iter()
+            .map(|(group_uuid, epoch, root, first_index, count)| {
+                en_uplift::AnchorCheckpoint { group_uuid, epoch, root, first_index, count }
+            })
+            .collect();
+        en_uplift::stele_group_anchor(
+            &charter,
+            group_uuid,
+            &listed,
+            &cks,
             &priv_from_bytes(root_priv),
             &pub_from_bytes(root_pub),
             seq,
@@ -5615,6 +5725,14 @@ fn stele_consent_message(issuer_hex: &str, did: &str, at_uuid: &str) -> PyResult
     Ok(en_uplift::consent_message(issuer_hex, &parse_did(did)?, at_uuid))
 }
 
+/// The bytes an AT node signs, with the key it is listed under, to consent to a
+/// Stele group anchor (design **D43**).
+#[pyfunction]
+fn stele_anchor_consent_message(issuer_hex: &str, group_uuid: &str, at_uuid: &str,
+                                pubkey_hex: &str) -> Vec<u8> {
+    en_uplift::anchor_consent_message(issuer_hex, group_uuid, at_uuid, pubkey_hex)
+}
+
 #[pyfunction]
 fn did_from_ed25519_pubkey(pubkey: Vec<u8>) -> PyResult<String> {
     Ok(signing_key_did(&pubkey).map_err(en_err_to_py)?.into_string())
@@ -5683,6 +5801,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(coherence_concern, m)?)?;
     m.add_function(wrap_pyfunction!(did_from_ed25519_pubkey, m)?)?;
     m.add_function(wrap_pyfunction!(stele_consent_message, m)?)?;
+    m.add_function(wrap_pyfunction!(stele_anchor_consent_message, m)?)?;
     m.add_function(wrap_pyfunction!(at_ffi_available, m)?)?;
     Ok(())
 }

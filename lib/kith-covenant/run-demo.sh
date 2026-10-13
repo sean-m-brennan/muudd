@@ -15,7 +15,7 @@
 #   limitations under the License.
 #
 # Launch the kith-covenant capture-signal dashboard prototype in the project's
-# existing conda env (default: 'kith-covenant', per environment.yaml).
+# existing conda env (default: 'kith-covenant', per environment.yml).
 #
 # Self-contained: read-only, demo-seeded data, no writes.
 #
@@ -56,7 +56,7 @@ fi
 run() { "$CONDA" run -n "$CONDA_ENV" --no-capture-output "$@"; }
 
 if ! "$CONDA" env list | awk '{print $1}' | grep -qx "$CONDA_ENV"; then
-  echo "ERROR: conda env '$CONDA_ENV' not found. Create it from environment.yaml," >&2
+  echo "ERROR: conda env '$CONDA_ENV' not found. Create it from environment.yml," >&2
   echo "       or pass CONDA_ENV=<name>." >&2
   exit 1
 fi

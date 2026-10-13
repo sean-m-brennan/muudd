@@ -13,17 +13,17 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-"""Compose per-component `environment.yaml` files into a single master env.
+"""Compose per-component `environment.yml` files into a single master env.
 
 Conda doesn't natively compose environment files, so this script does it:
-reads the listed `environment.yaml` files, merges channels (preserving
+reads the listed `environment.yml` files, merges channels (preserving
 first-seen order) and dependencies (deduplicated), and writes a single
-`master-environ.yaml`.
+`master-environ.yml`.
 
 By default it reads:
-  - lib/muudd/environment.yaml
-  - lib/muudd/lib/kith-covenant/environment.yaml
-  - lib/muudd/lib/autonomous_trust/environment.yaml
+  - lib/muudd/environment.yml
+  - lib/muudd/lib/kith-covenant/environment.yml
+  - lib/muudd/lib/autonomous_trust/environment.yml
 
 Conflicts (same package, different version specs — e.g. python==3.10.* vs
 python==3.12.*) are *reported to stderr and exit 1*, because the caller
@@ -55,9 +55,9 @@ except ImportError:
 
 # Relative to this script's directory (= lib/muudd).
 DEFAULT_SOURCES = [
-    "environment.yaml",
-    "lib/kith-covenant/environment.yaml",
-    "lib/autonomous_trust/environment.yaml",
+    "environment.yml",
+    "lib/kith-covenant/environment.yml",
+    "lib/autonomous_trust/environment.yml",
 ]
 
 # Match the leading alphanumeric package name, e.g. "numpy>=1.20" -> "numpy".
@@ -156,18 +156,18 @@ def compose(sources, name):
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Compose multiple environment.yaml files into one."
+        description="Compose multiple environment.yml files into one."
     )
     parser.add_argument(
         "files",
         nargs="*",
-        help="environment.yaml files to merge (default: muudd + kith-covenant + autonomous_trust)",
+        help="environment.yml files to merge (default: muudd + kith-covenant + autonomous_trust)",
     )
     parser.add_argument(
         "-o",
         "--output",
-        default="master-environ.yaml",
-        help="output path (default: master-environ.yaml in cwd)",
+        default="master-environ.yml",
+        help="output path (default: master-environ.yml in cwd)",
     )
     parser.add_argument(
         "--name",

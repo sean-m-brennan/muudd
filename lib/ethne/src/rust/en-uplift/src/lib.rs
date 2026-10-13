@@ -56,6 +56,15 @@
 //!    participant's claims, a sponsorship, the examining roster, an anathema and its
 //!    lift (design **D40**). Each builder refuses to draft a record no act of the roll
 //!    in force covers; see [`compact`].
+//! 9. **Stele team roster** — who the polity's team is, as its root key states it,
+//!    with each member node's own consent (design **D41**); see [`stele`].
+//! 10. **Stele release authorization** — one release officer's acceptance of one
+//!     commit as the polity's release (design **D41**); see [`stele`].
+//! 11. **Stele profile** — what "safe enough" means to whoever follows the polity,
+//!     as the roll last decided it (design **D42**); see [`stele`].
+//! 12. **Stele group anchor**: the AT group the polity's work is verified in, its
+//!     nodes' keys (each consenting) and tiers, and its checkpoints (design **D43**);
+//!     see [`stele`].
 //!
 //! # Why this crate exists (the confined coupling)
 //!
@@ -77,7 +86,9 @@
 pub mod rendezvous;
 pub use rendezvous::rendezvous_roster;
 pub mod stele;
-pub use stele::{consent_message, stele_release_authorization, stele_team_roster, TeamMember};
+pub use stele::{anchor_consent_message, consent_message, stele_group_anchor, stele_profile,
+                stele_release_authorization, stele_team_roster, AnchorCheckpoint, AnchorMember,
+                TeamMember};
 pub mod compact;
 pub use compact::{
     anathema, anti_spiral_claims, examiner_registry, feature_acceptance, lift, mandate, sponsorship,

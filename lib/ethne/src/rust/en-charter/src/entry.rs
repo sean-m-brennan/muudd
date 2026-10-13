@@ -44,6 +44,7 @@ use crate::record::{
     Affirmation, BoundaryDissent, CharterDissolution, CommitmentAmendment, CompactAct, ContentPolicyAmendment, EnvoyAuthorization,
     GuardianChange, GuardianEvidence, MembershipChange, Observation, ObservationPruning,
     OfficeChange, PolityCharter, RelayEndpoint, ReleaseAuthorization, RiteMovement,
+    SteleProfileAmendment,
     IndependenceAttestation, SubstrateDisavowal,
 };
 
@@ -106,6 +107,9 @@ pub enum CharterEntry {
     /// (design **D41**). Signed by the officer alone, under the office the roll
     /// conferred.
     ReleaseAuthorized(Signed<ReleaseAuthorization>),
+    /// The roll replacing the polity's Stele profile (design **D42**): a majority
+    /// to tighten it, more than a majority to loosen it, as for a content policy.
+    SteleProfileAmended(Signed<SteleProfileAmendment>),
     /// The deliberate winding-up of the polity (terminal; may name successors).
     CharterDissolved(Signed<CharterDissolution>),
 }
@@ -130,6 +134,7 @@ impl CharterEntry {
             CharterEntry::ContentPolicyAmended(s) => &s.signatures,
             CharterEntry::CompactActDecided(s) => &s.signatures,
             CharterEntry::ReleaseAuthorized(s) => &s.signatures,
+            CharterEntry::SteleProfileAmended(s) => &s.signatures,
             CharterEntry::ObservationsPruned(s) => &s.signatures,
             CharterEntry::CharterDissolved(s) => &s.signatures,
         };
@@ -155,6 +160,7 @@ impl CharterEntry {
             CharterEntry::ContentPolicyAmended(s) => &s.payload.polity,
             CharterEntry::CompactActDecided(s) => &s.payload.polity,
             CharterEntry::ReleaseAuthorized(s) => &s.payload.polity,
+            CharterEntry::SteleProfileAmended(s) => &s.payload.polity,
             CharterEntry::ObservationsPruned(s) => &s.payload.polity,
             CharterEntry::CharterDissolved(s) => &s.payload.polity,
         }
@@ -180,6 +186,7 @@ impl Entry for CharterEntry {
             CharterEntry::ContentPolicyAmended(_) => "ContentPolicyAmended",
             CharterEntry::CompactActDecided(_) => "CompactActDecided",
             CharterEntry::ReleaseAuthorized(_) => "ReleaseAuthorized",
+            CharterEntry::SteleProfileAmended(_) => "SteleProfileAmended",
             CharterEntry::ObservationsPruned(_) => "ObservationsPruned",
             CharterEntry::CharterDissolved(_) => "CharterDissolved",
         }
@@ -249,6 +256,7 @@ pub fn verify_entry(entry: &CharterEntry) -> KcResult<()> {
         CharterEntry::ContentPolicyAmended(s) => s.verify(didkey_resolver),
         CharterEntry::CompactActDecided(s) => s.verify(didkey_resolver),
         CharterEntry::ReleaseAuthorized(s) => s.verify(didkey_resolver),
+        CharterEntry::SteleProfileAmended(s) => s.verify(didkey_resolver),
         CharterEntry::ObservationsPruned(s) => s.verify(didkey_resolver),
         CharterEntry::CharterDissolved(s) => s.verify(didkey_resolver),
     }
