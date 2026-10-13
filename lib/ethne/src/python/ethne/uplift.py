@@ -178,6 +178,37 @@ def stele_team_roster(
     return archive.stele_team_roster(polity_did, list(members), root_priv, root_pub, seq, as_of)
 
 
+def stele_anchor_consent_message(issuer_hex: str, group_uuid: str, at_uuid: str,
+                                 pubkey_hex: str) -> bytes:
+    """The bytes an AT node signs, with the key it is listed under, to consent to
+    a Stele group anchor (D43). Stable across reissues of the anchor."""
+    return bytes(_core.stele_anchor_consent_message(issuer_hex, group_uuid, at_uuid, pubkey_hex))
+
+
+def stele_group_anchor(
+    archive,
+    polity_did: str,
+    group_uuid: str,
+    members,
+    checkpoints,
+    root_priv: bytes,
+    root_pub: bytes,
+    seq: int,
+) -> str:
+    """The polity's group anchor as Stele's signed ``stele-group-anchor`` file
+    (D43): the AT group its work is verified in, signed by the polity root key over
+    ``"stele-anchor-v1|" + body``.
+
+    ``members`` is a list of ``(at_uuid, pubkey_hex, tier, consent_hex)``, each
+    consent the node's own signature over :func:`stele_anchor_consent_message`;
+    ``checkpoints`` is a list of ``(group_uuid, epoch, root_hex, first_index,
+    count)``. Both are the minting node's AT roster at the instant of signing. A
+    higher ``seq`` replaces the previous anchor whole.
+    """
+    return archive.stele_group_anchor(polity_did, group_uuid, list(members),
+                                      list(checkpoints), root_priv, root_pub, seq)
+
+
 def stele_release_authorization(
     archive,
     polity_did: str,
@@ -190,6 +221,21 @@ def stele_release_authorization(
     signed ``stele-release`` file (D41), signed by its officer over
     ``"stele-release-v1|" + body``."""
     return archive.stele_release_authorization(polity_did, cid, officer_priv, officer_pub, as_of)
+
+
+def stele_profile(
+    archive,
+    polity_did: str,
+    root_priv: bytes,
+    root_pub: bytes,
+    as_of: Optional[int] = None,
+) -> str:
+    """The polity's Stele profile as Stele's signed ``stele-profile`` file (D42,
+    border artifact #11): ``{"body": <exact JSON>, "sig": <hex>}``, signed by the
+    polity root key over ``"stele-profile-v1|" + body``. Only the profile the roll
+    last decided can be exported; ``seq`` in the body counts accepted amendments,
+    and a follower keeps the highest."""
+    return archive.stele_profile(polity_did, root_priv, root_pub, as_of)
 
 
 def intra_rite(
@@ -330,5 +376,8 @@ __all__ = [
     "stele_consent_message",
     "stele_team_roster",
     "stele_release_authorization",
+    "stele_profile",
+    "stele_anchor_consent_message",
+    "stele_group_anchor",
     "rite_dict",
 ]

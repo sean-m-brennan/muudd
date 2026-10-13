@@ -112,19 +112,19 @@ muudd/
 ## Development environment
 
 Each component (`muudd`, `lib/autonomous_trust`, `lib/ethne`, `lib/kith-
-covenant`) carries its own `environment.yaml` conda specification. To work on
+covenant`) carries its own `environment.yml` conda specification. To work on
 the whole stack in a single environment, compose them:
 
 ```bash
-./compose-environment.py                      # writes master-environ.yaml
-conda env create -f master-environ.yaml       # or `conda env update -f ...`
+./compose-environment.py                      # writes master-environ.yml
+conda env create -f master-environ.yml       # or `conda env update -f ...`
 conda activate continuous-space-master
 ```
 
 The composer merges channels and dependencies across the component files,
 reports any conflict (disagreeing version pins, for instance) to stderr, and
-exits non-zero. The generated `master-environ.yaml` is a derived artifact and is
-gitignored. Edit the per-component `environment.yaml` files, never the merged
+exits non-zero. The generated `master-environ.yml` is a derived artifact and is
+gitignored. Edit the per-component `environment.yml` files, never the merged
 output.
 
 Clone with submodules, since `lib/autonomous_trust` is one:

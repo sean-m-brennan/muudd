@@ -19,7 +19,7 @@ wrong. Those are marked, because the reason is the useful part.
 ## Build environment
 
 Firstly, the supported build is the per-component conda env, consistent with the
-rest of continuous-space: `environment.yaml` pins `python==3.13.*`, `rust`,
+rest of continuous-space: `environment.yml` pins `python==3.13.*`, `rust`,
 `rust-src`, `maturin`, and `pytest` from conda-forge. `run-tests.sh` errors
 early and names whatever is missing.
 

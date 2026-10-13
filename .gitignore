@@ -1,5 +1,5 @@
 /.idea/
-/master-environ.yaml
+/master-environ.yml
 /doc/research/muudd.bib
 /lib/kith-covenant/target/
 /lib/kith-covenant/src/python/kith_covenant/_core*.so

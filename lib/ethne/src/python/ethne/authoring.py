@@ -168,6 +168,37 @@ def content_policy_state(archive, polity_did: str, as_of: Optional[int] = None) 
     return {"policy": json.loads(policy), "set_by": set_by, "moderators": moderators}
 
 
+# ---- Stele profile (D42) ------------------------------------------------------
+
+def amend_stele_profile(
+    archive,
+    polity_did: str,
+    profile: dict,
+    deciders: Sequence[Signer],
+    rationale: str = "",
+    decided_at: Optional[int] = None,
+) -> str:
+    """Replace the polity's Stele profile whole (D42): what "safe enough" means to
+    whoever follows the polity. ``profile`` is a dict with ``name``, ``replicas``
+    (1..16), ``tier`` (1..4), ``require`` and ``ignore`` (lists of
+    ``"scanner:channel"``), ``severity_floor`` ("low"|"medium"|"high"),
+    ``onset_days`` (0..30), ``half_life_days`` (1..365) and ``team``
+    ("show"|"worst"). A majority tightens it; loosening anything needs a
+    majority + 1, and nothing may cross Stele's floors."""
+    dids, privs = _split(deciders)
+    return archive.amend_stele_profile(
+        polity_did, json.dumps(profile, sort_keys=True), rationale, dids, privs, decided_at
+    )
+
+
+def stele_profile_state(archive, polity_did: str, as_of: Optional[int] = None) -> dict:
+    """The Stele profile in force as of ``as_of`` (D42):
+    ``{"profile": dict, "set_by": cid or None, "seq": int}``. A polity that never
+    amended one is under ``stele-default``, with ``seq`` 0."""
+    profile, set_by, seq = archive.stele_profile_state(polity_did, as_of)
+    return {"profile": json.loads(profile), "set_by": set_by, "seq": seq}
+
+
 # ---- Compacts (D40) -----------------------------------------------------------
 
 COMPACT_ACT_KINDS = ("Join", "Admit", "Sponsor", "Refuse", "Anathematize", "Lift")
@@ -956,6 +987,8 @@ __all__ = [
     "authorize_release",
     "amend_content_policy",
     "content_policy_state",
+    "amend_stele_profile",
+    "stele_profile_state",
     "decide_compact_act",
     "compact_state",
     "COMPACT_ACT_KINDS",

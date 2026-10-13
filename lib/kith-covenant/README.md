@@ -53,12 +53,12 @@ audit commons recording conduct over time.
 ## Quick start
 
 The project builds against a per-component **conda** env, consistent with the
-rest of continuous-space. `environment.yaml` pins `python==3.13.*`, `rust`,
+rest of continuous-space. `environment.yml` pins `python==3.13.*`, `rust`,
 `rust-src`, `maturin`, and `pytest` from conda-forge.
 
 ```bash
 cd lib/muudd/lib/kith-covenant
-conda env create -f environment.yaml     # first time only
+conda env create -f environment.yml     # first time only
 conda activate kith-covenant
 ./run-tests.sh                           # cargo tests + Rust demo + PyO3 build + pytest + Python demo
 ```
@@ -186,7 +186,7 @@ provenance.
 
 ## Development setup
 
-Dependencies come from conda rather than from pip or venv. `environment.yaml`
+Dependencies come from conda rather than from pip or venv. `environment.yml`
 provides `cargo` and `rustc` through the conda `rust` package, plus `maturin`
 and `pytest`, and `run-tests.sh` errors early with an instruction if any is
 missing.

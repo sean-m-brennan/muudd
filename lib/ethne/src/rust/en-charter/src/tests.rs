@@ -7025,3 +7025,229 @@ fn a_release_outlives_its_officers_office() {
     assert!(violation(&a, "without holding ReleaseOfficer"));
     assert_eq!(release_state(&a, &p.polity, t(800)).releases.len(), 1);
 }
+
+// ---------------------------------------------------------------------------
+// D42 — a polity's Stele profile: what "safe enough" means to its followers.
+// ---------------------------------------------------------------------------
+
+impl Polity {
+    /// The roll replacing the Stele profile, decided and signed by `deciders`.
+    fn stele(&self, profile: SteleProfile, deciders: &[usize], at: i64) -> CharterEntry {
+        let a = SteleProfileAmendment {
+            polity: self.polity.clone(),
+            profile,
+            rationale: "r".into(),
+            deciders: self.dids(deciders),
+            decided_at: t(at),
+        };
+        CharterEntry::SteleProfileAmended(Signed::build(a, &self.signers(deciders)).unwrap())
+    }
+}
+
+/// Tighter than `stele-default` on every rule.
+fn stele_strict() -> SteleProfile {
+    SteleProfile {
+        name: "acme-strict".into(),
+        replicas: 3,
+        tier: 3,
+        require: ["osv-scanner:probe".to_string(), "gitleaks:probe".to_string()].into_iter().collect(),
+        ignore: Default::default(),
+        severity_floor: SeverityFloor::Low,
+        onset_days: 1,
+        half_life_days: 14,
+        team: TeamCoupling::Worst,
+        deps: DepsCoupling::Worst,
+    }
+}
+
+fn profile_at(a: &Archive<CharterEntry>, p: &Polity, at: i64) -> SteleProfile {
+    stele_profile_state(a, &p.polity, t(at)).profile
+}
+
+#[test]
+fn a_polity_that_never_amended_reads_as_stele_default() {
+    let p = Polity::new(3);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    let st = stele_profile_state(&a, &p.polity, t(300));
+    assert_eq!(st.profile, SteleProfile::default());
+    assert_eq!(st.profile.name, "stele-default");
+    assert_eq!((st.set_by, st.seq), (None, 0));
+    SteleProfile::default().check_shape().expect("stele-default is inside its own floors");
+}
+
+#[test]
+fn a_tighter_profile_passes_at_a_majority_and_counts_its_seq() {
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.stele(stele_strict(), &[0, 1, 2], 200)).unwrap();
+    verify_all(&a).unwrap();
+    check_authority(&a).expect("tightening stele-default needs only a majority");
+    let st = stele_profile_state(&a, &p.polity, t(300));
+    assert_eq!(st.profile, stele_strict());
+    assert!(st.set_by.is_some());
+    assert_eq!(st.seq, 1);
+    assert_eq!(profile_at(&a, &p, 150), SteleProfile::default(), "not before it was decided");
+
+    let mut stricter = stele_strict();
+    stricter.replicas = 4;
+    a.append(p.stele(stricter.clone(), &[0, 1, 2], 300)).unwrap();
+    check_authority(&a).unwrap();
+    let st = stele_profile_state(&a, &p.polity, t(400));
+    assert_eq!((st.profile, st.seq), (stricter, 2));
+}
+
+#[test]
+fn a_profile_needs_a_majority_even_to_tighten() {
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.stele(stele_strict(), &[0, 1], 200)).unwrap();
+    assert!(violation(&a, "a Stele profile needs a majority (>= 3), got 2"));
+    let st = stele_profile_state(&a, &p.polity, t(300));
+    assert_eq!((st.profile, st.seq), (SteleProfile::default(), 0), "a refused amendment counts for nothing");
+}
+
+#[test]
+fn loosening_a_profile_takes_more_than_a_majority() {
+    let p = Polity::new(5);
+    let mut looser = stele_strict();
+    looser.replicas = 1;
+
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.stele(stele_strict(), &[0, 1, 2], 200)).unwrap();
+    a.append(p.stele(looser.clone(), &[0, 1, 2], 300)).unwrap();
+    assert!(violation(&a, "loosening the Stele profile needs more than a majority (>= 4), got 3"));
+    assert_eq!(profile_at(&a, &p, 400), stele_strict());
+
+    let mut b = Archive::new();
+    b.append(p.charter_seasoned(vec![])).unwrap();
+    b.append(p.stele(stele_strict(), &[0, 1, 2], 200)).unwrap();
+    b.append(p.stele(looser.clone(), &[0, 1, 2, 3], 300)).unwrap();
+    check_authority(&b).expect("more than a majority may loosen");
+    assert_eq!(profile_at(&b, &p, 400), looser);
+
+    // Loosening stele-default itself, the baseline of a polity with no profile.
+    let mut c = Archive::new();
+    let mut lax = SteleProfile::default();
+    lax.replicas = 1;
+    c.append(p.charter_seasoned(vec![])).unwrap();
+    c.append(p.stele(lax, &[0, 1, 2], 200)).unwrap();
+    assert!(violation(&c, "loosening the Stele profile"));
+}
+
+#[test]
+fn a_refused_profile_loosening_does_not_launder_the_next_one() {
+    let p = Polity::new(5);
+    let mut milder = stele_strict();
+    milder.half_life_days = 20;
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.stele(stele_strict(), &[0, 1, 2], 200)).unwrap();
+    let mut extreme = SteleProfile::default();
+    extreme.replicas = 1;
+    a.append(p.stele(extreme, &[0, 1, 2], 300)).unwrap();
+    a.append(p.stele(milder, &[0, 1, 2], 400)).unwrap();
+    assert_eq!(
+        authority_violations(&a).iter().filter(|(_, w)| w.contains("loosening")).count(),
+        2
+    );
+    assert_eq!(profile_at(&a, &p, 500), stele_strict());
+}
+
+#[test]
+fn what_counts_as_loosening_a_profile() {
+    let s = stele_strict();
+    let loosened = |f: &dyn Fn(&mut SteleProfile), why: &str| {
+        let mut c = s.clone();
+        f(&mut c);
+        assert!(c.is_loosening_of(&s), "{why}");
+    };
+    loosened(&|c| c.replicas = 2, "fewer agreeing verifiers");
+    loosened(&|c| c.tier = 2, "a lower tier");
+    loosened(&|c| { c.require.remove("gitleaks:probe"); }, "a check no longer required");
+    loosened(&|c| { c.ignore.insert("semgrep:probe".into()); }, "a check newly set aside");
+    loosened(&|c| c.severity_floor = SeverityFloor::Medium, "a higher severity floor");
+    loosened(&|c| c.onset_days = 2, "a longer onset");
+    loosened(&|c| c.half_life_days = 30, "a longer half-life");
+    loosened(&|c| c.team = TeamCoupling::Show, "a team that no longer caps");
+    loosened(&|c| c.deps = DepsCoupling::Show, "a dependency that no longer caps");
+    let mut c = s.clone();
+    c.replicas = 5;
+    c.tier = 4;
+    c.require.insert("license:probe".into());
+    c.half_life_days = 7;
+    c.onset_days = 0;
+    c.name = "renamed".into();
+    assert!(!c.is_loosening_of(&s), "tightening everything, and a new name");
+    assert!(!s.is_loosening_of(&s), "no change");
+    let mut c = s.clone();
+    c.replicas = 5;
+    c.tier = 2;
+    assert!(c.is_loosening_of(&s), "a mixed change is a loosening");
+}
+
+#[test]
+fn a_profile_outside_the_floors_is_refused() {
+    let base = stele_strict();
+    let refused = |f: &dyn Fn(&mut SteleProfile), why: &str| {
+        let mut c = base.clone();
+        f(&mut c);
+        assert!(c.check_shape().is_err(), "{why} was accepted");
+    };
+    refused(&|c| c.replicas = 0, "no counted verifier");
+    refused(&|c| c.replicas = 17, "more replicas than the bound");
+    refused(&|c| c.tier = 0, "tier 0");
+    refused(&|c| c.tier = 5, "tier 5");
+    refused(&|c| c.half_life_days = 0, "a zero half-life");
+    refused(&|c| c.half_life_days = 366, "a half-life past a year");
+    refused(&|c| c.onset_days = 31, "an onset past 30 days");
+    refused(&|c| c.name = String::new(), "an empty name");
+    refused(&|c| c.name = "Has Caps".into(), "a name outside [a-z0-9._-]");
+    refused(&|c| { c.require.insert("osv-scanner".into()); }, "a check with no channel");
+    refused(&|c| { c.require.insert("osv-scanner:replication".into()); }, "the replication channel");
+    refused(&|c| { c.ignore.insert("osv-scanner:probe".into()); }, "a check both required and set aside");
+    refused(
+        &|c| { c.ignore = (0..17).map(|i| format!("s{i}:probe")).collect(); },
+        "too many set-aside checks",
+    );
+
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    let mut bad = base.clone();
+    bad.replicas = 0;
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.stele(bad, &[0, 1, 2, 3, 4], 200)).unwrap();
+    assert!(violation(&a, "Stele profile of"), "even unanimity cannot cross a floor");
+    assert_eq!(profile_at(&a, &p, 300), SteleProfile::default());
+}
+
+#[test]
+fn only_members_decide_a_profile_and_they_sign_it() {
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    let rec = SteleProfileAmendment {
+        polity: p.polity.clone(),
+        profile: stele_strict(),
+        rationale: "r".into(),
+        deciders: p.dids(&[0, 1, 2]),
+        decided_at: t(200),
+    };
+    let signers = p.signers(&[0, 1]);
+    a.append(CharterEntry::SteleProfileAmended(Signed::build(rec, &signers).unwrap())).unwrap();
+    assert!(violation(&a, "amendment signers must be exactly the deciders"));
+}
+
+#[test]
+fn a_dissolved_polity_exports_no_profile() {
+    let p = Polity::new(5);
+    let mut a = Archive::new();
+    a.append(p.charter_seasoned(vec![])).unwrap();
+    a.append(p.stele(stele_strict(), &[0, 1, 2], 200)).unwrap();
+    a.append(p.dissolve(&[], &[0, 1, 2, 3], 300)).unwrap();
+    let st = stele_profile_state(&a, &p.polity, t(400));
+    assert_eq!((st.profile, st.seq), (SteleProfile::default(), 0));
+}

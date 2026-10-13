@@ -561,6 +561,55 @@ pub fn compact_state(
     out
 }
 
+/// The Stele profile a polity is under as of a query time (design **D42**).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SteleProfileState {
+    /// The profile in force: the latest accepted amendment decided by `as_of`, or
+    /// Stele's own reading (`stele-default`) when there is none.
+    pub profile: crate::SteleProfile,
+    /// The amendment that set it, `None` for `stele-default`.
+    pub set_by: Option<Cid>,
+    /// How many accepted amendments the polity had made by `as_of`. A reader
+    /// keeps the profile with the highest `seq` from the issuer it follows, so a
+    /// newer profile replaces an older one without the log.
+    pub seq: u64,
+}
+
+/// The Stele profile of a polity as of `as_of` (design **D42**).
+///
+/// **Only amendments the authority pass accepts are read**, as for
+/// [`content_policy_state`]: a loosening passed at a bare majority is simply not
+/// there. A dissolved polity has no profile to export, so it reads as
+/// `stele-default` with `seq` 0.
+pub fn stele_profile_state(
+    archive: &Archive<CharterEntry>,
+    polity: &DidKey,
+    as_of: Timestamp,
+) -> SteleProfileState {
+    if charter_state(archive, polity, as_of).dissolved {
+        return SteleProfileState::default();
+    }
+    let refused: Vec<Cid> =
+        crate::authority_violations(archive).into_iter().map(|(cid, _)| cid).collect();
+    let mut out = SteleProfileState::default();
+    let mut latest: Option<Timestamp> = None;
+    for (cid, e) in archive.iter() {
+        let CharterEntry::SteleProfileAmended(s) = e else { continue };
+        let a = &s.payload;
+        if &a.polity != polity || a.decided_at > as_of || refused.contains(cid) {
+            continue;
+        }
+        out.seq += 1;
+        // Insertion order is the tiebreak for equal instants: the later entry wins.
+        if latest.is_none_or(|t| a.decided_at >= t) {
+            latest = Some(a.decided_at);
+            out.profile = a.profile.clone();
+            out.set_by = Some(*cid);
+        }
+    }
+    out
+}
+
 /// The content policy a polity is under as of a query time, and who may label
 /// content in its name (design **D37**).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

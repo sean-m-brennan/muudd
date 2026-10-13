@@ -17,7 +17,7 @@
 #
 # Expects the kith-covenant conda env to be active. Create + activate first:
 #
-#   conda env create -f environment.yaml
+#   conda env create -f environment.yml
 #   conda activate kith-covenant
 #   ./run-tests.sh
 #
@@ -39,7 +39,7 @@ require() {
     if ! command -v "$name" >/dev/null 2>&1; then
         echo "error: '$name' not found on PATH." >&2
         echo "       Activate the kith-covenant conda env first:" >&2
-        echo "         conda env create -f environment.yaml  # first time only" >&2
+        echo "         conda env create -f environment.yml  # first time only" >&2
         echo "         conda activate kith-covenant" >&2
         exit 1
     fi

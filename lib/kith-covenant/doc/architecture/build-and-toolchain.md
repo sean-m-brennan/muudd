@@ -26,7 +26,7 @@ That is the useful part, so it is kept.
 
 ## Build environment
 
-The supported build is the per-component conda env. `environment.yaml` pins the
+The supported build is the per-component conda env. `environment.yml` pins the
 interpreter, `rust`, `maturin` and `pytest` from conda-forge, and
 `run-tests.sh` errors early naming whatever is missing.
 

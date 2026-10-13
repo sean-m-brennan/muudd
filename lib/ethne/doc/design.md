@@ -350,7 +350,7 @@ KC cannot see on its own and AT cannot decide on its own.
   `kc-core` needs for signatures unconditionally.
 - **D2, package shape. Mirror KC.** A Rust + PyO3 workspace
   (`ethne/src/rust/en-*`, `ethne/src/python/`), same build/test conventions
-  and signed-record rigor, its own `environment.yaml`. **Built**
+  and signed-record rigor, its own `environment.yml`. **Built**
   (2026-07-24), both halves, the `en-pyo3` cdylib (`ethne._core`, via
   maturin from `pyproject.toml`) and the `ethne` package over it, split
   along the seams of the tier itself, `ethne.polity` / `ethne.authoring` /
@@ -2673,6 +2673,93 @@ KC cannot see on its own and AT cannot decide on its own.
  roster stops a misdeclaration that would silence an auditor; it cannot make a team
  declare everyone. *The root key cannot rotate* (D36's limit). *Consents are carried,
  not checked here*: they are AT signatures, which only an AT roster can verify.
+
+- **D42. A polity can say what "safe enough" means to those who follow it, and Stele
+ reads its neutral facts under that profile (locked 2026-10-08).** Stele's chain records
+ facts with reasons: which verifier ran which scanner on which commit, what it found, how
+ severe, and who agreed. Whether that is safe enough is a reading of the facts, and
+ readers differ. A polity that publishes or depends on code should be able to state its
+ reading once, for everyone who follows it, under the same governance as any other act
+ of the roll.
+
+ *A profile, amended whole.* `SteleProfile` carries how many counted verifiers must
+ agree (`replicas`), the least AT tier at which a verifier counts (`tier`), the
+ `scanner:channel` checks that must be present and confirmed clean (`require`) and those
+ set aside (`ignore`), the least severity that fails a repository (`severity_floor`:
+ `low`, `medium` or `high`), how a clean reading fades (`onset_days`, `half_life_days`),
+ and whether a team's standing caps its repositories' (`team`: `show` or `worst`).
+ `CharterEntry::SteleProfileAmended` replaces it whole under D37's rule: a majority
+ tightens it, and a loosening, as `SteleProfile::is_loosening_of` decides, needs a
+ majority plus one, both with D29 weight. A polity that never amended one is under
+ `stele-default`, Stele's own reading, and that is the baseline the first amendment is
+ measured against.
+
+ *Floors no roll crosses.* `check_shape` refuses a profile with no counted verifier, a
+ tier outside 1..=4, an onset past 30 days or a half-life outside 1..=365 days, a
+ malformed check, or a check both required and set aside. There is no `critical`
+ severity floor, so a confirmed critical finding fails a repository under every
+ profile. Stele holds the same floors on its side, and also keeps three that are not
+ fields: only verified records count, a counted confirmed finding is never green, and
+ `ignore` never sets aside a critical finding.
+ Set-aside facts are still shown, named with the profile that set them aside.
+
+ *A border artifact, in Stele's vocabulary* (module `stele`; number eleven). The
+ **Stele profile** is `{body, sig}` under the root key with the domain
+ `stele-profile-v1|`, carrying the profile in force, the amendment that set it
+ (`set_by`) and `seq`, the number of accepted amendments. It is exported only from
+ accepted amendments, and not at all for a polity still under `stele-default`. A reader
+ *follows* an issuer by pinning its root key; after that only a higher `seq` from the
+ same key replaces the profile it holds. Byte-pinned in en-uplift, and checked by Stele
+ with nothing but ed25519.
+
+ *What a repository is built from* (added 2026-10-08, Stele's supply-chain view). A
+ profile also says whether a repository stands no better than its worst dependency that
+ resolves to a repository Stele reads (`deps`: `show` or `worst`). Dropping that cap is
+ a loosening. The field is written only when it is `worst`, so every profile amended or
+ exported before it existed, and every one that keeps `show`, has the bytes, signature
+ and CID it had; a reader takes an absent `deps` as `show`. The pinned vector is
+ unchanged.
+
+ **Honest limits.** *A profile binds no reader*: a consumer may set it aside for its own,
+ as with D37. *It reads the facts and never changes them*, so a profile cannot make a
+ verifier count that the reader's roster does not. *The root key cannot rotate* (D36's
+ limit), so following a polity is following its key.
+
+- **D43. A polity vouches for the AT group its work is verified in, so a reader in
+ another group can check that work (locked 2026-10-09).** An AT record verifies only
+ against keys the reader holds, and a reader holds the keys of its own group. Stele's
+ discovery relays index repositories from many groups, and a reader that finds one
+ elsewhere has no keys to check its findings with. The polity whose work it is can
+ supply them, and a reader who follows the polity takes them from it.
+
+ *A border artifact, in Stele's vocabulary* (module `stele`; number twelve). The
+ **group anchor** is `{body, sig}` under the root key with the domain
+ `stele-anchor-v1|`. It names the AT group (`group_uuid`), each node in it with its AT
+ public key and its AT tier, and the checkpoints the group has signed (chain, epoch,
+ window, root), the newest 512. Each node listed has consented, signing
+ `stele-anchor-member-v1|issuer|group_uuid|at_uuid|pubkey` with the key it is listed
+ under, so the root cannot claim a node, or a key, the node never stood behind. Unlike
+ D41's consent this one names its own key, so Ethne checks it when it mints the anchor
+ and every reader checks it again.
+
+ *Minted by the root, reissued at will.* Tiers and checkpoints are one member node's AT
+ roster at the instant of signing, and they change by the minute; a reader can check
+ only records under checkpoints it can see. So the root key reissues the anchor at a
+ rising `seq` with no roll decision, and the roll governs the anchor by governing the
+ root. A higher `seq` replaces the issuer's previous anchor whole. Byte-pinned in
+ en-uplift.
+
+ *What a reader does with it.* It follows the polity by pinning its root key, as it
+ follows a D42 profile. Records from the group then verify against the anchor's keys,
+ with quorums counted as AT counts them; a verifier counts at the tier the anchor
+ states, under the reader's own profile floor. A reader that does not follow the
+ polity holds no keys for the group and checks nothing from it.
+
+ **Honest limits.** *The tiers are the polity's word*: they are what one of its nodes
+ measured, not what the reader measured, which is why the reader chooses whom to
+ follow. *The anchor shows which checkpoints exist, not which records under them
+ matter*: a reader sees a checkpoint it has no record from as a gap, and cannot prove
+ a record it was not shown is absent. *The root key cannot rotate* (D36's limit).
 
 ## Questions and resolutions (round 2)
 
