@@ -1,0 +1,67 @@
+# newsbrief configuration. Relative paths resolve against this file's directory.
+
+[paths]
+db = "newsbrief.db"
+profile = "profile.md"
+output = "briefings"
+
+[feeds]
+# RSS/Atom feeds. Add local outlets, agency feeds, and trade press for your field;
+# they usually matter more to the ranking than national front pages.
+urls = [
+    "https://feeds.bbci.co.uk/news/rss.xml",
+    "https://feeds.npr.org/1001/rss.xml",
+    "https://www.theguardian.com/world/rss",
+    "https://www.aljazeera.com/xml/rss/all.xml",
+]
+
+[cluster]
+# Cosine similarity (TF-IDF) needed to attach an article to an existing story.
+similarity_threshold = 0.35
+# Stories untouched for this many days close, unless you follow them.
+window_days = 3
+
+# Model sections take provider = "anthropic" (default), "gemini" or "groq".
+# Keys come from ANTHROPIC_API_KEY, GEMINI_API_KEY or GROQ_API_KEY, in the
+# environment or in a .env file next to this one. With gemini or groq, pick a
+# model that supports JSON-schema output, set effort = "" for models that don't
+# reason, and note that fallbacks is ignored. For example:
+#   provider = "groq"    model = "openai/gpt-oss-120b"  effort = "low"
+#   provider = "gemini"  model = "gemini-2.5-flash"     effort = "low"
+
+[triage]
+# Scores every story against your profile. Runs often, so keep effort low.
+# To try a smaller model, set model = "claude-haiku-4-5", effort = "" and fallbacks = false.
+provider = "anthropic"
+model = "claude-opus-5"
+effort = "low"
+max_tokens = 8000
+fallbacks = true
+batch_size = 15
+max_stories_per_run = 100
+
+[context]
+# Writes the background/agreement/unknowns section for each briefed story.
+provider = "anthropic"
+model = "claude-opus-5"
+effort = "high"
+max_tokens = 16000
+fallbacks = true
+
+[brief]
+size = 5          # stories per briefing
+min_score = 5.0   # 0-10; nothing below this is briefed, even on a slow day
+
+[budget]
+monthly_cap_usd = 10.0
+
+[prices]
+# USD per million tokens, [input, output]. Check current pricing; used only for the spend cap.
+"claude-opus-5" = [5.0, 25.0]
+"claude-opus-4-8" = [5.0, 25.0]
+"claude-sonnet-5" = [2.0, 10.0]
+"claude-haiku-4-5" = [1.0, 5.0]
+"gemini-2.5-pro" = [1.25, 10.0]
+"gemini-2.5-flash" = [0.30, 2.50]
+"gemini-2.5-flash-lite" = [0.10, 0.40]
+"openai/gpt-oss-120b" = [0.15, 0.60]
