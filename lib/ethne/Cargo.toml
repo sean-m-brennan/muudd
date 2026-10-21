@@ -1,0 +1,119 @@
+[workspace]
+resolver = "3"
+members = [
+    "src/rust/en-core",
+    "src/rust/en-archive",
+    "src/rust/en-charter",
+    "src/rust/en-substrate",
+    "src/rust/en-at",
+    "src/rust/en-cohesion",
+    "src/rust/en-uplift",
+    "src/rust/en-store",
+    "src/rust/en-host",
+    "src/rust/en-pyo3",
+    "src/rust/examples/polity_host",
+]
+
+# `examples/recognition_handoff` is deliberately NOT a member. It is the border
+# composition, so it needs `kc-archive` and `kc-reputation`, and those two opt back in
+# to `kc-core`'s `source-protection` feature. Resolver-3 feature unification is
+# per-invocation across the selected packages, so a member that enables the feature
+# puts the §8 whistleblower crypto back into `en-core` for every `--workspace` build,
+# which is the leak `kith-covenant/doc/architecture/whistleblower-crypto.md` warns
+# about: an opt-out is only as good as the least careful crate on the path. Excluded,
+# it carries its own workspace and its own resolution, so the crypto is in the graph
+# that genuinely needs it and in no other. `run-tests.sh` builds and runs it by
+# `--manifest-path`.
+exclude = ["src/rust/examples/recognition_handoff"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+# 1.85 is the floor the dependency GRAPH actually imposes, not an aspiration:
+# constant_time_eq 0.4.2 (via blake3, which every Cid goes through) and
+# cpufeatures 0.3.0 both declare 1.85. This read "1.75" until 2026-07-30,
+# while no member crate inherited it, so nothing ever checked the claim.
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Serialization / hashing / time — versions match kith-covenant's workspace so a
+# path-dependency on kc-core unifies cleanly.
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
+serde_json = "1.0"
+# SHA-256 and hex for the AT relay-roster border artifact only (D36): AT pins a relay
+# by SHA-256 of its signing key, and its signed files carry hex. Both are already in
+# the graph (via ed25519), so the closure grows by nothing.
+sha2 = "0.10"
+hex = "0.4"
+ciborium = "0.2"
+blake3 = "1.5"
+jiff = { version = "0.1", features = ["serde"] }
+thiserror = "1.0"
+proptest = "1.5"
+
+# SQLite, for `en-store`'s optional backend ONLY, and optional there too (D20).
+# `bundled` compiles SQLite from source rather than linking the system library, so
+# enabling the feature needs no development headers installed. This is ethne's only
+# C dependency and it is off by default: the default build graph stays kc-core-only.
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# PyO3 (decision D2 — the Python surface). Pin matches kith-covenant's workspace so
+# both extension modules build against the same abi3 floor.
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py310"] }
+
+# kith-covenant neutral base. Decision D1: ethne's core + monitor crates depend on
+# kc-core ONLY — not on KC's governance crates — so the tiers stay decoupled and
+# ethne can run stand-alone.
+# `default-features = false` switches off KC's §8 source-protection crypto (ring
+# signatures + threshold custody), which this tier never calls — so it stops carrying
+# chacha20poly1305. It must be set HERE: a member crate's `default-features = false` is
+# ignored when the dependency is inherited with `workspace = true`.
+kc-core = { path = "../kith-covenant/src/rust/kc-core", default-features = false }
+
+# The append-only archive mechanism, generic over the entry type (decision D32, closing
+# D1's named deferral). `en-archive` re-exports this crate; `kc-archive` one tier up is
+# built on the same base, so the fork D1 recorded is gone.
+#
+# This is the second neutral kc-* crate ethne depends on, not a widening of the coupling
+# rule: `kc-log` holds a log and nothing else — no governance records, no dependency on
+# any kc-* governance crate — and it reaches `kc-core` through kith-covenant's own
+# workspace entry, which is `default-features = false`, so the §8 source-protection
+# crypto stays out of ethne's closure. Verified: `en-core`'s closure is 53 crates and
+# carries no `chacha20poly1305`.
+kc-log = { path = "../kith-covenant/src/rust/kc-log" }
+
+# KC conduct records. Decision (step 5, Concern-posture): the kc-conduct coupling
+# is confined to the single upward-facing crate `en-uplift` (the crate whose job
+# is speaking KC's language). No other ethne crate may depend on it, so KC ⟂ ethne
+# holds for everything below the uplift boundary.
+kc-conduct = { path = "../kith-covenant/src/rust/kc-conduct" }
+
+# KC identity records. Decision D14 (offices in use): naming who may speak for the
+# polity produces KC's envoy `SpeakerDelegation`, so `en-uplift` — and only
+# `en-uplift` — also speaks this crate's language. The confinement rule is
+# unchanged by it: every KC-record dep stops at the uplift boundary.
+kc-identity = { path = "../kith-covenant/src/rust/kc-identity" }
+
+# KC ceremony records. `en-uplift` emits the intra rite a polity hands KC, so the
+# confinement boundary now holds three KC-record deps rather than two. The rule is the
+# boundary, not the count, and the measured closure cost of this one is a single crate.
+kc-ceremony = { path = "../kith-covenant/src/rust/kc-ceremony" }
+
+# Internal ethne crates (prefix `en-`).
+en-core = { path = "src/rust/en-core" }
+en-archive = { path = "src/rust/en-archive" }
+en-charter = { path = "src/rust/en-charter" }
+en-substrate = { path = "src/rust/en-substrate" }
+en-at = { path = "src/rust/en-at" }
+en-cohesion = { path = "src/rust/en-cohesion" }
+en-uplift = { path = "src/rust/en-uplift" }
+en-store = { path = "src/rust/en-store" }
+en-host = { path = "src/rust/en-host" }
+en-pyo3 = { path = "src/rust/en-pyo3" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

@@ -1,0 +1,33 @@
+[package]
+name = "en-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# The SQLite backend is opt-in. Off by default so ethne's build graph stays
+# `kc-core`-only with no C dependency; on, it pulls `rusqlite` and (via `bundled`)
+# compiles SQLite from source, so a host need not have the system headers.
+default = []
+sqlite = ["dep:rusqlite"]
+
+[dependencies]
+en-core = { workspace = true }
+en-archive = { workspace = true }
+serde = { workspace = true }
+rusqlite = { workspace = true, optional = true }
+# D30's write lock: `flock`, which std does not expose. Adds NOTHING to the dependency
+# graph — libc is already here on the default (non-sqlite) build via
+# getrandom/rand/cpufeatures under en-core. Unix only; see src/lock.rs for what a
+# target without it loses, which is the early refusal and not the guarantee.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+# The generation/cursor hazard this crate guards is entirely about the archive
+# mechanism, so the Rust tests exercise it over a local test entry type. The
+# realistic end-to-end regression — a real polity, a real signed pruning — lives on
+# the Python side, where the polity fixtures already are.
+serde = { workspace = true }

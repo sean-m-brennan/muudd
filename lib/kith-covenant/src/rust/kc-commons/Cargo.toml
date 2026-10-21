@@ -1,0 +1,21 @@
+[package]
+name = "kc-commons"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# §7 sealed usage commits its figures and proves the draw is within the commons'
+# allowance, so this crate needs the Pedersen commitment, the bound proof and the
+# threshold custody that all live behind `source-protection`. The workspace entry opts
+# out by default for the ethne tier's sake; ethne does not depend on kc-commons, so
+# opting back in here costs that tier nothing.
+kc-core = { workspace = true, features = ["source-protection"] }
+kc-conduct = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+jiff = { workspace = true }
+serde_json = { workspace = true }

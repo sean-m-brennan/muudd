@@ -1,0 +1,17 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "kith-covenant"
+version = "0.1.0"
+description = "Kith-Covenant inter-community protocol: Python bindings over the Rust core"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Continuous Space" }]
+
+[tool.maturin]
+manifest-path = "src/rust/kc-pyo3/Cargo.toml"
+module-name = "kith_covenant._core"
+python-source = "src/python"
+features = ["pyo3/extension-module"]

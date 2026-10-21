@@ -1,0 +1,13 @@
+name: kith-covenant
+channels:
+  - conda-forge
+dependencies:
+  - python==3.13.*
+  - rust
+  - rust-src
+  - maturin
+  - pytest
+  - fastapi>=0.115
+  - uvicorn>=0.30
+  - httpx2
+  - pip

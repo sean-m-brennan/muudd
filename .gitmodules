@@ -1,3 +1,9 @@
 [submodule "autonomous_trust"]
 	path = lib/autonomous_trust
 	url = git@github.com:sean-m-brennan/autonomous-trust.git
+[submodule "apps/stele"]
+	path = apps/stele
+	url = git@github.com:sean-m-brennan/stele.git
+[submodule "apps/agora"]
+	path = apps/agora
+	url = git@github.com:sean-m-brennan/agora.git

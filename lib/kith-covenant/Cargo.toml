@@ -1,0 +1,104 @@
+[workspace]
+resolver = "3"
+members = [
+    "src/rust/kc-core",
+    "src/rust/kc-log",
+    "src/rust/kc-identity",
+    "src/rust/kc-ceremony",
+    "src/rust/kc-conduct",
+    "src/rust/kc-mediation",
+    "src/rust/kc-escalation",
+    "src/rust/kc-commons",
+    "src/rust/kc-observer",
+    "src/rust/kc-constitution",
+    "src/rust/kc-provenance",
+    "src/rust/kc-principal",
+    "src/rust/kc-archive",
+    "src/rust/kc-reputation",
+    "src/rust/kc-pyo3",
+    "src/rust/examples/two_communities_demo",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+# 1.85 is the floor the dependency GRAPH actually imposes, not an aspiration:
+# constant_time_eq 0.4.2 (via blake3, which every Cid goes through) and
+# cpufeatures 0.3.0 both declare 1.85. This read "1.75" until 2026-07-30,
+# while no member crate inherited it, so nothing ever checked the claim.
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Crypto. Ed25519-only for MVP per trustworthiness grounds (no known backdoors,
+# battle-tested). Alg enum preserved as a one-variant structure to allow a future
+# non-lattice PQC scheme (e.g. SLH-DSA/SPHINCS+) if/when one is accepted.
+ed25519-dalek = { version = "2.1", features = ["rand_core", "serde", "hazmat"] }
+rand = "0.8"
+# §8 whistleblower anonymity + threshold custody. curve25519-dalek is already in the
+# tree beneath ed25519-dalek; naming it directly gives the ring signatures and the
+# Feldman sharing access to the same curve the identity keys live on, so an anonymous
+# filing needs no second keypair. `hazmat` above is what exposes an Ed25519 key's
+# secret scalar, which is the whole reason those two can share one identity key.
+curve25519-dalek = "4.1"
+# AEAD for the threshold-held source record and its per-panelist sealed shares.
+# Pinned at 0.10 deliberately, but NO LONGER for MSRV reasons: 0.11 declares
+# exactly 1.85, so the floor above now admits it. It brings a new `aead` major,
+# so lifting the pin is its own slice — it touches the sealed-share path.
+chacha20poly1305 = "0.10"
+
+# Hashing / content-addressing
+blake3 = "1.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
+serde_json = "1.0"
+ciborium = "0.2"
+
+# Time
+jiff = { version = "0.1", features = ["serde"] }
+
+# Encoding helpers
+bs58 = "0.5"
+hex = "0.4"
+
+# Errors / logging
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# PyO3
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py310"] }
+
+# Testing
+proptest = "1.5"
+
+# Internal workspace crates
+# `default-features = false` here, NOT in the member crates: a member's
+# `default-features = false` is silently IGNORED when the dependency is inherited with
+# `workspace = true` and the workspace entry does not specify it (cargo warns, and says
+# it may become a hard error). Crates needing the §8 source-protection crypto opt in
+# with `features = ["source-protection"]`.
+kc-core = { path = "src/rust/kc-core", default-features = false }
+# The append-only archive mechanism, generic over the entry type. Neutral: it holds a
+# log, not governance, and the ethne polity tier depends on it by path alongside
+# `kc-core` (ethne decision D1).
+kc-log = { path = "src/rust/kc-log" }
+kc-identity = { path = "src/rust/kc-identity" }
+kc-ceremony = { path = "src/rust/kc-ceremony" }
+kc-conduct = { path = "src/rust/kc-conduct" }
+kc-mediation = { path = "src/rust/kc-mediation" }
+kc-escalation = { path = "src/rust/kc-escalation" }
+kc-commons = { path = "src/rust/kc-commons" }
+kc-observer = { path = "src/rust/kc-observer" }
+kc-constitution = { path = "src/rust/kc-constitution" }
+kc-provenance = { path = "src/rust/kc-provenance" }
+kc-principal = { path = "src/rust/kc-principal" }
+kc-archive = { path = "src/rust/kc-archive" }
+kc-reputation = { path = "src/rust/kc-reputation" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

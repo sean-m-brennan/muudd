@@ -1,0 +1,17 @@
+[package]
+name = "kc-ceremony"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+kc-core = { workspace = true }
+kc-identity = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+jiff = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

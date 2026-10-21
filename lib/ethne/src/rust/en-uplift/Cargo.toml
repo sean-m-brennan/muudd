@@ -1,0 +1,38 @@
+[package]
+name = "en-uplift"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+en-core = { workspace = true }
+en-charter = { workspace = true }
+en-substrate = { workspace = true }
+en-cohesion = { workspace = true }
+# No §8 source-protection crypto here. The opt-out lives in the workspace entry, not
+# on this line: a member's `default-features = false` is ignored for an inherited
+# dependency, and cargo unifies features, so one default-on edge would re-enable it.
+kc-core = { workspace = true }
+# The ONE crate in the ethne workspace permitted a KC-record dependency. Confining
+# it here keeps every other en-* crate kc-core-only (KC ⟂ ethne below this line).
+kc-conduct = { workspace = true }
+# Likewise for KC's envoy delegation (D14). Both KC-record deps stop here.
+kc-identity = { workspace = true }
+# KC's ceremony records. The third KC-record dep and the confinement rule is unchanged:
+# what the rule protects is that these stop HERE, not how many there are. Measured
+# closure cost: exactly one crate. `kc-ceremony` depends on `kc-core`, `kc-identity`,
+# serde, thiserror and jiff, every one of which this crate already carried.
+#
+# It is here because the border artifact for a rite IS a KC ceremony record. Emitting
+# the delegation and the registry from this crate and leaving the recitation to be
+# assembled elsewhere would hand KC half an artifact and put the mapping of the
+# polity's Movement 4 onto KC's outside the tier that owns it.
+kc-ceremony = { workspace = true }
+# The relay roster (D36) is not a KC record: it is AT's own signed file, so it needs
+# JSON, SHA-256 and hex rather than a KC crate. None of the three adds a crate.
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }

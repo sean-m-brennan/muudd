@@ -1,0 +1,12 @@
+[package]
+name = "en-charter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+en-core = { workspace = true }
+en-archive = { workspace = true }
+serde = { workspace = true }

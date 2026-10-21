@@ -1,0 +1,48 @@
+[package]
+name = "en-pyo3"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[features]
+# Pass-through to `en-at`'s real autonomous_trust C linkage (decision D6). Default off,
+# so the ordinary wheel — and every in-sandbox test — carries the mock/replay source only
+# and links no AT. `maturin develop --features at-ffi` is the deployment build.
+#
+# D33: what a Python caller sees when this is OFF is that the two live coupling
+# constructors and `AtLogLevel` are simply ABSENT, not present-and-raising, and
+# `at_ffi_available()` reports which build it is looking at. A binding that can only fail
+# is the dead-field pattern D23 and KC's `source_commitment` both turned out to be.
+default = []
+at-ffi = ["en-at/at-ffi"]
+
+[dependencies]
+en-core = { workspace = true }
+en-archive = { workspace = true }
+# D33 — the AT substrate adapter's own surface. Adds nothing to the graph: `en-at` reaches
+# only en-core / en-charter / en-substrate / serde, all already below.
+en-at = { workspace = true }
+en-charter = { workspace = true }
+en-substrate = { workspace = true }
+en-cohesion = { workspace = true }
+en-uplift = { workspace = true }
+en-store = { workspace = true }
+# D31 — the cadenced duties, so a Python host drives the same cycle a Rust one does
+# rather than reimplementing it. Adds nothing to the graph: en-host reaches only
+# en-core / en-archive / en-charter / en-cohesion / en-substrate, all already above.
+en-host = { workspace = true }
+# The neutral base, for the KC-facing record types the uplift calls carry
+# (`CommunityIdentity`). Same dependency every en-* crate already has via en-core.
+# No §8 source-protection crypto here. The opt-out lives in the workspace entry, not
+# on this line: a member's `default-features = false` is ignored for an inherited
+# dependency, and cargo unifies features, so one default-on edge would re-enable it.
+kc-core = { workspace = true }
+pyo3 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

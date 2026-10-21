@@ -1,0 +1,25 @@
+[package]
+name = "kc-reputation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+kc-core = { workspace = true, features = ["source-protection"] }
+kc-identity = { workspace = true }
+kc-archive = { workspace = true }
+kc-ceremony = { workspace = true }
+kc-conduct = { workspace = true }
+kc-escalation = { workspace = true }
+kc-commons = { workspace = true }
+kc-observer = { workspace = true }
+kc-constitution = { workspace = true }
+kc-provenance = { workspace = true }
+kc-mediation = { workspace = true }
+kc-principal = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+jiff = { workspace = true }

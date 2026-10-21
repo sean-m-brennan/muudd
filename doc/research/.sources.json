@@ -1,0 +1,110 @@
+{
+  "project": "muudd",
+  "doi": [
+    { "citation": "10.2737/NRS-RB-105" },
+    { "citation": "10.1016/j.comnet.2015.07.009" },
+    { "citation": "10.1145/1397705.1397707" }
+  ],
+  "bibjson": {
+    "records": [
+      {
+        "type": "techreport",
+        "title": "Braxton County Digital Equity Plan",
+        "year": "2023",
+        "institution": "Braxton County Broadband Committee",
+        "author": [
+          { "name": "Braxton County Broadband Committee" }
+        ]
+      },
+      {
+        "type": "techreport",
+        "title": "Propagation by Diffraction",
+        "year": "2019",
+        "institution": "International Telecommunication Union",
+        "number": "ITU-R P.526-15",
+        "author": [
+          { "name": "ITU-R" }
+        ]
+      },
+      {
+        "type": "techreport",
+        "title": "Attenuation in Vegetation",
+        "year": "2021",
+        "institution": "International Telecommunication Union",
+        "number": "ITU-R P.833-10",
+        "author": [
+          { "name": "ITU-R" }
+        ]
+      },
+      {
+        "type": "techreport",
+        "title": "Specific Attenuation Model for Rain for Use in Prediction Methods",
+        "year": "2005",
+        "institution": "International Telecommunication Union",
+        "number": "ITU-R P.838-3",
+        "author": [
+          { "name": "ITU-R" }
+        ]
+      },
+      {
+        "type": "techreport",
+        "title": "Unlicensed Operation in the TV Broadcast Bands",
+        "year": "2020",
+        "institution": "Federal Communications Commission",
+        "number": "47 CFR Part 15, Subpart H",
+        "author": [
+          { "name": "FCC" }
+        ]
+      },
+      {
+        "type": "techreport",
+        "title": "Citizens Broadband Radio Service",
+        "year": "2020",
+        "institution": "Federal Communications Commission",
+        "number": "47 CFR Part 96",
+        "author": [
+          { "name": "FCC" }
+        ]
+      },
+      {
+        "type": "book",
+        "title": "Introduction to RF Propagation",
+        "year": "2005",
+        "publisher": "John Wiley & Sons",
+        "author": [
+          { "name": "Seybold, J.S." }
+        ]
+      },
+      {
+        "type": "techreport",
+        "title": "LoRa and LoRaWAN: A Technical Overview",
+        "year": "2020",
+        "institution": "Semtech Corporation",
+        "number": "AN1200.22",
+        "author": [
+          { "name": "Semtech Corporation" }
+        ],
+        "link": [
+          {
+            "type": "website",
+            "url": "https://www.semtech.com/lora"
+          }
+        ]
+      },
+      {
+        "type": "techreport",
+        "title": "West Virginia Forests: 2013",
+        "year": "2016",
+        "institution": "USDA Forest Service",
+        "number": "NRS-RB-105",
+        "author": [
+          { "name": "Morin, R.S." },
+          { "name": "Cook, G.W." },
+          { "name": "Barnett, C.J." },
+          { "name": "Butler, B.J." },
+          { "name": "Crocker, S.J." }
+        ]
+      }
+    ]
+  }
+}

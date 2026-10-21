@@ -1,0 +1,27 @@
+[package]
+name = "polity_host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "polity_host"
+path = "src/main.rs"
+
+[features]
+default = []
+# Run the same loop against the SQLite backend instead of the file one.
+sqlite = ["en-store/sqlite"]
+
+[dependencies]
+en-core = { workspace = true }
+en-archive = { workspace = true }
+en-charter = { workspace = true }
+en-substrate = { workspace = true }
+en-cohesion = { workspace = true }
+en-uplift = { workspace = true }
+en-store = { workspace = true }
+en-host = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
