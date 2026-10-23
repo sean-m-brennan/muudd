@@ -32,6 +32,9 @@ typedef struct {
 
 typedef struct mr_sup mr_sup_t;
 
+/* The caller must ignore SIGPIPE: mr_sup_send writes to a pipe whose reader
+ * may already have exited. */
+
 void mr_sup_default_cfg(mr_sup_cfg_t *cfg, char *const *argv);
 int mr_sup_create(const mr_sup_cfg_t *cfg, const mr_sup_io_t *io, mr_sup_t **out);
 void mr_sup_free(mr_sup_t *s);

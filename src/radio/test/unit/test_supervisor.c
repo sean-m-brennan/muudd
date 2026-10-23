@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "mr_test.h"
 #include "mr_supervisor.h"
@@ -16,7 +17,16 @@ typedef struct {
     int fatal_hello;
     uint64_t hello_ms[16];
     char last_down[192];
+    char last_stderr[256];
+    int stderrs;
 } rec_t;
+
+static void on_stderr(void *ctx, const char *line)
+{
+    rec_t *r = ctx;
+    r->stderrs++;
+    snprintf(r->last_stderr, sizeof r->last_stderr, "%s", line);
+}
 
 static int on_hello(void *ctx, const MrCaps *caps)
 {
@@ -55,7 +65,7 @@ static mr_sup_t *start(rec_t *r, char *const *argv)
     cfg.backoff_min_ms = 100;
     cfg.backoff_max_ms = 400;
     cfg.backoff_reset_ms = 5000;
-    mr_sup_io_t io = {r, on_hello, on_msg, on_down, NULL};
+    mr_sup_io_t io = {r, on_hello, on_msg, on_down, on_stderr};
     mr_sup_t *s = NULL;
     ck_assert_int_eq(mr_sup_create(&cfg, &io, &s), MR_OK);
     return s;
@@ -233,6 +243,42 @@ START_TEST(test_free_kills_child)
 }
 END_TEST
 
+START_TEST(test_exit_78_wins_over_failed_send)
+{
+    rec_t r = {0};
+    char *argv[] = {MR_STUB_DRIVER, "--status-ms", "50", "--exit-after-ms", "50", "--exit-code", "78", NULL};
+    mr_sup_t *s = start(&r, argv);
+    run_for(s, 20);
+    ck_assert_int_eq(mr_sup_state(s), MR_SUP_UP);
+    usleep(150 * 1000);   /* driver exits; nothing reaps it yet */
+    MrSend snd = MUUDD__RADIO__SEND__INIT;
+    snd.req_id = 1;
+    snd.dest = MR_BROADCAST;
+    snd.port = 16;
+    MrR2D m = MUUDD__RADIO__RADIOD_TO_DRIVER__INIT;
+    m.msg_case = MUUDD__RADIO__RADIOD_TO_DRIVER__MSG_SEND;
+    m.send = &snd;
+    ck_assert_int_eq(mr_sup_send(s, &m), MR_EIO);
+    run_for(s, 300);
+    ck_assert_int_eq(mr_sup_state(s), MR_SUP_FATAL);
+    ck_assert_str_eq(r.last_down, "driver exited with status 78 (configuration error)");
+    mr_sup_free(s);
+}
+END_TEST
+
+START_TEST(test_stderr_forwarded)
+{
+    rec_t r = {0};
+    char *argv[] = {"/nonexistent/driver", NULL};
+    mr_sup_t *s = start(&r, argv);
+    run_for(s, 150);
+    ck_assert_int_ge(r.stderrs, 1);
+    ck_assert_ptr_nonnull(strstr(r.last_stderr, "cannot run /nonexistent/driver"));
+    ck_assert_str_eq(r.last_down, "driver exited with status 127");
+    mr_sup_free(s);
+}
+END_TEST
+
 int main(void)
 {
     signal(SIGPIPE, SIG_IGN);
@@ -250,6 +296,8 @@ int main(void)
     tcase_add_test(tc, test_sigkill_after_grace);
     tcase_add_test(tc, test_send_reaches_driver);
     tcase_add_test(tc, test_free_kills_child);
+    tcase_add_test(tc, test_exit_78_wins_over_failed_send);
+    tcase_add_test(tc, test_stderr_forwarded);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

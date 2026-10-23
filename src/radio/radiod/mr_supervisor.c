@@ -260,16 +260,24 @@ void mr_sup_handle(mr_sup_t *s, const struct pollfd *fds, int n, uint64_t now_ms
 static void child_exited(mr_sup_t *s, int status, uint64_t now)
 {
     s->pid = 0;
+    if (s->err_fd >= 0)
+        read_stderr(s);
+    if (s->errlen > 0) {
+        s->errbuf[s->errlen] = 0;
+        if (s->io.on_stderr)
+            s->io.on_stderr(s->io.ctx, s->errbuf);
+        s->errlen = 0;
+    }
     close_fd(&s->in_fd);
     close_fd(&s->out_fd);
     close_fd(&s->err_fd);
     bool fatal = s->fatal_pending;
     char reason[192];
-    if (s->down_reason[0]) {
-        snprintf(reason, sizeof reason, "%s", s->down_reason);
-    } else if (WIFEXITED(status) && WEXITSTATUS(status) == EX_CONFIG_STATUS) {
+    if (WIFEXITED(status) && WEXITSTATUS(status) == EX_CONFIG_STATUS) {
         fatal = true;
         snprintf(reason, sizeof reason, "driver exited with status 78 (configuration error)");
+    } else if (s->down_reason[0]) {
+        snprintf(reason, sizeof reason, "%s", s->down_reason);
     } else if (WIFEXITED(status)) {
         snprintf(reason, sizeof reason, "driver exited with status %d", WEXITSTATUS(status));
     } else {
@@ -335,6 +343,8 @@ int mr_sup_send(mr_sup_t *s, const MrR2D *m)
     if (n < 0)
         return MR_EINVAL;
     ssize_t w = write(s->in_fd, buf, (size_t)n);
+    if (w < 0 && errno == EPIPE)
+        return MR_EIO;
     if (w != n) {
         begin_kill(s, "driver is not reading its input", false, s->now);
         return MR_EIO;
