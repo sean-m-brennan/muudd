@@ -132,9 +132,12 @@ START_TEST(test_regions_nodes_and_echo)
     ck_assert_int_eq(mr_peers_find_node(ps, 0x0D02), 2);
     ck_assert_int_eq(mr_peers_find_node(ps, 0xF1), -1);
     ck_assert_int_eq(mr_peers_find_node(ps, 0), -1);
-    ck_assert(mr_peers_is_peer_radio(ps, 0xF2));
-    ck_assert(!mr_peers_is_peer_radio(ps, 0xB2));
-    ck_assert(!mr_peers_is_peer_radio(ps, 0));
+    ck_assert(mr_peers_is_gateway_radio(ps, 0xF2));
+    ck_assert(!mr_peers_is_gateway_radio(ps, 0xB2));
+    ck_assert(!mr_peers_is_gateway_radio(ps, 0));
+    MrKeepalive r = ka(0x0D02, 0xF3, "north", false, 1, 2);   /* a non-gateway radio node */
+    mr_peers_accept_keepalive(ps, 2, &r, 1000);
+    ck_assert(!mr_peers_is_gateway_radio(ps, 0xF3));
     ck_assert_uint_eq(mr_peers_min_gateway_mtu(ps), 233);
     ck_assert(!mr_peers_any_dead(ps, 1000));
     ck_assert(mr_peers_any_dead(ps, 17000));

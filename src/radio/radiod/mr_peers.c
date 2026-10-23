@@ -65,12 +65,12 @@ int mr_peers_find_node(const mr_peers_t *ps, uint32_t node_addr)
     return -1;
 }
 
-bool mr_peers_is_peer_radio(const mr_peers_t *ps, uint32_t radio_addr)
+bool mr_peers_is_gateway_radio(const mr_peers_t *ps, uint32_t radio_addr)
 {
     if (radio_addr == 0)
         return false;
     for (size_t i = 0; i < ps->n; i++)
-        if (ps->peers[i].heard && ps->peers[i].radio_node_addr == radio_addr)
+        if (ps->peers[i].heard && ps->peers[i].gateway && ps->peers[i].radio_node_addr == radio_addr)
             return true;
     return false;
 }

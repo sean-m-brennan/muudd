@@ -511,14 +511,15 @@ static void on_driver_result(mr_core_t *c, const MrSendResult *r, uint64_t now_m
 }
 
 /* True if radio_addr belongs to a peer gateway we can currently reach over
- * IP. Such a peer has already put whatever it transmits on the bridge. */
-static bool live_peer_radio(const mr_core_t *c, uint32_t radio_addr, uint64_t now_ms)
+ * IP. Such a peer has already put whatever it transmits on the bridge. A
+ * non-gateway radio node puts nothing on the bridge, so it never counts. */
+static bool live_gateway_radio(const mr_core_t *c, uint32_t radio_addr, uint64_t now_ms)
 {
     if (radio_addr == 0)
         return false;
     for (size_t i = 0; i < c->peers->n; i++) {
         const mr_peer_t *p = &c->peers->peers[i];
-        if (p->heard && p->radio_node_addr == radio_addr && mr_peers_live(c->peers, (int)i, now_ms))
+        if (p->heard && p->gateway && p->radio_node_addr == radio_addr && mr_peers_live(c->peers, (int)i, now_ms))
             return true;
     }
     return false;
@@ -540,9 +541,11 @@ static void on_driver_received(mr_core_t *c, const MrReceived *r, uint64_t now_m
         return;
     }
     const mr_port_cfg_t *pc = &c->cfg->ports[r->port];
-    bool bridged_broadcast = r->dest == MR_BROADCAST && mr_core_is_gateway(c) && pc->configured &&
+    bool bridged_broadcast = r->dest == MR_BROADCAST && c->cfg->has_bridge && pc->configured &&
                              pc->policy == MUUDD__RADIO__POLICY__RADIOD_BRIDGED;
-    if (bridged_broadcast && live_peer_radio(c, r->src, now_ms)) {
+    /* Any radio node with a bridge gets a live gateway's broadcasts over IP
+     * as well, so the LoRa copy would be a second delivery. */
+    if (bridged_broadcast && live_gateway_radio(c, r->src, now_ms)) {
         c->drops.duplicate++;
         return;
     }
@@ -554,7 +557,7 @@ static void on_driver_received(mr_core_t *c, const MrReceived *r, uint64_t now_m
     meta.via = MUUDD__RADIO__VIA__VIA_RADIO;
     if (r->dest == MR_BROADCAST || r->dest == c->node_addr)
         mr_core_deliver_local(c, r->port, r->src, r->dest, r->payload.data, r->payload.len, &meta);
-    if (bridged_broadcast)
+    if (bridged_broadcast && mr_core_is_gateway(c))
         mr_core_gateway_heard(c, r, now_ms);
 }
 

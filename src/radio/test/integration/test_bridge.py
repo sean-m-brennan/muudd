@@ -6,7 +6,7 @@ import time
 import pytest
 
 from radiod_harness import BROADCAST, Sniffer, inject, pb, wait_until
-from topology import UdpProxy, driverless, gateway, peer, relay_key
+from topology import UdpProxy, driverless, gateway, peer, radio_node, relay_key
 
 BOGUS_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
 
@@ -92,6 +92,48 @@ def test_failover_to_second_gateway(one_region, medium):
             assert [f[0] for f in sniff.frames(0.5) if f[2] == 16] == [0xA2]
     finally:
         sniff.close()
+
+
+@pytest.fixture
+def with_radio_node(radiods, medium, tmp_path):
+    """Gateway G (0xA1), non-gateway radio node R (0xE1) on the same medium, and
+    driverless D (0x0D01), all bridge peers of each other."""
+    key = relay_key(tmp_path / "relay.key")
+    g, r, d = radiods("g"), radiods("r"), radiods("d")
+    g.start(gateway(medium, 0xA1, "north", 10, [peer(r), peer(d)], key))
+    r.start(radio_node(medium, 0xE1, "north", [peer(g, 10), peer(d)], key))
+    d.start(driverless(0x0D01, [peer(g, 10), peer(r)], key))
+    return g, r, d
+
+
+def test_radio_node_broadcast_reaches_ip_once(with_radio_node):
+    g, r, d = with_radio_node
+    with r.client() as cr, d.client() as cd, g.client() as cg:
+        cr.wait_status(pb.STATE_UP)
+        cd.wait_status(pb.STATE_UP)
+        assert wait_until(lambda: all_live(cr, 2) and all_live(cd, 2) and all_live(cg, 2))
+        cd.claim(16)
+        cr.claim(16)
+        assert cr.result(cr.send(BROADCAST, 16, b"from-r")).status == pb.SENT
+        rx = cd.recv()
+        assert rx.src == 0xE1 and rx.payload == b"from-r" and rx.meta.via == pb.VIA_BRIDGE
+        assert no_more(cd)
+        assert no_more(cr, 0.2)
+
+
+def test_ip_broadcast_reaches_radio_node_once(with_radio_node):
+    g, r, d = with_radio_node
+    with r.client() as cr, d.client() as cd, g.client() as cg:
+        cr.wait_status(pb.STATE_UP)
+        cd.wait_status(pb.STATE_UP)
+        assert wait_until(lambda: all_live(cr, 2) and all_live(cd, 2) and all_live(cg, 2))
+        cr.claim(16)
+        cd.claim(16)
+        assert cd.result(cd.send(BROADCAST, 16, b"from-d")).status == pb.SENT
+        rx = cr.recv()
+        assert rx.src == 0x0D01 and rx.payload == b"from-d" and rx.meta.via == pb.VIA_BRIDGE
+        assert no_more(cr)
+        assert wait_until(lambda: cr.stats().drops.duplicate >= 1)
 
 
 @pytest.fixture

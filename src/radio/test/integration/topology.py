@@ -39,6 +39,13 @@ def gateway(medium, node, region, priority, peers, key, duty=10):
     }
 
 
+def radio_node(medium, node, region, peers, key):
+    """A radio node with a bridge that is not a gateway."""
+    cfg = gateway(medium, node, region, 100, peers, key)
+    cfg["bridge"]["gateway"] = False
+    return cfg
+
+
 def driverless(node, peers, key):
     return {"node_addr": node, "driver": None, "ports": PORTS,
             "bridge": {"relay_key_file": key, **FAST, "peers": peers}}

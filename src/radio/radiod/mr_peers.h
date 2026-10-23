@@ -33,7 +33,8 @@ int mr_peers_find_pk(const mr_peers_t *ps, const uint8_t pk[32]);
 bool mr_peers_accept_keepalive(mr_peers_t *ps, int idx, const MrKeepalive *ka, uint64_t now_ms);
 bool mr_peers_live(const mr_peers_t *ps, int idx, uint64_t now_ms);
 int mr_peers_find_node(const mr_peers_t *ps, uint32_t node_addr);
-bool mr_peers_is_peer_radio(const mr_peers_t *ps, uint32_t radio_addr);
+/* True if radio_addr is the radio of a peer whose last keepalive said it is a gateway. */
+bool mr_peers_is_gateway_radio(const mr_peers_t *ps, uint32_t radio_addr);
 int mr_peers_best_gateway(const mr_peers_t *ps, const char *region, uint64_t now_ms);
 size_t mr_peers_regions(const mr_peers_t *ps, uint64_t now_ms, const char *exclude, char out[][64], size_t max);
 bool mr_peers_any_dead(const mr_peers_t *ps, uint64_t now_ms);

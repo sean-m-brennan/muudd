@@ -405,6 +405,50 @@ START_TEST(test_consumer_port_not_bridged)
 }
 END_TEST
 
+/* A radio node with a bridge that is not a gateway, with two peers. */
+#define NG_CFG                                                                                         \
+    "{\"node_addr\": \"auto\", \"driver\": {\"exec\": \"/bin/true\"}," PORTS                         \
+    " \"bridge\": {\"listen\": \"127.0.0.1:1\", \"gateway\": false, \"region\": \"north\","          \
+    "   \"peers\": [{\"addr\": \"127.0.0.1:2\", \"pubkey\": \"" K1 "\", \"priority\": 20},"            \
+    "               {\"addr\": \"127.0.0.1:3\", \"pubkey\": \"" K2 "\", \"priority\": 30}]}}"
+
+START_TEST(test_gateway_forwards_non_gateway_radio_peer)
+{
+    fx_t *f = fx_new(GW_CFG(10, 10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_keepalive(f, 0, 0x0E01, 0xE1, "north", false, 1, 1000);   /* non-gateway radio node */
+    fx_keepalive(f, 1, 0x0D01, 0, "", false, 1, 1000);           /* driverless node */
+    fx_received(f, 0xE1, BCAST, 16, "r", 1, 5, 1000);
+    ck_assert_uint_eq(fx_count_rx(f, 1), 1);
+    ck_assert_uint_eq(fx_count_pframes(f, 1, KIND(DELIVER)), 1);
+    ck_assert_uint_eq(fx_count_pframes(f, 0, KIND(DELIVER)), 0);   /* never back to its source */
+    ck_assert_uint_eq(fx_stats(f, 1, 1001)->drops->duplicate, 0);
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_non_gateway_drops_live_gateway_copy)
+{
+    fx_t *f = fx_new(NG_CFG, NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xE1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);      /* live gateway */
+    fx_keepalive(f, 1, 0x0E02, 0xE2, "north", false, 1, 1000);   /* another non-gateway radio node */
+    fx_received(f, 0xA1, BCAST, 16, "copy", 4, 5, 1000);         /* the gateway's LoRa copy */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 0);
+    fx_received(f, 0xA1, 0xE1, 16, "dm", 2, 7, 1000);            /* not a broadcast: delivered */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 1);
+    fx_received(f, 0xE2, BCAST, 16, "peer", 4, 8, 1000);         /* non-gateway peer: delivered */
+    fx_received(f, 0xC0, BCAST, 16, "hs", 2, 9, 1000);           /* handset: delivered */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 3);
+    ck_assert_uint_eq(fx_count_pframes(f, -1, KIND(DELIVER)), 0);
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -432,6 +476,8 @@ int main(void)
     tcase_add_test(tc, test_gateway_drops_live_peer_echo);
     tcase_add_test(tc, test_agg_no_ack_only);
     tcase_add_test(tc, test_consumer_port_not_bridged);
+    tcase_add_test(tc, test_gateway_forwards_non_gateway_radio_peer);
+    tcase_add_test(tc, test_non_gateway_drops_live_gateway_copy);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

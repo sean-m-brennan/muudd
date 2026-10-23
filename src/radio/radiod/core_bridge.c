@@ -285,8 +285,8 @@ void mr_core_bridged_send(mr_core_t *c, int cid, const MrSend *s, uint64_t now_m
 
 void mr_core_gateway_heard(mr_core_t *c, const MrReceived *r, uint64_t now_ms)
 {
-    if (mr_peers_is_peer_radio(c->peers, r->src))
-        return;   /* echo rule: that peer already put this frame on IP */
+    if (mr_peers_is_gateway_radio(c->peers, r->src))
+        return;   /* echo rule: that gateway already put this frame on IP */
     uint32_t pid = r->meta ? r->meta->packet_id : 0;
     mr_frame_id_t id = {r->src, pid};
     MrBridgeFrame f;
@@ -300,8 +300,14 @@ void mr_core_gateway_heard(mr_core_t *c, const MrReceived *r, uint64_t now_ms)
     meta.region = (char *)c->cfg->region;
     f.meta = &meta;
     f.origin_region = (char *)c->cfg->region;
+    /* A non-gateway radio node that is also a bridge peer heard its own
+     * frame on air; it needs no copy back. */
+    bool skip[MR_MAX_PEERS] = {false};
+    for (size_t i = 0; i < c->peers->n; i++)
+        if (r->src && c->peers->peers[i].heard && c->peers->peers[i].radio_node_addr == r->src)
+            skip[i] = true;
     bool any_dead = false;
-    mr_core_fanout(c, &f, NULL, now_ms, &any_dead);
+    mr_core_fanout(c, &f, skip, now_ms, &any_dead);
     if (any_dead && c->cfg->ports[r->port].ip_fallback)
         mr_core_relay_transmit_local(c, r->src, pid, r->dest, r->port, r->payload.data, r->payload.len, now_ms);
 }
