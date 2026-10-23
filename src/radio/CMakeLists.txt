@@ -109,3 +109,10 @@ endif()
 
 add_executable(muudd-radiod radiod/main.c)
 target_link_libraries(muudd-radiod PRIVATE mr_core)
+
+add_library(mr_client STATIC client/c/mr_client.c)
+target_include_directories(mr_client PUBLIC client/c)
+target_link_libraries(mr_client PUBLIC mr_core)
+
+add_executable(radioctl radioctl/radioctl.c)
+target_link_libraries(radioctl PRIVATE mr_client)
