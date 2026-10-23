@@ -1,0 +1,19 @@
+name: muudd_radio
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - c-compiler
+  - cmake>=3.23
+  - make
+  - pkg-config
+  - libsodium
+  - jansson
+  - check
+  - protobuf-c
+  - libprotobuf
+  - protobuf
+  - pytest
+  - pip
+  - pip:
+      - meshtastic>=2.7

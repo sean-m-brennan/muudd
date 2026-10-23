@@ -1,0 +1,3 @@
+/build/
+/client/python/muudd_radio/radio_pb2.py
+*.egg-info/

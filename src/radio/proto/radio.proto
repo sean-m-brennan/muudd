@@ -1,0 +1,132 @@
+// Copyright 2026 Sean M. Brennan and contributors
+// SPDX-License-Identifier: Apache-2.0
+//
+// Every message radiod exchanges with consumers, drivers and peer radiods.
+// Enum value names are unique across the package because protobuf scopes
+// enum values like C does.
+syntax = "proto3";
+package muudd.radio;
+
+enum Policy { POLICY_UNSPECIFIED = 0; RADIOD_BRIDGED = 1; CONSUMER_BRIDGED = 2; }
+enum ClaimStatus { CLAIM_OK = 0; PORT_TAKEN = 1; PORT_UNCONFIGURED = 2; POLICY_MISMATCH = 3; }
+enum SendStatus { SEND_UNSPECIFIED = 0; SENT = 1; ACKED = 2; NO_ACK = 3; REFUSED = 4; }
+enum RefuseReason { REASON_NONE = 0; TOO_BIG = 1; OVER_BUDGET = 2; RADIO_DOWN = 3; NOT_CLAIMED = 4; NO_ROUTE = 5; }
+enum Reach { REACH_UNSPECIFIED = 0; MESH = 1; LINK = 2; }
+enum Protection { PROTECTION_NONE = 0; CHANNEL_KEY = 1; PUBLIC_KEY_DM = 2; }
+enum Via { VIA_RADIO = 0; VIA_BRIDGE = 1; VIA_RELAY = 2; }
+enum RadioState { STATE_DOWN = 0; STATE_UP = 1; }
+enum BridgeKind { DELIVER = 0; TRANSMIT = 1; RESULT = 2; }
+
+message LoraParams {
+  uint32 spreading_factor = 1;
+  uint32 bandwidth_hz = 2;
+  uint32 coding_rate = 3;       // 1..4 for 4/5..4/8
+  uint32 preamble_symbols = 4;
+  bool implicit_header = 5;
+  bool crc_off = 6;
+  uint32 ldro = 7;              // 0 auto (on when symbol time > 16 ms), 1 on, 2 off
+}
+message RadioSettings { string region = 1; string preset = 2; uint32 bandwidth_khz = 3; }
+message Caps {
+  string name = 1;
+  string version = 2;
+  Reach reach = 3;
+  uint32 mtu = 4;
+  uint32 bitrate_bps = 5;
+  LoraParams lora = 6;
+  bool reports_link_quality = 7;
+  bool supports_ack = 8;
+  fixed32 node_addr = 9;
+  RadioSettings radio_settings = 10;
+  uint32 overhead_bytes = 11;
+  string fatal = 12;
+}
+message Meta {
+  sint32 rssi_dbm = 1;
+  float snr_db = 2;
+  bool has_link_quality = 3;
+  uint32 hops = 4;
+  bool has_hops = 5;
+  uint64 rx_time_ms = 6;
+  Protection protection = 7;
+  Via via = 8;
+  fixed32 packet_id = 9;
+  string region = 10;
+}
+message Received { fixed32 src = 1; fixed32 dest = 2; uint32 port = 3; bytes payload = 4; Meta meta = 5; }
+message Send { uint32 req_id = 1; fixed32 dest = 2; uint32 port = 3; bytes payload = 4; bool want_ack = 5; }
+message SendResult { uint32 req_id = 1; SendStatus status = 2; RefuseReason reason = 3; fixed32 packet_id = 4; }
+message Claim { uint32 req_id = 1; uint32 port = 2; Policy policy = 3; }
+message ClaimResult { uint32 req_id = 1; ClaimStatus status = 2; uint32 mtu = 3; }
+message Release { uint32 req_id = 1; uint32 port = 2; }
+message ReleaseResult { uint32 req_id = 1; }
+message GetStats { uint32 req_id = 1; }
+message PortMtu { uint32 port = 1; uint32 mtu = 2; }
+message RadioStatus { RadioState state = 1; string reason = 2; Caps caps = 3; repeated PortMtu mtus = 4; }
+message PortStats { uint32 port = 1; string name = 2; uint64 airtime_us = 3; uint64 relay_airtime_us = 4; uint64 cap_us = 5; }
+message PeerStats { string addr = 1; fixed32 node_addr = 2; string region = 3; bool live = 4; bool gateway = 5; }
+message DropCounters {
+  uint64 unclaimed = 1;
+  uint64 queue_overflow = 2;
+  uint64 duplicate = 3;
+  uint64 bridge_auth = 4;
+  uint64 relay_auth = 5;
+  uint64 relay_window = 6;
+  uint64 relay_no_gateway = 7;
+  uint64 over_budget = 8;
+  uint64 relay_too_big = 9;
+  uint64 dedupe_evicted = 10;
+}
+message Stats {
+  uint32 req_id = 1;
+  RadioState state = 2;
+  string reason = 3;
+  Caps caps = 4;
+  uint64 airtime_us = 5;
+  uint64 cap_us = 6;
+  repeated PortStats ports = 7;
+  repeated PeerStats peers = 8;
+  DropCounters drops = 9;
+  bool relay_active = 10;
+}
+message ConsumerToRadiod { oneof msg { Claim claim = 1; Release release = 2; Send send = 3; GetStats get_stats = 4; } }
+message RadiodToConsumer {
+  oneof msg {
+    ClaimResult claim_result = 1;
+    ReleaseResult release_result = 2;
+    SendResult send_result = 3;
+    Received received = 4;
+    RadioStatus radio_status = 5;
+    Stats stats = 6;
+  }
+}
+message Configure { map<string, string> settings = 1; bool apply_radio_config = 2; }
+message DriverStatus { RadioState state = 1; string reason = 2; RadioSettings radio_settings = 3; }
+message RadiodToDriver { oneof msg { Configure configure = 1; Send send = 2; } }
+message DriverToRadiod { oneof msg { Caps hello = 1; SendResult send_result = 2; Received received = 3; DriverStatus status = 4; } }
+message FrameId { fixed32 node = 1; fixed32 id = 2; }
+message BridgeFrame {
+  FrameId frame_id = 1;
+  BridgeKind kind = 2;
+  fixed32 src = 3;
+  fixed32 dest = 4;
+  uint32 port = 5;
+  bytes payload = 6;
+  Meta meta = 7;
+  string origin_region = 8;
+  bool want_ack = 9;
+  uint32 req_id = 10;
+  bool relay = 11;
+  SendResult result = 12;
+}
+message Keepalive {
+  fixed32 node_addr = 1;
+  fixed32 radio_node_addr = 2;
+  string region = 3;
+  bool gateway = 4;
+  bool radio_up = 5;
+  uint64 boot_id = 6;
+  uint64 seq = 7;
+  uint32 radio_mtu = 8;
+}
+message BridgeDatagram { oneof msg { BridgeFrame frame = 1; Keepalive keepalive = 2; } }
