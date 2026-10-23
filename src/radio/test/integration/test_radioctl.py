@@ -28,7 +28,7 @@ def test_status_human(radiods):
     assert any(l.startswith("driver: stub 1.0, node 0x00000a01, mtu 233") for l in lines)
     assert any(l.startswith("settings: region US, preset STUB, bandwidth 500 kHz") for l in lines)
     assert any(l.startswith("port 16 telemetry: ") for l in lines)
-    assert any(l.startswith("drops: unclaimed 0") for l in lines)
+    assert any(l.startswith("drops: unclaimed 0") and "bridge_replay 0" in l for l in lines)
     assert "relay: inactive" in lines
 
 
@@ -42,6 +42,15 @@ def test_stats_json(radiods):
     assert data["ports"][0]["port"] == 16 and data["ports"][0]["name"] == "telemetry"
     assert data["drops"]["queue_overflow"] == 0
     assert data["relay_active"] is False
+
+
+def test_status_json(radiods):
+    r = started(radiods)
+    out = run("--socket", r.socket, "status", "--json")
+    assert out.returncode == 0, out.stderr
+    data = json.loads(out.stdout)
+    assert data["state"] == "up" and data["driver"]["mtu"] == 233
+    assert data["drops"]["bridge_replay"] == 0
 
 
 def test_missing_socket(tmp_path):

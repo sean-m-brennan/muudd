@@ -43,12 +43,14 @@ static void print_human(const MrStats *st)
     const Muudd__Radio__DropCounters *d = st->drops;
     if (d)
         printf("drops: unclaimed %llu, queue_overflow %llu, duplicate %llu, bridge_auth %llu, relay_auth %llu, "
-               "relay_window %llu, relay_no_gateway %llu, over_budget %llu, relay_too_big %llu, dedupe_evicted %llu\n",
+               "relay_window %llu, relay_no_gateway %llu, over_budget %llu, relay_too_big %llu, dedupe_evicted %llu, "
+               "bridge_replay %llu\n",
                (unsigned long long)d->unclaimed, (unsigned long long)d->queue_overflow,
                (unsigned long long)d->duplicate, (unsigned long long)d->bridge_auth,
                (unsigned long long)d->relay_auth, (unsigned long long)d->relay_window,
                (unsigned long long)d->relay_no_gateway, (unsigned long long)d->over_budget,
-               (unsigned long long)d->relay_too_big, (unsigned long long)d->dedupe_evicted);
+               (unsigned long long)d->relay_too_big, (unsigned long long)d->dedupe_evicted,
+               (unsigned long long)d->bridge_replay);
     printf("relay: %s\n", st->relay_active ? "active" : "inactive");
 }
 
@@ -113,6 +115,7 @@ static void print_json(const MrStats *st)
         json_object_set_new(drops, "over_budget", json_integer((json_int_t)d->over_budget));
         json_object_set_new(drops, "relay_too_big", json_integer((json_int_t)d->relay_too_big));
         json_object_set_new(drops, "dedupe_evicted", json_integer((json_int_t)d->dedupe_evicted));
+        json_object_set_new(drops, "bridge_replay", json_integer((json_int_t)d->bridge_replay));
     }
     json_object_set_new(root, "drops", drops);
     json_object_set_new(root, "relay_active", json_boolean(st->relay_active));
@@ -161,7 +164,7 @@ int main(int argc, char **argv)
         mr_client_close(c);
         return 1;
     }
-    if (json && strcmp(cmd, "stats") == 0)
+    if (json)
         print_json(m->stats);
     else
         print_human(m->stats);
