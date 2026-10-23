@@ -1,10 +1,11 @@
 # Copyright 2026 Sean M. Brennan and contributors
 # SPDX-License-Identifier: Apache-2.0
+import contextlib
 import time
 
 import pytest
 
-from conftest import BROADCAST, Sniffer, inject, pb, wait_until
+from radiod_harness import BROADCAST, Sniffer, inject, pb, wait_until
 from topology import UdpProxy, driverless, gateway, peer, relay_key
 
 BOGUS_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
@@ -13,6 +14,14 @@ BOGUS_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
 def all_live(client, n):
     st = client.stats()
     return len(st.peers) == n and all(p.live for p in st.peers)
+
+
+@contextlib.contextmanager
+def sniff_closing(sniff):
+    try:
+        yield sniff
+    finally:
+        sniff.close()
 
 
 def no_more(client, seconds=1.0):
@@ -43,14 +52,16 @@ def test_two_gateways_hear_one_frame_once(one_region, medium):
         c.claim(16)
         inject(medium, 0xA1, 0xB001, BROADCAST, 16, b"t=1", 1)
         inject(medium, 0xA2, 0xB001, BROADCAST, 16, b"t=1", 1)
+        assert wait_until(lambda: c.stats().drops.duplicate >= 1)
         rx = c.recv()
         assert rx.src == 0xB001 and rx.meta.via == pb.VIA_BRIDGE and rx.meta.region == "north"
         assert no_more(c)
 
 
-def test_gateway_echo_not_delivered_twice(one_region):
+def test_gateway_echo_not_delivered_twice(one_region, medium):
     _, g2, d = one_region
-    with d.client() as cd, g2.client() as cg:
+    sniff = Sniffer(medium)
+    with sniff_closing(sniff), d.client() as cd, g2.client() as cg:
         cd.wait_status(pb.STATE_UP)
         cg.wait_status(pb.STATE_UP)
         assert wait_until(lambda: all_live(cd, 2) and all_live(cg, 2))
@@ -60,6 +71,9 @@ def test_gateway_echo_not_delivered_twice(one_region):
         rx = cg.recv()
         assert rx.src == 0x0D01 and rx.meta.via == pb.VIA_BRIDGE
         assert no_more(cg)
+        assert no_more(cd, 0.2)
+        sent = [f for f in sniff.frames(0.3) if f[2] == 16]
+        assert [f[0] for f in sent] == [0xA1]
 
 
 def test_failover_to_second_gateway(one_region, medium):
@@ -164,14 +178,20 @@ def islands(radiods, medium, tmp_path):
     key = relay_key(tmp_path / "relay.key")
     g1, g2, d1, d2 = radiods("g1"), radiods("g2"), radiods("d1"), radiods("d2")
     proxy = UdpProxy()
-    for r, group in ((g1, "A"), (d1, "A"), (g2, "B"), (d2, "B")):
-        proxy.add(r, group)
+    try:
+        for r, group in ((g1, "A"), (d1, "A"), (g2, "B"), (d2, "B")):
+            proxy.add(r, group)
+        _start_islands(proxy, medium, key, g1, g2, d1, d2)
+        yield proxy, d1, d2
+    finally:
+        proxy.close()
+
+
+def _start_islands(proxy, medium, key, g1, g2, d1, d2):
     g1.start(gateway(medium, 0xA1, "north", 10, [peer(g2, 20, proxy), peer(d1, proxy=proxy), peer(d2, proxy=proxy)], key))
     g2.start(gateway(medium, 0xA2, "north", 20, [peer(g1, 10, proxy), peer(d1, proxy=proxy), peer(d2, proxy=proxy)], key))
     d1.start(driverless(0x0D01, [peer(g1, 10, proxy), peer(g2, 20, proxy), peer(d2, proxy=proxy)], key))
     d2.start(driverless(0x0D02, [peer(g1, 10, proxy), peer(g2, 20, proxy), peer(d1, proxy=proxy)], key))
-    yield proxy, d1, d2
-    proxy.close()
 
 
 def test_partition_crosses_by_relay_then_heals(islands, medium):
@@ -195,12 +215,17 @@ def test_partition_crosses_by_relay_then_heals(islands, medium):
             relays = [f for f in sniff.frames(0.5) if f[2] == 2]
             assert [f[0] for f in relays] == [0xA1]       # relayed once, never relayed back
 
-            c1.send(BROADCAST, 16, b"plain")
+            sniff.frames(0.1)
+            req = c1.send(BROADCAST, 16, b"plain")
+            assert c1.result(req).status == pb.SENT
+            assert [f[0] for f in sniff.frames(0.3) if f[2] == 16] == [0xA1]
             assert no_more(c2, 1.0)
 
             c1.send(0x0D02, 18, b"dm")
             rx = c2.recv()
+            assert rx.src == 0x0D01 and rx.port == 18
             assert rx.payload == b"dm" and rx.meta.via == pb.VIA_RELAY
+            assert no_more(c2, 0.5)
 
             proxy.heal()
             assert wait_until(lambda: all_live(c1, 3) and all_live(c2, 3))
@@ -209,6 +234,7 @@ def test_partition_crosses_by_relay_then_heals(islands, medium):
             rx = c2.recv()
             assert rx.payload == b"healed" and rx.meta.via == pb.VIA_BRIDGE
             assert no_more(c2, 1.0)
+            assert no_more(c1, 0.2)
             assert [f for f in sniff.frames(0.5) if f[2] == 2] == []
     finally:
         sniff.close()

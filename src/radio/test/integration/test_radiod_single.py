@@ -4,7 +4,7 @@ import socket
 import struct
 import time
 
-from conftest import BROADCAST, inject, pb, stub_driver, wait_until
+from radiod_harness import BROADCAST, inject, pb, stub_driver, wait_until
 
 PORTS = {
     "16": {"name": "telemetry", "share_pct": 50, "policy": "radiod"},
@@ -143,7 +143,7 @@ def test_exit_78_stays_down(radiods):
 
 def test_bad_config_exits_2(tmp_path):
     import subprocess
-    from conftest import RADIOD
+    from radiod_harness import RADIOD
     p = tmp_path / "bad.json"
     p.write_text('{"ports": {"2": {"name": "x", "policy": "radiod"}}}')
     out = subprocess.run([str(RADIOD), "--config", str(p)], capture_output=True, text=True)
@@ -196,7 +196,7 @@ def test_unknown_sender_logged_once(radiods):
 def test_malformed_listen_exits_2(tmp_path):
     import json
     import subprocess
-    from conftest import RADIOD
+    from radiod_harness import RADIOD
     p = tmp_path / "bad.json"
     p.write_text(json.dumps({"node_addr": "auto", "driver": None, "bridge": {"listen": "4403"}}))
     out = subprocess.run([str(RADIOD), "--config", str(p)], capture_output=True, text=True)

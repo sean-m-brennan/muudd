@@ -3,7 +3,7 @@
 import json
 import subprocess
 
-from conftest import RADIOCTL, pb, stub_driver
+from radiod_harness import RADIOCTL, pb, stub_driver
 
 PORTS = {"16": {"name": "telemetry", "share_pct": 50, "policy": "radiod"}}
 

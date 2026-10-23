@@ -5,7 +5,7 @@ import os
 import socket
 import threading
 
-from conftest import stub_driver
+from radiod_harness import stub_driver
 
 PORTS = {
     "16": {"name": "telemetry", "share_pct": 20, "policy": "radiod"},
@@ -53,6 +53,7 @@ class UdpProxy:
         self._blocked = set()
         self._out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._stop = False
+        self._threads = []
 
     def add(self, r, group):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -60,7 +61,9 @@ class UdpProxy:
         s.settimeout(0.1)
         self._socks[r.name] = (s, r)
         self._group_of_port[r.port] = group
-        threading.Thread(target=self._pump, args=(s, r, group), daemon=True).start()
+        t = threading.Thread(target=self._pump, args=(s, r, group), daemon=True)
+        self._threads.append(t)
+        t.start()
 
     def port_for(self, r):
         return self._socks[r.name][0].getsockname()[1]
@@ -81,10 +84,15 @@ class UdpProxy:
                 return
             if (self._group_of_port.get(sport), dst_group) in self._blocked:
                 continue
-            self._out.sendto(data, ("127.0.0.1", r.port))
+            try:
+                self._out.sendto(data, ("127.0.0.1", r.port))
+            except OSError:
+                return
 
     def close(self):
         self._stop = True
+        for t in self._threads:
+            t.join()
         for s, _ in self._socks.values():
             s.close()
         self._out.close()
