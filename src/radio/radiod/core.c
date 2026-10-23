@@ -28,7 +28,8 @@ int mr_core_create(const mr_config_t *cfg, const mr_keypair_t *kp, const uint8_t
     mr_ports_init(&c->ports);
     c->ledger = calloc(1, sizeof *c->ledger);
     c->peers = calloc(1, sizeof *c->peers);
-    if (!c->ledger || !c->peers || mr_dedupe_init(&c->dedupe, 65536) != MR_OK ||
+    if (!c->ledger || !c->peers || mr_dedupe_init(&c->dedupe_short, MR_DEDUPE_CAP) != MR_OK ||
+        mr_dedupe_init(&c->dedupe_long, MR_DEDUPE_CAP) != MR_OK ||
         mr_dedupe_init(&c->relay_req_dedupe, 4096) != MR_OK) {
         mr_core_free(c);
         return MR_ENOMEM;
@@ -49,7 +50,8 @@ void mr_core_free(mr_core_t *c)
         return;
     if (c->caps)
         muudd__radio__caps__free_unpacked(c->caps, NULL);
-    mr_dedupe_free(&c->dedupe);
+    mr_dedupe_free(&c->dedupe_short);
+    mr_dedupe_free(&c->dedupe_long);
     mr_dedupe_free(&c->relay_req_dedupe);
     free(c->ledger);
     free(c->peers);
@@ -93,6 +95,30 @@ uint64_t mr_core_ttl(const mr_core_t *c, uint32_t port)
             ttl = w;
     }
     return ttl;
+}
+
+bool mr_core_seen(mr_core_t *c, mr_frame_id_t id, uint32_t port, uint64_t now_ms)
+{
+    uint64_t ttl = mr_core_ttl(c, port);
+    mr_dedupe_t *d = ttl > MR_DEDUPE_TTL_MS ? &c->dedupe_long : &c->dedupe_short;
+    bool seen = mr_dedupe_check_insert(d, id, ttl, now_ms);
+    uint64_t evicted = c->dedupe_short.evicted_early + c->dedupe_long.evicted_early;
+    if (evicted > c->evicted_logged &&
+        (!c->evict_log_started || now_ms - c->evict_log_ms >= MR_LOG_EVERY_MS)) {
+        if (c->io.log) {
+            char msg[160];
+            snprintf(msg, sizeof msg,
+                     "dedupe cache full: %llu unexpired frame IDs evicted (%llu ten-minute, %llu long-lived)",
+                     (unsigned long long)(evicted - c->evicted_logged),
+                     (unsigned long long)c->dedupe_short.evicted_early,
+                     (unsigned long long)c->dedupe_long.evicted_early);
+            c->io.log(c->io.ctx, msg);
+        }
+        c->evicted_logged = evicted;
+        c->evict_log_started = true;
+        c->evict_log_ms = now_ms;
+    }
+    return seen;
 }
 
 void mr_core_reply(mr_core_t *c, int cid, uint32_t req, int status, int reason, uint32_t packet_id)
@@ -307,7 +333,7 @@ static void send_stats(mr_core_t *c, int cid, uint32_t req, uint64_t now_ms)
     d.over_budget = c->drops.over_budget;
     d.relay_too_big = c->drops.relay_too_big;
     d.bridge_replay = c->drops.bridge_replay;
-    d.dedupe_evicted = c->dedupe.evicted_early;
+    d.dedupe_evicted = c->dedupe_short.evicted_early + c->dedupe_long.evicted_early;
     MrStats st = MUUDD__RADIO__STATS__INIT;
     st.req_id = req;
     st.state = up ? MUUDD__RADIO__RADIO_STATE__STATE_UP : MUUDD__RADIO__RADIO_STATE__STATE_DOWN;
@@ -546,7 +572,7 @@ static void on_driver_received(mr_core_t *c, const MrReceived *r, uint64_t now_m
         return;
     }
     mr_frame_id_t id = {r->src, r->meta ? r->meta->packet_id : 0};
-    if (mr_dedupe_check_insert(&c->dedupe, id, mr_core_ttl(c, r->port), now_ms)) {
+    if (mr_core_seen(c, id, r->port, now_ms)) {
         c->drops.duplicate++;
         return;
     }

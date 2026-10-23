@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "core_fixture.h"
+#include "core_priv.h"
 
 #define RPORTS                                                                                         \
     " \"ports\": {\"16\": {\"name\": \"telemetry\", \"share_pct\": 30, \"policy\": \"radiod\"},"       \
@@ -299,6 +300,28 @@ START_TEST(test_gateway_lone_unicast_relay_request)
 }
 END_TEST
 
+START_TEST(test_short_ttl_flood_keeps_long_ttl_ids)
+{
+    fx_t *f = fx_new(GW_R(3600), KEY);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 18, RADIOD, 0);
+    /* a small short-TTL cache, so the flood below overflows it quickly */
+    mr_dedupe_free(&f->core->dedupe_short);
+    ck_assert_int_eq(mr_dedupe_init(&f->core->dedupe_short, 64), MR_OK);
+    fx_received(f, 0xC0, BCAST, 18, "long", 4, 1, 1000);   /* ip_fallback port: one-hour TTL */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 1);
+    for (uint32_t i = 0; i < 200; i++)
+        fx_received(f, 0xC1, BCAST, 16, "s", 1, 100 + i, 1000);   /* ten-minute TTL */
+    ck_assert_uint_eq(f->nlog, 1);   /* evicting live entries is logged once, then rate-capped */
+    ck_assert_ptr_nonnull(strstr(f->last_log, "dedupe"));
+    ck_assert_uint_gt(fx_stats(f, 1, 1000)->drops->dedupe_evicted, 0);
+    fx_received(f, 0xC0, BCAST, 18, "long", 4, 1, 1000 + 20u * 60000u);
+    ck_assert_uint_eq(fx_count_rx(f, 1), 1);
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -317,6 +340,7 @@ int main(void)
     tcase_add_test(tc, test_relay_mtu_underflow);
     tcase_add_test(tc, test_relay_without_key);
     tcase_add_test(tc, test_relay_dedupe_follows_window);
+    tcase_add_test(tc, test_short_ttl_flood_keeps_long_ttl_ids);
     tcase_add_test(tc, test_unicast_to_dead_peer_relays);
     tcase_add_test(tc, test_gateway_plain_then_relay_same_id);
     tcase_add_test(tc, test_gateway_lone_unicast_relay_request);

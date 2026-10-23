@@ -9,6 +9,7 @@
 #define CORE_FIXTURE_H
 
 #include <sodium.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,6 +44,8 @@ typedef struct {
     size_t np;
     uint64_t wall_ms;
     uint64_t pseq[MR_MAX_PEERS];   /* last frame seq each peer sent */
+    size_t nlog;
+    char last_log[256];
 } fx_t;
 
 #define FX_BOOT 1000u   /* boot_id of every peer in these tests */
@@ -83,6 +86,13 @@ static inline void fx_to_peer(void *ctx, int peer, const MrDatagram *m)
 
 static inline uint64_t fx_wall(void *ctx) { return ((fx_t *)ctx)->wall_ms; }
 
+static inline void fx_log(void *ctx, const char *msg)
+{
+    fx_t *f = ctx;
+    f->nlog++;
+    snprintf(f->last_log, sizeof f->last_log, "%s", msg);
+}
+
 static inline fx_t *fx_new(const char *json, const uint8_t *relay_key)
 {
     fx_t *f = calloc(1, sizeof *f);
@@ -90,7 +100,7 @@ static inline fx_t *fx_new(const char *json, const uint8_t *relay_key)
     ck_assert_msg(mr_config_parse(json, &f->cfg, err, sizeof err) == MR_OK, "%s", err);
     crypto_box_keypair(f->kp.pk, f->kp.sk);
     f->wall_ms = 1700000000000ull;
-    mr_core_io_t io = {f, fx_to_consumer, fx_to_driver, fx_to_peer, fx_wall};
+    mr_core_io_t io = {f, fx_to_consumer, fx_to_driver, fx_to_peer, fx_wall, fx_log};
     ck_assert_int_eq(mr_core_create(&f->cfg, &f->kp, relay_key, &io, &f->core), MR_OK);
     return f;
 }

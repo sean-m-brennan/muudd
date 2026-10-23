@@ -18,6 +18,8 @@
 #define MR_PENDING_MAX 1024
 #define MR_AGG_TIMEOUT_MS 60000u
 #define MR_ACK_TIMEOUT_MS 120000u
+#define MR_DEDUPE_CAP 65536u
+#define MR_LOG_EVERY_MS 60000u
 
 /* What an outstanding send is waiting for.
  *   LOCAL:     our radio's result, owed to a local consumer.
@@ -58,7 +60,12 @@ struct mr_core {
     MrCaps *caps;               /* deep copy of the last accepted Hello */
     mr_ports_t ports;
     mr_ledger_t *ledger;
-    mr_dedupe_t dedupe;
+    /* Frame IDs kept for the default ten minutes, and those kept longer
+     * (ip_fallback ports with a long relay window). Separate rings, so a
+     * flood of short-lived IDs cannot push out long-lived ones. */
+    mr_dedupe_t dedupe_short, dedupe_long;
+    uint64_t evicted_logged, evict_log_ms;
+    bool evict_log_started;
     mr_dedupe_t relay_req_dedupe;   /* relay requests share frame IDs with the plain transmit */
     mr_peers_t *peers;
     mr_pending_t pending[MR_PENDING_MAX];
@@ -76,6 +83,8 @@ bool mr_core_is_gateway(const mr_core_t *c);
 bool mr_core_up(const mr_core_t *c, uint64_t now_ms);
 uint32_t mr_core_driver_mtu(const mr_core_t *c);
 uint64_t mr_core_ttl(const mr_core_t *c, uint32_t port);
+/* True if the frame ID was seen within its port's TTL; records it if not. */
+bool mr_core_seen(mr_core_t *c, mr_frame_id_t id, uint32_t port, uint64_t now_ms);
 int mr_core_radio_transmit(mr_core_t *c, uint32_t dest, uint32_t port, const uint8_t *data, size_t n,
                            bool want_ack, uint32_t charge_port, bool relay, uint64_t now_ms, uint32_t *driver_req);
 bool mr_core_deliver_local(mr_core_t *c, uint32_t port, uint32_t src, uint32_t dest, const uint8_t *data,

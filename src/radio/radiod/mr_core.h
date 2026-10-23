@@ -23,6 +23,7 @@ typedef struct {
     void (*to_driver)(void *ctx, const MrR2D *msg);
     void (*to_peer)(void *ctx, int peer, const MrDatagram *msg);
     uint64_t (*wall_ms)(void *ctx);
+    void (*log)(void *ctx, const char *msg);   /* optional */
 } mr_core_io_t;
 
 int mr_core_create(const mr_config_t *cfg, const mr_keypair_t *kp, const uint8_t *relay_key,

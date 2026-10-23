@@ -271,7 +271,7 @@ static void unicast_radio_send(mr_core_t *c, int cid, const MrSend *s, MrBridgeF
 void mr_core_bridged_send(mr_core_t *c, int cid, const MrSend *s, uint64_t now_ms)
 {
     mr_frame_id_t id = {c->node_addr, ++c->next_seq};
-    mr_dedupe_check_insert(&c->dedupe, id, mr_core_ttl(c, s->port), now_ms);
+    mr_core_seen(c, id, s->port, now_ms);
     MrBridgeFrame f;
     Muudd__Radio__FrameId fid;
     mr_core_fill_frame(&f, &fid, id, KIND(DELIVER), c->node_addr, s->dest, s->port, s->payload.data,
@@ -385,7 +385,7 @@ static void on_frame(mr_core_t *c, int peer, const MrBridgeFrame *f, uint64_t no
             mr_core_send_result_frame(c, peer, f->req_id, r == RS(REASON_NONE) ? ST(SENT) : ST(REFUSED), r, 0);
         return;
     }
-    if (mr_dedupe_check_insert(&c->dedupe, id, mr_core_ttl(c, f->port), now_ms)) {
+    if (mr_core_seen(c, id, f->port, now_ms)) {
         c->drops.duplicate++;
         return;
     }

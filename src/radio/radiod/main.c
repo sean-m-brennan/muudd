@@ -80,6 +80,12 @@ static uint64_t io_wall(void *ctx)
     return mr_wall_ms();
 }
 
+static void io_log(void *ctx, const char *msg)
+{
+    (void)ctx;
+    logm("%s", msg);
+}
+
 static int sup_hello(void *ctx, const MrCaps *caps)
 {
     app_t *a = ctx;
@@ -215,7 +221,7 @@ int main(int argc, char **argv)
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGHUP, &sa, NULL);
 
-    mr_core_io_t io = {&app, io_to_consumer, io_to_driver, io_to_peer, io_wall};
+    mr_core_io_t io = {&app, io_to_consumer, io_to_driver, io_to_peer, io_wall, io_log};
     if (mr_core_create(&app.cfg, &app.kp, app.has_relay_key ? app.relay_key : NULL, &io, &app.core) != MR_OK) {
         logm("out of memory");
         return 1;

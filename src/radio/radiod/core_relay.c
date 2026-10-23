@@ -84,7 +84,7 @@ void mr_core_relay_received(mr_core_t *c, const MrReceived *r, uint64_t now_ms)
         return;
     }
     mr_frame_id_t id = {h.src, h.id};
-    if (mr_dedupe_check_insert(&c->dedupe, id, mr_core_ttl(c, h.port), now_ms)) {
+    if (mr_core_seen(c, id, h.port, now_ms)) {
         c->drops.duplicate++;
         return;
     }
