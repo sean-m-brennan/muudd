@@ -49,6 +49,7 @@ add_custom_command(
 add_library(mr_core STATIC
     radiod/mr_common.c
     ${MR_GEN_DIR}/radio.pb-c.c)
+target_sources(mr_core PRIVATE radiod/mr_framing.c)
 target_include_directories(mr_core PUBLIC
     radiod ${MR_GEN_DIR}
     ${SODIUM_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR} ${PROTOBUF_C_INCLUDE_DIR})
@@ -69,3 +70,4 @@ function(mr_add_test name)
 endfunction()
 
 mr_add_test(test_proto)
+mr_add_test(test_framing)
