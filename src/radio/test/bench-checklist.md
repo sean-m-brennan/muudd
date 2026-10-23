@@ -36,3 +36,8 @@ Record pass or fail for each step.
 7. Bridging: add a `bridge` section making A a gateway (region `bench`) and a
    driverless radiod on a third machine C peering with A. On C, claim port 16
    and receive B's broadcasts; send a broadcast from C and see it arrive at B.
+8. Hello with a large node database: on a radio whose node list holds many
+   nodes (ideally 100 or more, as on a busy public mesh; otherwise the largest
+   available), restart radiod and time from its `listening on` log line to
+   `driver meshtastic ... up`. It must be under 10 s, or radiod kills the
+   driver for a missing Hello (`no Hello within 10000 ms`). Repeat three times and record the longest.
