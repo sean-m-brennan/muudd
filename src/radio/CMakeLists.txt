@@ -116,3 +116,8 @@ target_link_libraries(mr_client PUBLIC mr_core)
 
 add_executable(radioctl radioctl/radioctl.c)
 target_link_libraries(radioctl PRIVATE mr_client)
+
+mr_add_test(test_client)
+if(TARGET test_client)
+    target_link_libraries(test_client PRIVATE mr_client)
+endif()

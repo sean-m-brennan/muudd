@@ -17,6 +17,8 @@ int mr_client_send(mr_client_t *c, const MrC2R *msg);
 MrR2C *mr_client_recv(mr_client_t *c, int timeout_ms);
 int mr_client_claim(mr_client_t *c, uint32_t port, int policy, int timeout_ms);
 int mr_client_reconnect(mr_client_t *c, int timeout_ms);
+/* Messages discarded because the receive queue was full. */
+uint64_t mr_client_dropped(const mr_client_t *c);
 MrR2C *mr_client_get_stats(mr_client_t *c, int timeout_ms);
 
 #endif

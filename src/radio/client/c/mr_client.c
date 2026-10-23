@@ -22,6 +22,7 @@ struct mr_client {
     mr_decoder_t dec;
     MrR2C *q[MR_CLIENT_QUEUE];
     size_t head, count;
+    uint64_t dropped;
     uint32_t next_req;
     struct { uint32_t port; int policy; } claims[MR_NUM_PORTS];
     size_t n_claims;
@@ -82,6 +83,13 @@ void mr_client_close(mr_client_t *c)
     free(c);
 }
 
+static void fail_link(mr_client_t *c)
+{
+    if (c->fd >= 0)
+        close(c->fd);
+    c->fd = -1;
+}
+
 int mr_client_send(mr_client_t *c, const MrC2R *m)
 {
     if (c->fd < 0)
@@ -90,7 +98,24 @@ int mr_client_send(mr_client_t *c, const MrC2R *m)
     int n = mr_frame_pack(&m->base, buf, sizeof buf);
     if (n < 0)
         return MR_EINVAL;
-    return mr_frame_write_fd(c->fd, buf, (size_t)n);
+    size_t off = 0;
+    while (off < (size_t)n) {
+        /* MSG_NOSIGNAL: a peer that went away must not kill the consumer. */
+        ssize_t w = send(c->fd, buf + off, (size_t)n - off, MSG_NOSIGNAL);
+        if (w < 0 && errno == EINTR)
+            continue;
+        if (w <= 0) {
+            fail_link(c);
+            return MR_EIO;
+        }
+        off += (size_t)w;
+    }
+    return MR_OK;
+}
+
+uint64_t mr_client_dropped(const mr_client_t *c)
+{
+    return c->dropped;
 }
 
 static void push_back(mr_client_t *c, MrR2C *m)
@@ -99,20 +124,20 @@ static void push_back(mr_client_t *c, MrR2C *m)
         muudd__radio__radiod_to_consumer__free_unpacked(c->q[c->head], NULL);
         c->head = (c->head + 1) % MR_CLIENT_QUEUE;
         c->count--;
+        c->dropped++;
     }
     c->q[(c->head + c->count) % MR_CLIENT_QUEUE] = m;
     c->count++;
 }
 
-static void push_front(mr_client_t *c, MrR2C *m)
+/* Removes the i-th queued message (0 is the oldest), keeping the order of the rest. */
+static MrR2C *take_at(mr_client_t *c, size_t i)
 {
-    if (c->count == MR_CLIENT_QUEUE) {
-        muudd__radio__radiod_to_consumer__free_unpacked(m, NULL);
-        return;
-    }
-    c->head = (c->head + MR_CLIENT_QUEUE - 1) % MR_CLIENT_QUEUE;
-    c->q[c->head] = m;
-    c->count++;
+    MrR2C *m = c->q[(c->head + i) % MR_CLIENT_QUEUE];
+    for (; i + 1 < c->count; i++)
+        c->q[(c->head + i) % MR_CLIENT_QUEUE] = c->q[(c->head + i + 1) % MR_CLIENT_QUEUE];
+    c->count--;
+    return m;
 }
 
 static int on_frame(void *ctx, const uint8_t *buf, size_t n)
@@ -124,28 +149,46 @@ static int on_frame(void *ctx, const uint8_t *buf, size_t n)
     return MR_OK;
 }
 
+/* Waits up to timeout_ms for the socket and reads whatever is there into the
+ * queue. A zero timeout still polls once. Returns 1 if bytes were read, 0 on
+ * timeout, -1 if the link is down. */
+static int pump(mr_client_t *c, int timeout_ms)
+{
+    if (c->fd < 0)
+        return -1;
+    struct pollfd p = {c->fd, POLLIN, 0};
+    int pr = poll(&p, 1, timeout_ms);
+    if (pr < 0)
+        return errno == EINTR ? 0 : (fail_link(c), -1);
+    if (pr == 0)
+        return 0;
+    uint8_t buf[4096];
+    ssize_t r = read(c->fd, buf, sizeof buf);
+    if (r < 0 && (errno == EINTR || errno == EAGAIN))
+        return 0;
+    if (r <= 0 || mr_decoder_feed(&c->dec, buf, (size_t)r, on_frame, c) != MR_OK) {
+        fail_link(c);
+        return -1;
+    }
+    return 1;
+}
+
+static int remaining_ms(uint64_t end)
+{
+    uint64_t now = mr_now_ms();
+    return now >= end ? 0 : (int)(end - now);
+}
+
 MrR2C *mr_client_recv(mr_client_t *c, int timeout_ms)
 {
     uint64_t end = mr_now_ms() + (uint64_t)(timeout_ms > 0 ? timeout_ms : 0);
     for (;;) {
-        if (c->count) {
-            MrR2C *m = c->q[c->head];
-            c->head = (c->head + 1) % MR_CLIENT_QUEUE;
-            c->count--;
-            return m;
-        }
-        uint64_t now = mr_now_ms();
-        if (c->fd < 0 || now >= end)
+        if (c->count)
+            return take_at(c, 0);
+        if (pump(c, remaining_ms(end)) < 0 && !c->count)
             return NULL;
-        struct pollfd p = {c->fd, POLLIN, 0};
-        if (poll(&p, 1, (int)(end - now)) <= 0)
-            continue;
-        uint8_t buf[4096];
-        ssize_t r = read(c->fd, buf, sizeof buf);
-        if (r <= 0 || mr_decoder_feed(&c->dec, buf, (size_t)r, on_frame, c) != MR_OK) {
-            close(c->fd);
-            c->fd = -1;
-        }
+        if (!c->count && mr_now_ms() >= end)
+            return NULL;
     }
 }
 
@@ -160,34 +203,32 @@ static uint32_t reply_req(const MrR2C *m)
     }
 }
 
-/* Waits for one reply; everything else that arrives meanwhile goes back on
- * the queue, ahead of anything newer. */
+/* Waits for one reply and removes only it from the queue; everything else
+ * stays queued in arrival order. */
 static MrR2C *wait_reply(mr_client_t *c, int msg_case, uint32_t req, int timeout_ms)
 {
-    MrR2C *side[MR_CLIENT_QUEUE];
-    size_t ns = 0;
-    MrR2C *found = NULL;
     uint64_t end = mr_now_ms() + (uint64_t)timeout_ms;
-    while (!found) {
-        uint64_t now = mr_now_ms();
-        if (now >= end)
-            break;
-        MrR2C *m = mr_client_recv(c, (int)(end - now));
-        if (!m)
-            break;
-        if ((int)m->msg_case == msg_case && reply_req(m) == req)
-            found = m;
-        else if (ns < MR_CLIENT_QUEUE)
-            side[ns++] = m;
-        else
-            muudd__radio__radiod_to_consumer__free_unpacked(m, NULL);
+    for (;;) {
+        for (size_t i = 0; i < c->count; i++) {
+            MrR2C *m = c->q[(c->head + i) % MR_CLIENT_QUEUE];
+            if ((int)m->msg_case == msg_case && reply_req(m) == req)
+                return take_at(c, i);
+        }
+        if (pump(c, remaining_ms(end)) < 0)
+            return NULL;
+        if (mr_now_ms() >= end) {
+            /* One last look at what the final read delivered. */
+            for (size_t i = 0; i < c->count; i++) {
+                MrR2C *m = c->q[(c->head + i) % MR_CLIENT_QUEUE];
+                if ((int)m->msg_case == msg_case && reply_req(m) == req)
+                    return take_at(c, i);
+            }
+            return NULL;
+        }
     }
-    for (size_t i = ns; i-- > 0;)
-        push_front(c, side[i]);
-    return found;
 }
 
-int mr_client_claim(mr_client_t *c, uint32_t port, int policy, int timeout_ms)
+static int claim_once(mr_client_t *c, uint32_t port, int policy, int timeout_ms)
 {
     Muudd__Radio__Claim cl = MUUDD__RADIO__CLAIM__INIT;
     cl.req_id = ++c->next_req;
@@ -203,11 +244,19 @@ int mr_client_claim(mr_client_t *c, uint32_t port, int policy, int timeout_ms)
         return MR_EIO;
     int st = r->claim_result->status;
     muudd__radio__radiod_to_consumer__free_unpacked(r, NULL);
+    return st;
+}
+
+int mr_client_claim(mr_client_t *c, uint32_t port, int policy, int timeout_ms)
+{
+    int st = claim_once(c, port, policy, timeout_ms);
     if (st == MUUDD__RADIO__CLAIM_STATUS__CLAIM_OK) {
         bool known = false;
         for (size_t i = 0; i < c->n_claims; i++)
-            if (c->claims[i].port == port)
+            if (c->claims[i].port == port) {
+                c->claims[i].policy = policy;
                 known = true;
+            }
         if (!known && c->n_claims < MR_NUM_PORTS) {
             c->claims[c->n_claims].port = port;
             c->claims[c->n_claims].policy = policy;
@@ -217,11 +266,11 @@ int mr_client_claim(mr_client_t *c, uint32_t port, int policy, int timeout_ms)
     return st;
 }
 
+/* Every claim ever held stays in the list, whether or not it could be
+ * re-established, so a later reconnect tries it again. */
 int mr_client_reconnect(mr_client_t *c, int timeout_ms)
 {
-    if (c->fd >= 0)
-        close(c->fd);
-    c->fd = -1;
+    fail_link(c);
     mr_decoder_init(&c->dec);
     uint64_t end = mr_now_ms() + (uint64_t)timeout_ms;
     useconds_t delay = 100000;
@@ -232,11 +281,11 @@ int mr_client_reconnect(mr_client_t *c, int timeout_ms)
         if (delay < 2000000)
             delay *= 2;
     }
-    size_t n = c->n_claims;
-    c->n_claims = 0;
-    for (size_t i = 0; i < n; i++)
-        mr_client_claim(c, c->claims[i].port, c->claims[i].policy, 2000);
-    return MR_OK;
+    int rc = MR_OK;
+    for (size_t i = 0; i < c->n_claims; i++)
+        if (claim_once(c, c->claims[i].port, c->claims[i].policy, 2000) != MUUDD__RADIO__CLAIM_STATUS__CLAIM_OK)
+            rc = MR_ERR;
+    return rc;
 }
 
 MrR2C *mr_client_get_stats(mr_client_t *c, int timeout_ms)
