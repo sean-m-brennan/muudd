@@ -33,6 +33,9 @@ find_program(PROTOC_GEN_C protoc-gen-c REQUIRED)
 find_path(CHECK_INCLUDE_DIR check.h)
 find_library(CHECK_LIBRARY check)
 find_library(SUBUNIT_LIBRARY subunit)
+if(NOT CHECK_LIBRARY OR NOT CHECK_INCLUDE_DIR)
+    message(WARNING "libcheck not found: unit tests will not be built")
+endif()
 
 set(MR_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/gen)
 file(MAKE_DIRECTORY ${MR_GEN_DIR})
@@ -54,7 +57,7 @@ target_link_libraries(mr_core PUBLIC
 
 enable_testing()
 function(mr_add_test name)
-    if(CHECK_LIBRARY)
+    if(CHECK_LIBRARY AND CHECK_INCLUDE_DIR)
         add_executable(${name} test/unit/${name}.c)
         target_include_directories(${name} PRIVATE ${CHECK_INCLUDE_DIR} test/unit)
         target_link_libraries(${name} PRIVATE mr_core ${CHECK_LIBRARY} pthread)
