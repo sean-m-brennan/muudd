@@ -208,23 +208,17 @@ static uint32_t reply_req(const MrR2C *m)
 static MrR2C *wait_reply(mr_client_t *c, int msg_case, uint32_t req, int timeout_ms)
 {
     uint64_t end = mr_now_ms() + (uint64_t)timeout_ms;
+    bool last = false;
     for (;;) {
         for (size_t i = 0; i < c->count; i++) {
             MrR2C *m = c->q[(c->head + i) % MR_CLIENT_QUEUE];
             if ((int)m->msg_case == msg_case && reply_req(m) == req)
                 return take_at(c, i);
         }
-        if (pump(c, remaining_ms(end)) < 0)
+        /* The scan above also covers what the final read or a closing link delivered. */
+        if (last)
             return NULL;
-        if (mr_now_ms() >= end) {
-            /* One last look at what the final read delivered. */
-            for (size_t i = 0; i < c->count; i++) {
-                MrR2C *m = c->q[(c->head + i) % MR_CLIENT_QUEUE];
-                if ((int)m->msg_case == msg_case && reply_req(m) == req)
-                    return take_at(c, i);
-            }
-            return NULL;
-        }
+        last = pump(c, remaining_ms(end)) < 0 || mr_now_ms() >= end;
     }
 }
 

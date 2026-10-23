@@ -90,39 +90,79 @@ static void expect_port(mr_client_t *c, uint32_t port)
     muudd__radio__radiod_to_consumer__free_unpacked(m, NULL);
 }
 
+/* The server sends n Received messages (ports 1..n), then the stats reply,
+ * then one more Received (port n + 1). */
+static pid_t start_flood_server(int lfd, int n)
+{
+    pid_t pid = fork();
+    if (pid != 0)
+        return pid;
+    int fd = accept(lfd, NULL, NULL);
+    MrC2R *req = read_msg(fd);
+    if (!req || req->msg_case != MUUDD__RADIO__CONSUMER_TO_RADIOD__MSG_GET_STATS)
+        _exit(91);
+    for (int i = 1; i <= n; i++)
+        write_received(fd, (uint32_t)i);
+    Muudd__Radio__Stats st = MUUDD__RADIO__STATS__INIT;
+    st.req_id = req->get_stats->req_id;
+    char reason[] = "";
+    st.reason = reason;
+    MrR2C m = MUUDD__RADIO__RADIOD_TO_CONSUMER__INIT;
+    m.msg_case = MUUDD__RADIO__RADIOD_TO_CONSUMER__MSG_STATS;
+    m.stats = &st;
+    write_msg(fd, &m);
+    write_received(fd, (uint32_t)n + 1);
+    MrC2R *x = read_msg(fd);
+    _exit(x ? 92 : 0);
+}
+
 START_TEST(test_side_messages_kept_in_order)
 {
     int lfd = listen_on("order");
-    pid_t pid = fork();
-    if (pid == 0) {
-        int fd = accept(lfd, NULL, NULL);
-        MrC2R *req = read_msg(fd);
-        if (!req || req->msg_case != MUUDD__RADIO__CONSUMER_TO_RADIOD__MSG_GET_STATS)
-            _exit(91);
-        write_received(fd, 1);
-        write_received(fd, 2);
-        Muudd__Radio__Stats st = MUUDD__RADIO__STATS__INIT;
-        st.req_id = req->get_stats->req_id;
-        char reason[] = "";
-        st.reason = reason;
-        MrR2C m = MUUDD__RADIO__RADIOD_TO_CONSUMER__INIT;
-        m.msg_case = MUUDD__RADIO__RADIOD_TO_CONSUMER__MSG_STATS;
-        m.stats = &st;
-        write_msg(fd, &m);
-        write_received(fd, 3);
-        MrC2R *x = read_msg(fd);
-        _exit(x ? 92 : 0);
-    }
+    pid_t pid = start_flood_server(lfd, 60);
     close(lfd);
     mr_client_t *c;
     ck_assert_int_eq(mr_client_connect(sock_path, &c), MR_OK);
     MrR2C *st = mr_client_get_stats(c, 2000);
     ck_assert_ptr_nonnull(st);
     muudd__radio__radiod_to_consumer__free_unpacked(st, NULL);
-    expect_port(c, 1);
-    expect_port(c, 2);
-    expect_port(c, 3);
+    for (uint32_t i = 1; i <= 61; i++)
+        expect_port(c, i);
     ck_assert_uint_eq(mr_client_dropped(c), 0);
+    mr_client_close(c);
+    int status;
+    waitpid(pid, &status, 0);
+    ck_assert_int_eq(WEXITSTATUS(status), 0);
+    unlink(sock_path);
+}
+END_TEST
+
+/* More side messages than the queue holds: the oldest go, the newest stay in order. */
+START_TEST(test_overflow_drops_oldest)
+{
+    int lfd = listen_on("flood");
+    pid_t pid = start_flood_server(lfd, 100);
+    close(lfd);
+    mr_client_t *c;
+    ck_assert_int_eq(mr_client_connect(sock_path, &c), MR_OK);
+    MrR2C *st = mr_client_get_stats(c, 2000);
+    ck_assert_ptr_nonnull(st);
+    muudd__radio__radiod_to_consumer__free_unpacked(st, NULL);
+    ck_assert_uint_gt(mr_client_dropped(c), 0);
+    uint32_t prev = 0, got = 0;
+    MrR2C *m;
+    while ((m = mr_client_recv(c, 200)) != NULL) {
+        ck_assert_int_eq(m->msg_case, MUUDD__RADIO__RADIOD_TO_CONSUMER__MSG_RECEIVED);
+        uint32_t port = m->received->port;
+        if (prev)
+            ck_assert_uint_eq(port, prev + 1);
+        prev = port;
+        got++;
+        muudd__radio__radiod_to_consumer__free_unpacked(m, NULL);
+    }
+    ck_assert_uint_eq(prev, 101);
+    ck_assert_uint_gt(got, 0);
+    ck_assert_uint_eq(got + mr_client_dropped(c), 101);
     mr_client_close(c);
     int status;
     waitpid(pid, &status, 0);
@@ -145,7 +185,10 @@ START_TEST(test_recv_zero_timeout_sees_pending)
     mr_client_t *c;
     ck_assert_int_eq(mr_client_connect(sock_path, &c), MR_OK);
     usleep(200000);
-    expect_port(c, 7);
+    MrR2C *m = mr_client_recv(c, 0);
+    ck_assert_ptr_nonnull(m);
+    ck_assert_uint_eq(m->received->port, 7);
+    muudd__radio__radiod_to_consumer__free_unpacked(m, NULL);
     ck_assert_ptr_null(mr_client_recv(c, 0));
     mr_client_close(c);
     waitpid(pid, NULL, 0);
@@ -225,6 +268,7 @@ int main(void)
     TCase *tc = tcase_create("client");
     tcase_set_timeout(tc, 30);
     tcase_add_test(tc, test_side_messages_kept_in_order);
+    tcase_add_test(tc, test_overflow_drops_oldest);
     tcase_add_test(tc, test_recv_zero_timeout_sees_pending);
     tcase_add_test(tc, test_send_after_server_close_is_eio);
     tcase_add_test(tc, test_reconnect_keeps_failed_claims);
