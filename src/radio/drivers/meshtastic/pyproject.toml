@@ -1,0 +1,22 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: GPL-3.0-only
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "muudd_meshtastic"
+version = "0.1.0"
+description = "muudd-radiod driver for radios running Meshtastic firmware"
+license = {text = "GPL-3.0-only"}
+requires-python = ">=3.11"
+dependencies = ["muudd_radio", "protobuf>=5"]
+
+[project.optional-dependencies]
+serial = ["meshtastic>=2.7"]
+
+[project.scripts]
+meshtastic-driver = "muudd_meshtastic.__main__:main"
+
+[tool.setuptools]
+packages = ["muudd_meshtastic"]
