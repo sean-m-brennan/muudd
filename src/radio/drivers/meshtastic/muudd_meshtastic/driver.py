@@ -70,10 +70,14 @@ class DriverCore:
             if key is None or len(key) not in (1, 16, 32):
                 self._status_down("settings.channel_psk must be base64 of a 1, 16 or 32-byte key")
                 return EX_CONFIG
-        if key is not None:
-            idx = self.radio.add_channel(name, key)
-        if apply_preset:
-            self.radio.set_preset(preset)
+        try:
+            if key is not None:
+                idx = self.radio.add_channel(name, key)
+            if apply_preset:
+                self.radio.set_preset(preset)
+        except Exception as e:
+            self._status_down(f"cannot configure the radio: {e}")
+            return EX_CONFIG
         self.channel = idx
         return None
 
@@ -155,6 +159,12 @@ class DriverCore:
         self.emit(send_result=pb.SendResult(req_id=req, status=status, reason=reason, packet_id=packet_id))
 
     def _on_packet(self, pkt):
+        # Only the MUUDD channel, or a public-key DM addressed to this node,
+        # is MUUDD traffic; anything else on the radio's other channels is not.
+        on_channel = pkt.get("channel", 0) == self.channel
+        dm_to_us = pkt.get("pki_encrypted") and (pkt.get("to", 0) & 0xFFFFFFFF) == self.radio.node_num()
+        if not (on_channel or dm_to_us):
+            return
         r = received_from_packet(pkt)
         if r is not None:
             self.emit(received=r)

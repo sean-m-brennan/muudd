@@ -185,3 +185,53 @@ def test_fake_radio_survives_malformed_datagrams(tmp_path):
     assert wait(lambda: len(got) == 1)
     assert got[0]["payload"] == b"ok"
     radio.close()
+
+
+def _pkt(channel, to=BROADCAST, pki=False, pid=1):
+    return {"from": 0xB1, "to": to, "id": pid, "portnum": 272, "payload": b"x", "channel": channel,
+            "pki_encrypted": pki}
+
+
+def test_receive_only_muudd_channel_or_pki_dm_to_us():
+    c, radio, out = core(channels=("primary", "muudd"))
+    c.configure(pb.Configure(settings={"channel": "muudd"}))
+    radio.deliver(_pkt(0, pid=1))                          # another channel: dropped
+    radio.deliver(_pkt(1, pid=2))                          # the MUUDD channel
+    radio.deliver(_pkt(0, to=0xA0B0, pki=True, pid=3))     # PKI DM to this node
+    radio.deliver(_pkt(0, to=0xA0B1, pki=True, pid=4))     # PKI DM to another node: dropped
+    radio.deliver(_pkt(0, to=0xA0B0, pid=5))               # channel-key DM on another channel: dropped
+    assert [r.meta.packet_id for r in out.of("received")] == [2, 3]
+
+
+def test_fake_medium_frames_use_muudd_channel(tmp_path):
+    import socket
+    from muudd_meshtastic.fake_radio import MEDIUM_HDR
+    radio = FakeRadio(medium=tmp_path, channels=("primary", "muudd"))
+    got = []
+    radio.on_receive(got.append)
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    s.sendto(MEDIUM_HDR.pack(1, BROADCAST, 16, 2) + b"ok", str(tmp_path / f"{0xA0B0:08x}.sock"))
+    assert wait(lambda: len(got) == 1)
+    assert got[0]["channel"] == 1
+    radio.close()
+
+
+def test_configure_radio_errors_are_fatal_not_tracebacks():
+    class BrokenRadio(FakeRadio):
+        def add_channel(self, name, psk):
+            raise RuntimeError("no free channel slot on the radio")
+
+    class NoPreset(FakeRadio):
+        def set_preset(self, name):
+            raise OSError("write failed")
+
+    psk = base64.b64encode(bytes(32)).decode()
+    out = Out()
+    c = DriverCore(BrokenRadio(channels=("primary",)), out.write)
+    assert c.configure(_conf(channel="muudd", channel_psk=psk)) == EX_CONFIG
+    st = out.of("status")[-1]
+    assert st.state == pb.STATE_DOWN and "no free channel slot" in st.reason
+    out = Out()
+    c = DriverCore(NoPreset(), out.write)
+    assert c.configure(_conf(channel="muudd", preset="SHORT_TURBO")) == EX_CONFIG
+    assert "write failed" in out.of("status")[-1].reason

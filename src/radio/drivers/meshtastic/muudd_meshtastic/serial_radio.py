@@ -37,6 +37,7 @@ def normalize(packet):
         "hop_limit": hop_limit,
         "pki_encrypted": bool(packet.get("pkiEncrypted")),
         "rx_time": packet.get("rxTime"),
+        "channel": packet.get("channel", 0),   # omitted by the library at its default of 0
     }
 
 

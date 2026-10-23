@@ -106,7 +106,8 @@ class FakeRadio:
                 continue
             self.deliver({"from": src, "to": dest, "id": pid, "portnum": to_portnum(port),
                           "payload": data[MEDIUM_HDR.size:], "rx_rssi": -80, "rx_snr": 5.0, "hop_start": 3,
-                          "hop_limit": 3, "pki_encrypted": dest != BROADCAST, "rx_time": int(time.time())})
+                          "hop_limit": 3, "pki_encrypted": dest != BROADCAST, "rx_time": int(time.time()),
+                          "channel": self.channel_index("muudd") or 0})
 
     def close(self):
         self._closed = True

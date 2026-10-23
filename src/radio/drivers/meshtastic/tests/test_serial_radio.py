@@ -124,3 +124,10 @@ def test_normalize_hops_default_zero_limit():
     assert meta.has_hops and meta.hops == 3
     n2 = normalize({"from": 1, "to": 2, "decoded": {"portnum": "PRIVATE_APP", "payload": b"x"}})
     assert n2["hop_start"] is None and n2["hop_limit"] is None
+
+
+def test_normalize_carries_channel():
+    n = normalize({"from": 1, "to": 2, "channel": 3, "decoded": {"portnum": 272, "payload": b"x"}})
+    assert n["channel"] == 3
+    # the library leaves the field out at its default of 0
+    assert normalize({"from": 1, "to": 2, "decoded": {"portnum": 272, "payload": b"x"}})["channel"] == 0
