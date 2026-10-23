@@ -9,8 +9,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "mr_config.h"
+
+#define MR_CONFIG_MAX_BYTES (1024 * 1024)
 
 static int fail(char *err, size_t len, const char *fmt, ...)
 {
@@ -381,11 +384,20 @@ int mr_config_load(const char *path, mr_config_t *c, char *err, size_t len)
         snprintf(err, len, "cannot read %s: %s", path, strerror(errno));
         return MR_EIO;
     }
-    fseek(f, 0, SEEK_END);
-    long n = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char *buf = malloc((size_t)n + 1);
-    if (!buf || fread(buf, 1, (size_t)n, f) != (size_t)n) {
+    struct stat st;
+    if (fstat(fileno(f), &st) != 0 || !S_ISREG(st.st_mode)) {
+        fclose(f);
+        snprintf(err, len, "cannot read %s: not a regular file", path);
+        return MR_EIO;
+    }
+    if (st.st_size > MR_CONFIG_MAX_BYTES) {
+        fclose(f);
+        snprintf(err, len, "cannot read %s: larger than %d bytes", path, MR_CONFIG_MAX_BYTES);
+        return MR_EIO;
+    }
+    size_t n = (size_t)st.st_size;
+    char *buf = malloc(n + 1);
+    if (!buf || fread(buf, 1, n, f) != n) {
         fclose(f);
         free(buf);
         snprintf(err, len, "cannot read %s", path);

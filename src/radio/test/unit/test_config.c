@@ -4,6 +4,7 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "mr_test.h"
 #include "mr_config.h"
@@ -84,7 +85,9 @@ static void expect_error(const char *json, const char *field)
     mr_config_t *c = cfg_new();
     char err[256] = "";
     ck_assert_int_eq(mr_config_parse(json, c, err, sizeof err), MR_EINVAL);
-    ck_assert_msg(strstr(err, field) == err, "error \"%s\" does not start with \"%s\"", err, field);
+    size_t fl = strlen(field);
+    ck_assert_msg(strncmp(err, field, fl) == 0 && err[fl] == ':',
+                  "error \"%s\" does not name field \"%s\" exactly", err, field);
     free(c);
 }
 
@@ -96,7 +99,7 @@ START_TEST(test_invalid_files_name_their_field)
     expect_error("{" DRV ", \"ports\": {\"2\": {\"name\": \"x\", \"policy\": \"radiod\"}}}", "ports.2");
     expect_error("{" DRV ", \"ports\": {\"256\": {\"name\": \"x\", \"policy\": \"radiod\"}}}", "ports.256");
     expect_error("{" DRV ", \"ports\": {\"16\": {\"name\": \"a\", \"share_pct\": 60, \"policy\": \"radiod\"},"
-                 " \"17\": {\"name\": \"b\", \"share_pct\": 50, \"policy\": \"radiod\"}}}", "ports:");
+                 " \"17\": {\"name\": \"b\", \"share_pct\": 50, \"policy\": \"radiod\"}}}", "ports");
     expect_error("{" DRV ", \"ports\": {\"16\": {\"name\": \"a\", \"policy\": \"both\"}}}", "ports.16.policy");
     expect_error("{" DRV ", \"ports\": {\"16\": {\"name\": \"a\", \"policy\": \"consumer\", \"ip_fallback\": true}}}",
                  "ports.16.ip_fallback");
@@ -117,7 +120,63 @@ START_TEST(test_invalid_files_name_their_field)
                  "bridge.peers[0].pubkey");
     expect_error("{" DRV ", \"bridge\": {\"peers\": []}}", "bridge.listen");
     expect_error("{" DRV ", \"node_addr\": 4294967295}", "node_addr");
+    expect_error("{" DRV ", \"node_addr\": 0}", "node_addr");
+    expect_error("{\"driver\": {\"exec\": \"/bin/true\", \"args\": [\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\","
+                 "\"9\",\"10\",\"11\",\"12\",\"13\",\"14\",\"15\",\"16\",\"17\"]}}", "driver.args");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \"127.0.0.1:1\", \"peers\": [{\"addr\": \"x:1\", \"pubkey\": \""
+                 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}]}}", "bridge.peers[0].pubkey");
     expect_error("not json", "line 1");
+}
+END_TEST
+
+START_TEST(test_driverless)
+{
+    mr_config_t *c = cfg_new();
+    char err[256] = "";
+    ck_assert_msg(mr_config_parse("{\"driver\": null, \"node_addr\": 7, \"bridge\": {\"listen\": \"127.0.0.1:1\"}}",
+                                  c, err, sizeof err) == MR_OK, "%s", err);
+    ck_assert(!c->has_driver);
+    ck_assert(!c->node_addr_auto);
+    ck_assert_uint_eq(c->node_addr, 7);
+    ck_assert(c->has_bridge);
+    free(c);
+}
+END_TEST
+
+START_TEST(test_bridge_defaults)
+{
+    mr_config_t *c = cfg_new();
+    char err[256] = "";
+    ck_assert_msg(mr_config_parse("{" DRV ", \"bridge\": {\"listen\": \"127.0.0.1:1\"}}", c, err, sizeof err) == MR_OK,
+                  "%s", err);
+    ck_assert(c->has_bridge);
+    ck_assert(!c->gateway);
+    ck_assert_str_eq(c->key_file, "/etc/muudd/radio/radiod.key");
+    ck_assert_uint_eq(c->keepalive_ms, 5000);
+    ck_assert_uint_eq(c->dead_after_ms, 15000);
+    ck_assert_int_eq(c->priority, 100);
+    ck_assert_uint_eq(c->relay_window_s, 600);
+    free(c);
+}
+END_TEST
+
+START_TEST(test_load_file_and_directory)
+{
+    mr_config_t *c = cfg_new();
+    char err[256] = "";
+    char path[] = "/tmp/mr_config_test_XXXXXX";
+    int fd = mkstemp(path);
+    ck_assert_int_ge(fd, 0);
+    const char *json = "{\"driver\": {\"exec\": \"/bin/true\"}, \"socket\": \"/tmp/loaded.sock\"}";
+    ck_assert_int_eq((int)write(fd, json, strlen(json)), (int)strlen(json));
+    close(fd);
+    int rc = mr_config_load(path, c, err, sizeof err);
+    unlink(path);
+    ck_assert_msg(rc == MR_OK, "%s", err);
+    ck_assert_str_eq(c->socket_path, "/tmp/loaded.sock");
+    ck_assert_int_eq(mr_config_load("/tmp", c, err, sizeof err), MR_EIO);
+    ck_assert(strstr(err, "/tmp") != NULL);
+    free(c);
 }
 END_TEST
 
@@ -166,6 +225,9 @@ int main(void)
     tcase_add_test(tc, test_full_example);
     tcase_add_test(tc, test_defaults);
     tcase_add_test(tc, test_invalid_files_name_their_field);
+    tcase_add_test(tc, test_driverless);
+    tcase_add_test(tc, test_bridge_defaults);
+    tcase_add_test(tc, test_load_file_and_directory);
     tcase_add_test(tc, test_window_bounds_accepted);
     tcase_add_test(tc, test_mark_self);
     tcase_add_test(tc, test_load_missing_file);
