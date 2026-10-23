@@ -324,13 +324,6 @@ static void on_transmit(mr_core_t *c, int peer, const MrBridgeFrame *f, const Mr
 {
     if (f->dest == MR_BROADCAST || f->dest == c->node_addr)
         mr_core_deliver_local(c, f->port, f->src, f->dest, f->payload.data, f->payload.len, meta);
-    if (f->relay) {
-        int r = mr_core_relay_transmit_local(c, f->src, f->frame_id->id, f->dest, f->port, f->payload.data,
-                                             f->payload.len, now_ms);
-        if (f->req_id)
-            mr_core_send_result_frame(c, peer, f->req_id, r == RS(REASON_NONE) ? ST(SENT) : ST(REFUSED), r, 0);
-        return;
-    }
     mr_pending_t *p = NULL;
     if (f->req_id) {
         p = mr_core_pending_new(c, PEND_REMOTE, 0);
@@ -369,6 +362,19 @@ static void on_frame(mr_core_t *c, int peer, const MrBridgeFrame *f, uint64_t no
         c->cfg->ports[f->port].policy != MUUDD__RADIO__POLICY__RADIOD_BRIDGED)
         return;   /* consumer-bridged ports never travel over the bridge */
     mr_frame_id_t id = {f->frame_id->node, f->frame_id->id};
+    if (f->kind == KIND(TRANSMIT) && f->relay) {
+        /* A relay request shares its frame ID with the plain transmit of the same
+         * message, so it has its own dedupe cache and is never delivered locally. */
+        if (mr_dedupe_check_insert(&c->relay_req_dedupe, id, mr_core_ttl(c, f->port), now_ms)) {
+            c->drops.duplicate++;
+            return;
+        }
+        int r = mr_core_relay_transmit_local(c, f->src, f->frame_id->id, f->dest, f->port, f->payload.data,
+                                             f->payload.len, now_ms);
+        if (f->req_id)
+            mr_core_send_result_frame(c, peer, f->req_id, r == RS(REASON_NONE) ? ST(SENT) : ST(REFUSED), r, 0);
+        return;
+    }
     if (mr_dedupe_check_insert(&c->dedupe, id, mr_core_ttl(c, f->port), now_ms)) {
         c->drops.duplicate++;
         return;

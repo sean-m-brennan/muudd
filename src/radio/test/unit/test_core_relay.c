@@ -255,6 +255,46 @@ START_TEST(test_unicast_to_dead_peer_relays)
 }
 END_TEST
 
+START_TEST(test_gateway_plain_then_relay_same_id)
+{
+    fx_t *f = fx_new(GW_R(600), KEY);
+    fx_hello(f, 0xA1, 0);
+    fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 9, 0x0D01, BCAST, 18, "x", 1, "", false, 0, false, 1000);
+    fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 9, 0x0D01, BCAST, 18, "x", 1, "", false, 0, true, 1000);
+    ck_assert_uint_eq(fx_count_dsend(f), 2);
+    ck_assert_uint_eq(fx_dsend(f, 0)->port, 18);
+    const MrSend *s = fx_dsend(f, 1);
+    ck_assert_uint_eq(s->port, MR_PORT_RELAY);
+    mr_relay_hdr_t h;
+    uint8_t body[8];
+    size_t blen;
+    ck_assert_int_eq(mr_relay_open(KEY, s->payload.data, s->payload.len, &h, body, sizeof body, &blen), MR_OK);
+    ck_assert_uint_eq(h.src, 0x0D01);
+    ck_assert_uint_eq(h.dest, BCAST);
+    ck_assert_uint_eq(h.port, 18);
+    ck_assert_uint_eq(h.id, 9);
+    /* the same relay request again is a duplicate */
+    fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 9, 0x0D01, BCAST, 18, "x", 1, "", false, 0, true, 1100);
+    ck_assert_uint_eq(fx_count_dsend(f), 2);
+    ck_assert_uint_eq(fx_stats(f, 1, 1200)->drops->duplicate, 1);
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_gateway_lone_unicast_relay_request)
+{
+    fx_t *f = fx_new(GW_R(600), KEY);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 18, RADIOD, 0);
+    fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 10, 0x0D01, 0x0D02, 18, "x", 1, "", false, 0, true, 1000);
+    ck_assert_uint_eq(fx_count_dsend(f), 1);
+    ck_assert_uint_eq(fx_dsend(f, 0)->port, MR_PORT_RELAY);
+    ck_assert_uint_eq(fx_count_rx(f, 1), 0);
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -274,6 +314,8 @@ int main(void)
     tcase_add_test(tc, test_relay_without_key);
     tcase_add_test(tc, test_relay_dedupe_follows_window);
     tcase_add_test(tc, test_unicast_to_dead_peer_relays);
+    tcase_add_test(tc, test_gateway_plain_then_relay_same_id);
+    tcase_add_test(tc, test_gateway_lone_unicast_relay_request);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

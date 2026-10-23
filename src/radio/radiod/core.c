@@ -28,7 +28,8 @@ int mr_core_create(const mr_config_t *cfg, const mr_keypair_t *kp, const uint8_t
     mr_ports_init(&c->ports);
     c->ledger = calloc(1, sizeof *c->ledger);
     c->peers = calloc(1, sizeof *c->peers);
-    if (!c->ledger || !c->peers || mr_dedupe_init(&c->dedupe, 65536) != MR_OK) {
+    if (!c->ledger || !c->peers || mr_dedupe_init(&c->dedupe, 65536) != MR_OK ||
+        mr_dedupe_init(&c->relay_req_dedupe, 4096) != MR_OK) {
         mr_core_free(c);
         return MR_ENOMEM;
     }
@@ -49,6 +50,7 @@ void mr_core_free(mr_core_t *c)
     if (c->caps)
         muudd__radio__caps__free_unpacked(c->caps, NULL);
     mr_dedupe_free(&c->dedupe);
+    mr_dedupe_free(&c->relay_req_dedupe);
     free(c->ledger);
     free(c->peers);
     free(c);

@@ -59,6 +59,7 @@ struct mr_core {
     mr_ports_t ports;
     mr_ledger_t *ledger;
     mr_dedupe_t dedupe;
+    mr_dedupe_t relay_req_dedupe;   /* relay requests share frame IDs with the plain transmit */
     mr_peers_t *peers;
     mr_pending_t pending[MR_PENDING_MAX];
     uint32_t next_driver_req, next_seq, next_agg;
