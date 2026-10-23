@@ -58,6 +58,7 @@ target_sources(mr_core PRIVATE radiod/mr_crypto.c)
 target_sources(mr_core PRIVATE radiod/mr_ports.c radiod/mr_peers.c)
 target_sources(mr_core PRIVATE radiod/core.c radiod/core_bridge.c radiod/core_relay.c)
 target_sources(mr_core PRIVATE radiod/mr_supervisor.c)
+target_sources(mr_core PRIVATE radiod/mr_ipc.c radiod/mr_bridge_io.c radiod/mr_bootcount.c)
 target_include_directories(mr_core PUBLIC
     radiod ${MR_GEN_DIR}
     ${SODIUM_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR} ${PROTOBUF_C_INCLUDE_DIR})
@@ -89,6 +90,7 @@ mr_add_test(test_peers)
 mr_add_test(test_core_local)
 mr_add_test(test_core_bridge)
 mr_add_test(test_core_relay)
+mr_add_test(test_bootcount)
 
 add_executable(stub-driver drivers/stub/stub_driver.c)
 target_link_libraries(stub-driver PRIVATE mr_core)
@@ -104,3 +106,6 @@ if(TARGET test_supervisor)
     target_compile_definitions(test_supervisor PRIVATE MR_STUB_DRIVER="$<TARGET_FILE:stub-driver>")
     add_dependencies(test_supervisor stub-driver)
 endif()
+
+add_executable(muudd-radiod radiod/main.c)
+target_link_libraries(muudd-radiod PRIVATE mr_core)

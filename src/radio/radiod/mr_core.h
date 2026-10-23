@@ -30,6 +30,8 @@ int mr_core_create(const mr_config_t *cfg, const mr_keypair_t *kp, const uint8_t
 void mr_core_free(mr_core_t *c);
 mr_peers_t *mr_core_peers(mr_core_t *c);
 uint32_t mr_core_node_addr(const mr_core_t *c);
+/* why the radio is down; empty when it is up */
+const char *mr_core_reason(const mr_core_t *c);
 /* boot_id carried in keepalives; must rise across restarts */
 void mr_core_set_boot_id(mr_core_t *c, uint64_t boot_id);
 

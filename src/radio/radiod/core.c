@@ -58,6 +58,7 @@ void mr_core_free(mr_core_t *c)
 
 mr_peers_t *mr_core_peers(mr_core_t *c) { return c->peers; }
 uint32_t mr_core_node_addr(const mr_core_t *c) { return c->node_addr; }
+const char *mr_core_reason(const mr_core_t *c) { return c->reason; }
 void mr_core_set_boot_id(mr_core_t *c, uint64_t boot_id) { c->boot_id = boot_id; }
 void mr_core_note_bridge_auth_failure(mr_core_t *c) { c->drops.bridge_auth++; }
 void mr_core_note_queue_overflow(mr_core_t *c, uint64_t n) { c->drops.queue_overflow += n; }
