@@ -51,6 +51,7 @@ add_library(mr_core STATIC
     ${MR_GEN_DIR}/radio.pb-c.c)
 target_sources(mr_core PRIVATE radiod/mr_framing.c)
 target_sources(mr_core PRIVATE radiod/mr_airtime.c)
+target_sources(mr_core PRIVATE radiod/mr_ledger.c)
 target_include_directories(mr_core PUBLIC
     radiod ${MR_GEN_DIR}
     ${SODIUM_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR} ${PROTOBUF_C_INCLUDE_DIR})
@@ -73,3 +74,4 @@ endfunction()
 mr_add_test(test_proto)
 mr_add_test(test_framing)
 mr_add_test(test_airtime)
+mr_add_test(test_ledger)
