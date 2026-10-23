@@ -175,3 +175,30 @@ def test_unusable_boot_counter_falls_back(radiods):
     assert wait_until(lambda: "cannot use boot counter" in r.log.read_text(), timeout=2)
     assert "using wall-clock start time" in r.log.read_text()
     assert boot.read_bytes() == b"abc"
+
+
+def test_unknown_sender_logged_once(radiods):
+    r = radiods("a")
+    config = cfg()
+    config["bridge"] = {"peers": []}
+    r.start(config)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    for i in range(5):
+        s.sendto(bytes([i + 1]) * 100, ("127.0.0.1", r.port))
+    s.close()
+    with r.client() as c:
+        assert wait_until(lambda: c.stats().drops.bridge_auth >= 5, timeout=3)
+    lines = [ln for ln in r.log.read_text().splitlines() if "unknown sender key" in ln]
+    assert len(lines) == 1
+    assert "dropped datagram from 127.0.0.1:" in lines[0]
+
+
+def test_malformed_listen_exits_2(tmp_path):
+    import json
+    import subprocess
+    from conftest import RADIOD
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps({"node_addr": "auto", "driver": None, "bridge": {"listen": "4403"}}))
+    out = subprocess.run([str(RADIOD), "--config", str(p)], capture_output=True, text=True)
+    assert out.returncode == 2
+    assert "bridge.listen" in out.stderr

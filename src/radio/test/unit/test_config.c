@@ -119,6 +119,17 @@ START_TEST(test_invalid_files_name_their_field)
     expect_error("{" DRV ", \"bridge\": {\"listen\": \"127.0.0.1:1\", \"peers\": [{\"addr\": \"x:1\", \"pubkey\": \"AQID\"}]}}",
                  "bridge.peers[0].pubkey");
     expect_error("{" DRV ", \"bridge\": {\"peers\": []}}", "bridge.listen");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \"4403\"}}", "bridge.listen");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \":4403\"}}", "bridge.listen");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \"h:0\"}}", "bridge.listen");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \"[::1:4403\"}}", "bridge.listen");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \"127.0.0.1:1\", \"peers\": [{\"addr\": \"10.0.0.5\", "
+                 "\"pubkey\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}]}}",
+                 "bridge.peers[0].addr");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \"127.0.0.1:1\", \"peers\": [{\"addr\": \"host:0\", "
+                 "\"pubkey\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}]}}", "bridge.peers[0].addr");
+    expect_error("{" DRV ", \"bridge\": {\"listen\": \"127.0.0.1:1\", \"peers\": [{\"addr\": \"host:70000\", "
+                 "\"pubkey\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}]}}", "bridge.peers[0].addr");
     expect_error("{" DRV ", \"node_addr\": 4294967295}", "node_addr");
     expect_error("{" DRV ", \"node_addr\": 0}", "node_addr");
     expect_error("{\"driver\": {\"exec\": \"/bin/true\", \"args\": [\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\","
@@ -126,6 +137,18 @@ START_TEST(test_invalid_files_name_their_field)
     expect_error("{" DRV ", \"bridge\": {\"listen\": \"127.0.0.1:1\", \"peers\": [{\"addr\": \"x:1\", \"pubkey\": \""
                  "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}]}}", "bridge.peers[0].pubkey");
     expect_error("not json", "line 1");
+}
+END_TEST
+
+START_TEST(test_bracketed_ipv6_peer_accepted)
+{
+    mr_config_t *c = cfg_new();
+    char err[256] = "";
+    ck_assert_msg(mr_config_parse("{" DRV ", \"bridge\": {\"listen\": \"[::1]:4403\", \"peers\": [{\"addr\": "
+                                  "\"[::1]:4403\", \"pubkey\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}]}}",
+                                  c, err, sizeof err) == MR_OK, "%s", err);
+    ck_assert_int_eq((int)c->n_peers, 1);
+    free(c);
 }
 END_TEST
 
@@ -225,6 +248,7 @@ int main(void)
     tcase_add_test(tc, test_full_example);
     tcase_add_test(tc, test_defaults);
     tcase_add_test(tc, test_invalid_files_name_their_field);
+    tcase_add_test(tc, test_bracketed_ipv6_peer_accepted);
     tcase_add_test(tc, test_driverless);
     tcase_add_test(tc, test_bridge_defaults);
     tcase_add_test(tc, test_load_file_and_directory);

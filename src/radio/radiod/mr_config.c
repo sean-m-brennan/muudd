@@ -207,6 +207,29 @@ static int parse_ports(json_t *ports, mr_config_t *c, char *err, size_t len)
     return MR_OK;
 }
 
+/* host:port with a non-empty host (an IPv6 literal goes in brackets) and a
+ * port from 1 to 65535. */
+static int check_hostport(const char *v, const char *path, char *err, size_t len)
+{
+    const char *colon = strrchr(v, ':');
+    if (colon && colon > v && colon[1]) {
+        size_t hl = (size_t)(colon - v);
+        bool bracket_ok = v[0] != '[' || (hl >= 3 && v[hl - 1] == ']');
+        bool port_ok = true;
+        long port = 0;
+        for (const char *q = colon + 1; *q; q++) {
+            if (*q < '0' || *q > '9' || port > 65535) {
+                port_ok = false;
+                break;
+            }
+            port = port * 10 + (*q - '0');
+        }
+        if (bracket_ok && port_ok && port >= 1 && port <= 65535)
+            return MR_OK;
+    }
+    return fail(err, len, "%s: must be host:port", path);
+}
+
 static int parse_peer(json_t *p, size_t i, mr_peer_cfg_t *pc, char *err, size_t len)
 {
     static const char *const keys[] = {"addr", "pubkey", "region", "priority", NULL};
@@ -223,6 +246,8 @@ static int parse_peer(json_t *p, size_t i, mr_peer_cfg_t *pc, char *err, size_t 
         return fail(err, len, "%saddr: required", prefix);
     snprintf(path, sizeof path, "%saddr", prefix);
     if ((rc = copy_str(addr, pc->addr, sizeof pc->addr, path, err, len)))
+        return rc;
+    if ((rc = check_hostport(pc->addr, path, err, len)))
         return rc;
     json_t *pk = json_object_get(p, "pubkey");
     snprintf(path, sizeof path, "%spubkey", prefix);
@@ -257,6 +282,8 @@ static int parse_bridge(json_t *b, mr_config_t *c, char *err, size_t len)
     if (!listen)
         return fail(err, len, "bridge.listen: required");
     if ((rc = copy_str(listen, c->listen, sizeof c->listen, "bridge.listen", err, len)))
+        return rc;
+    if ((rc = check_hostport(c->listen, "bridge.listen", err, len)))
         return rc;
     if ((rc = opt_bool(b, "gateway", false, &c->gateway, "bridge.", err, len)))
         return rc;

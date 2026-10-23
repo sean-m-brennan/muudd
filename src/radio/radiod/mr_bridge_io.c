@@ -4,12 +4,14 @@
  */
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "mr_bridge_io.h"
 
 #define RESOLVE_RETRY_MS 60000u
+#define DROP_LOG_MS 60000u
 
 int mr_split_hostport(const char *s, char *host, size_t hcap, char *port, size_t pcap)
 {
@@ -43,8 +45,12 @@ static void resolve_peers(mr_bridge_io_t *b)
         hints.ai_family = b->family;
         hints.ai_socktype = SOCK_DGRAM;
         hints.ai_flags = AI_NUMERICSERV | (b->family == AF_INET6 ? AI_V4MAPPED : 0);
-        if (getaddrinfo(host, port, &hints, &res) != 0)
+        int gai = getaddrinfo(host, port, &hints, &res);
+        if (gai != 0) {
+            fprintf(stderr, "radiod: bridge: cannot resolve peer %s: %s\n", b->peers->peers[i].cfg->addr,
+                    gai_strerror(gai));
             continue;
+        }
         memcpy(&b->sa[i], res->ai_addr, res->ai_addrlen);
         b->salen[i] = res->ai_addrlen;
         freeaddrinfo(res);
@@ -98,21 +104,41 @@ void mr_bridge_io_send(mr_bridge_io_t *b, int peer, const MrDatagram *d)
         sendto(b->fd, sealed, (size_t)len, MSG_DONTWAIT, (struct sockaddr *)&b->sa[peer], b->salen[peer]);
 }
 
+static void note_drop(mr_bridge_drop_log_t *l, const char *cause, const struct sockaddr_storage *from,
+                      socklen_t fromlen, uint64_t now_ms)
+{
+    l->pending++;
+    if (l->logged && now_ms - l->last_ms < DROP_LOG_MS)
+        return;
+    char host[64] = "?", port[16] = "?";
+    getnameinfo((const struct sockaddr *)from, fromlen, host, sizeof host, port, sizeof port,
+                NI_NUMERICHOST | NI_NUMERICSERV);
+    fprintf(stderr, "radiod: bridge: dropped datagram from %s:%s: %s (%llu since last report)\n", host, port, cause,
+            (unsigned long long)l->pending);
+    l->logged = true;
+    l->last_ms = now_ms;
+    l->pending = 0;
+}
+
 void mr_bridge_io_handle(mr_bridge_io_t *b, uint64_t now_ms)
 {
     uint8_t buf[MR_FRAME_MAX + MR_BRIDGE_OVERHEAD], plain[MR_FRAME_MAX];
     for (;;) {
-        ssize_t n = recv(b->fd, buf, sizeof buf, MSG_DONTWAIT);
+        struct sockaddr_storage from;
+        socklen_t fromlen = sizeof from;
+        ssize_t n = recvfrom(b->fd, buf, sizeof buf, MSG_DONTWAIT, (struct sockaddr *)&from, &fromlen);
         if (n < 0)
             return;
         const uint8_t *pk = mr_bridge_sender(buf, (size_t)n);
         int peer = pk ? mr_peers_find_pk(b->peers, pk) : -1;
         if (peer < 0) {
+            note_drop(&b->unknown_key, "unknown sender key", &from, fromlen, now_ms);
             mr_core_note_bridge_auth_failure(b->core);
             continue;
         }
         int m = mr_bridge_open(b->kp, pk, buf, (size_t)n, plain, sizeof plain);
         if (m < 0) {
+            note_drop(&b->bad_seal, "failed to open", &from, fromlen, now_ms);
             mr_core_note_bridge_auth_failure(b->core);
             continue;
         }
