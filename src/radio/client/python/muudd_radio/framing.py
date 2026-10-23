@@ -3,7 +3,7 @@
 """Length-prefixed framing: a 2-byte big-endian length, then the bytes."""
 import struct
 
-MAX_FRAME = 8192
+MAX_FRAME = 16384
 
 
 def encode(payload: bytes) -> bytes:

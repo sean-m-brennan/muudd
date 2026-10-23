@@ -27,7 +27,7 @@
 #define MR_NUM_PORTS      256u
 #define MR_RELAY_OVERHEAD 57u
 #define MR_DEDUPE_TTL_MS  600000u
-#define MR_FRAME_MAX      8192u
+#define MR_FRAME_MAX      16384u
 
 /* Milliseconds from CLOCK_MONOTONIC; use for every internal timer. */
 uint64_t mr_now_ms(void);

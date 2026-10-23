@@ -19,6 +19,8 @@ def test_framing_round_trip_and_split():
 
 
 def test_framing_limits():
+    assert MAX_FRAME == 16384    # matches radiod's MR_FRAME_MAX
+    assert FrameReader().feed(encode(bytes(MAX_FRAME))) == [bytes(MAX_FRAME)]
     with pytest.raises(ValueError):
         encode(b"x" * (MAX_FRAME + 1))
     with pytest.raises(ValueError):

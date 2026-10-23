@@ -229,7 +229,10 @@ int main(int argc, char **argv)
     if (app.has_boot_count)
         mr_core_set_boot_id(app.core, app.boot_count);
     if (mr_ipc_open(&app.ipc, app.cfg.socket_path, app.core) != MR_OK) {
-        logm("cannot listen on %s: %s", app.cfg.socket_path, strerror(errno));
+        if (errno == EADDRINUSE)
+            logm("another radiod is already listening on %s", app.cfg.socket_path);
+        else
+            logm("cannot listen on %s: %s", app.cfg.socket_path, strerror(errno));
         return 1;
     }
     if (app.cfg.has_bridge) {

@@ -33,6 +33,16 @@ int mr_ipc_open(mr_ipc_t *ipc, const char *path, mr_core_t *core)
         return MR_EIO;
     struct sockaddr_un sa = {.sun_family = AF_UNIX};
     snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
+    int probe = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (probe >= 0) {
+        int live = connect(probe, (struct sockaddr *)&sa, sizeof sa) == 0;
+        close(probe);
+        if (live) {
+            close(fd);
+            errno = EADDRINUSE;
+            return MR_EIO;
+        }
+    }
     unlink(path);
     if (bind(fd, (struct sockaddr *)&sa, sizeof sa) != 0 || listen(fd, 16) != 0) {
         close(fd);
@@ -81,6 +91,42 @@ static void flush(mr_ipc_client_t *c)
     }
 }
 
+#define PACK_LOG_MS 60000u
+
+/* Make room in a full queue: drop the oldest Received frame, or failing
+ * that the oldest frame, never one already partly written. */
+static void drop_one(mr_ipc_client_t *c)
+{
+    size_t first = c->off ? 1 : 0, victim = first;
+    for (size_t i = first; i < c->count; i++)
+        if (c->q[(c->head + i) % MR_IPC_QUEUE].received) {
+            victim = i;
+            break;
+        }
+    free(c->q[(c->head + victim) % MR_IPC_QUEUE].buf);
+    for (size_t i = victim; i + 1 < c->count; i++)
+        c->q[(c->head + i) % MR_IPC_QUEUE] = c->q[(c->head + i + 1) % MR_IPC_QUEUE];
+    c->count--;
+}
+
+/* A message larger than a frame cannot reach the consumer; say so, at most
+ * once a minute. */
+static void note_pack_failure(mr_ipc_t *ipc, int cid, const MrR2C *m)
+{
+    ipc->pack_failures++;
+    ipc->pack_unreported++;
+    if (ipc->pack_logged && ipc->now - ipc->pack_log_ms < PACK_LOG_MS)
+        return;
+    fprintf(stderr,
+            "radiod: dropped a %zu-byte message (case %d) to consumer %d: frames hold at most %u bytes"
+            " (%llu since last report)\n",
+            protobuf_c_message_get_packed_size(&m->base), (int)m->msg_case, cid, MR_FRAME_MAX,
+            (unsigned long long)ipc->pack_unreported);
+    ipc->pack_logged = true;
+    ipc->pack_log_ms = ipc->now;
+    ipc->pack_unreported = 0;
+}
+
 void mr_ipc_send(mr_ipc_t *ipc, int cid, const MrR2C *m)
 {
     if (cid < 0 || cid >= MR_MAX_CONSUMERS)
@@ -90,23 +136,20 @@ void mr_ipc_send(mr_ipc_t *ipc, int cid, const MrR2C *m)
         return;
     uint8_t tmp[MR_FRAME_MAX + 2];
     int n = mr_frame_pack(&m->base, tmp, sizeof tmp);
-    if (n < 0)
+    if (n < 0) {
+        note_pack_failure(ipc, cid, m);
         return;
+    }
     if (c->count == MR_IPC_QUEUE) {
-        /* Drop the oldest frame that has not been partly written. */
-        size_t victim = c->off ? (c->head + 1) % MR_IPC_QUEUE : c->head;
-        free(c->q[victim].buf);
-        if (victim != c->head)
-            c->q[victim] = c->q[c->head];
-        c->head = (c->head + 1) % MR_IPC_QUEUE;
-        c->count--;
+        drop_one(c);
         mr_core_note_queue_overflow(ipc->core, 1);
     }
     uint8_t *buf = malloc((size_t)n);
     if (!buf)
         return;
     memcpy(buf, tmp, (size_t)n);
-    c->q[(c->head + c->count) % MR_IPC_QUEUE] = (mr_ipc_frame_t){buf, (size_t)n};
+    c->q[(c->head + c->count) % MR_IPC_QUEUE] =
+        (mr_ipc_frame_t){buf, (size_t)n, m->msg_case == MUUDD__RADIO__RADIOD_TO_CONSUMER__MSG_RECEIVED};
     c->count++;
     flush(c);
 }

@@ -121,3 +121,5 @@ mr_add_test(test_client)
 if(TARGET test_client)
     target_link_libraries(test_client PRIVATE mr_client)
 endif()
+
+mr_add_test(test_ipc)

@@ -551,6 +551,43 @@ START_TEST(test_results_only_from_targets)
 }
 END_TEST
 
+START_TEST(test_stats_with_64_long_peers_fit_a_frame)
+{
+    static char json[64 * 300 + 1024];
+    size_t o = (size_t)snprintf(json, sizeof json,
+                                "{\"node_addr\": 3329, \"driver\": null," PORTS
+                                " \"bridge\": {\"listen\": \"127.0.0.1:1\", \"peers\": [");
+    char host[128];
+    memset(host, 'h', 107);
+    host[107] = 0;
+    for (int i = 0; i < MR_MAX_PEERS; i++) {
+        uint8_t pk[32];
+        memset(pk, i + 1, sizeof pk);
+        char b64[64];
+        sodium_bin2base64(b64, sizeof b64, pk, 32, sodium_base64_VARIANT_ORIGINAL);
+        o += (size_t)snprintf(json + o, sizeof json - o, "%s{\"addr\": \"%s-%02d.example.net:4403\", \"pubkey\": \"%s\"}",
+                              i ? "," : "", host, i, b64);
+    }
+    snprintf(json + o, sizeof json - o, "]}}");
+    fx_t *f = fx_new(json, NULL);
+    ck_assert_uint_eq(strlen(f->cfg.peers[0].addr), 127);
+    mr_core_consumer_connected(f->core, 1, 0);
+    char region[64];
+    memset(region, 'r', 63);
+    region[63] = 0;
+    for (int i = 0; i < MR_MAX_PEERS; i++)
+        fx_keepalive(f, i, 0xFFFFFF00u + (uint32_t)i, 0xFFFFFE00u + (uint32_t)i, region, true, 1, 1000);
+    /* fx_to_consumer checks the packed size against MR_FRAME_MAX */
+    MrR2C m = MUUDD__RADIO__RADIOD_TO_CONSUMER__INIT;
+    const MrStats *st = fx_stats(f, 1, 1000);
+    ck_assert_uint_eq(st->n_peers, MR_MAX_PEERS);
+    m.msg_case = R2C(STATS);
+    m.stats = (MrStats *)st;
+    ck_assert_uint_gt(muudd__radio__radiod_to_consumer__get_packed_size(&m), 8192);   /* would not fit 8 KiB */
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -584,6 +621,7 @@ int main(void)
     tcase_add_test(tc, test_frame_freshness);
     tcase_add_test(tc, test_frames_carry_boot_and_seq);
     tcase_add_test(tc, test_results_only_from_targets);
+    tcase_add_test(tc, test_stats_with_64_long_peers_fit_a_frame);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

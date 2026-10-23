@@ -153,6 +153,17 @@ def test_exit_78_stays_down(radiods):
         assert c.status.state == pb.STATE_DOWN
 
 
+def test_second_radiod_on_same_socket_exits_1(radiods):
+    import subprocess
+    from radiod_harness import RADIOD
+    r = radiods("a").start(cfg())
+    out = subprocess.run([str(RADIOD), "--config", str(r.config_path)], capture_output=True, text=True, timeout=5)
+    assert out.returncode == 1
+    assert f"another radiod is already listening on {r.socket}" in out.stderr
+    with r.client() as c:
+        c.wait_status(pb.STATE_UP)
+
+
 def test_bad_config_exits_2(tmp_path):
     import subprocess
     from radiod_harness import RADIOD
