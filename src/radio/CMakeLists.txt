@@ -88,3 +88,12 @@ mr_add_test(test_peers)
 mr_add_test(test_core_local)
 mr_add_test(test_core_bridge)
 mr_add_test(test_core_relay)
+
+add_executable(stub-driver drivers/stub/stub_driver.c)
+target_link_libraries(stub-driver PRIVATE mr_core)
+
+mr_add_test(test_stub)
+if(TARGET test_stub)
+    target_compile_definitions(test_stub PRIVATE MR_STUB_DRIVER="$<TARGET_FILE:stub-driver>")
+    add_dependencies(test_stub stub-driver)
+endif()
