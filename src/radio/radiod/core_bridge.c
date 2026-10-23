@@ -101,7 +101,7 @@ static void agg_finish(mr_core_t *c, mr_pending_t *a)
 
 void mr_core_agg_update(mr_core_t *c, mr_pending_t *a, int status, int reason, uint32_t packet_id)
 {
-    if ((status == ST(SENT) || status == ST(ACKED)) && !a->sent_reported) {
+    if ((status == ST(SENT) || status == ST(ACKED) || status == ST(NO_ACK)) && !a->sent_reported) {
         a->sent_reported = true;
         mr_core_reply(c, a->cid, a->consumer_req, ST(SENT), RS(REASON_NONE), packet_id);
     }
@@ -365,8 +365,9 @@ static void on_frame(mr_core_t *c, int peer, const MrBridgeFrame *f, uint64_t no
             mr_core_agg_update(c, a, f->result->status, f->result->reason, f->result->packet_id);
         return;
     }
-    if (!f->frame_id || f->port >= MR_NUM_PORTS || !c->cfg->ports[f->port].configured)
-        return;
+    if (!f->frame_id || f->port >= MR_NUM_PORTS || !c->cfg->ports[f->port].configured ||
+        c->cfg->ports[f->port].policy != MUUDD__RADIO__POLICY__RADIOD_BRIDGED)
+        return;   /* consumer-bridged ports never travel over the bridge */
     mr_frame_id_t id = {f->frame_id->node, f->frame_id->id};
     if (mr_dedupe_check_insert(&c->dedupe, id, mr_core_ttl(c, f->port), now_ms)) {
         c->drops.duplicate++;

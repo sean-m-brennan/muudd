@@ -370,9 +370,37 @@ START_TEST(test_gateway_drops_live_peer_echo)
     ck_assert_uint_eq(fx_count_rx(f, 1), 0);
     fx_received(f, 0xF2, BCAST, 32, "at", 2, 7, 1000);      /* consumer-bridged: never on the bridge */
     ck_assert_uint_eq(fx_count_rx(f, 2), 1);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 19000);     /* another peer stays live */
     fx_received(f, 0xF2, BCAST, 16, "quiet", 5, 8, 20000);  /* peer silent: deliver, don't forward */
     ck_assert_uint_eq(fx_count_rx(f, 1), 1);
     ck_assert_uint_eq(fx_count_pframes(f, -1, KIND(DELIVER)), 0);
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_agg_no_ack_only)
+{
+    fx_t *f = fx_new(D_CFG, NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);
+    fx_claim(f, 1, 16, RADIOD, 1000);
+    fx_send(f, 1, 6, 0xE5, 16, "dm", 2, true, 1000);
+    uint32_t req = fx_pframe(f, 0, KIND(TRANSMIT), 0)->req_id;
+    fx_result_frame(f, 0, req, ST(NO_ACK), 0, 1100);
+    ck_assert_uint_eq(fx_count_results(f, 1, 6), 2);
+    ck_assert_int_eq(fx_result(f, 1, 6, 0)->status, ST(SENT));
+    ck_assert_int_eq(fx_result(f, 1, 6, 1)->status, ST(NO_ACK));
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_consumer_port_not_bridged)
+{
+    fx_t *f = fx_new(D_CFG, NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_claim(f, 1, 32, CONSUMER, 0);
+    fx_deliver(f, 0, 0xC0, 1, BCAST, 32, "x", "north", 1000);
+    ck_assert_uint_eq(fx_count_rx(f, 1), 0);
     fx_free(f);
 }
 END_TEST
@@ -402,6 +430,8 @@ int main(void)
     tcase_add_test(tc, test_dead_peer_node_without_fallback);
     tcase_add_test(tc, test_aggregate_timeout);
     tcase_add_test(tc, test_gateway_drops_live_peer_echo);
+    tcase_add_test(tc, test_agg_no_ack_only);
+    tcase_add_test(tc, test_consumer_port_not_bridged);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }
