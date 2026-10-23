@@ -9,17 +9,22 @@ import subprocess
 import threading
 import time
 
+from google.protobuf.message import DecodeError
 from muudd_radio import radio_pb2 as pb
 from muudd_radio.framing import FrameReader, encode
 
 MEDIUM_HDR = struct.Struct(">IIHI")
+MALFORMED = object()
 
 
 class DriverProc:
     def __init__(self, argv, medium):
         self.medium = medium
-        self.p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.stderr_path = os.path.join(str(medium), os.pardir, "driver.stderr")
+        self.stderr_file = open(self.stderr_path, "wb")
+        self.p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr_file)
         self.q = queue.Queue()
+        self.last_time = None
         threading.Thread(target=self._read, daemon=True).start()
 
     def _read(self):
@@ -27,20 +32,29 @@ class DriverProc:
         while True:
             data = self.p.stdout.read1(65536)
             if not data:
-                self.q.put(None)
+                self.q.put((time.monotonic(), None))
                 return
-            for frame in reader.feed(data):
-                self.q.put(pb.DriverToRadiod.FromString(frame))
+            try:
+                for frame in reader.feed(data):
+                    self.q.put((time.monotonic(), pb.DriverToRadiod.FromString(frame)))
+            except (ValueError, DecodeError):
+                self.q.put((time.monotonic(), MALFORMED))
+                return
 
     def send(self, **kw):
         self.p.stdin.write(encode(pb.RadiodToDriver(**kw).SerializeToString()))
         self.p.stdin.flush()
 
     def next(self, timeout):
+        """Next decoded frame, or None on timeout or EOF; records its arrival time."""
         try:
-            return self.q.get(timeout=timeout)
+            t, m = self.q.get(timeout=timeout)
         except queue.Empty:
             return None
+        if m is MALFORMED:
+            raise AssertionError("malformed frame from driver")
+        self.last_time = t
+        return m
 
     def next_of(self, kind, timeout):
         deadline = time.monotonic() + timeout
@@ -73,7 +87,7 @@ class DriverProc:
         if self.p.poll() is None:
             self.p.kill()
             self.p.wait()
-        for f in (self.p.stdin, self.p.stdout, self.p.stderr):
+        for f in (self.p.stdin, self.p.stdout, self.stderr_file):
             try:
                 f.close()
             except OSError:

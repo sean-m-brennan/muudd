@@ -1,6 +1,6 @@
 # Copyright 2026 Sean M. Brennan and contributors
 # SPDX-License-Identifier: Apache-2.0
-"""What every radiod driver must do (the spec's "Driver obligations")."""
+"""What every radiod driver must do: Hello first, one terminal result per send, heartbeat, packet ids, clean exit on EOF."""
 import time
 
 from muudd_radio import radio_pb2 as pb
@@ -25,6 +25,8 @@ def test_hello_first_with_all_fields(driver):
     assert h.name and h.version
     assert h.reach in (pb.MESH, pb.LINK)
     assert h.mtu > 0
+    assert h.bitrate_bps > 0
+    assert h.supports_ack is True
     assert h.node_addr not in (0, BROADCAST)
     assert h.HasField("radio_settings")
     assert h.radio_settings.region and h.radio_settings.bandwidth_khz > 0
@@ -55,8 +57,12 @@ def test_send_with_ack_gets_one_terminal(driver):
 def test_status_heartbeat(driver):
     hello(driver)
     configure(driver)
-    assert driver.next_of("status", 6) is not None
-    assert driver.next_of("status", 6) is not None
+    times = []
+    for _ in range(3):
+        assert driver.next_of("status", 7) is not None, "missing Status heartbeat"
+        times.append(driver.last_time)
+    gap = times[2] - times[1]
+    assert 3.0 <= gap <= 6.5, f"Status interval {gap:.2f} s, expected about 5 s"
 
 
 def test_received_carries_packet_id(driver):
