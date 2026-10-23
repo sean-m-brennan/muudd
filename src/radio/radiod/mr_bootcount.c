@@ -85,7 +85,7 @@ static int write_counter(const char *path, uint64_t v, char *reason, size_t cap)
     return MR_OK;
 }
 
-int mr_bootcount_next(const char *path, uint64_t *out, char *reason, size_t cap)
+int mr_bootcount_next(const char *path, uint64_t wall_ms, uint64_t *out, char *reason, size_t cap)
 {
     uint64_t v;
     int rc = read_counter(path, &v, reason, cap);
@@ -96,6 +96,8 @@ int mr_bootcount_next(const char *path, uint64_t *out, char *reason, size_t cap)
         return fail(reason, cap, MR_EINVAL, "counter overflow");
     }
     v++;
+    if (wall_ms >= MR_BOOTCOUNT_PLAUSIBLE_MS && wall_ms > v)
+        v = wall_ms;
     rc = write_counter(path, v, reason, cap);
     if (rc != MR_OK)
         return rc;

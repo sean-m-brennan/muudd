@@ -178,12 +178,14 @@ def test_boot_counter_rises_across_starts(radiods):
     r = radiods("a")
     config = cfg()
     config["bridge"] = {"peers": []}
+    t0 = int(time.time() * 1000)
     r.start(config)
     boot = r.key_file.with_name(r.key_file.name + ".boot")
-    assert boot.read_bytes() == (1).to_bytes(8, "big")
+    first = int.from_bytes(boot.read_bytes(), "big")
+    assert first >= t0          # the wall clock is set, so the counter starts at it
     r.stop()
     r.start()
-    assert boot.read_bytes() == (2).to_bytes(8, "big")
+    assert int.from_bytes(boot.read_bytes(), "big") > first
     assert oct(boot.stat().st_mode & 0o777) == "0o600"
 
 

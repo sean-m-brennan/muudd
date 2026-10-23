@@ -196,7 +196,7 @@ int main(int argc, char **argv)
         }
         snprintf(app.boot_path, sizeof app.boot_path, "%s.boot", kf);
         char why[160];
-        if (mr_bootcount_next(app.boot_path, &app.boot_count, why, sizeof why) == MR_OK)
+        if (mr_bootcount_next(app.boot_path, mr_wall_ms(), &app.boot_count, why, sizeof why) == MR_OK)
             app.has_boot_count = true;
         else
             logm("cannot use boot counter %s: %s; using wall-clock start time", app.boot_path, why);
