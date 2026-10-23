@@ -48,7 +48,13 @@ class DriverCore:
     def configure(self, conf):
         settings = dict(conf.settings)
         name = settings.get("channel", "muudd")
+        preset = settings.get("preset")
+        apply_preset = conf.apply_radio_config and preset
+        if apply_preset and preset not in PRESETS:
+            self._status_down(f"unknown modem preset {preset}")
+            return EX_CONFIG
         idx = self.radio.channel_index(name)
+        key = None
         if idx is None:
             if not conf.apply_radio_config:
                 self._status_down(f"channel {name} is missing on the radio")
@@ -57,12 +63,16 @@ class DriverCore:
             if not psk:
                 self._status_down("settings.channel_psk is required to create the channel")
                 return EX_CONFIG
-            idx = self.radio.add_channel(name, base64.b64decode(psk))
-        preset = settings.get("preset")
-        if conf.apply_radio_config and preset:
-            if preset not in PRESETS:
-                self._status_down(f"unknown modem preset {preset}")
+            try:
+                key = base64.b64decode(psk, validate=True)
+            except ValueError:
+                key = None
+            if key is None or len(key) not in (1, 16, 32):
+                self._status_down("settings.channel_psk must be base64 of a 1, 16 or 32-byte key")
                 return EX_CONFIG
+        if key is not None:
+            idx = self.radio.add_channel(name, key)
+        if apply_preset:
             self.radio.set_preset(preset)
         self.channel = idx
         return None

@@ -67,7 +67,7 @@ def main(argv=None):
         for frame in reader.feed(data):
             m = pb.RadiodToDriver.FromString(frame)
             kind = m.WhichOneof("msg")
-            if kind == "configure":
+            if kind == "configure" and not caps.fatal:
                 code = core.configure(m.configure)
                 if code is not None:
                     out.flush()

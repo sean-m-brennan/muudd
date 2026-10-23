@@ -99,8 +99,10 @@ class FakeRadio:
                 continue
             except OSError:
                 return
+            if len(data) < MEDIUM_HDR.size:
+                continue
             src, dest, port, pid = MEDIUM_HDR.unpack_from(data)
-            if dest not in (BROADCAST, self.node) or port == 0:
+            if dest not in (BROADCAST, self.node) or not 1 <= port <= 255:
                 continue
             self.deliver({"from": src, "to": dest, "id": pid, "portnum": to_portnum(port),
                           "payload": data[MEDIUM_HDR.size:], "rx_rssi": -80, "rx_snr": 5.0, "hop_start": 3,

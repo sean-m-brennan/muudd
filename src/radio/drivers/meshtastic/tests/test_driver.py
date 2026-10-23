@@ -133,3 +133,55 @@ def test_received_mapping():
     rx = out.of("received")
     assert [r.port for r in rx] == [16, 1]
     assert rx[0].meta.hops == 2 and rx[1].meta.protection == pb.PUBLIC_KEY_DM
+
+
+def _conf(**settings):
+    return pb.Configure(settings=settings, apply_radio_config=True)
+
+
+def test_hello_unknown_preset_is_fatal_with_fallback_caps():
+    c, _, out = core(preset="WARP_SPEED")
+    caps = c.hello()
+    assert "unknown modem preset WARP_SPEED" in caps.fatal
+    assert caps.radio_settings.preset == "LONG_FAST" and caps.lora.bandwidth_hz == 250_000
+
+
+def test_configure_rejects_bad_psk_and_preset_without_partial_changes():
+    good = base64.b64encode(bytes(32)).decode()
+    for settings in ({"channel": "muudd"},
+                     {"channel": "muudd", "channel_psk": "abc"},
+                     {"channel": "muudd", "channel_psk": ""},
+                     {"channel": "muudd", "channel_psk": base64.b64encode(b"").decode() + "!!!!"},
+                     {"channel": "muudd", "channel_psk": base64.b64encode(bytes(5)).decode()},
+                     {"channel": "muudd", "channel_psk": good, "preset": "WARP_SPEED"}):
+        c, radio, out = core(channels=("primary",))
+        assert c.configure(_conf(**settings)) == EX_CONFIG, settings
+        assert radio.applied == [], settings
+        assert out.of("status")[-1].state == pb.STATE_DOWN
+    c, radio, out = core(channels=("primary",))
+    assert c.configure(_conf(channel="muudd", channel_psk="abc")) == EX_CONFIG
+    assert "base64" in out.of("status")[-1].reason
+
+
+def test_status_reports_preset_bandwidth():
+    c, _, out = core(preset="SHORT_TURBO")
+    c.status()
+    st = out.of("status")[-1]
+    assert st.state == pb.STATE_UP and st.radio_settings.preset == "SHORT_TURBO"
+    assert st.radio_settings.bandwidth_khz == 500
+
+
+def test_fake_radio_survives_malformed_datagrams(tmp_path):
+    import socket
+    from muudd_meshtastic.fake_radio import MEDIUM_HDR
+    radio = FakeRadio(medium=tmp_path)
+    got = []
+    radio.on_receive(got.append)
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    path = str(tmp_path / f"{0xA0B0:08x}.sock")
+    s.sendto(b"short", path)
+    s.sendto(MEDIUM_HDR.pack(1, BROADCAST, 300, 1) + b"x", path)
+    s.sendto(MEDIUM_HDR.pack(1, BROADCAST, 16, 2) + b"ok", path)
+    assert wait(lambda: len(got) == 1)
+    assert got[0]["payload"] == b"ok"
+    radio.close()
