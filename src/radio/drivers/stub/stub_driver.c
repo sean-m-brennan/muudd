@@ -74,6 +74,9 @@ static void send_hello(void)
     caps.version = (char *)"1.0";
     caps.reach = MUUDD__RADIO__REACH__MESH;
     caps.mtu = O.mtu;
+    /* SF7, coding rate 4/5; the stub's frames carry no on-air overhead */
+    caps.bitrate_bps = 7 * (O.bw_khz * 1000u) / 128 * 4 / 5;
+    caps.overhead_bytes = 0;
     caps.lora = &lp;
     caps.reports_link_quality = true;
     caps.supports_ack = true;

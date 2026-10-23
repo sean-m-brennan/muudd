@@ -54,6 +54,7 @@ START_TEST(test_hello_fields)
     ck_assert_uint_eq(m->hello->mtu, 233);
     ck_assert_int_eq(m->hello->reach, MUUDD__RADIO__REACH__MESH);
     ck_assert_uint_eq(m->hello->radio_settings->bandwidth_khz, 500);
+    ck_assert_uint_gt(m->hello->bitrate_bps, 0);
     ck_assert_str_eq(m->hello->fatal, "");
     muudd__radio__driver_to_radiod__free_unpacked(m, NULL);
     child_close_stdin(&c);
@@ -153,6 +154,22 @@ START_TEST(test_exit_code)
 }
 END_TEST
 
+START_TEST(test_no_fd_leak_between_children)
+{
+    char *argv[] = {MR_STUB_DRIVER, NULL};
+    child_t a, b;
+    child_start(&a, argv);
+    child_start(&b, argv);
+    muudd__radio__driver_to_radiod__free_unpacked(child_next(&a, 2000), NULL);
+    muudd__radio__driver_to_radiod__free_unpacked(child_next(&b, 2000), NULL);
+    child_close_stdin(&a);
+    ck_assert_int_eq(child_wait(&a, 2000), 0);
+    ck_assert_int_eq(waitpid(b.pid, NULL, WNOHANG), 0);   /* b is still running */
+    child_close_stdin(&b);
+    ck_assert_int_eq(child_wait(&b, 2000), 0);
+}
+END_TEST
+
 int main(void)
 {
     signal(SIGPIPE, SIG_IGN);
@@ -164,6 +181,7 @@ int main(void)
     tcase_add_test(tc, test_status_heartbeat);
     tcase_add_test(tc, test_medium);
     tcase_add_test(tc, test_exit_code);
+    tcase_add_test(tc, test_no_fd_leak_between_children);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

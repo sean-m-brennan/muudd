@@ -28,8 +28,10 @@ typedef struct {
 static inline void child_start(child_t *c, char *const argv[])
 {
     int in[2], out[2];
-    ck_assert_int_eq(pipe(in), 0);
-    ck_assert_int_eq(pipe(out), 0);
+    /* close-on-exec keeps later children from holding earlier children's pipe
+     * ends open; dup2 onto 0/1 clears the flag for the child's own stdio */
+    ck_assert_int_eq(pipe2(in, O_CLOEXEC), 0);
+    ck_assert_int_eq(pipe2(out, O_CLOEXEC), 0);
     c->pid = fork();
     if (c->pid == 0) {
         dup2(in[0], 0);
