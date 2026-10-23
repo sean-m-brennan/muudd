@@ -19,6 +19,12 @@ def normalize(packet):
     decoded = packet.get("decoded")
     if not decoded:
         return None
+    # The library omits fields at their default of 0, so a missing hopLimit
+    # next to a present hopStart means the packet used all its hops.
+    hop_start = packet.get("hopStart")
+    hop_limit = packet.get("hopLimit")
+    if hop_start is not None and hop_limit is None:
+        hop_limit = 0
     return {
         "from": packet.get("from", 0),
         "to": packet.get("to", 0),
@@ -27,8 +33,8 @@ def normalize(packet):
         "payload": decoded.get("payload", b""),
         "rx_rssi": packet.get("rxRssi"),
         "rx_snr": packet.get("rxSnr"),
-        "hop_start": packet.get("hopStart"),
-        "hop_limit": packet.get("hopLimit"),
+        "hop_start": hop_start,
+        "hop_limit": hop_limit,
         "pki_encrypted": bool(packet.get("pkiEncrypted")),
         "rx_time": packet.get("rxTime"),
     }
