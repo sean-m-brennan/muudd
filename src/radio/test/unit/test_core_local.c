@@ -284,6 +284,70 @@ START_TEST(test_duplicate_sent_forwarded_once)
 }
 END_TEST
 
+START_TEST(test_status_refreshes_radio_settings)
+{
+    fx_t *f = fx_new(LOCAL_CFG(10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    ck_assert_int_eq(fx_driver_status(f, true, NULL, 500, "EU_868", "SHORT_TURBO", 100), MR_OK);
+    const MrStats *st = fx_stats(f, 1, 100);
+    ck_assert_int_eq(st->state, MUUDD__RADIO__RADIO_STATE__STATE_UP);
+    ck_assert_str_eq(st->caps->radio_settings->region, "EU_868");
+    ck_assert_str_eq(st->caps->radio_settings->preset, "SHORT_TURBO");
+    ck_assert_uint_eq(st->caps->radio_settings->bandwidth_khz, 500);
+    ck_assert_uint_eq(st->caps->mtu, 233);
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_status_low_bandwidth_is_fatal)
+{
+    fx_t *f = fx_new(LOCAL_CFG(10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_send(f, 1, 1, BCAST, 16, "a", 1, false, 0);
+    ck_assert_int_eq(fx_driver_status(f, true, NULL, 250, "US", "LONG_FAST", 100), MR_EFATAL);
+    const MrRadioStatus *rs = fx_last_status(f, 1);
+    ck_assert_int_eq(rs->state, MUUDD__RADIO__RADIO_STATE__STATE_DOWN);
+    ck_assert_str_eq(rs->reason, "radio bandwidth 250 kHz below minimum 500 kHz");
+    ck_assert_int_eq(fx_result(f, 1, 1, 0)->reason, RS(RADIO_DOWN));
+    /* fatal: a later good Status does not bring it back, and the reason survives the driver exit */
+    fx_driver_status(f, true, NULL, 500, "US", "SHORT_TURBO", 200);
+    ck_assert_int_eq(fx_stats(f, 1, 200)->state, MUUDD__RADIO__RADIO_STATE__STATE_DOWN);
+    mr_core_driver_down(f->core, "driver reported a fatal error", 300);
+    ck_assert_str_eq(fx_last_status(f, 1)->reason, "radio bandwidth 250 kHz below minimum 500 kHz");
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_status_down_then_up)
+{
+    fx_t *f = fx_new(LOCAL_CFG(10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_send(f, 1, 1, 0xB1, 16, "a", 1, true, 0);
+    fx_driver_result(f, fx_dsend(f, 0)->req_id, ST(SENT), 0, 5, 10);
+    ck_assert_int_eq(fx_driver_status(f, false, "radio unplugged", 0, NULL, NULL, 20), MR_OK);
+    const MrRadioStatus *rs = fx_last_status(f, 1);
+    ck_assert_int_eq(rs->state, MUUDD__RADIO__RADIO_STATE__STATE_DOWN);
+    ck_assert_str_eq(rs->reason, "radio unplugged");
+    ck_assert_int_eq(fx_result(f, 1, 1, 1)->status, ST(NO_ACK));
+    fx_send(f, 1, 2, BCAST, 16, "b", 1, false, 30);
+    ck_assert_int_eq(fx_result(f, 1, 2, 0)->reason, RS(RADIO_DOWN));
+    ck_assert_uint_eq(fx_count_dsend(f), 1);
+    ck_assert_int_eq(fx_driver_status(f, true, NULL, 500, "US", "SHORT_TURBO", 40), MR_OK);
+    ck_assert_int_eq(fx_last_status(f, 1)->state, MUUDD__RADIO__RADIO_STATE__STATE_UP);
+    ck_assert_uint_eq(fx_count_configure(f), 1);
+    fx_send(f, 1, 3, BCAST, 16, "c", 1, false, 50);
+    ck_assert_uint_eq(fx_count_dsend(f), 2);
+    fx_driver_status(f, false, "", 0, NULL, NULL, 60);
+    ck_assert_str_eq(fx_last_status(f, 1)->reason, "driver reported the radio down");
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -304,6 +368,9 @@ int main(void)
     tcase_add_test(tc, test_stats);
     tcase_add_test(tc, test_lost_driver_result_times_out);
     tcase_add_test(tc, test_fatal_hello_fails_in_flight);
+    tcase_add_test(tc, test_status_refreshes_radio_settings);
+    tcase_add_test(tc, test_status_low_bandwidth_is_fatal);
+    tcase_add_test(tc, test_status_down_then_up);
     tcase_add_test(tc, test_duplicate_sent_forwarded_once);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);

@@ -15,6 +15,7 @@
 typedef struct {
     int hellos, downs, statuses, results;
     int fatal_hello;
+    mr_sup_t *fatal_on_status;   /* when set, a Status makes the caller stop the driver */
     uint64_t hello_ms[16];
     char last_down[192];
     char last_stderr[256];
@@ -41,8 +42,11 @@ static int on_hello(void *ctx, const MrCaps *caps)
 static void on_msg(void *ctx, const MrD2R *m)
 {
     rec_t *r = ctx;
-    if (m->msg_case == MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_STATUS)
+    if (m->msg_case == MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_STATUS) {
         r->statuses++;
+        if (r->fatal_on_status)
+            mr_sup_fatal(r->fatal_on_status, "radio bandwidth 250 kHz below minimum 500 kHz", mr_now_ms());
+    }
     if (m->msg_case == MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_SEND_RESULT)
         r->results++;
 }
@@ -279,6 +283,75 @@ START_TEST(test_stderr_forwarded)
 }
 END_TEST
 
+START_TEST(test_caller_fatal_not_restarted)
+{
+    rec_t r = {0};
+    char *argv[] = {MR_STUB_DRIVER, "--status-ms", "50", NULL};
+    mr_sup_t *s = start(&r, argv);
+    run_for(s, 200);
+    ck_assert_int_eq(mr_sup_state(s), MR_SUP_UP);
+    mr_sup_fatal(s, "radio bandwidth 250 kHz below minimum 500 kHz", mr_now_ms());
+    run_for(s, 800);
+    ck_assert_int_eq(mr_sup_state(s), MR_SUP_FATAL);
+    ck_assert_int_eq(r.hellos, 1);
+    ck_assert_int_eq(r.downs, 1);
+    ck_assert_str_eq(r.last_down, "radio bandwidth 250 kHz below minimum 500 kHz");
+    mr_sup_free(s);
+}
+END_TEST
+
+START_TEST(test_fatal_from_status_callback)
+{
+    rec_t r = {0};
+    char *argv[] = {MR_STUB_DRIVER, "--status-ms", "50", NULL};
+    mr_sup_t *s = start(&r, argv);
+    r.fatal_on_status = s;
+    run_for(s, 800);
+    ck_assert_int_eq(mr_sup_state(s), MR_SUP_FATAL);
+    ck_assert_int_eq(r.hellos, 1);
+    ck_assert_int_eq(r.statuses, 1);
+    ck_assert_int_eq(r.downs, 1);
+    ck_assert_str_eq(r.last_down, "radio bandwidth 250 kHz below minimum 500 kHz");
+    mr_sup_free(s);
+}
+END_TEST
+
+START_TEST(test_free_closes_stdin_first)
+{
+    char mark[128], script[256];
+    snprintf(mark, sizeof mark, "/tmp/mr_sup_mark_%d", (int)getpid());
+    unlink(mark);
+    snprintf(script, sizeof script, "cat >/dev/null; touch %s", mark);
+    rec_t r = {0};
+    char *argv[] = {"/bin/sh", "-c", script, NULL};
+    mr_sup_t *s = start(&r, argv);
+    run_for(s, 100);
+    pid_t pid = mr_sup_pid(s);
+    ck_assert_int_gt(pid, 0);
+    mr_sup_free(s);
+    ck_assert_int_eq(access(mark, F_OK), 0);   /* it saw end of input and exited on its own */
+    ck_assert_int_eq(kill(pid, 0), -1);
+    unlink(mark);
+}
+END_TEST
+
+START_TEST(test_free_kills_after_grace)
+{
+    rec_t r = {0};
+    char *argv[] = {"/bin/sh", "-c", "trap '' TERM; while :; do sleep 0.05; done", NULL};
+    mr_sup_t *s = start(&r, argv);
+    run_for(s, 100);
+    pid_t pid = mr_sup_pid(s);
+    uint64_t t0 = mr_now_ms();
+    mr_sup_free(s);
+    uint64_t took = mr_now_ms() - t0;
+    ck_assert_uint_ge(took, 180);    /* waited out the 200 ms grace */
+    ck_assert_uint_lt(took, 1500);
+    ck_assert_int_eq(kill(pid, 0), -1);
+    ck_assert_int_eq(errno, ESRCH);
+}
+END_TEST
+
 int main(void)
 {
     signal(SIGPIPE, SIG_IGN);
@@ -298,6 +371,10 @@ int main(void)
     tcase_add_test(tc, test_free_kills_child);
     tcase_add_test(tc, test_exit_78_wins_over_failed_send);
     tcase_add_test(tc, test_stderr_forwarded);
+    tcase_add_test(tc, test_caller_fatal_not_restarted);
+    tcase_add_test(tc, test_fatal_from_status_callback);
+    tcase_add_test(tc, test_free_closes_stdin_first);
+    tcase_add_test(tc, test_free_kills_after_grace);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

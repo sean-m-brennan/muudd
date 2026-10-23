@@ -131,6 +131,18 @@ def test_bandwidth_below_minimum_stays_down(radiods):
         assert c.status.state == pb.STATE_DOWN
 
 
+def test_bandwidth_drop_in_status_stays_down(radiods):
+    r = radiods("a").start(cfg("--bandwidth-after-ms", "600:250"))
+    with r.client() as c:
+        c.wait_status(pb.STATE_UP)
+        st = c.wait_status(pb.STATE_DOWN, timeout=4)
+        assert st.reason == "radio bandwidth 250 kHz below minimum 500 kHz"
+        time.sleep(2.5)    # a restarted driver would say Hello at 500 kHz and come back up
+        assert c.status.state == pb.STATE_DOWN
+        assert c.status.reason == "radio bandwidth 250 kHz below minimum 500 kHz"
+    assert "driver refused: radio bandwidth 250 kHz" in r.log.read_text()
+
+
 def test_exit_78_stays_down(radiods):
     r = radiods("a").start(cfg("--exit-after-ms", "300", "--exit-code", "78"))
     with r.client() as c:

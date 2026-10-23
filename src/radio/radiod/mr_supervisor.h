@@ -32,7 +32,10 @@ typedef struct {
 
 typedef struct mr_sup mr_sup_t;
 
-/* The caller must ignore SIGPIPE: mr_sup_send writes to a pipe whose reader
+/* mr_sup_free closes the driver's input, waits up to kill_grace_ms for it to
+ * exit, then kills it.
+ *
+ * The caller must ignore SIGPIPE: mr_sup_send writes to a pipe whose reader
  * may already have exited. */
 
 void mr_sup_default_cfg(mr_sup_cfg_t *cfg, char *const *argv);
@@ -43,6 +46,10 @@ void mr_sup_handle(mr_sup_t *s, const struct pollfd *fds, int n, uint64_t now_ms
 void mr_sup_tick(mr_sup_t *s, uint64_t now_ms);
 int mr_sup_send(mr_sup_t *s, const MrR2D *msg);
 void mr_sup_reset_fatal(mr_sup_t *s, uint64_t now_ms);
+/* Stop the driver for a reason found outside the supervisor, such as a
+ * Status the core refused; it is not restarted until mr_sup_reset_fatal. Safe
+ * to call from the on_msg callback. */
+void mr_sup_fatal(mr_sup_t *s, const char *reason, uint64_t now_ms);
 mr_sup_state_t mr_sup_state(const mr_sup_t *s);
 pid_t mr_sup_pid(const mr_sup_t *s);
 

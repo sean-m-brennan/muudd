@@ -164,7 +164,7 @@ static int on_frame(void *ctx, const uint8_t *buf, size_t n)
         }
     } else if (is_hello) {
         rc = MR_EFRAME;
-    } else {
+    } else if (s->state != MR_SUP_KILLING) {
         if (m->msg_case == MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_STATUS)
             s->last_status_ms = s->now;
         s->io.on_msg(s->io.ctx, m);
@@ -361,6 +361,14 @@ void mr_sup_reset_fatal(mr_sup_t *s, uint64_t now_ms)
     s->state = MR_SUP_BACKOFF;
 }
 
+void mr_sup_fatal(mr_sup_t *s, const char *reason, uint64_t now_ms)
+{
+    if (s->pid > 0)
+        begin_kill(s, reason, true, now_ms);
+    else
+        s->state = MR_SUP_FATAL;   /* nothing running: just never start it again */
+}
+
 mr_sup_state_t mr_sup_state(const mr_sup_t *s) { return s->state; }
 pid_t mr_sup_pid(const mr_sup_t *s) { return s->pid; }
 
@@ -368,11 +376,22 @@ void mr_sup_free(mr_sup_t *s)
 {
     if (!s)
         return;
+    close_fd(&s->in_fd);   /* end of input asks the driver to exit */
     if (s->pid > 0) {
-        kill(s->pid, SIGKILL);
-        waitpid(s->pid, NULL, 0);
+        uint64_t deadline = mr_now_ms() + s->cfg.kill_grace_ms;
+        bool exited = false;
+        while (!exited && mr_now_ms() < deadline) {
+            pid_t r = waitpid(s->pid, NULL, WNOHANG);
+            if (r == s->pid || (r < 0 && errno != EINTR))
+                exited = true;
+            else
+                usleep(10 * 1000);
+        }
+        if (!exited) {
+            kill(s->pid, SIGKILL);
+            waitpid(s->pid, NULL, 0);
+        }
     }
-    close_fd(&s->in_fd);
     close_fd(&s->out_fd);
     close_fd(&s->err_fd);
     free(s);

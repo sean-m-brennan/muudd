@@ -206,6 +206,33 @@ static inline void fx_driver_result(fx_t *f, uint32_t dreq, int status, int reas
     mr_core_driver_msg(f->core, &m, now);
 }
 
+/* A driver Status; bw_khz 0 leaves radio_settings out. */
+static inline int fx_driver_status(fx_t *f, bool up, const char *reason, uint32_t bw_khz, const char *region,
+                                   const char *preset, uint64_t now)
+{
+    Muudd__Radio__RadioSettings rs = MUUDD__RADIO__RADIO_SETTINGS__INIT;
+    rs.region = (char *)region;
+    rs.preset = (char *)preset;
+    rs.bandwidth_khz = bw_khz;
+    Muudd__Radio__DriverStatus st = MUUDD__RADIO__DRIVER_STATUS__INIT;
+    st.state = up ? MUUDD__RADIO__RADIO_STATE__STATE_UP : MUUDD__RADIO__RADIO_STATE__STATE_DOWN;
+    st.reason = (char *)(reason ? reason : "");
+    st.radio_settings = bw_khz ? &rs : NULL;
+    MrD2R m = MUUDD__RADIO__DRIVER_TO_RADIOD__INIT;
+    m.msg_case = MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_STATUS;
+    m.status = &st;
+    return mr_core_driver_msg(f->core, &m, now);
+}
+
+static inline size_t fx_count_configure(fx_t *f)
+{
+    size_t n = 0;
+    for (size_t i = 0; i < f->nd; i++)
+        if (f->d[i]->msg_case == R2D(CONFIGURE))
+            n++;
+    return n;
+}
+
 static inline void fx_received(fx_t *f, uint32_t src, uint32_t dest, uint32_t port, const void *data, size_t n,
                                uint32_t pid, uint64_t now)
 {

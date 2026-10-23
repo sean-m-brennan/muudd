@@ -26,12 +26,13 @@
 
 static struct {
     uint32_t node, mtu, bw_khz, status_ms, loss_pct, delay_ms;
-    long long exit_after_ms;
+    long long exit_after_ms, bw_after_ms;
+    uint32_t bw_after_khz;
     int exit_code;
     bool no_hello, no_status, garbage, ignore_term;
     const char *fatal, *region, *preset, *medium;
 } O = {
-    .node = 0xA01, .mtu = 233, .bw_khz = 500, .status_ms = 5000, .exit_after_ms = -1, .exit_code = 3,
+    .node = 0xA01, .mtu = 233, .bw_khz = 500, .status_ms = 5000, .exit_after_ms = -1, .bw_after_ms = -1, .exit_code = 3,
     .fatal = "", .region = "US", .preset = "STUB",
 };
 
@@ -229,6 +230,7 @@ int main(int argc, char **argv)
         {"garbage", no_argument, 0, 'g'}, {"fatal", required_argument, 0, 'f'},
         {"ignore-sigterm", no_argument, 0, 'i'}, {"medium", required_argument, 0, 'M'},
         {"loss", required_argument, 0, 'l'}, {"delay-ms", required_argument, 0, 'd'},
+        {"bandwidth-after-ms", required_argument, 0, 'B'},
         {0, 0, 0, 0},
     };
     int ch;
@@ -250,6 +252,16 @@ int main(int argc, char **argv)
         case 'M': O.medium = optarg; break;
         case 'l': O.loss_pct = (uint32_t)strtoul(optarg, NULL, 0); break;
         case 'd': O.delay_ms = (uint32_t)strtoul(optarg, NULL, 0); break;
+        case 'B': {   /* MS:KHZ: report a different bandwidth from MS ms after start */
+            char *end = NULL;
+            O.bw_after_ms = strtoll(optarg, &end, 0);
+            if (!end || *end != ':') {
+                fprintf(stderr, "stub-driver: --bandwidth-after-ms wants MS:KHZ\n");
+                return 2;
+            }
+            O.bw_after_khz = (uint32_t)strtoul(end + 1, NULL, 0);
+            break;
+        }
         default: fprintf(stderr, "stub-driver: unknown option\n"); return 2;
         }
     }
@@ -290,6 +302,10 @@ int main(int argc, char **argv)
         if (g_sock >= 0 && (fds[1].revents & POLLIN))
             medium_receive();
         uint64_t now = mr_now_ms();
+        if (O.bw_after_ms >= 0 && now - start >= (uint64_t)O.bw_after_ms) {
+            O.bw_khz = O.bw_after_khz;
+            O.bw_after_ms = -1;
+        }
         if (!O.no_status && !O.no_hello && now - last_status >= O.status_ms) {
             send_status();
             last_status = now;

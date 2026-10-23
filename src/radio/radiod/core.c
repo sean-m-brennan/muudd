@@ -456,22 +456,37 @@ static void send_configure(mr_core_t *c)
 
 static void fail_in_flight(mr_core_t *c);
 
+static bool bandwidth_too_low(mr_core_t *c, uint32_t bw)
+{
+    if (bw >= c->cfg->min_bandwidth_khz)
+        return false;
+    snprintf(c->reason, sizeof c->reason, "radio bandwidth %u kHz below minimum %u kHz", bw,
+             c->cfg->min_bandwidth_khz);
+    return true;
+}
+
+static int go_fatal(mr_core_t *c, uint64_t now_ms)
+{
+    c->driver_up = false;
+    c->fatal = true;
+    fail_in_flight(c);
+    mr_core_status_all(c, now_ms);
+    return MR_EFATAL;
+}
+
 int mr_core_driver_hello(mr_core_t *c, const MrCaps *caps, uint64_t now_ms)
 {
     uint32_t bw = caps->radio_settings ? caps->radio_settings->bandwidth_khz : 0;
     if (caps->fatal && caps->fatal[0]) {
         snprintf(c->reason, sizeof c->reason, "driver fatal: %s", caps->fatal);
-        goto fatal;
+        return go_fatal(c, now_ms);
     }
-    if (bw < c->cfg->min_bandwidth_khz) {
-        snprintf(c->reason, sizeof c->reason, "radio bandwidth %u kHz below minimum %u kHz", bw,
-                 c->cfg->min_bandwidth_khz);
-        goto fatal;
-    }
+    if (bandwidth_too_low(c, bw))
+        return go_fatal(c, now_ms);
     MrCaps *copy = copy_caps(caps);
     if (!copy) {
         snprintf(c->reason, sizeof c->reason, "out of memory");
-        goto fatal;
+        return go_fatal(c, now_ms);
     }
     if (c->caps)
         muudd__radio__caps__free_unpacked(c->caps, NULL);
@@ -485,12 +500,6 @@ int mr_core_driver_hello(mr_core_t *c, const MrCaps *caps, uint64_t now_ms)
     send_configure(c);
     mr_core_status_all(c, now_ms);
     return MR_OK;
-fatal:
-    c->driver_up = false;
-    c->fatal = true;
-    fail_in_flight(c);
-    mr_core_status_all(c, now_ms);
-    return MR_EFATAL;
 }
 
 static void on_driver_result(mr_core_t *c, const MrSendResult *r, uint64_t now_ms)
@@ -561,7 +570,41 @@ static void on_driver_received(mr_core_t *c, const MrReceived *r, uint64_t now_m
         mr_core_gateway_heard(c, r, now_ms);
 }
 
-void mr_core_driver_msg(mr_core_t *c, const MrD2R *m, uint64_t now_ms)
+/* A periodic Status: keeps the cached radio settings current, enforces the
+ * bandwidth minimum, and follows the driver's own view of whether the radio
+ * is usable. */
+static int on_driver_status(mr_core_t *c, const Muudd__Radio__DriverStatus *st, uint64_t now_ms)
+{
+    if (c->fatal || !c->caps)
+        return c->fatal ? MR_EFATAL : MR_OK;
+    if (st->radio_settings) {
+        if (bandwidth_too_low(c, st->radio_settings->bandwidth_khz))
+            return go_fatal(c, now_ms);
+        MrCaps tmp = *c->caps;
+        tmp.radio_settings = st->radio_settings;
+        MrCaps *copy = copy_caps(&tmp);
+        if (copy) {
+            muudd__radio__caps__free_unpacked(c->caps, NULL);
+            c->caps = copy;
+        }
+    }
+    if (st->state == MUUDD__RADIO__RADIO_STATE__STATE_DOWN) {
+        if (c->driver_up) {
+            snprintf(c->reason, sizeof c->reason, "%s",
+                     st->reason && st->reason[0] ? st->reason : "driver reported the radio down");
+            c->driver_up = false;
+            fail_in_flight(c);
+            mr_core_status_all(c, now_ms);
+        }
+    } else if (!c->driver_up) {
+        c->driver_up = true;
+        c->reason[0] = 0;
+        mr_core_status_all(c, now_ms);
+    }
+    return MR_OK;
+}
+
+int mr_core_driver_msg(mr_core_t *c, const MrD2R *m, uint64_t now_ms)
 {
     switch (m->msg_case) {
     case MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_SEND_RESULT:
@@ -570,9 +613,14 @@ void mr_core_driver_msg(mr_core_t *c, const MrD2R *m, uint64_t now_ms)
     case MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_RECEIVED:
         on_driver_received(c, m->received, now_ms);
         break;
+    case MUUDD__RADIO__DRIVER_TO_RADIOD__MSG_STATUS:
+        if (m->status)
+            return on_driver_status(c, m->status, now_ms);
+        break;
     default:
-        break;   /* Status frames matter only to the supervisor's heartbeat */
+        break;
     }
+    return MR_OK;
 }
 
 static void complete_driver_pending(mr_core_t *c, mr_pending_t *p, int status, int reason)

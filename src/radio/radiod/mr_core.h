@@ -40,7 +40,10 @@ void mr_core_consumer_disconnected(mr_core_t *c, int cid);
 void mr_core_consumer_msg(mr_core_t *c, int cid, const MrC2R *msg, uint64_t now_ms);
 
 int mr_core_driver_hello(mr_core_t *c, const MrCaps *caps, uint64_t now_ms);
-void mr_core_driver_msg(mr_core_t *c, const MrD2R *msg, uint64_t now_ms);
+/* Returns MR_EFATAL when the message makes the driver unusable (a Status
+ * reporting bandwidth below the minimum); the caller then stops the driver
+ * without restarting it. */
+int mr_core_driver_msg(mr_core_t *c, const MrD2R *msg, uint64_t now_ms);
 void mr_core_driver_down(mr_core_t *c, const char *reason, uint64_t now_ms);
 
 void mr_core_bridge_datagram(mr_core_t *c, int peer, const MrDatagram *msg, uint64_t now_ms);

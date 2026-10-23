@@ -91,7 +91,15 @@ static int sup_hello(void *ctx, const MrCaps *caps)
     return rc;
 }
 
-static void sup_msg(void *ctx, const MrD2R *m) { mr_core_driver_msg(((app_t *)ctx)->core, m, mr_now_ms()); }
+static void sup_msg(void *ctx, const MrD2R *m)
+{
+    app_t *a = ctx;
+    uint64_t now = mr_now_ms();
+    if (mr_core_driver_msg(a->core, m, now) == MR_EFATAL && mr_sup_state(a->sup) != MR_SUP_KILLING) {
+        logm("driver refused: %s", mr_core_reason(a->core));
+        mr_sup_fatal(a->sup, mr_core_reason(a->core), now);
+    }
+}
 
 static void sup_down(void *ctx, const char *reason)
 {
