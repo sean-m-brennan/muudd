@@ -90,6 +90,10 @@ void mr_core_gateway_heard(mr_core_t *c, const MrReceived *r, uint64_t now_ms);
 void mr_core_bridge_tick(mr_core_t *c, uint64_t now_ms);
 void mr_core_agg_update(mr_core_t *c, mr_pending_t *agg, int status, int reason, uint32_t packet_id);
 void mr_core_send_result_frame(mr_core_t *c, int peer, uint32_t req, int status, int reason, uint32_t packet_id);
+void mr_core_fill_frame(MrBridgeFrame *f, Muudd__Radio__FrameId *fid, mr_frame_id_t id, int kind, uint32_t src,
+                        uint32_t dest, uint32_t port, const uint8_t *data, size_t n);
+void mr_core_send_frame(mr_core_t *c, int peer, MrBridgeFrame *f);
+unsigned mr_core_fanout(mr_core_t *c, MrBridgeFrame *f, const bool *skip, uint64_t now_ms, bool *any_dead);
 
 /* core_relay.c */
 void mr_core_relay_send(mr_core_t *c, uint32_t src, uint32_t id, uint32_t dest, uint32_t port,
