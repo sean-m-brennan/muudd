@@ -11,6 +11,7 @@
 
 #include "mr_test.h"
 #include "mr_crypto.h"
+#include "mr_peers.h"
 
 static void tmp_path(char *buf, size_t n, const char *name)
 {
@@ -39,6 +40,7 @@ static void write_n(const char *path, size_t n)
     FILE *f = fopen(path, "wb");
     for (size_t i = 0; i < n; i++) fputc((int)i, f);
     fclose(f);
+    chmod(path, 0600);
 }
 
 START_TEST(test_keypair_rejects_wrong_length_file)
@@ -58,14 +60,10 @@ START_TEST(test_relay_key_must_be_32_bytes)
 {
     char path[128];
     tmp_path(path, sizeof path, "rk");
-    FILE *f = fopen(path, "wb");
-    fwrite("short", 1, 5, f);
-    fclose(f);
+    write_n(path, 5);
     uint8_t key[32];
     ck_assert_int_eq(mr_relay_key_load(path, key), MR_EINVAL);
-    f = fopen(path, "wb");
-    for (int i = 0; i < 32; i++) fputc(i, f);
-    fclose(f);
+    write_n(path, 32);
     ck_assert_int_eq(mr_relay_key_load(path, key), MR_OK);
     ck_assert_uint_eq(key[31], 31);
     unlink(path);
@@ -155,6 +153,100 @@ START_TEST(test_relay_window)
 }
 END_TEST
 
+START_TEST(test_key_files_refuse_loose_modes_and_links)
+{
+    char path[128], link[128];
+    tmp_path(path, sizeof path, "modes");
+    tmp_path(link, sizeof link, "modes_link");
+    uint8_t key[32];
+    mr_keypair_t kp;
+    write_n(path, 32);
+    ck_assert_int_eq(mr_relay_key_load(path, key), MR_OK);
+    ck_assert_int_eq(mr_keypair_load_or_create(path, &kp), MR_OK);
+    static const mode_t loose[] = {0640, 0604, 0620, 0602, 0644};
+    for (size_t i = 0; i < sizeof loose / sizeof loose[0]; i++) {
+        chmod(path, loose[i]);
+        ck_assert_int_eq(mr_relay_key_load(path, key), MR_EPERM);
+        ck_assert_int_eq(mr_keypair_load_or_create(path, &kp), MR_EPERM);
+    }
+    chmod(path, 0400);
+    ck_assert_int_eq(mr_relay_key_load(path, key), MR_OK);
+    chmod(path, 0600);
+    ck_assert_int_eq(symlink(path, link), 0);
+    ck_assert_int_ne(mr_relay_key_load(link, key), MR_OK);
+    ck_assert_int_ne(mr_keypair_load_or_create(link, &kp), MR_OK);
+    unlink(link);
+    unlink(path);
+}
+END_TEST
+
+static size_t sealed_frame(const mr_keypair_t *from, const mr_keypair_t *to, uint64_t boot, uint64_t seq,
+                           uint8_t *out, size_t cap)
+{
+    Muudd__Radio__FrameId id = MUUDD__RADIO__FRAME_ID__INIT;
+    id.node = 0xC0;
+    id.id = 1;
+    MrBridgeFrame fr = MUUDD__RADIO__BRIDGE_FRAME__INIT;
+    fr.frame_id = &id;
+    fr.port = 16;
+    fr.boot_id = boot;
+    fr.seq = seq;
+    MrDatagram d = MUUDD__RADIO__BRIDGE_DATAGRAM__INIT;
+    d.msg_case = MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_FRAME;
+    d.frame = &fr;
+    uint8_t plain[256];
+    size_t n = muudd__radio__bridge_datagram__pack(&d, plain);
+    int m = mr_bridge_seal(from, to->pk, plain, n, out, cap);
+    ck_assert_int_gt(m, 0);
+    return (size_t)m;
+}
+
+static bool open_and_accept(mr_peers_t *ps, const mr_keypair_t *self, const mr_keypair_t *from,
+                            const uint8_t *dgram, size_t n)
+{
+    uint8_t plain[256];
+    int m = mr_bridge_open(self, from->pk, dgram, n, plain, sizeof plain);
+    ck_assert_int_gt(m, 0);   /* sealing alone cannot tell a replay apart */
+    MrDatagram *d = muudd__radio__bridge_datagram__unpack(NULL, (size_t)m, plain);
+    ck_assert_ptr_nonnull(d);
+    bool ok = mr_peers_accept_frame(ps, 0, d->frame->boot_id, d->frame->seq);
+    muudd__radio__bridge_datagram__free_unpacked(d, NULL);
+    return ok;
+}
+
+START_TEST(test_bridge_replayed_frame)
+{
+    mr_keypair_t a, b;
+    keypair(&a);
+    keypair(&b);
+    char json[512], b64[64];
+    sodium_bin2base64(b64, sizeof b64, a.pk, 32, sodium_base64_VARIANT_ORIGINAL);
+    snprintf(json, sizeof json,
+             "{\"driver\": null, \"node_addr\": 3329, \"bridge\": {\"listen\": \"127.0.0.1:1\","
+             " \"peers\": [{\"addr\": \"127.0.0.1:2\", \"pubkey\": \"%s\"}]}}", b64);
+    mr_config_t *cfg = calloc(1, sizeof *cfg);
+    char err[256];
+    ck_assert_int_eq(mr_config_parse(json, cfg, err, sizeof err), MR_OK);
+    mr_peers_t *ps = calloc(1, sizeof *ps);
+    mr_peers_init(ps, cfg);
+    MrKeepalive k = MUUDD__RADIO__KEEPALIVE__INIT;
+    k.boot_id = 5;
+    k.seq = 1;
+    k.region = (char *)"";
+    mr_peers_accept_keepalive(ps, 0, &k, 1000);
+
+    uint8_t first[256], old[256];
+    size_t n1 = sealed_frame(&a, &b, 5, 1, first, sizeof first);
+    ck_assert(open_and_accept(ps, &b, &a, first, n1));
+    ck_assert(!open_and_accept(ps, &b, &a, first, n1));   /* the captured datagram again */
+
+    size_t n2 = sealed_frame(&a, &b, 4, 2, old, sizeof old);   /* from an earlier boot */
+    ck_assert(!open_and_accept(ps, &b, &a, old, n2));
+    free(ps);
+    free(cfg);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -169,6 +261,8 @@ int main(void)
     tcase_add_test(tc, test_relay_round_trip_at_reduced_mtu);
     tcase_add_test(tc, test_relay_wrong_key_and_tamper);
     tcase_add_test(tc, test_relay_window);
+    tcase_add_test(tc, test_key_files_refuse_loose_modes_and_links);
+    tcase_add_test(tc, test_bridge_replayed_frame);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

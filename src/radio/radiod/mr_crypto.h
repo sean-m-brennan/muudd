@@ -20,6 +20,9 @@ typedef struct {
     uint8_t port;
 } mr_relay_hdr_t;
 
+/* Key files are opened without following symbolic links and refused with
+ * MR_EPERM when group or others have any access (mode & 077); a wrong length
+ * gives MR_EINVAL. */
 int mr_keypair_load_or_create(const char *path, mr_keypair_t *kp);
 int mr_relay_key_load(const char *path, uint8_t key[32]);
 int mr_bridge_seal(const mr_keypair_t *self, const uint8_t peer_pk[32], const uint8_t *msg, size_t n,

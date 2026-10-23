@@ -6,28 +6,48 @@
 #include <fcntl.h>
 #include <sodium.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "mr_crypto.h"
+
+/* Read a 32-byte secret, refusing links and files others can reach. */
+static int read_key_file(const char *path, uint8_t out[32])
+{
+    int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0)
+        return MR_EIO;
+    struct stat st;
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) {
+        close(fd);
+        errno = EINVAL;
+        return MR_EIO;
+    }
+    if (st.st_mode & 077) {
+        close(fd);
+        errno = EACCES;
+        return MR_EPERM;
+    }
+    uint8_t buf[33];
+    ssize_t n = read(fd, buf, sizeof buf);
+    close(fd);
+    if (n != 32) {
+        sodium_memzero(buf, sizeof buf);
+        return MR_EINVAL;
+    }
+    memcpy(out, buf, 32);
+    sodium_memzero(buf, sizeof buf);
+    return MR_OK;
+}
 
 int mr_keypair_load_or_create(const char *path, mr_keypair_t *kp)
 {
     if (sodium_init() < 0)
         return MR_ERR;
-    int fd = open(path, O_RDONLY | O_CLOEXEC);
-    if (fd >= 0) {
-        uint8_t buf[33];
-        ssize_t n = read(fd, buf, sizeof buf);
-        close(fd);
-        if (n != 32) {
-            sodium_memzero(buf, sizeof buf);
-            return MR_EINVAL;
-        }
-        memcpy(kp->sk, buf, 32);
-        sodium_memzero(buf, sizeof buf);
-    } else if (errno == ENOENT) {
+    int rc = read_key_file(path, kp->sk);
+    if (rc == MR_EIO && errno == ENOENT) {
         randombytes_buf(kp->sk, 32);
-        fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+        int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
         if (fd < 0)
             return MR_EIO;
         ssize_t n = write(fd, kp->sk, 32);
@@ -39,8 +59,8 @@ int mr_keypair_load_or_create(const char *path, mr_keypair_t *kp)
             sodium_memzero(kp->sk, 32);
             return MR_EIO;
         }
-    } else {
-        return MR_EIO;
+    } else if (rc != MR_OK) {
+        return rc;
     }
     crypto_scalarmult_base(kp->pk, kp->sk);
     return MR_OK;
@@ -48,19 +68,7 @@ int mr_keypair_load_or_create(const char *path, mr_keypair_t *kp)
 
 int mr_relay_key_load(const char *path, uint8_t key[32])
 {
-    int fd = open(path, O_RDONLY | O_CLOEXEC);
-    if (fd < 0)
-        return MR_EIO;
-    uint8_t buf[33];
-    ssize_t n = read(fd, buf, sizeof buf);
-    close(fd);
-    if (n != 32) {
-        sodium_memzero(buf, sizeof buf);
-        return MR_EINVAL;
-    }
-    memcpy(key, buf, 32);
-    sodium_memzero(buf, sizeof buf);
-    return MR_OK;
+    return read_key_file(path, key);
 }
 
 int mr_bridge_seal(const mr_keypair_t *self, const uint8_t peer_pk[32], const uint8_t *msg, size_t n,

@@ -42,7 +42,10 @@ typedef struct {
     fx_pmsg_t p[FX_MAX];
     size_t np;
     uint64_t wall_ms;
+    uint64_t pseq[MR_MAX_PEERS];   /* last frame seq each peer sent */
 } fx_t;
+
+#define FX_BOOT 1000u   /* boot_id of every peer in these tests */
 
 static inline void fx_to_consumer(void *ctx, int cid, const MrR2C *m)
 {
@@ -331,13 +334,45 @@ static inline void fx_keepalive(fx_t *f, int peer, uint32_t node, uint32_t radio
     k.region = (char *)region;
     k.gateway = gw;
     k.radio_up = gw;
-    k.boot_id = 1000;
+    k.boot_id = FX_BOOT;
     k.seq = seq;
     k.radio_mtu = gw ? 233 : 0;
     MrDatagram d = MUUDD__RADIO__BRIDGE_DATAGRAM__INIT;
     d.msg_case = MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_KEEPALIVE;
     d.keepalive = &k;
     mr_core_bridge_datagram(f->core, peer, &d, now);
+}
+
+static inline void fx_send_bridge_frame(fx_t *f, int peer, MrBridgeFrame *fr, uint64_t now)
+{
+    if (!fr->boot_id)
+        fr->boot_id = FX_BOOT;
+    if (!fr->seq)
+        fr->seq = ++f->pseq[peer];
+    MrDatagram d = MUUDD__RADIO__BRIDGE_DATAGRAM__INIT;
+    d.msg_case = MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_FRAME;
+    d.frame = fr;
+    mr_core_bridge_datagram(f->core, peer, &d, now);
+}
+
+/* A DELIVER with an explicit boot_id and seq, for freshness tests. */
+static inline void fx_deliver_seq(fx_t *f, int peer, uint64_t boot, uint64_t seq, uint32_t src, uint32_t fid,
+                                  uint32_t port, const char *payload, uint64_t now)
+{
+    Muudd__Radio__FrameId id = MUUDD__RADIO__FRAME_ID__INIT;
+    id.node = src;
+    id.id = fid;
+    MrBridgeFrame fr = MUUDD__RADIO__BRIDGE_FRAME__INIT;
+    fr.frame_id = &id;
+    fr.kind = MUUDD__RADIO__BRIDGE_KIND__DELIVER;
+    fr.src = src;
+    fr.dest = MR_BROADCAST;
+    fr.port = port;
+    fr.payload.data = (uint8_t *)payload;
+    fr.payload.len = strlen(payload);
+    fr.boot_id = boot;
+    fr.seq = seq;
+    fx_send_bridge_frame(f, peer, &fr, now);
 }
 
 static inline void fx_frame_full(fx_t *f, int peer, int kind, uint32_t fnode, uint32_t fid, uint32_t src,
@@ -359,10 +394,7 @@ static inline void fx_frame_full(fx_t *f, int peer, int kind, uint32_t fnode, ui
     fr.want_ack = want_ack;
     fr.req_id = req;
     fr.relay = relay;
-    MrDatagram d = MUUDD__RADIO__BRIDGE_DATAGRAM__INIT;
-    d.msg_case = MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_FRAME;
-    d.frame = &fr;
-    mr_core_bridge_datagram(f->core, peer, &d, now);
+    fx_send_bridge_frame(f, peer, &fr, now);
 }
 
 #define KIND(x) MUUDD__RADIO__BRIDGE_KIND__##x
@@ -384,10 +416,7 @@ static inline void fx_result_frame(fx_t *f, int peer, uint32_t req, int status, 
     fr.kind = KIND(RESULT);
     fr.req_id = req;
     fr.result = &r;
-    MrDatagram d = MUUDD__RADIO__BRIDGE_DATAGRAM__INIT;
-    d.msg_case = MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_FRAME;
-    d.frame = &fr;
-    mr_core_bridge_datagram(f->core, peer, &d, now);
+    fx_send_bridge_frame(f, peer, &fr, now);
 }
 
 /* nth frame of the given kind sent to peer (peer -1 = any peer) */

@@ -46,7 +46,10 @@ int mr_core_driver_hello(mr_core_t *c, const MrCaps *caps, uint64_t now_ms);
 int mr_core_driver_msg(mr_core_t *c, const MrD2R *msg, uint64_t now_ms);
 void mr_core_driver_down(mr_core_t *c, const char *reason, uint64_t now_ms);
 
-void mr_core_bridge_datagram(mr_core_t *c, int peer, const MrDatagram *msg, uint64_t now_ms);
+/* Returns MR_EAUTH when a frame was dropped as stale or replayed (wrong
+ * boot_id, or a seq outside the peer's window or already seen), so the caller
+ * can log it; MR_OK otherwise. */
+int mr_core_bridge_datagram(mr_core_t *c, int peer, const MrDatagram *msg, uint64_t now_ms);
 void mr_core_note_bridge_auth_failure(mr_core_t *c);
 void mr_core_note_queue_overflow(mr_core_t *c, uint64_t n);
 

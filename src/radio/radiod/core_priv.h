@@ -43,7 +43,7 @@ typedef struct {
 
 typedef struct {
     uint64_t unclaimed, queue_overflow, duplicate, bridge_auth, relay_auth, relay_window, relay_no_gateway,
-        over_budget, relay_too_big;
+        over_budget, relay_too_big, bridge_replay;
 } mr_drops_t;
 
 struct mr_core {
@@ -64,6 +64,7 @@ struct mr_core {
     mr_pending_t pending[MR_PENDING_MAX];
     uint32_t next_driver_req, next_seq, next_agg;
     uint64_t boot_id, ka_seq, last_ka_ms;
+    uint64_t frame_seq;         /* last seq stamped on a bridge frame this boot */
     bool ka_started;
     bool connected[MR_MAX_CONSUMERS];
     bool last_up;

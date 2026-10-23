@@ -29,6 +29,8 @@ void mr_core_fill_frame(MrBridgeFrame *f, Muudd__Radio__FrameId *fid, mr_frame_i
 
 void mr_core_send_frame(mr_core_t *c, int peer, MrBridgeFrame *f)
 {
+    f->boot_id = c->boot_id;
+    f->seq = ++c->frame_seq;
     MrDatagram d = MUUDD__RADIO__BRIDGE_DATAGRAM__INIT;
     d.msg_case = MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_FRAME;
     d.frame = f;
@@ -410,14 +412,20 @@ static void on_frame(mr_core_t *c, int peer, const MrBridgeFrame *f, uint64_t no
     }
 }
 
-void mr_core_bridge_datagram(mr_core_t *c, int peer, const MrDatagram *d, uint64_t now_ms)
+int mr_core_bridge_datagram(mr_core_t *c, int peer, const MrDatagram *d, uint64_t now_ms)
 {
     if (peer < 0 || (size_t)peer >= c->peers->n)
-        return;
-    if (d->msg_case == MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_KEEPALIVE && d->keepalive)
+        return MR_OK;
+    if (d->msg_case == MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_KEEPALIVE && d->keepalive) {
         mr_peers_accept_keepalive(c->peers, peer, d->keepalive, now_ms);
-    else if (d->msg_case == MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_FRAME && d->frame)
+    } else if (d->msg_case == MUUDD__RADIO__BRIDGE_DATAGRAM__MSG_FRAME && d->frame) {
+        if (!mr_peers_accept_frame(c->peers, peer, d->frame->boot_id, d->frame->seq)) {
+            c->drops.bridge_replay++;
+            return MR_EAUTH;
+        }
         on_frame(c, peer, d->frame, now_ms);
+    }
+    return MR_OK;
 }
 
 /* ---- time ---- */

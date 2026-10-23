@@ -145,7 +145,8 @@ void mr_bridge_io_handle(mr_bridge_io_t *b, uint64_t now_ms)
         MrDatagram *d = muudd__radio__bridge_datagram__unpack(NULL, (size_t)m, plain);
         if (!d)
             continue;
-        mr_core_bridge_datagram(b->core, peer, d, now_ms);
+        if (mr_core_bridge_datagram(b->core, peer, d, now_ms) == MR_EAUTH)
+            note_drop(&b->replay, "stale or replayed frame", &from, fromlen, now_ms);
         muudd__radio__bridge_datagram__free_unpacked(d, NULL);
     }
 }

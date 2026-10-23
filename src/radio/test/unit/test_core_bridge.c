@@ -108,6 +108,8 @@ START_TEST(test_dedupe_across_gateways)
     fx_t *f = fx_new(D_CFG, NULL);
     mr_core_consumer_connected(f->core, 1, 0);
     fx_claim(f, 1, 16, RADIOD, 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);
+    fx_keepalive(f, 1, 0xB2, 0xB2, "north", true, 1, 1000);
     fx_deliver(f, 0, 0xC0, 5, BCAST, 16, "t", "north", 1000);
     fx_deliver(f, 1, 0xC0, 5, BCAST, 16, "t", "north", 1001);
     ck_assert_uint_eq(fx_count_rx(f, 1), 1);
@@ -238,6 +240,7 @@ START_TEST(test_gateway_handles_transmit)
     mr_core_consumer_connected(f->core, 1, 0);
     fx_hello(f, 0xA1, 0);
     fx_claim(f, 1, 16, RADIOD, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 0);
     fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 3, 0x0D01, BCAST, 16, "b", 1, "", false, 0, false, 1000);
     ck_assert_uint_eq(fx_count_dsend(f), 1);
     ck_assert_uint_eq(fx_dsend(f, 0)->dest, BCAST);
@@ -262,6 +265,7 @@ START_TEST(test_transmit_over_budget)
 {
     fx_t *f = fx_new(GW_CFG(10, 0.001), NULL);
     fx_hello(f, 0xA1, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 0);
     static uint8_t big[200];
     fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 5, 0x0D01, 0xC2, 16, big, sizeof big, "", false, 45, false, 1000);
     const MrBridgeFrame *r = fx_pframe(f, 0, KIND(RESULT), 0);
@@ -277,6 +281,7 @@ START_TEST(test_cross_region)
     fx_t *f = fx_new(GW_CFG(10, 10), NULL);
     fx_hello(f, 0xA1, 0);
     fx_keepalive(f, 1, 0xB2, 0xF2, "north", true, 1, 1000);   /* priority 30 */
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 1000);
     fx_deliver(f, 0, 0xC2, 1, BCAST, 17, "w", "south", 1000);
     ck_assert_uint_eq(fx_count_dsend(f), 1);
     ck_assert_uint_eq(fx_dsend(f, 0)->port, 17);
@@ -289,6 +294,7 @@ START_TEST(test_cross_region)
     f = fx_new(GW_CFG(50, 10), NULL);
     fx_hello(f, 0xA1, 0);
     fx_keepalive(f, 0, 0xB1, 0xF1, "north", true, 1, 1000);   /* priority 20 */
+    fx_keepalive(f, 1, 0x0D01, 0, "", false, 1, 1000);
     fx_deliver(f, 1, 0xC2, 1, BCAST, 17, "w", "south", 1000);
     ck_assert_uint_eq(fx_count_dsend(f), 0);
     fx_free(f);
@@ -318,6 +324,7 @@ START_TEST(test_deliver_ack_without_claimant)
 {
     fx_t *f = fx_new(GW_CFG(10, 10), NULL);
     fx_hello(f, 0xA1, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 0);
     fx_frame_full(f, 0, KIND(DELIVER), 0x0D01, 6, 0x0D01, 0xA1, 16, "p", 1, "", true, 46, false, 1000);
     const MrBridgeFrame *r = fx_pframe(f, 0, KIND(RESULT), 0);
     ck_assert_uint_eq(r->req_id, 46);
@@ -399,6 +406,7 @@ START_TEST(test_consumer_port_not_bridged)
     fx_t *f = fx_new(D_CFG, NULL);
     mr_core_consumer_connected(f->core, 1, 0);
     fx_claim(f, 1, 32, CONSUMER, 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);
     fx_deliver(f, 0, 0xC0, 1, BCAST, 32, "x", "north", 1000);
     ck_assert_uint_eq(fx_count_rx(f, 1), 0);
     fx_free(f);
@@ -472,6 +480,54 @@ START_TEST(test_bridged_broadcast_with_ack_ends_no_ack)
 }
 END_TEST
 
+START_TEST(test_frame_freshness)
+{
+    fx_t *f = fx_new(D_CFG, NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_deliver_seq(f, 0, FX_BOOT, 1, 0xC0, 1, 16, "a", 1000);      /* no keepalive yet */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);
+    fx_deliver_seq(f, 0, FX_BOOT, 10, 0xC0, 2, 16, "b", 1000);
+    ck_assert_uint_eq(fx_count_rx(f, 1), 1);
+    fx_deliver_seq(f, 0, FX_BOOT, 10, 0xC0, 3, 16, "c", 1000);     /* replayed seq */
+    fx_deliver_seq(f, 0, FX_BOOT - 1, 11, 0xC0, 4, 16, "d", 1000); /* older boot */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 1);
+    fx_deliver_seq(f, 0, FX_BOOT, 8, 0xC0, 5, 16, "e", 1000);      /* out of order, inside the window */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 2);
+    fx_deliver_seq(f, 0, FX_BOOT, 2000, 0xC0, 6, 16, "f", 1000);
+    fx_deliver_seq(f, 0, FX_BOOT, 900, 0xC0, 7, 16, "g", 1000);    /* below the window */
+    ck_assert_uint_eq(fx_count_rx(f, 1), 3);
+    const MrStats *st = fx_stats(f, 1, 1000);
+    ck_assert_uint_eq(st->drops->bridge_replay, 4);
+    ck_assert_uint_eq(st->drops->duplicate, 0);
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_frames_carry_boot_and_seq)
+{
+    fx_t *f = fx_new(D_CFG, NULL);
+    mr_core_set_boot_id(f->core, 77);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);
+    fx_keepalive(f, 2, 0x0D02, 0, "", false, 1, 1000);
+    fx_claim(f, 1, 16, RADIOD, 1000);
+    fx_send(f, 1, 1, BCAST, 16, "x", 1, false, 1000);
+    fx_send(f, 1, 2, BCAST, 16, "y", 1, false, 1000);
+    const MrBridgeFrame *a = fx_pframe(f, 0, KIND(TRANSMIT), 0);
+    const MrBridgeFrame *b = fx_pframe(f, 2, KIND(DELIVER), 0);
+    const MrBridgeFrame *c = fx_pframe(f, 0, KIND(TRANSMIT), 1);
+    ck_assert_uint_eq(a->boot_id, 77);
+    ck_assert_uint_eq(c->boot_id, 77);
+    ck_assert_uint_ge(a->seq, 1);
+    ck_assert_uint_ne(a->seq, b->seq);   /* the counter covers every frame sent, to any peer */
+    ck_assert_uint_gt(c->seq, a->seq);
+    ck_assert_uint_gt(c->seq, b->seq);
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -502,6 +558,8 @@ int main(void)
     tcase_add_test(tc, test_gateway_forwards_non_gateway_radio_peer);
     tcase_add_test(tc, test_non_gateway_drops_live_gateway_copy);
     tcase_add_test(tc, test_bridged_broadcast_with_ack_ends_no_ack);
+    tcase_add_test(tc, test_frame_freshness);
+    tcase_add_test(tc, test_frames_carry_boot_and_seq);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

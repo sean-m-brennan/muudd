@@ -10,6 +10,7 @@
 #include "mr_config.h"
 
 #define MR_REGION_MAP 1024
+#define MR_FRAME_WINDOW 1024
 
 typedef struct {
     const mr_peer_cfg_t *cfg;
@@ -18,6 +19,9 @@ typedef struct {
     uint32_t node_addr, radio_node_addr, radio_mtu;
     char region[64];
     bool gateway, radio_up;
+    /* replay window over the peer's frame seq, for frames of boot win_boot */
+    uint64_t win_boot, win_high;
+    uint64_t win_bits[MR_FRAME_WINDOW / 64];
 } mr_peer_t;
 
 typedef struct {
@@ -32,6 +36,10 @@ void mr_peers_init(mr_peers_t *ps, const mr_config_t *cfg);
 int mr_peers_find_pk(const mr_peers_t *ps, const uint8_t pk[32]);
 bool mr_peers_accept_keepalive(mr_peers_t *ps, int idx, const MrKeepalive *ka, uint64_t now_ms);
 bool mr_peers_live(const mr_peers_t *ps, int idx, uint64_t now_ms);
+/* Accept a bridge frame only if it comes from the boot of the peer's last
+ * accepted keepalive and its seq is new within a sliding window of
+ * MR_FRAME_WINDOW frames below the highest seen. */
+bool mr_peers_accept_frame(mr_peers_t *ps, int idx, uint64_t boot_id, uint64_t seq);
 int mr_peers_find_node(const mr_peers_t *ps, uint32_t node_addr);
 /* True if radio_addr is the radio of a peer whose last keepalive said it is a gateway. */
 bool mr_peers_is_gateway_radio(const mr_peers_t *ps, uint32_t radio_addr);

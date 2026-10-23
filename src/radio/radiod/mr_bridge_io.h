@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 /* The bridge's UDP socket: seals datagrams to peers and opens datagrams
- * from them. A datagram whose sender key is not a configured peer, or that
- * fails to open, is dropped and counted. Peer host names are resolved at
+ * from them. A datagram whose sender key is not a configured peer, that
+ * fails to open, or that the core finds stale or replayed, is dropped and
+ * counted. Peer host names are resolved at
  * start and retried every 60 s while unresolved; resolution blocks, so
  * numeric addresses are preferable. Drops are logged at most once a minute
  * per cause. */
@@ -30,7 +31,7 @@ typedef struct {
     struct sockaddr_storage sa[MR_MAX_PEERS];
     socklen_t salen[MR_MAX_PEERS];
     uint64_t last_resolve_ms;
-    mr_bridge_drop_log_t unknown_key, bad_seal; /* rate-limited drop logging */
+    mr_bridge_drop_log_t unknown_key, bad_seal, replay; /* rate-limited drop logging */
 } mr_bridge_io_t;
 
 int mr_split_hostport(const char *s, char *host, size_t hcap, char *port, size_t pcap);

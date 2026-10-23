@@ -19,6 +19,7 @@
 #define MR_EIO     -6
 #define MR_EBUDGET -7
 #define MR_EFATAL  -8
+#define MR_EPERM   -9   /* a key file others may read or write */
 
 #define MR_BROADCAST      0xFFFFFFFFu
 #define MR_PORT_TEXT      1u

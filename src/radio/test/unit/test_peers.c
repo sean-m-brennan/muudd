@@ -165,6 +165,39 @@ START_TEST(test_region_map)
 }
 END_TEST
 
+START_TEST(test_frame_window)
+{
+    mr_config_t *c = cfg3();
+    mr_peers_t *ps = calloc(1, sizeof *ps);
+    mr_peers_init(ps, c);
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 1));        /* no keepalive yet */
+    MrKeepalive k = ka(0xA1, 0xF1, "north", true, 7, 1);
+    mr_peers_accept_keepalive(ps, 0, &k, 1000);
+    ck_assert(!mr_peers_accept_frame(ps, 0, 6, 1));        /* older boot */
+    ck_assert(!mr_peers_accept_frame(ps, 0, 8, 1));        /* boot not yet announced */
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 0));
+    ck_assert(mr_peers_accept_frame(ps, 0, 7, 10));
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 10));       /* replay */
+    ck_assert(mr_peers_accept_frame(ps, 0, 7, 8));         /* out of order, inside the window */
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 8));
+    ck_assert(mr_peers_accept_frame(ps, 0, 7, 2000));
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 976));      /* 2000 - 1024: below the window */
+    ck_assert(mr_peers_accept_frame(ps, 0, 7, 977));
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 977));
+    ck_assert(mr_peers_accept_frame(ps, 0, 7, 3000));      /* jump past the window clears it */
+    ck_assert(mr_peers_accept_frame(ps, 0, 7, 2990));
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 2000));
+    ck_assert(!mr_peers_accept_frame(ps, 1, 7, 1));        /* another peer, never heard */
+    k = ka(0xA1, 0xF1, "north", true, 9, 1);               /* restart: new boot resets the window */
+    mr_peers_accept_keepalive(ps, 0, &k, 2000);
+    ck_assert(!mr_peers_accept_frame(ps, 0, 7, 3001));
+    ck_assert(mr_peers_accept_frame(ps, 0, 9, 1));
+    ck_assert(!mr_peers_accept_frame(ps, 0, 9, 1));
+    free(ps);
+    free(c);
+}
+END_TEST
+
 int main(void)
 {
     Suite *s = suite_create("peers");
@@ -174,6 +207,7 @@ int main(void)
     tcase_add_test(tc, test_best_gateway);
     tcase_add_test(tc, test_regions_nodes_and_echo);
     tcase_add_test(tc, test_region_map);
+    tcase_add_test(tc, test_frame_window);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

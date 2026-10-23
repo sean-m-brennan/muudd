@@ -306,6 +306,7 @@ static void send_stats(mr_core_t *c, int cid, uint32_t req, uint64_t now_ms)
     d.relay_no_gateway = c->drops.relay_no_gateway;
     d.over_budget = c->drops.over_budget;
     d.relay_too_big = c->drops.relay_too_big;
+    d.bridge_replay = c->drops.bridge_replay;
     d.dedupe_evicted = c->dedupe.evicted_early;
     MrStats st = MUUDD__RADIO__STATS__INIT;
     st.req_id = req;

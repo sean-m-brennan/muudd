@@ -4,7 +4,7 @@ import socket
 import struct
 import time
 
-from radiod_harness import BROADCAST, inject, pb, stub_driver, wait_until
+from radiod_harness import BROADCAST, free_udp_port, inject, pb, stub_driver, wait_until
 
 PORTS = {
     "16": {"name": "telemetry", "share_pct": 50, "policy": "radiod"},
@@ -214,3 +214,37 @@ def test_malformed_listen_exits_2(tmp_path):
     out = subprocess.run([str(RADIOD), "--config", str(p)], capture_output=True, text=True)
     assert out.returncode == 2
     assert "bridge.listen" in out.stderr
+
+
+def _driverless_cfg(tmp_path, relay_mode=0o600):
+    key = tmp_path / "relay.key"
+    key.write_bytes(bytes(range(32)))
+    key.chmod(relay_mode)
+    return {"node_addr": 0x0D01, "driver": None, "socket": str(tmp_path / "r.sock"),
+            "ports": {"18": {"name": "fallback", "share_pct": 20, "policy": "radiod", "ip_fallback": True}},
+            "bridge": {"listen": f"127.0.0.1:{free_udp_port()}", "key_file": str(tmp_path / "radiod.key"),
+                       "relay_key_file": str(key), "peers": []}}
+
+
+def _run(tmp_path, config):
+    import json
+    import subprocess
+    from radiod_harness import RADIOD
+    p = tmp_path / "radiod.json"
+    p.write_text(json.dumps(config))
+    return subprocess.run([str(RADIOD), "--config", str(p)], capture_output=True, text=True, timeout=5)
+
+
+def test_loose_relay_key_refused(tmp_path):
+    out = _run(tmp_path, _driverless_cfg(tmp_path, 0o640))
+    assert out.returncode == 2
+    assert "relay.key" in out.stderr and "mode 0600" in out.stderr
+
+
+def test_loose_bridge_key_refused(tmp_path):
+    bridge_key = tmp_path / "radiod.key"
+    bridge_key.write_bytes(bytes(32))
+    bridge_key.chmod(0o644)
+    out = _run(tmp_path, _driverless_cfg(tmp_path))
+    assert out.returncode == 2
+    assert "radiod.key" in out.stderr and "mode 0600" in out.stderr

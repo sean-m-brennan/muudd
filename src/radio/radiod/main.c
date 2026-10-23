@@ -114,11 +114,24 @@ static void sup_stderr(void *ctx, const char *line)
     logm("driver: %s", line);
 }
 
+/* Why a key file was refused, for the log. */
+static const char *key_error(int rc)
+{
+    if (rc == MR_EPERM)
+        return "group or others may access it; it must be mode 0600 or stricter";
+    if (rc == MR_EINVAL)
+        return "it must be exactly 32 bytes";
+    if (errno == ELOOP)
+        return "it is a symbolic link";
+    return strerror(errno);
+}
+
 static int print_pubkey(const char *key_file)
 {
     mr_keypair_t kp;
-    if (mr_keypair_load_or_create(key_file, &kp) != MR_OK) {
-        logm("cannot load or create %s: %s", key_file, strerror(errno));
+    int rc = mr_keypair_load_or_create(key_file, &kp);
+    if (rc != MR_OK) {
+        logm("cannot load or create %s: %s", key_file, key_error(rc));
         return 2;
     }
     char b64[sodium_base64_ENCODED_LEN(32, sodium_base64_VARIANT_ORIGINAL)];
@@ -170,8 +183,9 @@ int main(int argc, char **argv)
     }
     if (app.cfg.has_bridge) {
         const char *kf = key_override ? key_override : app.cfg.key_file;
-        if (mr_keypair_load_or_create(kf, &app.kp) != MR_OK) {
-            logm("cannot load or create bridge key %s", kf);
+        int krc = mr_keypair_load_or_create(kf, &app.kp);
+        if (krc != MR_OK) {
+            logm("cannot load or create bridge key %s: %s", kf, key_error(krc));
             return 2;
         }
         snprintf(app.boot_path, sizeof app.boot_path, "%s.boot", kf);
@@ -184,8 +198,9 @@ int main(int argc, char **argv)
         if (self)
             logm("ignoring %zu peer entr%s carrying this node's own key", self, self == 1 ? "y" : "ies");
         if (app.cfg.relay_key_file[0]) {
-            if (mr_relay_key_load(app.cfg.relay_key_file, app.relay_key) != MR_OK) {
-                logm("cannot load relay key %s (it must be exactly 32 bytes)", app.cfg.relay_key_file);
+            int rrc = mr_relay_key_load(app.cfg.relay_key_file, app.relay_key);
+            if (rrc != MR_OK) {
+                logm("cannot load relay key %s: %s", app.cfg.relay_key_file, key_error(rrc));
                 return 2;
             }
             app.has_relay_key = true;

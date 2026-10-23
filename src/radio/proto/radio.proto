@@ -76,6 +76,7 @@ message DropCounters {
   uint64 over_budget = 8;
   uint64 relay_too_big = 9;
   uint64 dedupe_evicted = 10;
+  uint64 bridge_replay = 11;
 }
 message Stats {
   uint32 req_id = 1;
@@ -118,6 +119,8 @@ message BridgeFrame {
   uint32 req_id = 10;
   bool relay = 11;
   SendResult result = 12;
+  uint64 boot_id = 13;   // sender's boot_id, as in its keepalives
+  uint64 seq = 14;       // counts every frame the sender sent this boot, from 1
 }
 message Keepalive {
   fixed32 node_addr = 1;

@@ -99,6 +99,7 @@ START_TEST(test_gateway_transmits_relay_request)
 {
     fx_t *f = fx_new(GW_R(600), KEY);
     fx_hello(f, 0xA1, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 1000);
     fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 9, 0x0D01, BCAST, 18, "x", 1, "", false, 0, true, 1000);
     ck_assert_uint_eq(fx_count_dsend(f), 1);
     const MrSend *s = fx_dsend(f, 0);
@@ -142,6 +143,7 @@ START_TEST(test_relay_receipt_duplicate)
     mr_core_consumer_connected(f->core, 1, 0);
     fx_hello(f, 0xA1, 0);
     fx_claim(f, 1, 18, RADIOD, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 1000);
     fx_deliver(f, 0, 0x0D99, 4, BCAST, 18, "far", "", 1000);
     uint8_t buf[256];
     size_t n = seal(KEY, 0x0D99, BCAST, 18, 4, now_s(f), "far", buf);
@@ -259,6 +261,7 @@ START_TEST(test_gateway_plain_then_relay_same_id)
 {
     fx_t *f = fx_new(GW_R(600), KEY);
     fx_hello(f, 0xA1, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 1000);
     fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 9, 0x0D01, BCAST, 18, "x", 1, "", false, 0, false, 1000);
     fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 9, 0x0D01, BCAST, 18, "x", 1, "", false, 0, true, 1000);
     ck_assert_uint_eq(fx_count_dsend(f), 2);
@@ -287,6 +290,7 @@ START_TEST(test_gateway_lone_unicast_relay_request)
     mr_core_consumer_connected(f->core, 1, 0);
     fx_hello(f, 0xA1, 0);
     fx_claim(f, 1, 18, RADIOD, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 1000);
     fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 10, 0x0D01, 0x0D02, 18, "x", 1, "", false, 0, true, 1000);
     ck_assert_uint_eq(fx_count_dsend(f), 1);
     ck_assert_uint_eq(fx_dsend(f, 0)->port, MR_PORT_RELAY);

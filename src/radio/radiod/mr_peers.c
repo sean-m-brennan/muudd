@@ -55,6 +55,34 @@ bool mr_peers_live(const mr_peers_t *ps, int idx, uint64_t now_ms)
     return p->heard && now_ms - p->last_seen_ms <= ps->dead_after_ms;
 }
 
+bool mr_peers_accept_frame(mr_peers_t *ps, int idx, uint64_t boot_id, uint64_t seq)
+{
+    mr_peer_t *p = &ps->peers[idx];
+    if (!p->heard || boot_id != p->boot_id || seq == 0)
+        return false;
+    if (p->win_boot != boot_id) {
+        p->win_boot = boot_id;
+        p->win_high = 0;
+        memset(p->win_bits, 0, sizeof p->win_bits);
+    }
+    if (seq > p->win_high) {
+        uint64_t gap = seq - p->win_high;
+        if (gap >= MR_FRAME_WINDOW) {
+            memset(p->win_bits, 0, sizeof p->win_bits);
+        } else {
+            for (uint64_t s = p->win_high + 1; s < seq; s++)
+                p->win_bits[(s % MR_FRAME_WINDOW) / 64] &= ~(1ull << (s % 64));
+        }
+        p->win_high = seq;
+    } else if (p->win_high >= MR_FRAME_WINDOW && seq <= p->win_high - MR_FRAME_WINDOW) {
+        return false;
+    } else if (p->win_bits[(seq % MR_FRAME_WINDOW) / 64] & (1ull << (seq % 64))) {
+        return false;
+    }
+    p->win_bits[(seq % MR_FRAME_WINDOW) / 64] |= 1ull << (seq % 64);
+    return true;
+}
+
 int mr_peers_find_node(const mr_peers_t *ps, uint32_t node_addr)
 {
     if (node_addr == 0)
