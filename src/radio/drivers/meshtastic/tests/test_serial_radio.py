@@ -118,7 +118,7 @@ def test_normalize_skips_undecoded():
 
 def test_normalize_hops_default_zero_limit():
     from muudd_meshtastic import mapping
-    n = normalize({"from": 1, "to": 2, "decoded": {"portnum": "PRIVATE_APP", "payload": b"x"}, "hopStart": 3})
+    n = normalize({"from": 1, "to": 2, "decoded": {"portnum": 272, "payload": b"x"}, "hopStart": 3})
     assert n["hop_start"] == 3 and n["hop_limit"] == 0
     meta = mapping.received_from_packet(n).meta
     assert meta.has_hops and meta.hops == 3
