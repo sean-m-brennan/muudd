@@ -49,6 +49,7 @@ static inline void fx_to_consumer(void *ctx, int cid, const MrR2C *m)
     fx_t *f = ctx;
     static uint8_t buf[MR_FRAME_MAX];
     ck_assert_uint_lt(f->nc, FX_MAX);
+    ck_assert_uint_le(muudd__radio__radiod_to_consumer__get_packed_size(m), MR_FRAME_MAX);
     size_t n = muudd__radio__radiod_to_consumer__pack(m, buf);
     f->c[f->nc].cid = cid;
     f->c[f->nc].m = muudd__radio__radiod_to_consumer__unpack(NULL, n, buf);
@@ -60,6 +61,7 @@ static inline void fx_to_driver(void *ctx, const MrR2D *m)
     fx_t *f = ctx;
     static uint8_t buf[MR_FRAME_MAX];
     ck_assert_uint_lt(f->nd, FX_MAX);
+    ck_assert_uint_le(muudd__radio__radiod_to_driver__get_packed_size(m), MR_FRAME_MAX);
     size_t n = muudd__radio__radiod_to_driver__pack(m, buf);
     f->d[f->nd++] = muudd__radio__radiod_to_driver__unpack(NULL, n, buf);
 }
@@ -69,6 +71,7 @@ static inline void fx_to_peer(void *ctx, int peer, const MrDatagram *m)
     fx_t *f = ctx;
     static uint8_t buf[MR_FRAME_MAX];
     ck_assert_uint_lt(f->np, FX_MAX);
+    ck_assert_uint_le(muudd__radio__bridge_datagram__get_packed_size(m), MR_FRAME_MAX);
     size_t n = muudd__radio__bridge_datagram__pack(m, buf);
     f->p[f->np].peer = peer;
     f->p[f->np].d = muudd__radio__bridge_datagram__unpack(NULL, n, buf);

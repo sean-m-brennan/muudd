@@ -451,6 +451,8 @@ static void send_configure(mr_core_t *c)
     c->io.to_driver(c->io.ctx, &m);
 }
 
+static void fail_in_flight(mr_core_t *c);
+
 int mr_core_driver_hello(mr_core_t *c, const MrCaps *caps, uint64_t now_ms)
 {
     uint32_t bw = caps->radio_settings ? caps->radio_settings->bandwidth_khz : 0;
@@ -483,6 +485,7 @@ int mr_core_driver_hello(mr_core_t *c, const MrCaps *caps, uint64_t now_ms)
 fatal:
     c->driver_up = false;
     c->fatal = true;
+    fail_in_flight(c);
     mr_core_status_all(c, now_ms);
     return MR_EFATAL;
 }
@@ -492,6 +495,8 @@ static void on_driver_result(mr_core_t *c, const MrSendResult *r, uint64_t now_m
     mr_pending_t *p = find_driver_pending(c, r->req_id);
     if (!p)
         return;
+    if (r->status == ST(SENT) && p->sent_reported)
+        return;   /* repeated SENT: already reported, keep the ack deadline */
     bool terminal = r->status != ST(SENT) || !p->want_ack;
     forward_driver_outcome(c, p, r->status, r->reason, r->packet_id);
     if (terminal) {
@@ -551,11 +556,10 @@ static void complete_driver_pending(mr_core_t *c, mr_pending_t *p, int status, i
     mr_core_pending_free(p);
 }
 
-void mr_core_driver_down(mr_core_t *c, const char *reason, uint64_t now_ms)
+/* Settle every send still waiting on the driver: acked sends were already
+ * reported as sent and end as NO_ACK, the rest are refused as radio down. */
+static void fail_in_flight(mr_core_t *c)
 {
-    if (!c->fatal)
-        snprintf(c->reason, sizeof c->reason, "%s", reason);
-    c->driver_up = false;
     for (size_t i = 0; i < MR_PENDING_MAX; i++) {
         mr_pending_t *p = &c->pending[i];
         if (!driver_kind(p->kind))
@@ -565,6 +569,14 @@ void mr_core_driver_down(mr_core_t *c, const char *reason, uint64_t now_ms)
         else
             complete_driver_pending(c, p, ST(REFUSED), RS(RADIO_DOWN));
     }
+}
+
+void mr_core_driver_down(mr_core_t *c, const char *reason, uint64_t now_ms)
+{
+    if (!c->fatal)
+        snprintf(c->reason, sizeof c->reason, "%s", reason);
+    c->driver_up = false;
+    fail_in_flight(c);
     mr_core_status_all(c, now_ms);
 }
 
@@ -574,8 +586,16 @@ void mr_core_tick(mr_core_t *c, uint64_t now_ms)
 {
     for (size_t i = 0; i < MR_PENDING_MAX; i++) {
         mr_pending_t *p = &c->pending[i];
-        if (driver_kind(p->kind) && p->deadline_ms && now_ms >= p->deadline_ms)
-            complete_driver_pending(c, p, ST(NO_ACK), RS(REASON_NONE));
+        if (!driver_kind(p->kind))
+            continue;
+        if (!p->deadline_ms)
+            p->deadline_ms = now_ms + MR_ACK_TIMEOUT_MS;   /* bounds a lost driver result */
+        else if (now_ms >= p->deadline_ms) {
+            if (p->sent_reported)
+                complete_driver_pending(c, p, ST(NO_ACK), RS(REASON_NONE));
+            else
+                complete_driver_pending(c, p, ST(REFUSED), RS(RADIO_DOWN));
+        }
     }
     if (c->cfg->has_bridge)
         mr_core_bridge_tick(c, now_ms);

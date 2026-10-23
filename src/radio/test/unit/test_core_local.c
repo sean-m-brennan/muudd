@@ -234,6 +234,56 @@ START_TEST(test_stats)
 }
 END_TEST
 
+START_TEST(test_lost_driver_result_times_out)
+{
+    fx_t *f = fx_new(LOCAL_CFG(10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_send(f, 1, 1, BCAST, 16, "a", 1, false, 1000);
+    mr_core_tick(f->core, 2000);
+    ck_assert_uint_eq(fx_count_results(f, 1, 1), 0);
+    mr_core_tick(f->core, 121999);
+    ck_assert_uint_eq(fx_count_results(f, 1, 1), 0);
+    mr_core_tick(f->core, 122000);
+    ck_assert_int_eq(fx_result(f, 1, 1, 0)->status, ST(REFUSED));
+    ck_assert_int_eq(fx_result(f, 1, 1, 0)->reason, RS(RADIO_DOWN));
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_fatal_hello_fails_in_flight)
+{
+    fx_t *f = fx_new(LOCAL_CFG(10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_send(f, 1, 1, BCAST, 16, "a", 1, false, 10);
+    fx_hello_full(f, 0xA1, 233, 500, "firmware too old", 20, MR_EFATAL);
+    ck_assert_uint_eq(fx_count_results(f, 1, 1), 1);
+    ck_assert_int_eq(fx_result(f, 1, 1, 0)->status, ST(REFUSED));
+    ck_assert_int_eq(fx_result(f, 1, 1, 0)->reason, RS(RADIO_DOWN));
+    fx_free(f);
+}
+END_TEST
+
+START_TEST(test_duplicate_sent_forwarded_once)
+{
+    fx_t *f = fx_new(LOCAL_CFG(10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_send(f, 1, 1, 0xB1, 16, "a", 1, true, 1000);
+    uint32_t dreq = fx_dsend(f, 0)->req_id;
+    fx_driver_result(f, dreq, ST(SENT), 0, 5, 1000);
+    fx_driver_result(f, dreq, ST(SENT), 0, 5, 50000);
+    ck_assert_uint_eq(fx_count_results(f, 1, 1), 1);
+    mr_core_tick(f->core, 121000);
+    ck_assert_int_eq(fx_result(f, 1, 1, 1)->status, ST(NO_ACK));
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -252,6 +302,9 @@ int main(void)
     tcase_add_test(tc, test_driver_down_fails_in_flight);
     tcase_add_test(tc, test_ack_timeout);
     tcase_add_test(tc, test_stats);
+    tcase_add_test(tc, test_lost_driver_result_times_out);
+    tcase_add_test(tc, test_fatal_hello_fails_in_flight);
+    tcase_add_test(tc, test_duplicate_sent_forwarded_once);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }
