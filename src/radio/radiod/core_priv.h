@@ -21,6 +21,8 @@
 #define MR_DEDUPE_CAP 65536u
 #define MR_LOG_EVERY_MS 60000u
 
+_Static_assert(MR_MAX_PEERS <= 64, "aggregate peer sets are 64-bit masks");
+
 /* What an outstanding send is waiting for.
  *   LOCAL:     our radio's result, owed to a local consumer.
  *   REMOTE:    our radio's result, owed to the peer that sent TRANSMIT.
@@ -38,6 +40,8 @@ typedef struct {
     uint32_t peer_req;
     uint32_t agg;               /* LOCAL_AGG: the aggregate it feeds */
     unsigned remaining;         /* AGG: gateways still to answer */
+    uint64_t peers_sent;        /* AGG: bit per peer index the request went to */
+    uint64_t peers_done;        /* AGG: bit per peer whose final result arrived */
     bool sent_reported, acked_reported;
     int first_refusal;
     uint64_t deadline_ms;       /* 0 = none */

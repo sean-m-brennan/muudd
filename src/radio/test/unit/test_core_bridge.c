@@ -528,6 +528,29 @@ START_TEST(test_frames_carry_boot_and_seq)
 }
 END_TEST
 
+START_TEST(test_results_only_from_targets)
+{
+    fx_t *f = fx_new(D_CFG, NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);
+    fx_keepalive(f, 1, 0xB2, 0xB2, "south", true, 1, 1000);
+    fx_keepalive(f, 2, 0x0D02, 0, "", false, 1, 1000);
+    fx_claim(f, 1, 16, RADIOD, 1000);
+    fx_send(f, 1, 8, 0xE5, 16, "dm", 2, false, 1000);
+    uint32_t req = fx_pframe(f, 0, KIND(TRANSMIT), 0)->req_id;
+    ck_assert_uint_eq(fx_count_pframes(f, 2, KIND(TRANSMIT)), 0);
+    fx_result_frame(f, 2, req, ST(SENT), 0, 1100);                /* not sent to peer 2 */
+    ck_assert_uint_eq(fx_count_results(f, 1, 8), 0);
+    fx_result_frame(f, 0, req, ST(REFUSED), RS(OVER_BUDGET), 1200);
+    fx_result_frame(f, 0, req, ST(REFUSED), RS(OVER_BUDGET), 1300);   /* peer 0 answers twice */
+    ck_assert_uint_eq(fx_count_results(f, 1, 8), 0);
+    fx_result_frame(f, 1, req, ST(REFUSED), RS(RADIO_DOWN), 1400);
+    ck_assert_uint_eq(fx_count_results(f, 1, 8), 1);
+    ck_assert_int_eq(fx_result(f, 1, 8, 0)->reason, RS(OVER_BUDGET));
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -560,6 +583,7 @@ int main(void)
     tcase_add_test(tc, test_bridged_broadcast_with_ack_ends_no_ack);
     tcase_add_test(tc, test_frame_freshness);
     tcase_add_test(tc, test_frames_carry_boot_and_seq);
+    tcase_add_test(tc, test_results_only_from_targets);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }

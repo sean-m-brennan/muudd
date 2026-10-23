@@ -151,6 +151,7 @@ static void send_to_peer_node(mr_core_t *c, int cid, const MrSend *s, MrBridgeFr
                 return;
             }
             a->sent_reported = true;
+            a->peers_sent = 1ull << peer;
             f->want_ack = true;
             f->req_id = a->key;
         }
@@ -246,8 +247,10 @@ static void unicast_radio_send(mr_core_t *c, int cid, const MrSend *s, MrBridgeF
     f->kind = KIND(TRANSMIT);
     f->want_ack = s->want_ack;
     f->req_id = agg;
-    for (size_t i = 0; i < nt; i++)
+    for (size_t i = 0; i < nt; i++) {
+        a->peers_sent |= 1ull << targets[i];
         mr_core_send_frame(c, targets[i], f);
+    }
     if (!local)
         return;
     mr_pending_t *lp = mr_core_pending_new(c, PEND_LOCAL_AGG, 0);
@@ -363,9 +366,14 @@ static void on_transmit(mr_core_t *c, int peer, const MrBridgeFrame *f, const Mr
 static void on_frame(mr_core_t *c, int peer, const MrBridgeFrame *f, uint64_t now_ms)
 {
     if (f->kind == KIND(RESULT)) {
+        /* Only a peer the request went to may answer, and only once finally. */
         mr_pending_t *a = mr_core_pending_find(c, PEND_AGG, f->req_id);
-        if (a && f->result)
-            mr_core_agg_update(c, a, f->result->status, f->result->reason, f->result->packet_id);
+        uint64_t bit = 1ull << peer;
+        if (!a || !f->result || !(a->peers_sent & bit) || (a->peers_done & bit))
+            return;
+        if (f->result->status != ST(SENT) || !a->want_ack)
+            a->peers_done |= bit;
+        mr_core_agg_update(c, a, f->result->status, f->result->reason, f->result->packet_id);
         return;
     }
     if (!f->frame_id || f->port >= MR_NUM_PORTS || !c->cfg->ports[f->port].configured ||
@@ -373,6 +381,11 @@ static void on_frame(mr_core_t *c, int peer, const MrBridgeFrame *f, uint64_t no
         return;   /* consumer-bridged ports never travel over the bridge */
     mr_frame_id_t id = {f->frame_id->node, f->frame_id->id};
     if (f->kind == KIND(TRANSMIT) && f->relay) {
+        if (!c->cfg->ports[f->port].ip_fallback) {
+            if (f->req_id)
+                mr_core_send_result_frame(c, peer, f->req_id, ST(REFUSED), RS(NO_ROUTE), 0);
+            return;   /* only ip_fallback ports may be relayed */
+        }
         /* A relay request shares its frame ID with the plain transmit of the same
          * message, so it has its own dedupe cache and is never delivered locally. */
         if (mr_dedupe_check_insert(&c->relay_req_dedupe, id, mr_core_ttl(c, f->port), now_ms)) {

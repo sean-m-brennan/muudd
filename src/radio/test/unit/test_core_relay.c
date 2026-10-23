@@ -322,6 +322,23 @@ START_TEST(test_short_ttl_flood_keeps_long_ttl_ids)
 }
 END_TEST
 
+START_TEST(test_relay_request_needs_fallback_port)
+{
+    fx_t *f = fx_new(GW_R(600), KEY);
+    fx_hello(f, 0xA1, 0);
+    fx_keepalive(f, 0, 0x0D01, 0, "", false, 1, 1000);
+    fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 11, 0x0D01, BCAST, 16, "x", 1, "", false, 0, true, 1000);
+    ck_assert_uint_eq(fx_count_dsend(f), 0);
+    fx_frame_full(f, 0, KIND(TRANSMIT), 0x0D01, 12, 0x0D01, BCAST, 16, "x", 1, "", false, 61, true, 1000);
+    ck_assert_uint_eq(fx_count_dsend(f), 0);
+    const MrBridgeFrame *r = fx_pframe(f, 0, KIND(RESULT), 0);
+    ck_assert_ptr_nonnull(r);
+    ck_assert_int_eq(r->result->status, ST(REFUSED));
+    ck_assert_int_eq(r->result->reason, RS(NO_ROUTE));
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -341,6 +358,7 @@ int main(void)
     tcase_add_test(tc, test_relay_without_key);
     tcase_add_test(tc, test_relay_dedupe_follows_window);
     tcase_add_test(tc, test_short_ttl_flood_keeps_long_ttl_ids);
+    tcase_add_test(tc, test_relay_request_needs_fallback_port);
     tcase_add_test(tc, test_unicast_to_dead_peer_relays);
     tcase_add_test(tc, test_gateway_plain_then_relay_same_id);
     tcase_add_test(tc, test_gateway_lone_unicast_relay_request);
