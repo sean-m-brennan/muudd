@@ -196,9 +196,11 @@ static void broadcast_send(mr_core_t *c, int cid, const MrSend *s, MrBridgeFrame
     if (any_dead && c->cfg->ports[s->port].ip_fallback)
         mr_core_relay_send(c, c->node_addr, id.id, MR_BROADCAST, s->port, s->payload.data, s->payload.len,
                            now_ms);
-    if (dispatched)
+    if (dispatched) {
         mr_core_reply(c, cid, s->req_id, ST(SENT), RS(REASON_NONE), 0);
-    else
+        if (s->want_ack)   /* a broadcast is never acknowledged */
+            mr_core_reply(c, cid, s->req_id, ST(NO_ACK), RS(REASON_NONE), 0);
+    } else
         mr_core_reply(c, cid, s->req_id, ST(REFUSED),
                       local_refusal != RS(REASON_NONE) ? local_refusal : RS(NO_ROUTE), 0);
 }

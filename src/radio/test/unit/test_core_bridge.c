@@ -449,6 +449,29 @@ START_TEST(test_non_gateway_drops_live_gateway_copy)
 }
 END_TEST
 
+START_TEST(test_bridged_broadcast_with_ack_ends_no_ack)
+{
+    fx_t *f = fx_new(D_CFG, NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_keepalive(f, 0, 0xA1, 0xA1, "north", true, 1, 1000);
+    fx_claim(f, 1, 16, RADIOD, 1000);
+    fx_send(f, 1, 1, BCAST, 16, "b", 1, true, 1000);
+    ck_assert_uint_eq(fx_count_results(f, 1, 1), 2);
+    ck_assert_int_eq(fx_result(f, 1, 1, 0)->status, ST(SENT));
+    ck_assert_int_eq(fx_result(f, 1, 1, 1)->status, ST(NO_ACK));
+    fx_free(f);
+
+    f = fx_new(GW_CFG(10, 10), NULL);
+    mr_core_consumer_connected(f->core, 1, 0);
+    fx_hello(f, 0xA1, 0);
+    fx_claim(f, 1, 16, RADIOD, 0);
+    fx_send(f, 1, 2, BCAST, 16, "b", 1, true, 1000);
+    ck_assert_uint_eq(fx_count_results(f, 1, 2), 2);
+    ck_assert_int_eq(fx_result(f, 1, 2, 1)->status, ST(NO_ACK));
+    fx_free(f);
+}
+END_TEST
+
 int main(void)
 {
     if (sodium_init() < 0)
@@ -478,6 +501,7 @@ int main(void)
     tcase_add_test(tc, test_consumer_port_not_bridged);
     tcase_add_test(tc, test_gateway_forwards_non_gateway_radio_peer);
     tcase_add_test(tc, test_non_gateway_drops_live_gateway_copy);
+    tcase_add_test(tc, test_bridged_broadcast_with_ack_ends_no_ack);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);
 }
