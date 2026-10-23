@@ -59,6 +59,8 @@ class RadioClient:
 
     @property
     def status(self):
+        """The last RadioStatus, or None while disconnected; after a reconnect
+        it stays None until radiod sends a fresh one."""
         with self._status_cv:
             return self._status
 
@@ -235,6 +237,8 @@ class RadioClient:
                     data = b""
             if not data:
                 self._drop_socket()
+                with self._status_cv:
+                    self._status = None
                 self._fail_waiters()
                 if self._closed or not self.reconnect:
                     return
@@ -298,6 +302,8 @@ class RadioClient:
                 return self._reclaim(s)
             except (OSError, ValueError, DecodeError):
                 self._drop_socket()
+                with self._status_cv:
+                    self._status = None
                 self._fail_waiters()
                 time.sleep(delay)
                 delay = min(delay * 2, 2.0)

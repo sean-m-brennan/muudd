@@ -1,5 +1,6 @@
 # Copyright 2026 Sean M. Brennan and contributors
 # SPDX-License-Identifier: Apache-2.0
+import os
 import socket
 import threading
 import time
@@ -158,6 +159,21 @@ def test_reconnect_survives_drop_during_reclaim(server):
         assert wait_for(lambda: srv.claims.count(16) >= 2)
         assert c.reconnects >= 1
         assert c.result(c.send(BROADCAST, 16, b"z")).status == pb.SENT
+
+
+def test_status_is_none_while_disconnected(server):
+    path, srv = server
+    with RadioClient(path) as c:
+        c.wait_status(pb.STATE_UP)
+        srv.stop()
+        os.unlink(path)
+        assert wait_for(lambda: c.status is None)
+        again = FakeRadiod(path)
+        try:
+            assert c.wait_status(pb.STATE_UP).state == pb.STATE_UP
+            assert c.reconnects >= 1
+        finally:
+            again.stop()
 
 
 def test_refused_reclaim_is_reported(server):
