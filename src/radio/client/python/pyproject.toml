@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "muudd_radio"
+version = "0.1.0"
+description = "Consumer client for muudd-radiod"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+dependencies = ["protobuf>=5"]
+
+[tool.setuptools]
+packages = ["muudd_radio"]
