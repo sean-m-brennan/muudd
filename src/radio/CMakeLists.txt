@@ -55,6 +55,7 @@ target_sources(mr_core PRIVATE radiod/mr_ledger.c)
 target_sources(mr_core PRIVATE radiod/mr_dedupe.c)
 target_sources(mr_core PRIVATE radiod/mr_config.c)
 target_sources(mr_core PRIVATE radiod/mr_crypto.c)
+target_sources(mr_core PRIVATE radiod/mr_ports.c radiod/mr_peers.c)
 target_include_directories(mr_core PUBLIC
     radiod ${MR_GEN_DIR}
     ${SODIUM_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR} ${PROTOBUF_C_INCLUDE_DIR})
@@ -81,3 +82,5 @@ mr_add_test(test_ledger)
 mr_add_test(test_dedupe)
 mr_add_test(test_config)
 mr_add_test(test_crypto)
+mr_add_test(test_ports)
+mr_add_test(test_peers)
