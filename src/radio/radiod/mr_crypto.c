@@ -16,10 +16,15 @@ int mr_keypair_load_or_create(const char *path, mr_keypair_t *kp)
         return MR_ERR;
     int fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd >= 0) {
-        ssize_t n = read(fd, kp->sk, 32);
+        uint8_t buf[33];
+        ssize_t n = read(fd, buf, sizeof buf);
         close(fd);
-        if (n != 32)
+        if (n != 32) {
+            sodium_memzero(buf, sizeof buf);
             return MR_EINVAL;
+        }
+        memcpy(kp->sk, buf, 32);
+        sodium_memzero(buf, sizeof buf);
     } else if (errno == ENOENT) {
         randombytes_buf(kp->sk, 32);
         fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
@@ -28,8 +33,12 @@ int mr_keypair_load_or_create(const char *path, mr_keypair_t *kp)
         ssize_t n = write(fd, kp->sk, 32);
         int sync_rc = fsync(fd);
         close(fd);
-        if (n != 32 || sync_rc != 0)
+        if (n != 32 || sync_rc != 0) {
+            /* A partial key file would fail every later start. */
+            unlink(path);
+            sodium_memzero(kp->sk, 32);
             return MR_EIO;
+        }
     } else {
         return MR_EIO;
     }
@@ -45,8 +54,10 @@ int mr_relay_key_load(const char *path, uint8_t key[32])
     uint8_t buf[33];
     ssize_t n = read(fd, buf, sizeof buf);
     close(fd);
-    if (n != 32)
+    if (n != 32) {
+        sodium_memzero(buf, sizeof buf);
         return MR_EINVAL;
+    }
     memcpy(key, buf, 32);
     sodium_memzero(buf, sizeof buf);
     return MR_OK;

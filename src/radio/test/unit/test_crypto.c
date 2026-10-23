@@ -34,6 +34,26 @@ START_TEST(test_keypair_created_then_reloaded)
 }
 END_TEST
 
+static void write_n(const char *path, size_t n)
+{
+    FILE *f = fopen(path, "wb");
+    for (size_t i = 0; i < n; i++) fputc((int)i, f);
+    fclose(f);
+}
+
+START_TEST(test_keypair_rejects_wrong_length_file)
+{
+    char path[128];
+    tmp_path(path, sizeof path, "badkey");
+    mr_keypair_t k;
+    write_n(path, 64);
+    ck_assert_int_eq(mr_keypair_load_or_create(path, &k), MR_EINVAL);
+    write_n(path, 10);
+    ck_assert_int_eq(mr_keypair_load_or_create(path, &k), MR_EINVAL);
+    unlink(path);
+}
+END_TEST
+
 START_TEST(test_relay_key_must_be_32_bytes)
 {
     char path[128];
@@ -142,6 +162,7 @@ int main(void)
     Suite *s = suite_create("crypto");
     TCase *tc = tcase_create("crypto");
     tcase_add_test(tc, test_keypair_created_then_reloaded);
+    tcase_add_test(tc, test_keypair_rejects_wrong_length_file);
     tcase_add_test(tc, test_relay_key_must_be_32_bytes);
     tcase_add_test(tc, test_bridge_round_trip);
     tcase_add_test(tc, test_bridge_wrong_key_and_tamper);
