@@ -57,6 +57,7 @@ target_sources(mr_core PRIVATE radiod/mr_config.c)
 target_sources(mr_core PRIVATE radiod/mr_crypto.c)
 target_sources(mr_core PRIVATE radiod/mr_ports.c radiod/mr_peers.c)
 target_sources(mr_core PRIVATE radiod/core.c radiod/core_bridge.c radiod/core_relay.c)
+target_sources(mr_core PRIVATE radiod/mr_supervisor.c)
 target_include_directories(mr_core PUBLIC
     radiod ${MR_GEN_DIR}
     ${SODIUM_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR} ${PROTOBUF_C_INCLUDE_DIR})
@@ -96,4 +97,10 @@ mr_add_test(test_stub)
 if(TARGET test_stub)
     target_compile_definitions(test_stub PRIVATE MR_STUB_DRIVER="$<TARGET_FILE:stub-driver>")
     add_dependencies(test_stub stub-driver)
+endif()
+
+mr_add_test(test_supervisor)
+if(TARGET test_supervisor)
+    target_compile_definitions(test_supervisor PRIVATE MR_STUB_DRIVER="$<TARGET_FILE:stub-driver>")
+    add_dependencies(test_supervisor stub-driver)
 endif()
