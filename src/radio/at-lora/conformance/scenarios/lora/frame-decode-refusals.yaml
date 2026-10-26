@@ -1,0 +1,26 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-decode-refusals"
+description: |
+  Empty input, an unknown version or type, an index not below the count, an
+  empty payload, and malformed NACKs are all refused.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "decode_all"
+    hexes: ["", "21010200ff", "15000100ff", "11010220ff", "11010200", "14000500", "1400050000", "140005000300", "12000700a1b2c3"]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "decode_all"
+    description: "trigger: decode_all"
+expected_state:
+  host:
+    all_refused: true

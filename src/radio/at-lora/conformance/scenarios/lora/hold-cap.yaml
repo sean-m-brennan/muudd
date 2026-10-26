@@ -1,0 +1,26 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "hold-cap"
+description: |
+  The hold keeps 16 messages; the oldest is dropped by the 17th.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "hold_trace"
+    hold_s: 120
+    events: [{"at": 1, "put": {"dest": 9, "msg_id": 1, "frames_hex": ["11000100aa"]}}, {"at": 2, "put": {"dest": 9, "msg_id": 2, "frames_hex": ["11000200aa"]}}, {"at": 3, "put": {"dest": 9, "msg_id": 3, "frames_hex": ["11000300aa"]}}, {"at": 4, "put": {"dest": 9, "msg_id": 4, "frames_hex": ["11000400aa"]}}, {"at": 5, "put": {"dest": 9, "msg_id": 5, "frames_hex": ["11000500aa"]}}, {"at": 6, "put": {"dest": 9, "msg_id": 6, "frames_hex": ["11000600aa"]}}, {"at": 7, "put": {"dest": 9, "msg_id": 7, "frames_hex": ["11000700aa"]}}, {"at": 8, "put": {"dest": 9, "msg_id": 8, "frames_hex": ["11000800aa"]}}, {"at": 9, "put": {"dest": 9, "msg_id": 9, "frames_hex": ["11000900aa"]}}, {"at": 10, "put": {"dest": 9, "msg_id": 10, "frames_hex": ["11000a00aa"]}}, {"at": 11, "put": {"dest": 9, "msg_id": 11, "frames_hex": ["11000b00aa"]}}, {"at": 12, "put": {"dest": 9, "msg_id": 12, "frames_hex": ["11000c00aa"]}}, {"at": 13, "put": {"dest": 9, "msg_id": 13, "frames_hex": ["11000d00aa"]}}, {"at": 14, "put": {"dest": 9, "msg_id": 14, "frames_hex": ["11000e00aa"]}}, {"at": 15, "put": {"dest": 9, "msg_id": 15, "frames_hex": ["11000f00aa"]}}, {"at": 16, "put": {"dest": 9, "msg_id": 16, "frames_hex": ["11001000aa"]}}, {"at": 17, "put": {"dest": 9, "msg_id": 17, "frames_hex": ["11001100aa"]}}, {"at": 20, "serve": {"dest": 9, "msg_id": 1, "missing": 1}}, {"at": 21, "serve": {"dest": 9, "msg_id": 17, "missing": 1}}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "hold_trace"
+    description: "trigger: hold_trace"
+expected_state:
+  host:
+    outputs: ["held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "held", "served none", "served 11001100aa"]

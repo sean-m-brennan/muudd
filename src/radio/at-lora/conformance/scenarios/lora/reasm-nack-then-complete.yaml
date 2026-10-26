@@ -1,0 +1,27 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "reasm-nack-then-complete"
+description: |
+  A quiet unicast is NACKed once after the gap, and still completes.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "reasm_trace"
+    nack_gap_s: 20
+    reassembly_s: 90
+    events: [{"at": 0, "src": 1, "hex": "11010202aa"}, {"at": 1, "src": 1, "hex": "11010222cc"}, {"at": 20, "tick": true}, {"at": 21, "tick": true}, {"at": 50, "tick": true}, {"at": 55, "src": 1, "hex": "11010212bb"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "reasm_trace"
+    description: "trigger: reasm_trace"
+expected_state:
+  host:
+    outputs: ["partial", "partial", "tick", "tick nack:1:258:2", "tick", "complete aabbcc"]

@@ -1,0 +1,27 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "reasm-dedupe-expires"
+description: |
+  Dedupe forgets a key after 600 seconds.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "reasm_trace"
+    nack_gap_s: 20
+    reassembly_s: 90
+    events: [{"at": 0, "src": 1, "hex": "11000100ee"}, {"at": 599, "src": 1, "hex": "11000100ee"}, {"at": 600, "src": 1, "hex": "11000100ee"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "reasm_trace"
+    description: "trigger: reasm_trace"
+expected_state:
+  host:
+    outputs: ["complete ee", "duplicate", "complete ee"]

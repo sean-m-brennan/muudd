@@ -19,6 +19,9 @@ int mr_client_claim(mr_client_t *c, uint32_t port, int policy, int timeout_ms);
 int mr_client_reconnect(mr_client_t *c, int timeout_ms);
 /* Messages discarded because the receive queue was full. */
 uint64_t mr_client_dropped(const mr_client_t *c);
+/* True while the socket to radiod is open; false once the client saw it fail
+ * (a reconnect opens it again). */
+bool mr_client_connected(const mr_client_t *c);
 MrR2C *mr_client_get_stats(mr_client_t *c, int timeout_ms);
 
 #endif

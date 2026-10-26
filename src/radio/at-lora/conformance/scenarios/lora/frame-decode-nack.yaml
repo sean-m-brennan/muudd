@@ -1,0 +1,27 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-decode-nack"
+description: |
+  A NACK decodes to its message id and missing-fragment bitmap.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "decode"
+    hex: "1400050003"
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "decode"
+    description: "trigger: decode"
+expected_state:
+  host:
+    type: "nack"
+    msg_id: 5
+    missing: 3

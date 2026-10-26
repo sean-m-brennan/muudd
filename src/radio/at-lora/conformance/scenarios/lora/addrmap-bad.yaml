@@ -1,0 +1,25 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-bad"
+description: |
+  An unparseable UUID and the reserved addresses 0 and 0xFFFFFFFF are refused.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"announce": ["not-a-uuid", 1, 1]}, {"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 0, 1]}, {"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 4294967295, 1]}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["bad", "bad", "bad"]

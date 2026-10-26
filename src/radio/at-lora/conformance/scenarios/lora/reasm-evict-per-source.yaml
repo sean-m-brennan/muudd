@@ -1,0 +1,28 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "reasm-evict-per-source"
+description: |
+  A fifth message from one source evicts its oldest into dedupe.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "reasm_trace"
+    nack_gap_s: 20
+    reassembly_s: 90
+    events: [{"at": 0, "src": 1, "hex": "1100010101"}, {"at": 1, "src": 1, "hex": "1100020102"}, {"at": 2, "src": 1, "hex": "1100030103"}, {"at": 3, "src": 1, "hex": "1100040104"}, {"at": 4, "src": 1, "hex": "1100050105"}, {"at": 6, "src": 1, "hex": "1100011101"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "reasm_trace"
+    description: "trigger: reasm_trace"
+expected_state:
+  host:
+    outputs: ["partial", "partial", "partial", "partial", "partial", "duplicate"]
+    stats: {"evicted": 1, "duplicate": 1}

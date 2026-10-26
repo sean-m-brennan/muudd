@@ -1,0 +1,25 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-replace-departed-holder"
+description: |
+  A radio taken over by a current member drops the entry of the departed holder.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"members": ["aaaaaaaa-0000-4000-8000-000000000001", "bbbbbbbb-0000-4000-8000-000000000002"]}, {"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 12288, 1]}, {"members": ["bbbbbbbb-0000-4000-8000-000000000002"]}, {"announce": ["bbbbbbbb-0000-4000-8000-000000000002", 12288, 1]}, {"addr_of": "bbbbbbbb-0000-4000-8000-000000000002"}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"uuid_of": 12288}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["ok", "accepted", "ok", "accepted", "addr 12288", "none", "uuid bbbbbbbb-0000-4000-8000-000000000002"]

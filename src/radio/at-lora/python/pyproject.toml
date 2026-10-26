@@ -1,0 +1,24 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "autonomous_trust_lora"
+version = "0.1.0"
+description = "AutonomousTrust traffic over muudd-radiod when the IP path to a peer is down"
+authors = ["Sean M Brennan <sean.brennan@tekfive.com>"]
+license = "Apache-2.0"
+packages = [{include = "autonomous_trust"}]
+exclude = ["**/__pycache__"]
+
+[project]
+name = "autonomous_trust_lora"
+version = "0.1.0"
+
+[project.entry-points."autonomous_trust.extensions"]
+lora = "autonomous_trust.lora._at_extension:EXTENSION"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+autonomous-trust = ">=0.2.1"
+muudd_radio = ">=0.1.0"

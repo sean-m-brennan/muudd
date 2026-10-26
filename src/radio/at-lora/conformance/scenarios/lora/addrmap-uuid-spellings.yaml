@@ -1,0 +1,26 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-uuid-spellings"
+description: |
+  Only the 36-character hyphenated UUID is accepted; braces, a urn:uuid:
+  prefix, bare hex and a 37-character string are refused.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"announce": ["{aaaaaaaa-0000-4000-8000-000000000001}", 4097, 1]}, {"announce": ["urn:uuid:aaaaaaaa-0000-4000-8000-000000000001", 4097, 1]}, {"announce": ["aaaaaaaa000040008000000000000001", 4097, 1]}, {"announce": ["aaaaaaaa-0000-4000-8000-0000000000010", 4097, 1]}, {"announce": ["AAAAAAAA-0000-4000-8000-000000000001", 4097, 1]}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["bad", "bad", "bad", "bad", "accepted"]

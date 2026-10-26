@@ -1,0 +1,28 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "reasm-group-never-nacked"
+description: |
+  A group message is never NACKed; it only times out.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "reasm_trace"
+    nack_gap_s: 20
+    reassembly_s: 90
+    events: [{"at": 0, "src": 1, "hex": "12000901a1b2c3d4aa"}, {"at": 30, "tick": true}, {"at": 90, "tick": true}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "reasm_trace"
+    description: "trigger: reasm_trace"
+expected_state:
+  host:
+    outputs: ["partial", "tick", "tick"]
+    stats: {"timeouts": 1}

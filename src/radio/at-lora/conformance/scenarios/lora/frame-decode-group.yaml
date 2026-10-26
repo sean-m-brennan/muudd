@@ -1,0 +1,30 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-decode-group"
+description: |
+  A DATA_GROUP frame decodes with its group tag.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "decode"
+    hex: "12000711a1b2c3d4ff"
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "decode"
+    description: "trigger: decode"
+expected_state:
+  host:
+    type: "group"
+    msg_id: 7
+    idx: 1
+    count: 2
+    tag_hex: "a1b2c3d4"
+    payload_hex: "ff"

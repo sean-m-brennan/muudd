@@ -221,6 +221,31 @@ START_TEST(test_send_after_server_close_is_eio)
 }
 END_TEST
 
+START_TEST(test_connected_follows_the_socket)
+{
+    int lfd = listen_on("conn");
+    pid_t pid = fork();
+    if (pid == 0) {
+        int fd = accept(lfd, NULL, NULL);
+        usleep(200000);
+        close(fd);
+        _exit(0);
+    }
+    close(lfd);
+    mr_client_t *c;
+    ck_assert_int_eq(mr_client_connect(sock_path, &c), MR_OK);
+    ck_assert(mr_client_connected(c));
+    int tries = 0;
+    while (mr_client_recv(c, 100) != NULL || mr_client_connected(c)) {
+        ck_assert_int_lt(++tries, 50);
+    }
+    ck_assert(!mr_client_connected(c));
+    waitpid(pid, NULL, 0);
+    mr_client_close(c);
+    unlink(sock_path);
+}
+END_TEST
+
 START_TEST(test_reconnect_keeps_failed_claims)
 {
     int lfd = listen_on("claims");
@@ -271,6 +296,7 @@ int main(void)
     tcase_add_test(tc, test_overflow_drops_oldest);
     tcase_add_test(tc, test_recv_zero_timeout_sees_pending);
     tcase_add_test(tc, test_send_after_server_close_is_eio);
+    tcase_add_test(tc, test_connected_follows_the_socket);
     tcase_add_test(tc, test_reconnect_keeps_failed_claims);
     suite_add_tcase(s, tc);
     return mr_run_suite(s);

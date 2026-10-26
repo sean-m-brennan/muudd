@@ -1,0 +1,25 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-uppercase-uuid"
+description: |
+  UUIDs are lower-cased on the way in.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"announce": ["AAAAAAAA-0000-4000-8000-000000000001", 4097, 1]}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["accepted", "addr 4097"]

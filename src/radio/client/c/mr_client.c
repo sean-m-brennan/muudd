@@ -118,6 +118,11 @@ uint64_t mr_client_dropped(const mr_client_t *c)
     return c->dropped;
 }
 
+bool mr_client_connected(const mr_client_t *c)
+{
+    return c != NULL && c->fd >= 0;
+}
+
 static void push_back(mr_client_t *c, MrR2C *m)
 {
     if (c->count == MR_CLIENT_QUEUE) {

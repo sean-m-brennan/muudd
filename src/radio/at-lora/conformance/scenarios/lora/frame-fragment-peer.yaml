@@ -1,0 +1,31 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-fragment-peer"
+description: |
+  A 500-byte unicast at MTU 233 splits into three DATA_PEER fragments of
+  229, 229 and 42 payload bytes, numbered 0..2 of 3.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "fragment"
+    type: "peer"
+    msg_id: 258
+    mtu: 233
+    max_fragments: 8
+    msg_len: 500
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "fragment"
+    description: "trigger: fragment"
+expected_state:
+  host:
+    lengths: [233, 233, 46]
+    headers_hex: ["11010202", "11010212", "11010222"]

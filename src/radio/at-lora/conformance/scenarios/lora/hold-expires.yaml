@@ -1,0 +1,26 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "hold-expires"
+description: |
+  A held message is not served once the hold time has passed.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "hold_trace"
+    hold_s: 120
+    events: [{"at": 0, "put": {"dest": 9, "msg_id": 1, "frames_hex": ["11000100aa"]}}, {"at": 120, "serve": {"dest": 9, "msg_id": 1, "missing": 1}}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "hold_trace"
+    description: "trigger: hold_trace"
+expected_state:
+  host:
+    outputs: ["held", "served none"]

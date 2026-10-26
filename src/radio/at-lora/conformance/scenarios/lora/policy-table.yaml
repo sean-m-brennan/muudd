@@ -1,0 +1,41 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "policy-table"
+description: |
+  Whether a unicast or a group/broadcast frame also goes by LoRa: every condition is needed, and broadcast ignores the wire format.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "policy"
+    rows:
+      - {kind: unicast, link_up: true, have_addr: true, quiet_s: 90, ip_quiet_s: 90, allowed: true, proto: true, frame_len: 100, max_len: 1832, send: true}
+      - {kind: unicast, link_up: false, have_addr: true, quiet_s: 90, ip_quiet_s: 90, allowed: true, proto: true, frame_len: 100, max_len: 1832, send: false}
+      - {kind: unicast, link_up: true, have_addr: false, quiet_s: 90, ip_quiet_s: 90, allowed: true, proto: true, frame_len: 100, max_len: 1832, send: false}
+      - {kind: unicast, link_up: true, have_addr: true, quiet_s: 89.9, ip_quiet_s: 90, allowed: true, proto: true, frame_len: 100, max_len: 1832, send: false}
+      - {kind: unicast, link_up: true, have_addr: true, quiet_s: 500, ip_quiet_s: 90, allowed: false, proto: true, frame_len: 100, max_len: 1832, send: false}
+      - {kind: unicast, link_up: true, have_addr: true, quiet_s: 500, ip_quiet_s: 90, allowed: true, proto: false, frame_len: 100, max_len: 1832, send: false}
+      - {kind: unicast, link_up: true, have_addr: true, quiet_s: 500, ip_quiet_s: 90, allowed: true, proto: true, frame_len: 1832, max_len: 1832, send: true}
+      - {kind: unicast, link_up: true, have_addr: true, quiet_s: 500, ip_quiet_s: 90, allowed: true, proto: true, frame_len: 1833, max_len: 1832, send: false}
+      - {kind: unicast, link_up: true, have_addr: true, quiet_s: 500, ip_quiet_s: 90, allowed: true, proto: true, frame_len: 0, max_len: 1832, send: false}
+      - {kind: fanout, channel: group, link_up: true, n_quiet: 1, allowed: true, proto: true, frame_len: 100, max_len: 1800, send: true}
+      - {kind: fanout, channel: group, link_up: true, n_quiet: 0, allowed: true, proto: true, frame_len: 100, max_len: 1800, send: false}
+      - {kind: fanout, channel: group, link_up: true, n_quiet: 3, allowed: true, proto: false, frame_len: 100, max_len: 1800, send: false}
+      - {kind: fanout, channel: broadcast, link_up: true, n_quiet: 3, allowed: true, proto: false, frame_len: 100, max_len: 1832, send: true}
+      - {kind: fanout, channel: broadcast, link_up: false, n_quiet: 3, allowed: true, proto: true, frame_len: 100, max_len: 1832, send: false}
+      - {kind: fanout, channel: broadcast, link_up: true, n_quiet: 3, allowed: false, proto: true, frame_len: 100, max_len: 1832, send: false}
+      - {kind: fanout, channel: group, link_up: true, n_quiet: 3, allowed: true, proto: true, frame_len: 1801, max_len: 1800, send: false}
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "policy"
+    description: "trigger: policy"
+expected_state:
+  host:
+    all_rows_match: true

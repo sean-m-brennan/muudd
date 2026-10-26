@@ -1,0 +1,265 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "config-validation"
+description: |
+  lora.cfg.json: defaults, ranges, strict integers, string limits, allow-list shape, duplicate keys (last wins), unknown keys (first in document order) and unparseable text, all refused identically in both runtimes.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "config"
+    cases:
+      - {json: '{"port": 10}', ok: true, values: {"socket": "/run/muudd/radio.sock", "ip_quiet_s": 90, "max_fragments": 8, "nack_gap_s": 20, "nack_hold_s": 120, "reassembly_s": 90, "announce_s": 600, "allow": ["identity/group_key_update", "identity/group_partition_probe", "identity/group_partition_response", "identity/peer_dm"]}}
+      - {json: '{}', field: "port"}
+      - {json: '{"port": 2}', field: "port"}
+      - {json: '{"port": 256}', field: "port"}
+      - {json: '{"port": "10"}', field: "port"}
+      - {json: '{"port": true}', field: "port"}
+      - {json: '{"port": 10, "bogus": 1}', field: "bogus"}
+      - {json: '{"port": 10, "ip_quiet_s": 9}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 86401}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 90.5}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "max_fragments": 0}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 17}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 16}', ok: true}
+      - {json: '{"port": 10, "nack_gap_s": 90}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 90, "reassembly_s": 91}', ok: true}
+      - {json: '{"port": 10, "allow": []}', ok: true, values: {"allow": []}}
+      - {json: '{"port": 10, "allow": ["network/lora_addr"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["identity/Peer_dm"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["identity/peer_dm", "identity/peer_dm"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["identitypeer_dm"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": "identity/peer_dm"}', field: "allow"}
+      - {json: '{"port": 10, "socket": ""}', field: "socket"}
+      - {json: '[1]', field: "(file)"}
+      - {json: 'not json', field: "(file)"}
+      - {json: '{"port": 3}', ok: true, values: {"port": 3}}
+      - {json: '{"port": 255}', ok: true, values: {"port": 255}}
+      - {json: '{"port": 0}', field: "port"}
+      - {json: '{"port": -1}', field: "port"}
+      - {json: '{"port": -0}', field: "port"}
+      - {json: '{"port": 10.0}', field: "port"}
+      - {json: '{"port": 1e1}', field: "port"}
+      - {json: '{"port": null}', field: "port"}
+      - {json: '{"port": [10]}', field: "port"}
+      - {json: '{"port": 10, "ip_quiet_s": 10}', ok: true}
+      - {json: '{"port": 10, "ip_quiet_s": 86400}', ok: true, values: {"ip_quiet_s": 86400}}
+      - {json: '{"port": 10, "ip_quiet_s": 9}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 86401}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": true}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": false}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 11.0}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": "11"}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": null}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": -1}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 9223372036854775807}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": -9223372036854775808}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 4294967296}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 4294967306}', field: "ip_quiet_s"}
+      - {json: '{"port": 10, "ip_quiet_s": 9223372036854775808}', field: "(file)"}
+      - {json: '{"port": 10, "ip_quiet_s": -9223372036854775809}', field: "(file)"}
+      - {json: '{"port": 10, "ip_quiet_s": 1e400}', field: "(file)"}
+      - {json: '{"port": 10, "max_fragments": 1}', ok: true}
+      - {json: '{"port": 10, "max_fragments": 16}', ok: true, values: {"max_fragments": 16}}
+      - {json: '{"port": 10, "max_fragments": 0}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 17}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": true}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": false}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 2.0}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": "2"}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": null}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": -1}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 9223372036854775807}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": -9223372036854775808}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 4294967296}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 4294967306}', field: "max_fragments"}
+      - {json: '{"port": 10, "max_fragments": 9223372036854775808}', field: "(file)"}
+      - {json: '{"port": 10, "max_fragments": -9223372036854775809}', field: "(file)"}
+      - {json: '{"port": 10, "max_fragments": 1e400}', field: "(file)"}
+      - {json: '{"port": 10, "nack_gap_s": 1, "reassembly_s": 3600}', ok: true}
+      - {json: '{"port": 10, "nack_gap_s": 600, "reassembly_s": 3600}', ok: true}
+      - {json: '{"port": 10, "nack_gap_s": 0}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 601}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": true}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": false}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 2.0}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": "2"}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": null}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": -1}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 9223372036854775807}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": -9223372036854775808}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 4294967296}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 4294967306}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 9223372036854775808}', field: "(file)"}
+      - {json: '{"port": 10, "nack_gap_s": -9223372036854775809}', field: "(file)"}
+      - {json: '{"port": 10, "nack_gap_s": 1e400}', field: "(file)"}
+      - {json: '{"port": 10, "nack_hold_s": 1}', ok: true}
+      - {json: '{"port": 10, "nack_hold_s": 3600}', ok: true, values: {"nack_hold_s": 3600}}
+      - {json: '{"port": 10, "nack_hold_s": 0}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": 3601}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": true}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": false}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": 2.0}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": "2"}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": null}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": -1}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": 9223372036854775807}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": -9223372036854775808}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": 4294967296}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": 4294967306}', field: "nack_hold_s"}
+      - {json: '{"port": 10, "nack_hold_s": 9223372036854775808}', field: "(file)"}
+      - {json: '{"port": 10, "nack_hold_s": -9223372036854775809}', field: "(file)"}
+      - {json: '{"port": 10, "nack_hold_s": 1e400}', field: "(file)"}
+      - {json: '{"port": 10, "reassembly_s": 2, "nack_gap_s": 1}', ok: true}
+      - {json: '{"port": 10, "reassembly_s": 3600}', ok: true, values: {"reassembly_s": 3600}}
+      - {json: '{"port": 10, "reassembly_s": 1}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": 3601}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": true}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": false}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": 3.0}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": "3"}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": null}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": -1}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": 9223372036854775807}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": -9223372036854775808}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": 4294967296}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": 4294967306}', field: "reassembly_s"}
+      - {json: '{"port": 10, "reassembly_s": 9223372036854775808}', field: "(file)"}
+      - {json: '{"port": 10, "reassembly_s": -9223372036854775809}', field: "(file)"}
+      - {json: '{"port": 10, "reassembly_s": 1e400}', field: "(file)"}
+      - {json: '{"port": 10, "announce_s": 30}', ok: true}
+      - {json: '{"port": 10, "announce_s": 86400}', ok: true, values: {"announce_s": 86400}}
+      - {json: '{"port": 10, "announce_s": 29}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": 86401}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": true}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": false}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": 31.0}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": "31"}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": null}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": -1}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": 9223372036854775807}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": -9223372036854775808}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": 4294967296}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": 4294967306}', field: "announce_s"}
+      - {json: '{"port": 10, "announce_s": 9223372036854775808}', field: "(file)"}
+      - {json: '{"port": 10, "announce_s": -9223372036854775809}', field: "(file)"}
+      - {json: '{"port": 10, "announce_s": 1e400}', field: "(file)"}
+      - {json: '{"port": 9223372036854775807}', field: "port"}
+      - {json: '{"port": 9223372036854775808}', field: "(file)"}
+      - {json: '{"port": 99999999999999999999999}', field: "(file)"}
+      - {json: '{"port": NaN}', field: "(file)"}
+      - {json: '{"port": Infinity}', field: "(file)"}
+      - {json: '{"port": 10, "ip_quiet_s": -Infinity}', field: "(file)"}
+      - {json: '{"port": 01}', field: "(file)"}
+      - {json: '{"port": 10, "reassembly_s": 20}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "reassembly_s": 21}', ok: true}
+      - {json: '{"port": 10, "nack_gap_s": 600}', field: "nack_gap_s"}
+      - {json: '{"port": 10, "nack_gap_s": 90, "announce_s": 1}', field: "announce_s"}
+      - {json: '{"port": 1, "ip_quiet_s": 1}', field: "port"}
+      - {json: '{"port": 10, "ip_quiet_s": 1, "max_fragments": 99}', field: "ip_quiet_s"}
+      - {json: 'null', field: "(file)"}
+      - {json: 'true', field: "(file)"}
+      - {json: '10', field: "(file)"}
+      - {json: '"port"', field: "(file)"}
+      - {json: '', field: "(file)"}
+      - {json: '{', field: "(file)"}
+      - {json: '{"port": 10}x', field: "(file)"}
+      - {json: '{"port": 10} {"port": 10}', field: "(file)"}
+      - {json: '{"port": 10,}', field: "(file)"}
+      - {json: '{port: 10}', field: "(file)"}
+      - {json: '{''port'': 10}', field: "(file)"}
+      - {json: '  	
+{"port": 10}
+ ', ok: true}
+      - {json: '[]', field: "(file)"}
+      - {json: '[{"port": 10}]', field: "(file)"}
+      - {json: '{"zeta": 1, "alpha": 2, "port": 10}', field: "zeta"}
+      - {json: '{"port": 10, "b": 1, "a": 1}', field: "b"}
+      - {json: '{"zeta": 1}', field: "zeta"}
+      - {json: '{"Port": 10}', field: "Port"}
+      - {json: '{"port": 1, "zz": 1}', field: "zz"}
+      - {json: '{"port": 2, "port": 10}', ok: true, values: {"port": 10}}
+      - {json: '{"port": 10, "port": 2}', field: "port"}
+      - {json: '{"port": 10, "port": true, "port": 2}', field: "port"}
+      - {json: '{"port": 10, "socket": "", "socket": "/a"}', ok: true, values: {"socket": "/a"}}
+      - {json: '{"port": 10, "socket": "/a", "socket": ""}', field: "socket"}
+      - {json: '{"port": 10, "allow": ["x/y", "x/y"], "allow": ["x/y"]}', ok: true, values: {"allow": ["x/y"]}}
+      - {json: '{"port": 10, "allow": ["x/y"], "allow": ["x/y", "x/y"]}', field: "allow"}
+      - {json: '{"port": 10, "bogus": 1, "bogus": 2}', field: "bogus"}
+      - {json: '{"port": 10, "socket": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}', ok: true, values: {"socket": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+      - {json: '{"port": 10, "socket": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}', field: "socket"}
+      - {json: '{"port": 10, "socket": "/"}', ok: true, values: {"socket": "/"}}
+      - {json: '{"port": 10, "socket": "x"}', ok: true}
+      - {json: '{"port": 10, "socket": "/ééééééééééééééééééééééééééééééééééééééééééééééééééééé"}', ok: true, values: {"socket": "/ééééééééééééééééééééééééééééééééééééééééééééééééééééé"}}
+      - {json: '{"port": 10, "socket": "/éééééééééééééééééééééééééééééééééééééééééééééééééééééé"}', field: "socket"}
+      - {json: '{"port": 10, "socket": "/\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"}', ok: true, values: {"socket": "/ééééééééééééééééééééééééééééééééééééééééééééééééééééé"}}
+      - {json: '{"port": 10, "socket": "/\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"}', field: "socket"}
+      - {json: '{"port": 10, "socket": "/\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"}', field: "socket"}
+      - {json: '{"port": 10, "socket": "/\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"}', ok: true, values: {"socket": "/😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"}}
+      - {json: '{"port": 10, "socket": 5}', field: "socket"}
+      - {json: '{"port": 10, "socket": null}', field: "socket"}
+      - {json: '{"port": 10, "socket": true}', field: "socket"}
+      - {json: '{"port": 10, "socket": ["/a"]}', field: "socket"}
+      - {json: '{"port": 10, "socket": {}}', field: "socket"}
+      - {json: '{"port": 10, "allow": ["p/f0", "p/f1", "p/f2", "p/f3", "p/f4", "p/f5", "p/f6", "p/f7", "p/f8", "p/f9", "p/f10", "p/f11", "p/f12", "p/f13", "p/f14", "p/f15", "p/f16", "p/f17", "p/f18", "p/f19", "p/f20", "p/f21", "p/f22", "p/f23", "p/f24", "p/f25", "p/f26", "p/f27", "p/f28", "p/f29", "p/f30", "p/f31"]}', ok: true}
+      - {json: '{"port": 10, "allow": ["p/f0", "p/f1", "p/f2", "p/f3", "p/f4", "p/f5", "p/f6", "p/f7", "p/f8", "p/f9", "p/f10", "p/f11", "p/f12", "p/f13", "p/f14", "p/f15", "p/f16", "p/f17", "p/f18", "p/f19", "p/f20", "p/f21", "p/f22", "p/f23", "p/f24", "p/f25", "p/f26", "p/f27", "p/f28", "p/f29", "p/f30", "p/f31", "p/f32"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["p/f0"]}', ok: true}
+      - {json: '{"port": 10, "allow": null}', field: "allow"}
+      - {json: '{"port": 10, "allow": {}}', field: "allow"}
+      - {json: '{"port": 10, "allow": 5}', field: "allow"}
+      - {json: '{"port": 10, "allow": true}', field: "allow"}
+      - {json: '{"port": 10, "allow": [5]}', field: "allow"}
+      - {json: '{"port": 10, "allow": [null]}', field: "allow"}
+      - {json: '{"port": 10, "allow": [true]}', field: "allow"}
+      - {json: '{"port": 10, "allow": [["x/y"]]}', field: "allow"}
+      - {json: '{"port": 10, "allow": [{"x": "y"}]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/y", 5]}', field: "allow"}
+      - {json: '{"port": 10, "allow": [""]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["/"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["/y"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/y/z"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x /y"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/y "]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/y\n"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["X/y"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/y-z"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["\u00e9/y"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["network/lora_addr", "x/y"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/y", "network/lora_addr"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["x/y", "x/y"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["network/lora_addr_x", "network/lora_add", "a/network_lora_addr"]}', ok: true}
+      - {json: '{"port": 10, "allow": ["a/b", "b/a"]}', ok: true, values: {"allow": ["a/b", "b/a"]}}
+      - {json: '{"port": 10, "allow": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]}', ok: true, values: {"allow": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]}}
+      - {json: '{"port": 10, "allow": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/b"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["a/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]}', field: "allow"}
+      - {json: '{"port": 10, "allow": ["0000000000000000000000000000000000000000000000000000000000000000/________________________________________________________________"]}', ok: true}
+      - {json: '{"port": 10, "socket": "/a\u0000b"}', field: "(file)"}
+      - {json: '{"port": 10, "socket": "\ud800"}', field: "(file)"}
+      - {json: '{"port": 10, "socket": "\udc00"}', field: "(file)"}
+      - {json: '{"port": 10, "socket": "\ud83d"}', field: "(file)"}
+      - {json: '{"port": 10, "socket": "\ude00\ud83d"}', field: "(file)"}
+      - {json: '{"port": 10, "allow": ["x/y\u0000"]}', field: "(file)"}
+      - {json: '{"port": 10, "a\u0000b": 1}', field: "(file)"}
+      - {json: '{"port": 10, "bogus\ud800": 1}', field: "(file)"}
+      - {json: '{"port": 10, "unknown": "\u0000"}', field: "(file)"}
+      - {json: '{"port": 10, "socket": "tab	here"}', field: "(file)"}
+      - {json: '{"port": 10, "socket": "bad \q escape"}', field: "(file)"}
+      - {json: '{"port": 10, "socket": "\u002Fa"}', ok: true, values: {"socket": "/a"}}
+      - {json: '{"port": 10, "x": [[[[1]]]]}', field: "x"}
+      - {json: '{"port": [[[[10]]]]}', field: "port"}
+      - {json: '{"port": 10, "allow": [[[[1]]]]}', field: "allow"}
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "config"
+    description: "trigger: config"
+expected_state:
+  host:
+    all_cases_match: true

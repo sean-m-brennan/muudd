@@ -1,0 +1,25 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-conflict-fails-closed"
+description: |
+  Two peers claiming one address both resolve to nothing until one moves.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 8192, 1]}, {"announce": ["bbbbbbbb-0000-4000-8000-000000000002", 8192, 1]}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"addr_of": "bbbbbbbb-0000-4000-8000-000000000002"}, {"uuid_of": 8192}, {"announce": ["bbbbbbbb-0000-4000-8000-000000000002", 8193, 2]}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"addr_of": "bbbbbbbb-0000-4000-8000-000000000002"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["accepted", "accepted", "none", "none", "none", "accepted", "addr 8192", "addr 8193"]

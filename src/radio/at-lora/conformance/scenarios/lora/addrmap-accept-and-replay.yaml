@@ -1,0 +1,25 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-accept-and-replay"
+description: |
+  An announcement newer than the stored one replaces it; an equal or older one is stale; the old address stops resolving.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 4097, 100]}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 4098, 100]}, {"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 4098, 99]}, {"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 4098, 101]}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"uuid_of": 4097}, {"uuid_of": 4098}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["accepted", "addr 4097", "stale", "stale", "accepted", "addr 4098", "none", "uuid aaaaaaaa-0000-4000-8000-000000000001"]
