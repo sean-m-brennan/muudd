@@ -1,0 +1,31 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-fragment-msg-id-too-big"
+description: |
+  A message id above 0xFFFF is refused, not truncated.
+# C: refused by the adapter. lora_fragment takes a uint16_t msg_id, so the C
+# API cannot express this id and the scenario tests only the Python library.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "fragment"
+    type: "peer"
+    msg_id: 65536
+    mtu: 233
+    max_fragments: 8
+    msg_len: 10
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "fragment"
+    description: "trigger: fragment"
+expected_state:
+  host:
+    error: true

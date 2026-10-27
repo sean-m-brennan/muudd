@@ -31,6 +31,25 @@ def test_fragment_limits():
     assert fr.payload_per_frag(fr.PEER, 63) == 0
 
 
+def test_max_frags_is_clamped():
+    for mf in (-2, -1, 0):
+        assert len(fr.fragment(_pattern(229), fr.PEER, 1, 233, mf)) == 1
+        with pytest.raises(fr.FrameError):
+            fr.fragment(_pattern(230), fr.PEER, 1, 233, mf)
+        assert fr.max_message(fr.PEER, 233, mf) == 229
+    assert len(fr.fragment(_pattern(3664), fr.PEER, 1, 233, 17)) == 16
+    with pytest.raises(fr.FrameError):
+        fr.fragment(_pattern(3665), fr.PEER, 1, 233, 17)
+    assert fr.max_message(fr.PEER, 233, 1 << 30) == 3664
+
+
+@pytest.mark.parametrize('msg_id', [-1, 0x10000, 1 << 20])
+def test_fragment_refuses_a_msg_id_outside_16_bits(msg_id):
+    with pytest.raises(fr.FrameError):
+        fr.fragment(_pattern(10), fr.PEER, msg_id, 233, 8)
+    assert len(fr.fragment(_pattern(10), fr.PEER, 0xFFFF, 233, 8)) == 1
+
+
 def test_decode_group_and_nack():
     f = fr.decode(bytes.fromhex('12000711a1b2c3d4ff'))
     assert (f.type, f.msg_id, f.idx, f.count, f.tag, f.payload) == \

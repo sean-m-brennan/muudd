@@ -79,6 +79,41 @@ def test_stats_answer_locally_and_refuse_the_wire():
     assert len(q) == 1
 
 
+def test_stats_answer_a_local_caller_that_names_this_node():
+    class Q(list):
+        def put(self, m, **kw):
+            self.append(m)
+    q = Q()
+    me = _me()
+    eng = types.SimpleNamespace(stats=lambda: {'counters': {}})
+    proc = types.SimpleNamespace(_lora=eng, myself=me, logger=logging.getLogger('t'))
+    assert ext._handle_lora_stats(proc, {'tool': q},
+                                  types.SimpleNamespace(from_whom=me, return_to='tool'))
+    assert len(q) == 1
+    other = types.SimpleNamespace(uuid='AAAAAAAA-0000-4000-8000-000000000001')
+    assert ext._handle_lora_stats(proc, {'tool': q},
+                                  types.SimpleNamespace(from_whom=other, return_to='tool'))
+    assert len(q) == 1
+
+
+def test_group_fanout_goes_only_for_the_nodes_own_group():
+    """The LoRa frame carries the node's own group tag, so a frame sealed
+    for a child cohort stays off the air; broadcast is not group-bound."""
+    seen = []
+    eng = types.SimpleNamespace(on_fanout=lambda c, p, f, fr: seen.append(c))
+    own = types.SimpleNamespace(uuid='CCCCCCCC-0000-4000-8000-000000000003')
+    child = types.SimpleNamespace(uuid='dddddddd-0000-4000-8000-000000000004')
+    proc = types.SimpleNamespace(_lora=eng, group=own)
+    ext._fanout(proc, 'group', b'x', 'identity', 'group_key_update', child)
+    assert seen == []
+    ext._fanout(proc, 'group', b'x', 'identity', 'group_key_update',
+                types.SimpleNamespace(uuid=own.uuid.lower()))
+    ext._fanout(proc, 'broadcast', b'x', 'identity', 'presence', own)
+    assert seen == ['group', 'broadcast']
+    ext._fanout(proc, 'group', b'x', 'identity', 'group_key_update', None)   # no group: own
+    assert seen == ['group', 'broadcast', 'group']
+
+
 def test_hooks_do_nothing_when_inert():
     proc = types.SimpleNamespace(_lora=None)
     ext._also_unicast(proc, 'u', b'x', 'identity', 'peer_dm')

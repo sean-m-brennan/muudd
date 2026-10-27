@@ -1,0 +1,30 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-fragment-max-frags-17-is-16"
+description: |
+  A limit of 17 counts as 16: 3664 bytes at MTU 233 fill sixteen DATA_PEER fragments exactly.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "fragment"
+    type: "peer"
+    msg_id: 1
+    mtu: 233
+    max_fragments: 17
+    msg_len: 3664
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "fragment"
+    description: "trigger: fragment"
+expected_state:
+  host:
+    lengths: [233, 233, 233, 233, 233, 233, 233, 233, 233, 233, 233, 233, 233, 233, 233, 233]
+    headers_hex: ["1100010f", "1100011f", "1100012f", "1100013f", "1100014f", "1100015f", "1100016f", "1100017f", "1100018f", "1100019f", "110001af", "110001bf", "110001cf", "110001df", "110001ef", "110001ff"]

@@ -5,15 +5,51 @@
 #define DEBUG_TESTS 1
 #include "test_setup.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "lora/lora_addrmap.h"
 
 #define A "aaaaaaaa-0000-4000-8000-000000000001"
 #define B "bbbbbbbb-0000-4000-8000-000000000002"
+
+/* fsync and rename are defined here, ahead of libc, so a test can record the
+ * order lora_addrmap_save calls them in: each call notes what it touched (a
+ * file or a directory, by inode) and then makes the real system call. */
+#define CALLS_MAX 8
+static bool g_record;
+static int g_ncalls;
+static const char *g_call[CALLS_MAX];
+static ino_t g_ino[CALLS_MAX];
+
+static void _note(const char *what, ino_t ino)
+{
+    if (g_record && g_ncalls < CALLS_MAX) {
+        g_call[g_ncalls] = what;
+        g_ino[g_ncalls++] = ino;
+    }
+}
+
+int fsync(int fd)
+{
+    struct stat st;
+    if (fstat(fd, &st) == 0)
+        _note(S_ISDIR(st.st_mode) ? "fsync dir" : "fsync file", st.st_ino);
+    return (int)syscall(SYS_fsync, fd);
+}
+
+int rename(const char *from, const char *to)
+{
+    struct stat st;
+    if (stat(from, &st) == 0)
+        _note("rename", st.st_ino);
+    return (int)syscall(SYS_renameat, AT_FDCWD, from, AT_FDCWD, to);
+}
 
 static bool _only_b(const char *uuid, void *arg)
 {
@@ -187,10 +223,86 @@ DEFINE_TEST(test_load_skips_a_bad_entry_and_keeps_the_rest)
 }
 END_TEST_DEFINITION()
 
+DEFINE_TEST(test_save_syncs_the_file_then_renames_then_syncs_the_directory)
+{
+    char dir[] = "/tmp/lora_addrmap_orderXXXXXX";
+    ck_assert(mkdtemp(dir) != NULL);
+    char path[sizeof(dir) + 16];
+    snprintf(path, sizeof(path), "%s/p.json", dir);
+    lora_addrmap_t *m = lora_addrmap_new();
+    ck_assert_int_eq(lora_addrmap_announce(m, A, 0x3000, 5, NULL, NULL), LORA_ANN_ACCEPTED);
+    g_ncalls = 0;
+    g_record = true;
+    int rc = lora_addrmap_save(m, path, 1);
+    g_record = false;
+    ck_assert_int_eq(rc, 0);
+    struct stat file, d;
+    ck_assert_int_eq(stat(path, &file), 0);
+    ck_assert_int_eq(stat(dir, &d), 0);
+    ck_assert_int_eq(g_ncalls, 3);
+    ck_assert_str_eq(g_call[0], "fsync file");
+    ck_assert(g_ino[0] == file.st_ino);
+    ck_assert_str_eq(g_call[1], "rename");
+    ck_assert(g_ino[1] == file.st_ino);
+    ck_assert_str_eq(g_call[2], "fsync dir");
+    ck_assert(g_ino[2] == d.st_ino);
+    unlink(path);
+    rmdir(dir);
+    lora_addrmap_free(m);
+}
+END_TEST_DEFINITION()
+
+/* jansson's limit: 2048 levels with the root object, even in a key the map
+ * never reads; brackets in a string do not count. */
+DEFINE_TEST(test_load_refuses_a_file_nested_past_2048_levels)
+{
+    char path[] = "/tmp/lora_addrmap_deepXXXXXX";
+    int fd = mkstemp(path);
+    ck_assert(fd >= 0);
+    close(fd);
+    lora_addrmap_t *m = lora_addrmap_new();
+    uint64_t self = 0;
+    uint32_t addr = 0;
+    /* arrays under the root object; 0 is a string holding 3000 "[{" pairs */
+    const int arrays[] = {2047, 2048, 0};
+    for (size_t c = 0; c < sizeof(arrays) / sizeof(arrays[0]); c++) {
+        FILE *f = fopen(path, "w");
+        ck_assert(f != NULL);
+        fputs("{\"version\":1,\"self_issued_ms\":5,\"x\":", f);
+        if (arrays[c] == 0) {
+            fputc('"', f);
+            for (int i = 0; i < 3000; i++)
+                fputs("[{", f);
+            fputc('"', f);
+        }
+        for (int i = 0; i < arrays[c]; i++)
+            fputc('[', f);
+        for (int i = 0; i < arrays[c]; i++)
+            fputc(']', f);
+        fputs(",\"peers\":{\"" A "\":{\"addr\":4097,\"issued_ms\":5}}}", f);
+        fclose(f);
+        int rc = lora_addrmap_load(m, path, &self);
+        if (arrays[c] == 2048) {
+            ck_assert_int_eq(rc, -1);
+            ck_assert_int_eq((int)lora_addrmap_snapshot(m, NULL, 0), 0);
+            ck_assert_int_eq((int)self, 0);
+        } else {
+            ck_assert_int_eq(rc, 0);
+            ck_assert_int_eq((int)self, 5);
+            ck_assert(lora_addrmap_addr_of(m, A, &addr) && addr == 4097);
+        }
+    }
+    unlink(path);
+    lora_addrmap_free(m);
+}
+END_TEST_DEFINITION()
+
 RUN_TESTS(LORA_ADDRMAP,
           test_accept_replay_and_lookup,
           test_conflict_fails_closed_and_departed_holder_is_replaced,
           test_full_and_remove,
           test_persistence_round_trip_and_corrupt_file,
           test_load_range_conflicts_and_unreadable,
-          test_load_skips_a_bad_entry_and_keeps_the_rest)
+          test_load_skips_a_bad_entry_and_keeps_the_rest,
+          test_save_syncs_the_file_then_renames_then_syncs_the_directory,
+          test_load_refuses_a_file_nested_past_2048_levels)

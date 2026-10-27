@@ -19,6 +19,7 @@
 struct mr_client {
     char path[108];
     int fd;
+    int send_timeout_ms;
     mr_decoder_t dec;
     MrR2C *q[MR_CLIENT_QUEUE];
     size_t head, count;
@@ -54,6 +55,7 @@ int mr_client_connect(const char *path, mr_client_t **out)
     if (!c)
         return MR_ENOMEM;
     snprintf(c->path, sizeof c->path, "%s", path);
+    c->send_timeout_ms = MR_CLIENT_SEND_TIMEOUT_MS;
     c->fd = dial(path);
     if (c->fd < 0) {
         free(c);
@@ -90,6 +92,21 @@ static void fail_link(mr_client_t *c)
     c->fd = -1;
 }
 
+static int remaining_ms(uint64_t end)
+{
+    uint64_t now = mr_now_ms();
+    return now >= end ? 0 : (int)(end - now);
+}
+
+void mr_client_set_send_timeout(mr_client_t *c, int timeout_ms)
+{
+    c->send_timeout_ms = timeout_ms;
+}
+
+/* The socket stays blocking for reads; each write is non-blocking and waits
+ * for room with poll, so a radiod that stops reading cannot hold the caller
+ * past the send timeout. A frame cut short leaves the stream out of step, so a
+ * timeout closes the link like any other write failure. */
 int mr_client_send(mr_client_t *c, const MrC2R *m)
 {
     if (c->fd < 0)
@@ -98,12 +115,28 @@ int mr_client_send(mr_client_t *c, const MrC2R *m)
     int n = mr_frame_pack(&m->base, buf, sizeof buf);
     if (n < 0)
         return MR_EINVAL;
+    bool bounded = c->send_timeout_ms >= 0;
+    uint64_t end = mr_now_ms() + (uint64_t)(bounded ? c->send_timeout_ms : 0);
     size_t off = 0;
     while (off < (size_t)n) {
         /* MSG_NOSIGNAL: a peer that went away must not kill the consumer. */
-        ssize_t w = send(c->fd, buf + off, (size_t)n - off, MSG_NOSIGNAL);
+        ssize_t w = send(c->fd, buf + off, (size_t)n - off, MSG_NOSIGNAL | MSG_DONTWAIT);
         if (w < 0 && errno == EINTR)
             continue;
+        if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            int left = bounded ? remaining_ms(end) : -1;
+            if (left == 0) {
+                fail_link(c);
+                errno = ETIMEDOUT;
+                return MR_EIO;
+            }
+            struct pollfd p = {c->fd, POLLOUT, 0};
+            if (poll(&p, 1, left) < 0 && errno != EINTR) {
+                fail_link(c);
+                return MR_EIO;
+            }
+            continue;
+        }
         if (w <= 0) {
             fail_link(c);
             return MR_EIO;
@@ -176,12 +209,6 @@ static int pump(mr_client_t *c, int timeout_ms)
         return -1;
     }
     return 1;
-}
-
-static int remaining_ms(uint64_t end)
-{
-    uint64_t now = mr_now_ms();
-    return now >= end ? 0 : (int)(end - now);
 }
 
 MrR2C *mr_client_recv(mr_client_t *c, int timeout_ms)

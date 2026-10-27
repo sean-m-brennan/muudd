@@ -47,25 +47,28 @@ Record pass or fail for each step.
 
 Needs the at-lora extension (`src/radio/at-lora`) on both hosts. Each host runs
 radiod with the `at` port from the configuration above, and an AutonomousTrust
-node whose `lora.cfg.json` is `{"port": 10, "ip_quiet_s": 20}` (the default
-allowlist), both nodes in one proto-format cohort: start the first node with
-`AT_NET_WIRE_MODE=proto` so the group it forms is proto, and let the second join
-it. `ip_quiet_s` is lowered from its default of 90 because, with the default
-timings, a peer becomes LoRa-eligible only once it is already absent (see Limits
-in the at-lora README). The two hosts reach each other over an IP link you can
-unplug. Record pass or fail for each step.
+node whose `lora.cfg.json` is `{"port": 10}` (the default `ip_quiet_s` of 65 s
+and the default allowlist), both nodes in one proto-format cohort: start the
+first node with `AT_NET_WIRE_MODE=proto` so the group it forms is proto, and let
+the second join it. Leave AT's presence timings at their defaults (heartbeat
+30 s, absent 150 s); see Limits in the at-lora README for how they fit together.
+The two hosts reach each other over an IP link you can unplug.
 
-9. [ ] With IP up, run both nodes for five minutes. `radioctl stats` on each
-   host shows no airtime on port 10, and the node's 5-minute `lora: link ...`
-   INFO summary line in its log shows `sent 0 msgs`.
-10. [ ] Unplug the IP link between the hosts and note the time. Wait 30 s
+9. [ ] With IP up, run both nodes for six minutes, since a node logs its first
+   5-minute `lora: link ...` INFO summary about five minutes after it starts.
+   `radioctl stats` on each host shows no airtime on port 10, and that summary
+   line in each node's log shows `sent 0 msgs`.
+10. [ ] Unplug the IP link between the hosts and note the time. Wait 75 s
     (`ip_quiet_s` plus margin), then rotate the group key by admitting a third
     node on one side. The other host's node logs the key update, and
     `radioctl stats` there shows airtime on port 10. Record the time from
     unplugging to the key update arriving.
 11. [ ] Run one host with the C AT node (`libat_lora` linked) and the other
-    with the Python node, and repeat step 10 in both directions, admitting the
-    third node on each side in turn. This is the full C to Python node check.
+    with the Python node, and repeat step 10 in both directions. First a new
+    node joins through the C node, and the Python node must log the key update
+    over LoRa; then another new node joins through the Python node, and the C
+    node must log it. This is the full C to Python node check.
 12. [ ] Plug IP back in. The IP copy of each message arrives, and airtime on
     port 10 stops once the peer has been heard over IP again (at most a few
-    heartbeats).
+    heartbeats). NACKs and the fragments they ask for, for messages still in
+    flight, may go on for up to `nack_hold_s` (120 s) after that.

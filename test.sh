@@ -127,14 +127,7 @@ wanted kc    && step "kith-covenant"    "$KC"    in_env kith-covenant ./run-test
 
 # --- apps --------------------------------------------------------------------
 wanted agora && step "agora" "$AGORA" ./test.sh
-if wanted stele; then
-    step "stele conformance" "$STELE" at-stele/test-conformance.sh
-    # Each pytest directory holds its own `tests` package, so run them one at a time.
-    for d in at-stele/python/tests tools/tests verifier/tests viewer/tests; do
-        step "stele pytest $d" "$STELE" in_env autonomous_trust python -m pytest "$d"
-    done
-    step "stele extension" "$STELE" node --test extension/tests/panel.test.mjs extension/tests/background.test.mjs
-fi
+wanted stele && step "stele" "$STELE" ./test.sh
 if wanted newsbrief; then
     # newsbrief keeps its own uv venv (see its README), not a conda env.
     # `uv run` brings that venv up to date with pyproject.toml first, so a

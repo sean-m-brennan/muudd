@@ -22,7 +22,7 @@ void lora_config_defaults(lora_cfg_t *c)
 {
     memset(c, 0, sizeof(*c));
     snprintf(c->socket, sizeof(c->socket), "%s", "/run/muudd/radio.sock");
-    c->ip_quiet_s = 90;
+    c->ip_quiet_s = 65;
     c->max_fragments = 8;
     c->nack_gap_s = 20;
     c->nack_hold_s = 120;
@@ -185,7 +185,9 @@ bool lora_config_allows(const lora_cfg_t *c, const char *process, const char *fu
     char v[LORA_ALLOW_LEN];
     if (process == NULL || function == NULL)
         return false;
-    snprintf(v, sizeof(v), "%s/%s", process, function);
+    /* A name too long for v cannot equal an allow entry; a truncated copy might. */
+    if (snprintf(v, sizeof(v), "%s/%s", process, function) >= (int)sizeof(v))
+        return false;
     for (size_t i = 0; i < c->n_allow; i++)
         if (strcmp(c->allow[i], v) == 0)
             return true;

@@ -1,0 +1,29 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-fragment-max-frags-zero-refuses-two"
+description: |
+  Zero as the fragment limit counts as one: 230 bytes at MTU 233 need two fragments and are refused.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "fragment"
+    type: "peer"
+    msg_id: 1
+    mtu: 233
+    max_fragments: 0
+    msg_len: 230
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "fragment"
+    description: "trigger: fragment"
+expected_state:
+  host:
+    error: true

@@ -11,6 +11,7 @@ ports again; a port the daemon refuses to give back is reported in
 import collections
 import itertools
 import queue
+import select
 import socket
 import threading
 import time
@@ -26,6 +27,9 @@ POLICIES = {"radiod": pb.RADIOD_BRIDGED, "consumer": pb.CONSUMER_BRIDGED}
 MAX_OUTSTANDING = 4096
 MAX_RECEIVED = 4096
 RECLAIM_TIMEOUT = 2.0
+# How long a send waits for room in the socket before giving up, unless
+# set_send_timeout says otherwise.
+SEND_TIMEOUT_MS = 5000
 
 # Put on a request's queue when the connection drops, to wake its waiter.
 _DISCONNECTED = object()
@@ -34,6 +38,7 @@ _DISCONNECTED = object()
 class RadioClient:
     def __init__(self, path, reconnect=True, connect_timeout=5.0, max_received=MAX_RECEIVED):
         self.path = path
+        self.send_timeout_ms = SEND_TIMEOUT_MS
         self.reconnect = reconnect
         self.reconnects = 0
         self.lost_claims = set()
@@ -56,6 +61,24 @@ class RadioClient:
         self._reader.start()
 
     # ---- public API ----
+
+    @property
+    def connected(self):
+        """True while the socket to radiod is open; false once the client saw
+        it fail, until a reconnect opens it again."""
+        return self._sock is not None
+
+    def set_send_timeout(self, ms):
+        """Sets how long one write may wait for room in the socket, in
+        milliseconds: 0 never waits, a negative value waits as long as it
+        takes. 0 is not a non-blocking mode with retries: the first write that
+        finds the socket full fails and closes the connection, and its claims
+        go with it until a reconnect claims them again. A write that runs out
+        of time closes the connection, because a partly written frame leaves
+        the stream out of step, and raises ConnectionError; with reconnect
+        on, the client then dials again.
+        Claims, releases, stats and re-claims write the same way."""
+        self.send_timeout_ms = ms
 
     @property
     def status(self):
@@ -142,6 +165,12 @@ class RadioClient:
 
     def close(self):
         self._closed = True
+        sock = self._sock
+        if sock is not None:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)     # wakes a write waiting under _wlock
+            except OSError:
+                pass
         with self._wlock:
             if self._sock is not None:
                 try:
@@ -168,6 +197,10 @@ class RadioClient:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             try:
                 s.connect(self.path)
+                # Blocking, whatever socket.setdefaulttimeout the host process
+                # set (AutonomousTrust sets 0.1 s): the connection is mostly
+                # idle, and a read timing out there was taken for radiod gone.
+                s.settimeout(None)
                 return s
             except OSError:
                 s.close()
@@ -177,14 +210,48 @@ class RadioClient:
                 delay = min(delay * 2, 1.0)
 
     def _write(self, msg):
-        data = encode(msg.SerializeToString())
+        """Writes one frame, waiting at most the send timeout for room in the
+        socket. The socket stays blocking for the reader thread, so the write
+        is non-blocking per call and waits in poll. Any failure closes the
+        connection and raises ConnectionError."""
+        data = memoryview(encode(msg.SerializeToString()))
         with self._wlock:
-            if self._sock is None:
+            sock = self._sock
+            if sock is None:
                 raise ConnectionError("not connected to radiod")
+            ms = self.send_timeout_ms
+            deadline = None if ms < 0 else time.monotonic() + ms / 1000
             try:
-                self._sock.sendall(data)
+                while data:
+                    try:
+                        data = data[sock.send(data, socket.MSG_DONTWAIT):]
+                        continue
+                    except BlockingIOError:
+                        pass
+                    if deadline is None:
+                        wait = None
+                    else:
+                        left = deadline - time.monotonic()
+                        if left <= 0:
+                            raise TimeoutError(f"radiod left no room in the socket for {ms} ms")
+                        wait = max(1, int(left * 1000))
+                    p = select.poll()
+                    p.register(sock, select.POLLOUT)
+                    p.poll(wait)
             except OSError as e:
+                self._fail_link(sock)
                 raise ConnectionError(f"write to radiod failed: {e}") from e
+
+    def _fail_link(self, sock):
+        """Closes the connection after a failed write (caller holds _wlock);
+        the reader thread wakes, reports the loss and reconnects if asked to."""
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        sock.close()
+        if self._sock is sock:
+            self._sock = None
 
     def _forget(self, req):
         with self._rlock:
@@ -296,8 +363,10 @@ class RadioClient:
                 if self._closed:
                     s.close()
                     return None
+                # Counted before the socket is published: whoever sees the
+                # client connected again also sees the new count.
+                self.reconnects += 1
                 self._sock = s
-            self.reconnects += 1
             try:
                 return self._reclaim(s)
             except (OSError, ValueError, DecodeError):

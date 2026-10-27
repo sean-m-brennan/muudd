@@ -1,0 +1,28 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "reasm-evict-global-cap"
+description: |
+  The seventeenth message in progress, from a fifth source, evicts the oldest of all into dedupe; the second oldest survives.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "reasm_trace"
+    nack_gap_s: 20
+    reassembly_s: 90
+    events: [{"at": 0, "src": 1, "hex": "11000101aa"}, {"at": 1, "src": 1, "hex": "11000201aa"}, {"at": 2, "src": 1, "hex": "11000301aa"}, {"at": 3, "src": 1, "hex": "11000401aa"}, {"at": 4, "src": 2, "hex": "11000501aa"}, {"at": 5, "src": 2, "hex": "11000601aa"}, {"at": 6, "src": 2, "hex": "11000701aa"}, {"at": 7, "src": 2, "hex": "11000801aa"}, {"at": 8, "src": 3, "hex": "11000901aa"}, {"at": 9, "src": 3, "hex": "11000a01aa"}, {"at": 10, "src": 3, "hex": "11000b01aa"}, {"at": 11, "src": 3, "hex": "11000c01aa"}, {"at": 12, "src": 4, "hex": "11000d01aa"}, {"at": 13, "src": 4, "hex": "11000e01aa"}, {"at": 14, "src": 4, "hex": "11000f01aa"}, {"at": 15, "src": 4, "hex": "11001001aa"}, {"at": 20, "src": 5, "hex": "11006301aa"}, {"at": 21, "src": 1, "hex": "11000111bb"}, {"at": 22, "src": 1, "hex": "11000211bb"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "reasm_trace"
+    description: "trigger: reasm_trace"
+expected_state:
+  host:
+    outputs: ["partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "partial", "duplicate", "complete aabb"]
+    stats: {"evicted": 1, "duplicate": 1}

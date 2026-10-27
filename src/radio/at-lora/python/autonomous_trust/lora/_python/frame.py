@@ -78,11 +78,13 @@ def max_message(type_: int, mtu: int, max_frags: int) -> int:
 def fragment(msg: bytes, type_: int, msg_id: int, mtu: int, max_frags: int,
              tag: bytes = None) -> list:
     per = payload_per_frag(type_, mtu)
+    if not 0 <= msg_id <= 0xFFFF:
+        raise FrameError('msg_id out of range')
     if not msg or per == 0 or (type_ == GROUP and (tag is None or len(tag) != TAG_LEN)) \
             or len(msg) > max_message(type_, mtu, max_frags):
         raise FrameError('cannot frame this message')
     count = (len(msg) + per - 1) // per
-    head = bytes([(VERSION << 4) | type_]) + (msg_id & 0xFFFF).to_bytes(2, 'big')
+    head = bytes([(VERSION << 4) | type_]) + msg_id.to_bytes(2, 'big')
     out = []
     for i in range(count):
         frag = bytes([(i << 4) | (count - 1)])

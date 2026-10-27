@@ -10,8 +10,18 @@ Rules shared with the C link:
   keeps the link down.
 - A refused claim logs one error per connection and is retried only after the
   client reconnects.
+- Every connection logs one 'connected' line and claims the port once, and
+  every loss of one logs one 'lost' line and fails the queued jobs, even when
+  the client has already dialled again by the time the link looks. All link
+  state, the MTU included, starts over on each connection.
 - When the connection is lost, the job being sent reports how many fragments
   radiod had already confirmed; the jobs queued behind it report 0.
+- One write to radiod waits at most SEND_TIMEOUT_MS for room in the socket;
+  past that the connection counts as lost, which also bounds how long close()
+  waits for a link thread caught in a send.
+- Results queue up to JOBS_MAX * 2 while nobody polls; a result finished while
+  the queue is full is dropped (the newest goes) and counted in
+  results_dropped.
 """
 import collections
 import threading
@@ -41,6 +51,7 @@ class RadioLink:
     RX_MAX = 64
     JOBS_MAX = 16
     RESULT_WAIT = 2.0
+    SEND_TIMEOUT_MS = 500
 
     def __init__(self, socket_path, port, logger):
         self.path, self.port, self.logger = socket_path, port, logger
@@ -50,6 +61,7 @@ class RadioLink:
         self._rx = collections.deque()
         self._results = []
         self.rx_dropped = 0
+        self.results_dropped = 0
         # Test seam: while true the link thread sends nothing, so queued jobs stay queued.
         self._pause_sending = False
         self._stop = threading.Event()
@@ -93,18 +105,25 @@ class RadioLink:
         with self._lock:
             self._state = replace(self._state, **kw)
 
+    def _result(self, ok, reason, sent, total):
+        """Queue one finished job's result (caller holds the lock)."""
+        if len(self._results) < self.JOBS_MAX * 2:
+            self._results.append((ok, reason, sent, total))
+        else:
+            self.results_dropped += 1       # nobody is polling; the newest result goes
+
     def _finish_head(self, ok, reason, sent):
         with self._lock:
             if self._jobs:
                 _, frags, _ = self._jobs.popleft()
-                self._results.append((ok, reason, sent, len(frags)))
+                self._result(ok, reason, sent, len(frags))
 
     def _fail_all(self, reason, head_sent=0):
         """Fail every queued job; the head reports head_sent confirmed fragments."""
         with self._lock:
             while self._jobs:
                 _, frags, _ = self._jobs.popleft()
-                self._results.append((False, reason, head_sent, len(frags)))
+                self._result(False, reason, head_sent, len(frags))
                 head_sent = 0
 
     def _check_mtu(self, mtu):
@@ -139,8 +158,8 @@ class RadioLink:
         from muudd_radio import radio_pb2 as pb
         self._refused_logged = self._mtu_warned = False
         self._held = False                      # radiod has granted us the port
-        self._had_status = False
-        self._claim_gen = self._seen_gen = 0    # reconnects count at the last claim try / sighting
+        # the client's reconnects count for the connection in use; None while there is none
+        self._conn_gen = None
         self._backoff = 0.1
         crash_logged = False
         while not self._stop.is_set():
@@ -150,7 +169,6 @@ class RadioLink:
                 if not crash_logged:
                     crash_logged = True
                     self.logger.exception('lora: unexpected error in the radiod link; resetting')
-                self._had_status = False
                 self._set(connected=False, claimed=False, radio_up=False, driver=False,
                           node_addr=0)
                 self._fail_all('RADIO_DOWN')
@@ -168,39 +186,40 @@ class RadioLink:
                 self._stop.wait(self._backoff)
                 self._backoff = min(self._backoff * 2, 2.0)
                 return
+            client.set_send_timeout(self.SEND_TIMEOUT_MS)
             self._client = client
             if self._stop.is_set():
                 return
             self._backoff = 0.1
-            self._set(connected=True)
-            self.logger.info('lora: connected to radiod at %s (port %d)', self.path, self.port)
-            # read before claiming: a drop and fast reconnect during the claim must still
-            # show up as a change afterwards
-            self._claim_gen = self._seen_gen = client.reconnects
-            self._try_claim(pb)
         c = self._client
+        # connected before reconnects: the client counts a reconnect before it
+        # shows itself connected again, so a live connection is never paired
+        # with the previous connection's count
+        alive = c.connected
+        gen = c.reconnects
+        if self._conn_gen is not None and (not alive or gen != self._conn_gen):
+            # the connection is gone, though the client may already have another
+            self._conn_gen = None
+            self.logger.warning('lora: lost the connection to radiod at %s (port %d)',
+                                self.path, self.port)
+            self._fail_all('RADIO_DOWN')
+            with self._lock:
+                self._state = LinkState()
+        if self._conn_gen is None:
+            if not alive:
+                self._stop.wait(0.05)
+                return
+            self._conn_gen = gen                # a new connection: warnings and claim start over
+            self._refused_logged = self._mtu_warned = self._held = False
+            with self._lock:
+                self._state = LinkState(connected=True)
+            self.logger.info('lora: connected to radiod at %s (port %d)', self.path, self.port)
+            self._try_claim(pb)                 # once per connection: a refusal is retried
+                                                # only after a reconnect
         status = c.status
-        if status is None:
-            if self._had_status:                # before the first status there is nothing to lose
-                self._had_status = False
-                self.logger.warning('lora: lost the connection to radiod at %s (port %d)',
-                                    self.path, self.port)
-                self._set(connected=False, radio_up=False, driver=False, node_addr=0,
-                          claimed=False)
-                self._fail_all('RADIO_DOWN')
-        else:
-            gen = c.reconnects
-            if gen != self._seen_gen:           # a new connection: warnings and claim start over
-                self._seen_gen = gen
-                self._refused_logged = self._mtu_warned = False
-                self.logger.info('lora: connected to radiod at %s (port %d)', self.path, self.port)
-            self._had_status = True
+        if status is not None:
             if self._held and self.port in c.lost_claims:
                 self._held = False              # radiod refused the client's own re-claim
-                self._claim_gen = -1
-            if not self._held and self._claim_gen != gen:
-                self._claim_gen = gen           # a refused claim is retried only after a reconnect
-                self._try_claim(pb)
             caps = status.caps if status.HasField('caps') else None
             mtu = next((m.mtu for m in status.mtus if m.port == self.port), self.state().mtu)
             self._check_mtu(mtu)

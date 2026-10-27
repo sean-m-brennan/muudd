@@ -51,6 +51,27 @@ DEFINE_TEST(test_fragment_limits)
 }
 END_TEST_DEFINITION()
 
+DEFINE_TEST(test_max_frags_is_clamped)
+{
+    uint8_t msg[3665];
+    _pattern(msg, sizeof(msg));
+    lora_frags_t f;
+    /* Zero and negative count as one fragment, anything above 16 as 16. */
+    for (int mf = -2; mf <= 0; mf++) {
+        ck_assert_int_eq(lora_fragment(msg, 229, LORA_T_PEER, 1, NULL, 233, mf, &f), 0);
+        ck_assert_int_eq((int)f.n, 1);
+        lora_frags_free(&f);
+        ck_assert_int_eq(lora_fragment(msg, 230, LORA_T_PEER, 1, NULL, 233, mf, &f), -1);
+        ck_assert_int_eq((int)lora_max_message(LORA_T_PEER, 233, mf), 229);
+    }
+    ck_assert_int_eq(lora_fragment(msg, 3664, LORA_T_PEER, 1, NULL, 233, 17, &f), 0);
+    ck_assert_int_eq((int)f.n, 16);
+    lora_frags_free(&f);
+    ck_assert_int_eq(lora_fragment(msg, 3665, LORA_T_PEER, 1, NULL, 233, 17, &f), -1);
+    ck_assert_int_eq((int)lora_max_message(LORA_T_PEER, 233, 1 << 30), 3664);
+}
+END_TEST_DEFINITION()
+
 DEFINE_TEST(test_decode_group_and_nack)
 {
     const uint8_t g[] = {0x12, 0x00, 0x07, 0x11, 0xa1, 0xb2, 0xc3, 0xd4, 0xff};
@@ -93,5 +114,6 @@ END_TEST_DEFINITION()
 RUN_TESTS(LORA_FRAME,
           test_fragment_peer_three_pieces,
           test_fragment_limits,
+          test_max_frags_is_clamped,
           test_decode_group_and_nack,
           test_decode_refusals)

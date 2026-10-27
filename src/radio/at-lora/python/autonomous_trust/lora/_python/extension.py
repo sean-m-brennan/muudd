@@ -125,10 +125,23 @@ def _also_unicast(proc, peer_uuid, frame, process, function):
         eng.on_unicast(peer_uuid, process, function, frame)
 
 
+def _same_group(a, b):
+    return a is b or (a is not None and b is not None
+                      and str(a.uuid).lower() == str(b.uuid).lower())
+
+
 def _fanout(proc, channel, frame, process, function, group):
+    """The LoRa frame carries the node's own group tag, so a group frame
+    sealed for another cohort (a gateway's send to a child cohort) stays off
+    the air: parent members could not open it and child members would drop
+    it as foreign. No group means the node's own."""
     eng = getattr(proc, '_lora', None)
-    if eng is not None:
-        eng.on_fanout(channel, process, function, frame)
+    if eng is None:
+        return
+    if (channel == 'group' and group is not None
+            and not _same_group(group, getattr(proc, 'group', None))):
+        return
+    eng.on_fanout(channel, process, function, frame)
 
 
 def _on_exclusion(proc, uuid, excluded):
@@ -157,8 +170,13 @@ def _handle_lora_addr(proc, queues, message):
 
 
 def _handle_lora_stats(proc, queues, message):
-    """Local only: the counters, the link and the address map, to return_to."""
-    if getattr(message, 'from_whom', None) is not None:
+    """Local only: the counters, the link and the address map, to return_to.
+    A local caller may name this node as the sender; any other sender came
+    from the wire."""
+    sender = getattr(message, 'from_whom', None)
+    me = getattr(getattr(proc, 'myself', None), 'uuid', None)
+    if sender is not None and (me is None or str(getattr(sender, 'uuid', '')).lower()
+                               != str(me).lower()):
         proc.logger.warning('lora: refusing lora_stats from the wire')
         return True
     eng = getattr(proc, '_lora', None)

@@ -6,6 +6,10 @@ Reads fixtures.lora.op, runs the extension's pure units, and asserts
 expected_state.host. Every op is deterministic; both adapters must assert the
 same values.
 """
+import json
+import os
+import tempfile
+
 from autonomous_trust.lora._python import config, policy
 from autonomous_trust.lora._python import frame as fr
 from autonomous_trust.lora._python.addrmap import AddrMap
@@ -117,21 +121,46 @@ class LoraAdapter:
     @staticmethod
     def _op_addrmap_trace(fx, exp):
         m, members, got = AddrMap(), None, []
-        for ev in fx['events']:
-            if 'members' in ev:
-                members = set(u.lower() for u in ev['members'])
-                got.append('ok')
-            elif 'announce' in ev:
-                u, a, t = ev['announce']
-                got.append(m.announce(u, a, t, None if members is None else (lambda x: x in members)))
-            elif 'addr_of' in ev:
-                a = m.addr_of(ev['addr_of'])
-                got.append('none' if a is None else 'addr %d' % a)
-            elif 'uuid_of' in ev:
-                u = m.uuid_of(ev['uuid_of'])
-                got.append('none' if u is None else 'uuid ' + u)
-            else:
-                got.append('removed' if m.remove(ev['remove']) else 'absent')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'addrmap.json')
+            for ev in fx['events']:
+                if 'members' in ev:
+                    members = set(u.lower() for u in ev['members'])
+                    got.append('ok')
+                elif 'announce' in ev:
+                    u, a, t = ev['announce']
+                    got.append(m.announce(u, a, t, None if members is None else (lambda x: x in members)))
+                elif 'addr_of' in ev:
+                    a = m.addr_of(ev['addr_of'])
+                    got.append('none' if a is None else 'addr %d' % a)
+                elif 'uuid_of' in ev:
+                    u = m.uuid_of(ev['uuid_of'])
+                    got.append('none' if u is None else 'uuid ' + u)
+                elif 'save' in ev:
+                    try:
+                        m.save(path, ev['save'])
+                        got.append('saved')
+                    except OSError:
+                        got.append('save failed')
+                elif 'saved_file' in ev:
+                    # The file's JSON, keys sorted and no spaces, as the C adapter prints it.
+                    try:
+                        with open(path) as f:
+                            got.append('file ' + json.dumps(json.load(f), sort_keys=True,
+                                                            separators=(',', ':')))
+                    except (OSError, ValueError):
+                        got.append('no file')
+                elif 'load' in ev:
+                    if os.path.exists(path):
+                        os.remove(path)
+                    if 'text' in ev['load']:
+                        with open(path, 'w') as f:
+                            f.write(ev['load']['text'])
+                    m, self_ms, err = AddrMap.load(path)
+                    got.append('load failed' if err else
+                               'loaded self=%d skipped=%d' % (self_ms, len(m.skipped)))
+                else:
+                    got.append('removed' if m.remove(ev['remove']) else 'absent')
         assert got == exp['outputs'], got
 
     @staticmethod

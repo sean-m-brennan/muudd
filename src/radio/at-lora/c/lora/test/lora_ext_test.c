@@ -22,6 +22,8 @@
 #include "identity/identity_priv.h"
 #include "processes/processes.h"
 #include "network/net_ext.h"
+#include "network/net_liveness.h"
+#include "utilities/logger.h"
 #include "utilities/message.h"
 #include "utilities/msg_types_priv.h"
 #include "lora/at_lora.h"
@@ -213,6 +215,26 @@ DEFINE_TEST(test_stats_answer_locally_and_refuse_the_wire)
 }
 END_TEST_DEFINITION()
 
+DEFINE_TEST(test_stats_answer_a_local_caller_that_names_this_node)
+{
+    (void)_live("239.192.0.1");
+    char fn[] = "lora_stats";
+    net_msg_t mine = {0}, other = {0};
+    mine.function = fn;
+    other.function = fn;
+    snprintf(mine.return_to, sizeof(mine.return_to), "%s", "tool");
+    snprintf(other.return_to, sizeof(other.return_to), "%s", "tool");
+    uuid_copy(mine.from_whom.uuid, g_me->uuid);
+    uuid_copy(other.from_whom.uuid, g_proc->protocol.peers[0].uuid);
+    ck_assert(net_ext_local_verb(&g_ctx, &mine));
+    ck_assert_int_eq(S.n, 1);
+    ck_assert_str_eq(S.function, "lora_stats_resp");
+    ck_assert(net_ext_local_verb(&g_ctx, &other));   /* refused, but owned */
+    ck_assert_int_eq(S.n, 1);
+    _unlive();
+}
+END_TEST_DEFINITION()
+
 DEFINE_TEST(test_periodic_queues_the_announcement_then_reports_it_sent)
 {
     lora_engine_t *e = _live("239.192.0.1");
@@ -252,6 +274,68 @@ DEFINE_TEST(test_periodic_refused_send_stays_due)
     net_ext_periodic(&g_ctx);
     ck_assert_int_eq(S.n, 3);
     ck_assert_int_eq((int)lora_engine_counter(e, "lora.announce.sent"), 1);
+    _unlive();
+}
+END_TEST_DEFINITION()
+
+/* Lines of @p path containing @p needle. */
+static int _lines_with(const char *path, const char *needle)
+{
+    FILE *f = fopen(path, "r");
+    ck_assert_ptr_nonnull(f);
+    char line[512];
+    int n = 0;
+    while (fgets(line, sizeof(line), f) != NULL)
+        if (strstr(line, needle) != NULL)
+            n++;
+    fclose(f);
+    return n;
+}
+
+DEFINE_TEST(test_a_full_network_queue_warns_once_a_minute)
+{
+    char log[600];
+    snprintf(log, sizeof(log), "%s/lora_ext_test.log", g_root);
+    logger_t lg;
+    ck_assert_int_eq(logger_init(&lg, DEBUG, log), 0);
+    (void)_live("239.192.0.1");
+    g_ctx.logger = &lg;
+    S.ret = 1;                                 /* the queue refuses it, twice within 60 s */
+    net_ext_periodic(&g_ctx);
+    net_ext_periodic(&g_ctx);
+    ck_assert_int_eq(S.n, 2);
+    ck_assert_int_eq(_lines_with(log, "lora: network queue full; announcement not queued"), 1);
+    _unlive();
+    if (lg.file != NULL)                       /* logger_close has no definition to link */
+        fclose(lg.file);
+    unlink(log);
+}
+END_TEST_DEFINITION()
+
+/* Only a group frame sealed for the node's own group goes on the air: its
+ * LoRa tag names that group, so a send to a child cohort stays off. */
+DEFINE_TEST(test_group_fanout_goes_only_for_the_nodes_own_group)
+{
+    lora_engine_t *e = _live("239.192.0.1");
+    net_liveness_reset(net_liveness_now() - 1000.0);   /* the peer is quiet on IP */
+    char peer[37];
+    uuid_unparse_lower(g_proc->protocol.peers[0].uuid, peer);
+    json_t *a = json_pack("{s:i,s:i}", "lora_addr", 0xB02, "issued_ms", 5);
+    ck_assert_int_eq(lora_engine_on_announce(e, peer, a, true), LORA_ANN_ACCEPTED);
+    json_decref(a);
+    group_t *child = calloc(1, sizeof(*child));
+    uuid_generate(child->uuid);
+    const uint8_t frame[3] = {1, 2, 3};
+    net_ext_fanout(NET_CHAN_GROUP, "identity", "group_key_update", child, frame, sizeof(frame));
+    ck_assert_int_eq((int)lora_engine_counter(e, "lora.tx.abandoned"), 0);
+    /* The fake link refuses every submit, so an attempted send counts abandoned. */
+    net_ext_fanout(NET_CHAN_GROUP, "identity", "group_key_update", &g_proc->protocol.group,
+                   frame, sizeof(frame));
+    ck_assert_int_eq((int)lora_engine_counter(e, "lora.tx.abandoned"), 1);
+    /* No group means the node's own. */
+    net_ext_fanout(NET_CHAN_GROUP, "identity", "group_key_update", NULL, frame, sizeof(frame));
+    ck_assert_int_eq((int)lora_engine_counter(e, "lora.tx.abandoned"), 2);
+    free(child);
     _unlive();
 }
 END_TEST_DEFINITION()
@@ -305,6 +389,9 @@ int main(void)
     test_periodic_queues_the_announcement_then_reports_it_sent();
     test_periodic_refused_send_stays_due();
     test_periodic_without_a_group_sends_nothing();
+    test_a_full_network_queue_warns_once_a_minute();
+    test_stats_answer_a_local_caller_that_names_this_node();
+    test_group_fanout_goes_only_for_the_nodes_own_group();
     test_announce_verb_refuses_an_unverified_envelope();
     net_exclusions_reset();
     snprintf(cmd, sizeof(cmd), "rm -rf '%s'", g_root);

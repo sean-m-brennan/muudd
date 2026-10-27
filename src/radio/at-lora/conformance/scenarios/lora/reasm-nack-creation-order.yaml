@@ -1,0 +1,27 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "reasm-nack-creation-order"
+description: |
+  NACKs for several quiet unicasts come out in creation order, not slot order, and skip a group message.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "reasm_trace"
+    nack_gap_s: 20
+    reassembly_s: 90
+    events: [{"at": 0, "src": 1, "hex": "11000101aa"}, {"at": 1, "src": 2, "hex": "11000201aa"}, {"at": 2, "src": 1, "hex": "11000301aa"}, {"at": 3, "src": 1, "hex": "11000111bb"}, {"at": 4, "src": 2, "hex": "11000401aa"}, {"at": 5, "src": 3, "hex": "12000501a1b2c3d4aa"}, {"at": 30, "tick": true}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "reasm_trace"
+    description: "trigger: reasm_trace"
+expected_state:
+  host:
+    outputs: ["partial", "partial", "partial", "complete aabb", "partial", "partial", "tick nack:2:2:2 nack:1:3:2 nack:2:4:2"]

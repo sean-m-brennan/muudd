@@ -60,8 +60,10 @@ static void _log(void *arg, int level, const char *msg)
         log_error(lg, "%s\n", msg);
     else if (level == 1)
         log_warn(lg, "%s\n", msg);
-    else
+    else if (level == 0)
         log_info(lg, "%s\n", msg);
+    else
+        log_debug(lg, "%s\n", msg);
 }
 
 static void _my_uuid(void *arg, char out[37])
@@ -287,10 +289,14 @@ static bool _lora_addr(net_msg_t *nmsg)
     return true;
 }
 
-/* Local only: the counters, the link and the address map, to return_to. */
+/* Local only: the counters, the link and the address map, to return_to. A
+ * local caller may name this node as the sender; any other sender came from
+ * the wire. */
 static bool _lora_stats(net_thread_ctx_t *ctx, net_msg_t *nmsg)
 {
-    if (!uuid_is_null(nmsg->from_whom.uuid)) {
+    if (!uuid_is_null(nmsg->from_whom.uuid)
+        && (ctx == NULL || ctx->myself == NULL
+            || uuid_compare(nmsg->from_whom.uuid, ctx->myself->uuid) != 0)) {
         log_warn(ctx != NULL ? ctx->logger : NULL, "lora: refusing lora_stats from the wire\n");
         return true;
     }
@@ -333,11 +339,19 @@ static void _also_unicast(const uuid_t peer, const char *process, const char *fu
     (void)lora_engine_on_unicast(g.eng, u, process, function, buf, len);
 }
 
+/* The LoRa frame carries the node's own group tag, so a group frame sealed
+ * for another cohort (a gateway's send to a child cohort) stays off the air:
+ * parent members could not open it and child members would drop it as
+ * foreign. No group means the node's own. */
 static void _fanout(net_channel_t ch, const char *process, const char *function,
                     const group_t *grp, const uint8_t *buf, size_t len)
 {
-    (void)grp;
-    if (g.eng != NULL && (ch == NET_CHAN_GROUP || ch == NET_CHAN_BROADCAST))
+    if (g.eng == NULL || g.ctx == NULL)
+        return;
+    if (ch == NET_CHAN_GROUP && grp != NULL
+        && uuid_compare(grp->uuid, g.ctx->proc->protocol.group.uuid) != 0)
+        return;
+    if (ch == NET_CHAN_GROUP || ch == NET_CHAN_BROADCAST)
         (void)lora_engine_on_fanout(g.eng, ch == NET_CHAN_BROADCAST, process, function, buf, len);
 }
 

@@ -8,10 +8,30 @@ import os
 import re
 import uuid as _uuid
 
+from .config import _too_deep
+
 # Only the 36-char hyphenated form, as C uuid_parse accepts; uuid.UUID alone
 # would also take braces, urn:uuid: and bare 32-hex.
 _UUID_RE = re.compile(r'[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\Z')
 _I63 = 2 ** 63   # jansson integers are signed 64-bit
+
+
+def _int64(text):
+    v = int(text)
+    if not -_I63 <= v < _I63:
+        raise ValueError('integer out of range')
+    return v
+
+
+def _finite(text):
+    v = float(text)
+    if v in (float('inf'), float('-inf')):
+        raise ValueError('real number out of range')
+    return v
+
+
+def _refuse_constant(name):
+    raise ValueError(name)
 
 
 def _norm(u):
@@ -108,7 +128,15 @@ class AddrMap:
             return m, 0, None
         try:
             with open(path) as f:
-                doc = json.load(f)
+                text = f.read()
+            # Nesting past 2048 levels, an integer past int64 or a non-finite
+            # number makes the whole file unreadable, as in C (jansson refuses
+            # the first and cannot hold the others), even inside a key that
+            # load() would otherwise ignore.
+            if _too_deep(text):
+                raise ValueError('nested more than 2048 levels deep')
+            doc = json.loads(text, parse_int=_int64, parse_float=_finite,
+                             parse_constant=_refuse_constant)
             if not isinstance(doc, dict) or type(doc.get('version')) is not int or doc.get('version') != 1 \
                     or not isinstance(doc.get('peers'), dict) \
                     or type(doc.get('self_issued_ms')) is not int \
@@ -119,5 +147,5 @@ class AddrMap:
                         or m.announce(u, v.get('addr'), v.get('issued_ms')) != 'accepted':
                     m.skipped.append(u)
             return m, doc['self_issued_ms'], None
-        except (OSError, ValueError, AttributeError, TypeError) as err:
+        except (OSError, ValueError, AttributeError, TypeError, RecursionError) as err:
             return cls(), 0, str(err)

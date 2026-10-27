@@ -1,0 +1,25 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-persist-roundtrip"
+description: |
+  A saved map is the pinned file, and a pinned file written in another key order loads: both runtimes read what either writes.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"announce": ["aaaaaaaa-0000-4000-8000-000000000001", 4097, 5]}, {"announce": ["aaaaaaaa-0000-4000-8000-000000000002", 4098, 7]}, {"save": 1234}, {"saved_file": true}, {"load": {"text": "{\"version\": 1, \"self_issued_ms\": 99, \"peers\": {\"aaaaaaaa-0000-4000-8000-000000000003\": {\"issued_ms\": 9, \"addr\": 8193}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000003"}, {"load": {"absent": true}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000003"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["accepted", "accepted", "saved", "file {\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097,\"issued_ms\":5},\"aaaaaaaa-0000-4000-8000-000000000002\":{\"addr\":4098,\"issued_ms\":7}},\"self_issued_ms\":1234,\"version\":1}", "loaded self=99 skipped=0", "none", "addr 8193", "loaded self=0 skipped=0", "none"]

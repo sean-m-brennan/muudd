@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -221,6 +222,51 @@ START_TEST(test_send_after_server_close_is_eio)
 }
 END_TEST
 
+/* A radiod that accepts and never reads: sends fill the socket, and the one
+ * that finds no room gives up after the send timeout and closes the link. */
+START_TEST(test_send_to_a_stalled_server_times_out)
+{
+    int lfd = listen_on("stall");
+    pid_t pid = fork();
+    if (pid == 0) {
+        int fd = accept(lfd, NULL, NULL);
+        (void)fd;
+        sleep(30);
+        _exit(0);
+    }
+    close(lfd);
+    mr_client_t *c;
+    ck_assert_int_eq(mr_client_connect(sock_path, &c), MR_OK);
+    mr_client_set_send_timeout(c, 300);
+    static uint8_t payload[16000];
+    Muudd__Radio__Send s = MUUDD__RADIO__SEND__INIT;
+    s.payload.data = payload;
+    s.payload.len = sizeof payload;
+    MrC2R m = MUUDD__RADIO__CONSUMER_TO_RADIOD__INIT;
+    m.msg_case = MUUDD__RADIO__CONSUMER_TO_RADIOD__MSG_SEND;
+    m.send = &s;
+    int rc = MR_OK, sent = 0, err = 0;
+    uint64_t took = 0;
+    while (rc == MR_OK && sent < 1000) {
+        uint64_t t0 = mr_now_ms();
+        rc = mr_client_send(c, &m);
+        err = errno;
+        took = mr_now_ms() - t0;
+        sent++;
+    }
+    ck_assert_int_eq(rc, MR_EIO);
+    ck_assert_int_eq(err, ETIMEDOUT);
+    ck_assert_uint_ge(took, 250);
+    ck_assert_uint_lt(took, 2000);
+    ck_assert(!mr_client_connected(c));
+    ck_assert_int_eq(mr_client_send(c, &m), MR_EIO);
+    mr_client_close(c);
+    kill(pid, SIGKILL);
+    waitpid(pid, NULL, 0);
+    unlink(sock_path);
+}
+END_TEST
+
 START_TEST(test_connected_follows_the_socket)
 {
     int lfd = listen_on("conn");
@@ -296,6 +342,7 @@ int main(void)
     tcase_add_test(tc, test_overflow_drops_oldest);
     tcase_add_test(tc, test_recv_zero_timeout_sees_pending);
     tcase_add_test(tc, test_send_after_server_close_is_eio);
+    tcase_add_test(tc, test_send_to_a_stalled_server_times_out);
     tcase_add_test(tc, test_connected_follows_the_socket);
     tcase_add_test(tc, test_reconnect_keeps_failed_claims);
     suite_add_tcase(s, tc);

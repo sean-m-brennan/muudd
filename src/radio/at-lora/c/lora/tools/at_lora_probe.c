@@ -5,7 +5,10 @@
 /* at_lora_probe: the C at-lora engine on a real radiod, for interop tests.
  * The peer is preloaded and always quiet; one optional unicast is sent with
  * one fragment optionally dropped on its first transmission, so the NACK
- * round is exercised deterministically. Prints deliveries and counters. */
+ * round is exercised deterministically. Prints "up" once its radiod link is
+ * up, then each delivery, then the counters. Exits 2 on bad arguments and 1
+ * when it cannot set up (the reason on stderr). */
+#include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,34 +92,78 @@ int main(int argc, char **argv)
              "\"allow\": [\"test/probe\"]}", port);
     if (lora_config_parse(text, &cfg, field, sizeof(field), why, sizeof(why)) != 0)
         return 2;
+    /* The message to send, decoded before anything starts. */
+    uint8_t *msg = NULL;
+    size_t msg_len = 0;
+    if (send_hex != NULL) {
+        size_t hex_len = strlen(send_hex);
+        if (hex_len == 0 || hex_len % 2 != 0)
+            return 2;
+        msg_len = hex_len / 2;
+        msg = malloc(msg_len);
+        if (msg == NULL) {
+            fprintf(stderr, "probe: out of memory\n");
+            return 1;
+        }
+        for (size_t i = 0; i < msg_len; i++) {
+            unsigned v;
+            if (!isxdigit((unsigned char)send_hex[2 * i]) || !isxdigit((unsigned char)send_hex[2 * i + 1])
+                || sscanf(send_hex + 2 * i, "%2x", &v) != 1) {
+                free(msg);
+                return 2;
+            }
+            msg[i] = (uint8_t)v;
+        }
+    }
+    /* A fresh path for the address map: the engine creates the file. */
     char map[] = "/tmp/at_lora_probe_XXXXXX";
     int fd = mkstemp(map);
+    if (fd < 0) {
+        perror("probe: mkstemp");
+        free(msg);
+        return 1;
+    }
     close(fd);
     unlink(map);
     g_link = lora_link_start(sock, port, _log, NULL);
+    if (g_link == NULL) {
+        fprintf(stderr, "probe: could not start the radio link\n");
+        free(msg);
+        return 1;
+    }
     lora_link_ops_t ops = lora_link_ops(g_link);
     ops.submit = _submit;
     lora_env_t env = {NULL, _my_uuid, _members, _quiet, _proto, _tag, _wall, _now, _log};
     lora_engine_t *e = lora_engine_new(&cfg, ops, env, map);
+    if (e == NULL) {
+        fprintf(stderr, "probe: could not create the engine\n");
+        lora_link_stop(g_link);
+        free(msg);
+        return 1;
+    }
     json_t *ann = json_pack("{s:I,s:I}", "lora_addr", (json_int_t)peer_addr, "issued_ms", (json_int_t)1);
-    lora_engine_on_announce(e, g_peer, ann, true);
+    if (ann == NULL || lora_engine_on_announce(e, g_peer, ann, true) != LORA_ANN_ACCEPTED) {
+        fprintf(stderr, "probe: the peer's announcement was not accepted\n");
+        json_decref(ann);
+        lora_engine_free(e);
+        lora_link_stop(g_link);
+        unlink(map);
+        free(msg);
+        return 1;
+    }
     json_decref(ann);
-    bool sent = send_hex == NULL;
+    bool up = false, sent = msg == NULL;
     double end = _now(NULL) + seconds;
     while (_now(NULL) < end) {
         lora_link_state_t st;
         lora_link_state(g_link, &st);
-        if (!sent && st.up) {
-            size_t n = strlen(send_hex) / 2;
-            uint8_t *msg = malloc(n);
-            for (size_t i = 0; i < n; i++) {
-                unsigned v;
-                sscanf(send_hex + 2 * i, "%2x", &v);
-                msg[i] = (uint8_t)v;
-            }
-            sent = lora_engine_on_unicast(e, g_peer, "test", "probe", msg, n);
-            free(msg);
+        if (st.up && !up) {
+            up = true;
+            printf("up\n");
+            fflush(stdout);
         }
+        if (!sent && st.up)
+            sent = lora_engine_on_unicast(e, g_peer, "test", "probe", msg, msg_len);
         lora_delivery_t d[8];
         size_t k = lora_engine_poll(e, d, 8);
         static const char *ch[] = {"peer", "broadcast", "group"};
@@ -130,8 +177,10 @@ int main(int argc, char **argv)
         }
         usleep(50000);
     }
-    const char *names[] = {"lora.tx.msgs", "lora.nack.sent", "lora.nack.served", "lora.rx.delivered"};
-    for (size_t i = 0; i < 4; i++)
+    free(msg);
+    const char *names[] = {"lora.tx.msgs", "lora.tx.frames", "lora.rx.frames", "lora.nack.sent",
+                           "lora.nack.served", "lora.rx.delivered"};
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++)
         printf("counter %s %llu\n", names[i], (unsigned long long)lora_engine_counter(e, names[i]));
     lora_engine_free(e);
     lora_link_stop(g_link);

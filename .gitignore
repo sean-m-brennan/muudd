@@ -8,6 +8,7 @@
 /lib/kith-covenant/Cargo.lock
 /lib/kith-covenant/.idea/
 /lib/ethne/target/
+/lib/ethne/src/rust/examples/recognition_handoff/target/
 /lib/ethne/src/python/ethne/_core*.so
 /lib/ethne/.pytest_cache/
 /lib/ethne/Cargo.lock

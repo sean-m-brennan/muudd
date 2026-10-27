@@ -1,0 +1,25 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "addrmap-persist-bad-file"
+description: |
+  Loading refuses a malformed file whole, skips a bad entry in a good file, and leaves what it could not take out of the map.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "addrmap_trace"
+    events: [{"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097,\"issued_ms\":5},\"not-a-uuid\":{\"addr\":4098,\"issued_ms\":5},\"aaaaaaaa-0000-4000-8000-000000000002\":{\"addr\":0,\"issued_ms\":5}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":2,\"self_issued_ms\":5,\"peers\":{}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":-1,\"peers\":{}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"peers\":{}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":[]}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "[]"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": ""}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":9223372036854775808,\"peers\":{}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097,\"issued_ms\":9223372036854775808}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097,\"issued_ms\":-9223372036854775809}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097,\"issued_ms\":1e400}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097,\"issued_ms\":NaN}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097,\"issued_ms\":5.5}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4294967295,\"issued_ms\":5}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":{\"addr\":4097}}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}, {"load": {"text": "{\"version\":1,\"self_issued_ms\":5,\"peers\":{\"aaaaaaaa-0000-4000-8000-000000000001\":4097}}"}}, {"addr_of": "aaaaaaaa-0000-4000-8000-000000000001"}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "addrmap_trace"
+    description: "trigger: addrmap_trace"
+expected_state:
+  host:
+    outputs: ["loaded self=5 skipped=2", "addr 4097", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "load failed", "none", "loaded self=5 skipped=1", "none", "loaded self=5 skipped=1", "none", "loaded self=5 skipped=1", "none", "loaded self=5 skipped=1", "none"]

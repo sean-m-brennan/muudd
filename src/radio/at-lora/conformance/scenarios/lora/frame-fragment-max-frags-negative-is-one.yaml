@@ -1,0 +1,30 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-fragment-max-frags-negative-is-one"
+description: |
+  A negative fragment limit counts as one: 229 bytes at MTU 233 still fill one DATA_PEER fragment.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "fragment"
+    type: "peer"
+    msg_id: 1
+    mtu: 233
+    max_fragments: -1
+    msg_len: 229
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "fragment"
+    description: "trigger: fragment"
+expected_state:
+  host:
+    lengths: [233]
+    headers_hex: ["11000100"]

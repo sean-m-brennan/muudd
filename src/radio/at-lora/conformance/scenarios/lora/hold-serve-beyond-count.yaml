@@ -1,0 +1,26 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "hold-serve-beyond-count"
+description: |
+  A NACK naming only fragments past the held count serves nothing but still uses up the message.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "hold_trace"
+    hold_s: 120
+    events: [{"at": 0, "put": {"dest": 9, "msg_id": 258, "frames_hex": ["11010201aa", "11010211bb"]}}, {"at": 1, "serve": {"dest": 9, "msg_id": 258, "missing": 12}}, {"at": 2, "serve": {"dest": 9, "msg_id": 258, "missing": 1}}]
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "hold_trace"
+    description: "trigger: hold_trace"
+expected_state:
+  host:
+    outputs: ["held", "served none", "served none"]

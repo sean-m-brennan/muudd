@@ -19,6 +19,7 @@ class FakeLink:
     def __init__(self):
         self.st = LinkState(True, True, True, True, 0xA01, 233)
         self.sent, self.rx, self.results, self.accept = [], [], [], True
+        self.results_dropped = 0
 
     def state(self):
         return self.st
@@ -136,6 +137,40 @@ def test_receive_side_refusals_are_counted(eng):
     assert (c['lora.rx.unknown_src'], c['lora.rx.bad_frame'], c['lora.rx.foreign_tag']) == (1, 2, 1)
 
 
+def test_dropped_frames_warn_once_a_minute_per_reason(eng, caplog):
+    """A dropped frame is logged as well as counted: one line per reason, at
+    most once a minute; WARN, except a duplicate, which is expected and logs
+    at DEBUG."""
+    e, link, env = eng
+    good = fr.fragment(b'x', fr.PEER, 1, 233, 8)[0]
+    with caplog.at_level(logging.WARNING, logger='t'):
+        link.rx += [(0xB02, b'\x99', 0), (0xB02, b'\x99', 0), (0xD04, good, 0)]
+        assert e.poll() == []
+        assert caplog.messages.count('lora: dropped a malformed frame from 0xb02 (counted in '
+                                     'lora.rx.bad_frame; logged at most once a minute)') == 1
+        assert sum('dropped a frame from an unmapped address from 0xd04' in m
+                   for m in caplog.messages) == 1
+        env.t += 30
+        link.rx.append((0xB02, b'\x99', 0))
+        e.poll()
+        assert sum('malformed' in m for m in caplog.messages) == 1
+        env.t += 31
+        link.rx.append((0xB02, b'\x99', 0))
+        e.poll()
+        assert sum('malformed' in m for m in caplog.messages) == 2
+        assert sum('unmapped' in m for m in caplog.messages) == 1
+    assert e.counters['lora.rx.bad_frame'] == 4
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger='t'):
+        link.rx += [(0xB02, good, 0)] * 3
+        assert len(e.poll()) == 1
+    assert e.counters['lora.rx.duplicate'] == 2
+    dups = [r for r in caplog.records if 'duplicate' in r.getMessage()]
+    assert [(r.levelno, r.getMessage()) for r in dups] == [
+        (logging.DEBUG, 'lora: dropped a duplicate frame from 0xb02 (counted in '
+                        'lora.rx.duplicate; logged at most once a minute)')]
+
+
 def test_nack_is_sent_for_a_stalled_unicast(eng):
     e, link, env = eng
     frames = fr.fragment(bytes(500), fr.PEER, 9, 233, 8)
@@ -240,6 +275,16 @@ def test_refusals_from_the_link_are_counted_by_reason(eng):
     link.results.append((False, 'OVER_BUDGET', 1, 3))
     e.poll()
     assert e.counters['lora.tx.refused.OVER_BUDGET'] == 1
+
+
+def test_results_the_link_dropped_are_counted(eng):
+    e, link, env = eng
+    e.poll()
+    assert e.counters['lora.tx.result_dropped'] == 0
+    link.results_dropped = 3
+    e.poll()
+    assert e.counters['lora.tx.result_dropped'] == 3
+    assert e.stats()['counters']['lora.tx.result_dropped'] == 3
 
 
 def test_first_msg_id_is_random(tmp_path):

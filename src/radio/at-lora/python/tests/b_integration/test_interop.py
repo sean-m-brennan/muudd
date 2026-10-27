@@ -8,6 +8,7 @@ import os
 import subprocess
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -82,48 +83,104 @@ def _python_engine(tmp_path, socket, peer_addr, drop=None):
     return eng, link
 
 
+class _Probe:
+    """at_lora_probe as a child process. Its stdout and stderr are read into
+    `lines` as they arrive, so a failure can show everything it said."""
+
+    def __init__(self, *args):
+        self.proc = subprocess.Popen([str(PROBE), *map(str, args)], stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT, text=True)
+        self.lines = []
+        self._reader = threading.Thread(target=self._read, daemon=True)
+        self._reader.start()
+
+    def _read(self):
+        for line in self.proc.stdout:
+            self.lines.append(line.rstrip('\n'))
+
+    def up(self, timeout=10):
+        return wait_until(lambda: 'up' in self.lines or self.proc.poll() is not None, timeout) \
+            and 'up' in self.lines
+
+    def finish(self, timeout=30):
+        """Wait for the probe to exit; its counters by name."""
+        assert self.proc.wait(timeout) == 0, 'probe exited %s;%s' % (self.proc.returncode, self)
+        self._reader.join(5)
+        out = {}
+        for line in self.lines:
+            parts = line.split()
+            if len(parts) == 3 and parts[0] == 'counter':
+                out[parts[1]] = int(parts[2])
+        return out
+
+    def stop(self):
+        if self.proc.poll() is None:
+            self.proc.kill()
+        self.proc.wait()
+        self._reader.join(5)
+
+    def __str__(self):
+        return ' probe output:\n' + '\n'.join(self.lines)
+
+
+@contextmanager
+def _probe(*args):
+    p = _Probe(*args)
+    try:
+        yield p
+    finally:
+        p.stop()
+
+
 def test_c_sends_python_recovers_by_nack(radios, tmp_path):
     c, p = radios
     eng, link = _python_engine(tmp_path, p.socket, 0xC0C)
-    probe = subprocess.Popen([str(PROBE), '--socket', c.socket, '--port', '10', '--me', C_UUID,
-                              '--peer', P_UUID, '--peer-addr', 'd0d', '--send-hex', MSG.hex(),
-                              '--drop-first-frag', '1', '--seconds', '15'],
-                             stdout=subprocess.PIPE, text=True)
     try:
-        got = []
-        assert wait_until(lambda: got.extend(eng.poll()) or got, 15, step=0.1)
-        assert got == [('peer', C_UUID, MSG)]
-        assert eng.counters['lora.nack.sent'] == 1
-        out = probe.communicate(timeout=30)[0]
-        assert 'counter lora.nack.served 1' in out
+        with _probe('--socket', c.socket, '--port', '10', '--me', C_UUID, '--peer', P_UUID,
+                    '--peer-addr', 'd0d', '--send-hex', MSG.hex(), '--drop-first-frag', '1',
+                    '--seconds', '15') as probe:
+            got = []
+            assert wait_until(lambda: got.extend(eng.poll()) or got, 15, step=0.1), str(probe)
+            assert got == [('peer', C_UUID, MSG)]
+            assert eng.counters['lora.nack.sent'] == 1
+            # Two of the three fragments on the first pass, then the one the NACK named.
+            assert eng.counters['lora.rx.frames'] == 3
+            counters = probe.finish()
+            assert counters['lora.nack.served'] == 1, probe
+            # Three fragments counted as sent (the probe drops one below the
+            # engine) and the one resent.
+            assert counters['lora.tx.msgs'] == 1 and counters['lora.tx.frames'] == 4, probe
     finally:
-        probe.kill()
         link.close()
 
 
 def test_python_sends_c_recovers_by_nack(radios, tmp_path):
     c, p = radios
-    probe = subprocess.Popen([str(PROBE), '--socket', c.socket, '--port', '10', '--me', C_UUID,
-                              '--peer', P_UUID, '--peer-addr', 'd0d', '--seconds', '15'],
-                             stdout=subprocess.PIPE, text=True)
-    eng, link = _python_engine(tmp_path, p.socket, 0xC0C, drop=1)
-    try:
-        time.sleep(1.0)                        # the probe's link comes up
-        assert eng.on_unicast(C_UUID, 'test', 'probe', MSG)
+    with _probe('--socket', c.socket, '--port', '10', '--me', C_UUID, '--peer', P_UUID,
+                '--peer-addr', 'd0d', '--seconds', '15') as probe:
+        eng, link = _python_engine(tmp_path, p.socket, 0xC0C, drop=1)
         stop = threading.Event()
+        t = None
+        try:
+            assert probe.up(), 'the probe\'s link did not come up;%s' % probe
+            assert eng.on_unicast(C_UUID, 'test', 'probe', MSG)
 
-        def pump():
-            while not stop.is_set():
-                eng.poll()
-                time.sleep(0.05)
-        t = threading.Thread(target=pump, daemon=True)
-        t.start()
-        out = probe.communicate(timeout=30)[0]
-        stop.set()
-        t.join()
-        assert 'deliver peer %s %s' % (P_UUID, MSG.hex()) in out
-        assert 'counter lora.nack.sent 1' in out
-        assert eng.counters['lora.nack.served'] == 1
-    finally:
-        probe.kill()
-        link.close()
+            def pump():
+                while not stop.is_set():
+                    eng.poll()
+                    time.sleep(0.05)
+            t = threading.Thread(target=pump, daemon=True)
+            t.start()
+            counters = probe.finish()
+            stop.set()
+            t.join()
+            assert 'deliver peer %s %s' % (P_UUID, MSG.hex()) in probe.lines, probe
+            assert counters['lora.nack.sent'] == 1, probe
+            assert counters['lora.rx.frames'] == 3 and counters['lora.rx.delivered'] == 1, probe
+            assert eng.counters['lora.nack.served'] == 1
+            assert eng.counters['lora.tx.msgs'] == 1 and eng.counters['lora.tx.frames'] == 4
+        finally:
+            stop.set()
+            if t is not None:
+                t.join()
+            link.close()

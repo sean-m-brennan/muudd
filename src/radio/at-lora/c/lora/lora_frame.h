@@ -54,13 +54,14 @@ int lora_encode_nack(uint16_t msg_id, uint16_t missing, uint8_t *out, size_t cap
  *  below LORA_MIN_MTU or the type carries no payload. */
 size_t lora_payload_per_frag(uint8_t type, uint32_t mtu);
 /** Largest message @p max_frags fragments carry (max_frags clamped 1..16). */
-size_t lora_max_message(uint8_t type, uint32_t mtu, unsigned max_frags);
+size_t lora_max_message(uint8_t type, uint32_t mtu, int max_frags);
 /** Split @p msg into data frames. @p tag is required for DATA_GROUP and
- *  ignored otherwise. @return 0 with @p out filled (free with
+ *  ignored otherwise; it points at exactly LORA_TAG_LEN bytes. @p max_frags is
+ *  clamped to 1..16. @return 0 with @p out filled (free with
  *  lora_frags_free), or -1: empty message, too big, MTU too small, a type
  *  that carries no payload, or a GROUP without a tag. */
 int lora_fragment(const uint8_t *msg, size_t len, uint8_t type, uint16_t msg_id,
-                  const uint8_t *tag, uint32_t mtu, unsigned max_frags,
+                  const uint8_t *tag, uint32_t mtu, int max_frags,
                   lora_frags_t *out);
 void lora_frags_free(lora_frags_t *f);
 

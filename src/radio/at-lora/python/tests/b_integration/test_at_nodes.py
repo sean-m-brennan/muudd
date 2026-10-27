@@ -3,7 +3,8 @@
 """Two AutonomousTrust nodes on loopback, each with its own radiod on a shared
 stub medium. With IP up nothing goes on the air; with IP cut, the presence
 heartbeat crosses over LoRa both ways and each keeps the other present; with
-IP healed the air goes quiet again; and killing a radiod does not disturb IP.
+IP healed the air goes quiet again; and killing a radiod does not disturb IP,
+and once it is back LoRa carries traffic again.
 
 UDP broadcast does not work on loopback, so the nodes' UDP transport is
 patched (as AT's own two-node test does) to unicast to the other node, and
@@ -34,7 +35,7 @@ pytestmark = pytest.mark.slow
 NODES = {'a': ('127.0.0.1', 0xA01), 'b': ('127.0.0.2', 0xB02)}
 AT_PORT = 10
 CAST_OFFSET = 5
-RUNTIME = 300
+RUNTIME = 360
 STAGGER = 15
 DOWN_S = 40           # radiod A down for longer than AT_PRESENCE_ABSENT_SEC (30)
 MP = multiprocessing.get_context('forkserver')
@@ -238,6 +239,20 @@ def _air(medium, seconds):
         s.close()
 
 
+def _first_from(medium, src, seconds):
+    """The first AT-port frame from src heard within seconds, or None."""
+    s = Sniffer(medium)
+    try:
+        end = time.monotonic() + seconds
+        while time.monotonic() < end:
+            for f in s.frames(0.5):
+                if f[0] == src and f[2] == AT_PORT:
+                    return f
+        return None
+    finally:
+        s.close()
+
+
 def _absent(log):
     return re.findall(r'^.*peer \S+ is absent.*$', log, re.MULTILINE)
 
@@ -311,5 +326,14 @@ def test_killing_a_radiod_leaves_ip_alone(cohort):
     # IP carried on throughout, so presence never flipped on either node.
     for n in (a, b):
         assert not _absent(_read(n['log'])), 'a peer went absent while IP was up;' + where
+    # The restarted radiod carries traffic: with IP cut, A's presence goes out
+    # over LoRa (about 21 s after the cut, as in the test above).
+    Path(cut).touch()
+    try:
+        from_a = _first_from(medium, 0xA01, 45)
+    finally:
+        os.remove(cut)
+    assert from_a is not None, 'nothing from A on the air after the reconnect;' + where
+    assert from_a[4][0] == 0x12, 'A sent a non-group frame 0x%02x;%s' % (from_a[4][0], where)
     errors = _lora_errors(nodes)
     assert not errors, 'lora errors: %s;%s' % (errors, where)

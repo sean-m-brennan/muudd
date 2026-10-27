@@ -53,7 +53,7 @@ of the wrong type, or names `network/lora_addr` in `allow` refuses the network
 start with an ERROR naming the field, as AT's other config gates do.
 
     {"socket": "/run/muudd/radio.sock", "port": 10,
-     "ip_quiet_s": 90, "max_fragments": 8, "nack_gap_s": 20, "nack_hold_s": 120,
+     "ip_quiet_s": 65, "max_fragments": 8, "nack_gap_s": 20, "nack_hold_s": 120,
      "reassembly_s": 90, "announce_s": 600,
      "allow": ["identity/group_key_update", "identity/group_partition_probe",
                "identity/group_partition_response", "identity/peer_dm"]}
@@ -62,7 +62,7 @@ start with an ERROR naming the field, as AT's other config gates do.
 |---|---|---|
 | `socket` | `/run/muudd/radio.sock` | non-empty path |
 | `port` | none, required | 3 to 255 |
-| `ip_quiet_s` | 90 | 10 to 86400 |
+| `ip_quiet_s` | 65 | 10 to 86400 |
 | `max_fragments` | 8 | 1 to 16 |
 | `nack_gap_s` | 20 | 1 to 600, less than `reassembly_s` |
 | `nack_hold_s` | 120 | 1 to 3600 |
@@ -280,13 +280,16 @@ Counters, the same names in both runtimes:
 
 | Group | Names |
 |---|---|
-| Transmit | `lora.tx.frames`, `lora.tx.msgs`, `lora.tx.refused.<REASON>`, `lora.tx.abandoned` |
+| Transmit | `lora.tx.frames`, `lora.tx.msgs`, `lora.tx.refused.<REASON>`, `lora.tx.abandoned`, `lora.tx.result_dropped` |
 | Receive | `lora.rx.frames`, `lora.rx.delivered`, `lora.rx.duplicate`, `lora.rx.unknown_src`, `lora.rx.conflict`, `lora.rx.foreign_tag`, `lora.rx.bad_frame`, `lora.rx.reasm_timeout`, `lora.rx.evicted` |
 | NACK | `lora.nack.sent`, `lora.nack.served` |
 | Announce | `lora.announce.sent`, `lora.announce.accepted`, `lora.announce.stale`, `lora.announce.unverified`, `lora.announce.full` |
 
 `lora.tx.abandoned` also counts a message refused locally because the link's
-job queue (16 messages) is full; IP sends are unaffected. The core adds
+job queue (16 messages) is full; IP sends are unaffected.
+`lora.tx.result_dropped` counts send results the link threw away because its
+result queue (32) was full, so the refusals behind them are missing from
+`lora.tx.refused.<REASON>`. The core adds
 `net.ext/group_decrypt_fail`.
 
 The local verb `network/lora_stats` returns the counters, the link state and
@@ -307,34 +310,32 @@ stop hook.
   failures, nothing more.
 - A message of more than `max_fragments` fragments is never sent by LoRa.
   Admission and `full_history` do not travel by LoRa.
-- With the default timings a peer becomes LoRa-eligible only once it is
-  already absent. `ip_quiet_s` is 90 s, but a presence heartbeat goes every
-  30 s and a peer is marked absent after 90 s of silence, so by the time the
-  transport has been quiet for `ip_quiet_s` the peer is already counted absent.
-  Lower `ip_quiet_s` (the minimum is 10) if fallback should start before AT
-  gives the peer up.
-
-## Known issues
-
-- The `muudd_radio` client inherits AT's process-wide 0.1 s socket timeout, so a
-  Python AT node reconnects to radiod once at startup. The fix belongs in
-  `client.py::_dial`.
+- `ip_quiet_s` and AT's presence timings are set together. A healthy idle peer
+  can go up to two heartbeat intervals (60 s at AT's default 30 s) without an IP
+  frame, so `ip_quiet_s` must be longer than that or LoRa carries traffic while
+  IP works. After an outage starts, the peer's next heartbeat can take another
+  60 s to go out over LoRa, so AT's `AT_PRESENCE_ABSENT_SEC` must be longer than
+  `ip_quiet_s` plus 60 s, with room for airtime, or the peer is marked absent
+  first. The defaults, 65 s and 150 s, meet both. Change one and check the
+  other.
 
 ## Tests
 
 | Command | Runs |
 |---|---|
 | `python/run-tests.sh` | Python unit tests (`tests/a_unit`) |
-| `ctest --test-dir build` | C unit tests, in the C build above |
-| `cd python && python -m pytest tests -q -m 'not slow'` | Python units plus the link and interop integration tests, against real radiod processes on stub drivers |
-| `cd python && python -m pytest tests -q -m slow` | The AT-node test: two real AT nodes and two radiods, IP cut and healed, radiod killed |
+| `ctest --test-dir build -R '^lora_' -j8` | The extension's C unit tests, in the C build above (the filter leaves out AT's own tests, which share the build) |
+| `cd python && python -m pytest tests -q -m 'not slow'` | Python units plus the link, interop and announcement integration tests, the first two against real radiod processes on stub drivers |
+| `cd python && python -m pytest tests -q -m slow` | The AT-node test: two real AT nodes and two radiods, IP cut and healed, radiod killed and LoRa used again once it is back |
 | `./test-conformance.sh` | AT's conformance run with the `lora` corpus, C and Python |
 
 The interop test needs the C probe built (`build/extensions/lora/at_lora_probe`)
 and the radiod binaries in `src/radio/build`. It exchanges a three-fragment
 unicast between the C engine and the Python engine over two real radiods, with
-one fragment dropped and recovered by NACK. A full C AT node over LoRa is a
-step in `src/radio/test/bench-checklist.md`.
+one fragment dropped and recovered by NACK. The announcement test signs a
+`lora_addr` announcement in each runtime and verifies it in the other, through
+AT's native library; it is skipped when that library is not built. A full C AT
+node over LoRa is a step in `src/radio/test/bench-checklist.md`.
 
 `test-conformance.sh` forwards its arguments to AT's `scripts/test-conformance.sh`
 (for instance `--no-clean`), and honours `AT_ROOT` and

@@ -37,6 +37,7 @@ struct lora_link {
     uint64_t rx_dropped;
     lora_link_result_t res[LORA_LINK_JOBS_MAX * 2];
     size_t n_res;
+    uint64_t res_dropped;
 };
 
 static double _now(void)
@@ -90,6 +91,8 @@ static void _finish_head(lora_link_t *l, bool ok, size_t sent, const char *reaso
         r->sent = sent;
         r->total = j->frags.n;
         snprintf(r->reason, sizeof(r->reason), "%s", ok ? "" : reason);
+    } else {
+        l->res_dropped++;      /* nobody is polling; the newest result goes */
     }
     lora_frags_free(&j->frags);
     memmove(&l->jobs[0], &l->jobs[1], (l->n_jobs - 1) * sizeof(job_t));
@@ -117,6 +120,11 @@ static int _send_claim(mr_client_t *c, uint32_t port, uint32_t req)
     m.claim = &cl;
     return mr_client_send(c, &m);
 }
+
+/* How long one write to radiod may wait for room in the socket. Past it the
+ * connection counts as lost, which also bounds how long lora_link_stop waits
+ * for a link thread caught in a send. */
+#define LINK_SEND_TIMEOUT_MS 500
 
 /* One fragment to put on the wire, copied out under mu so the (blocking) send
  * runs without it. The buffer stays valid because only the link thread ever
@@ -187,6 +195,7 @@ static void *_run(void *arg)
                 backoff = backoff * 2 > 2.0 ? 2.0 : backoff * 2;
                 continue;
             }
+            mr_client_set_send_timeout(c, LINK_SEND_TIMEOUT_MS);
             backoff = 0.1;
             refused_logged = false;
             mtu_warned = false;
@@ -267,7 +276,6 @@ static void *_run(void *arg)
                     sending = false;
                 } else {
                     frag_req = ++req;
-                    frag_deadline = _now() + 2.0;
                     _tx_set(&tx, &l->jobs[0], frag_idx, frag_req);
                 }
                 break;
@@ -289,14 +297,18 @@ static void *_run(void *arg)
                 sending = true;
                 frag_idx = 0;
                 frag_req = ++req;
-                frag_deadline = _now() + 2.0;
                 _tx_set(&tx, &l->jobs[0], 0, frag_req);
             }
         }
         pthread_mutex_unlock(&l->mu);
         _flush_logs(l, &pl);
-        if (tx.want && _send_frag(c, l->port, &tx) != MR_OK)
-            goto lost;
+        if (tx.want) {
+            if (_send_frag(c, l->port, &tx) != MR_OK)
+                goto lost;
+            /* The wait for SEND_RESULT starts once the fragment is out, so a
+             * slow write does not eat into it. */
+            frag_deadline = _now() + 2.0;
+        }
         continue;
 lost:
         pthread_mutex_lock(&l->mu);
@@ -398,12 +410,21 @@ uint64_t lora_link_rx_dropped(lora_link_t *l)
     return d;
 }
 
+uint64_t lora_link_results_dropped(lora_link_t *l)
+{
+    pthread_mutex_lock(&l->mu);
+    uint64_t d = l->res_dropped;
+    pthread_mutex_unlock(&l->mu);
+    return d;
+}
+
 static void _ops_state(void *ctx, lora_link_state_t *out) { lora_link_state(ctx, out); }
 static int _ops_submit(void *ctx, uint32_t dest, lora_frags_t *f, bool ack) { return lora_link_submit(ctx, dest, f, ack); }
 static size_t _ops_rx(void *ctx, lora_link_rx_t *o, size_t m) { return lora_link_poll_rx(ctx, o, m); }
 static size_t _ops_res(void *ctx, lora_link_result_t *o, size_t m) { return lora_link_poll_results(ctx, o, m); }
+static uint64_t _ops_res_dropped(void *ctx) { return lora_link_results_dropped(ctx); }
 
 lora_link_ops_t lora_link_ops(lora_link_t *l)
 {
-    return (lora_link_ops_t){l, _ops_state, _ops_submit, _ops_rx, _ops_res};
+    return (lora_link_ops_t){l, _ops_state, _ops_submit, _ops_rx, _ops_res, _ops_res_dropped};
 }

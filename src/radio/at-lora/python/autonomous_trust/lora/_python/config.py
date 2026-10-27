@@ -10,6 +10,8 @@ lora_config; the two agree on every edge:
 - a duplicate key keeps its last value;
 - errors are reported in this order: unknown key (document order), port, the
   numeric fields, the nack_gap_s/reassembly_s pair, socket, allow;
+- a document nested more than 2048 levels deep is unparseable (jansson's
+  limit; checked here before the parser runs, which would take far deeper);
 - field "(file)" means the text is not a JSON object, or the file is
   unreadable or over 16 KiB.
 """
@@ -21,12 +23,13 @@ FILENAME = 'lora.cfg.json'
 MAX_BYTES = 16384
 DEFAULT_ALLOW = ('identity/group_key_update', 'identity/group_partition_probe',
                  'identity/group_partition_response', 'identity/peer_dm')
-_RANGES = {'ip_quiet_s': (10, 86400, 90), 'max_fragments': (1, 16, 8),
+_RANGES = {'ip_quiet_s': (10, 86400, 65), 'max_fragments': (1, 16, 8),
            'nack_gap_s': (1, 600, 20), 'nack_hold_s': (1, 3600, 120),
            'reassembly_s': (2, 3600, 90), 'announce_s': (30, 86400, 600)}
 _VERB = re.compile(r'[a-z0-9_]{1,64}/[a-z0-9_]{1,64}')
 _KNOWN = {'socket', 'port', 'allow', *_RANGES}
 _INT64 = (-2 ** 63, 2 ** 63 - 1)
+_MAX_DEPTH = 2048
 
 
 class ConfigError(ValueError):
@@ -92,7 +95,26 @@ def _strings_ok(doc):
     return True
 
 
+def _too_deep(text):
+    """Whether arrays and objects nest past _MAX_DEPTH (brackets in strings do not count)."""
+    depth, in_str, esc = 0, False, False
+    for c in text:
+        if in_str:
+            in_str, esc = (c != '"' or esc), (c == '\\' and not esc)
+        elif c == '"':
+            in_str = True
+        elif c in '[{':
+            depth += 1
+            if depth > _MAX_DEPTH:
+                return True
+        elif c in ']}':
+            depth -= 1
+    return False
+
+
 def parse(text) -> LoraConfig:
+    if _too_deep(text):
+        raise ConfigError('(file)', 'not a JSON object')
     try:
         doc = json.loads(text, parse_int=_parse_int, parse_float=_parse_float,
                          parse_constant=_refuse_constant)

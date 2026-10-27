@@ -68,12 +68,12 @@ size_t lora_payload_per_frag(uint8_t type, uint32_t mtu)
     return hdr == 0 ? 0 : (size_t)mtu - hdr;
 }
 
-static unsigned _clamp_frags(unsigned max_frags)
+static unsigned _clamp_frags(int max_frags)
 {
-    return max_frags < 1 ? 1 : (max_frags > LORA_MAX_FRAGS ? LORA_MAX_FRAGS : max_frags);
+    return max_frags < 1 ? 1 : (max_frags > LORA_MAX_FRAGS ? LORA_MAX_FRAGS : (unsigned)max_frags);
 }
 
-size_t lora_max_message(uint8_t type, uint32_t mtu, unsigned max_frags)
+size_t lora_max_message(uint8_t type, uint32_t mtu, int max_frags)
 {
     return lora_payload_per_frag(type, mtu) * _clamp_frags(max_frags);
 }
@@ -88,7 +88,7 @@ void lora_frags_free(lora_frags_t *f)
 }
 
 int lora_fragment(const uint8_t *msg, size_t len, uint8_t type, uint16_t msg_id,
-                  const uint8_t *tag, uint32_t mtu, unsigned max_frags,
+                  const uint8_t *tag, uint32_t mtu, int max_frags,
                   lora_frags_t *out)
 {
     if (out == NULL)

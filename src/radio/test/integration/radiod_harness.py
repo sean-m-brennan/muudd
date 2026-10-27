@@ -137,3 +137,6 @@ class Radiod:
     def kill(self):
         self.proc.kill()
         self.proc.wait()
+        if self._logf:
+            self._logf.close()
+            self._logf = None

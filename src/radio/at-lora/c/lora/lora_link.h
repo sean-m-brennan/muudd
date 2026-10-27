@@ -32,8 +32,9 @@ typedef struct lora_link lora_link_t;
 /* Starts the link thread: connects (retry backoff 0.1 s doubling to 2 s) and
  * claims the port CONSUMER_BRIDGED. NULL on failure. */
 lora_link_t *lora_link_start(const char *socket_path, uint32_t port, lora_log_fn log, void *log_arg);
-/* Stops the thread (within about 50 ms), fails anything outstanding with
- * RADIO_DOWN, and frees the link. */
+/* Stops the thread (within about 50 ms, or about half a second when radiod
+ * has stopped reading and a send is waiting for room), fails anything
+ * outstanding with RADIO_DOWN, and frees the link. */
 void lora_link_stop(lora_link_t *l);
 void lora_link_state(lora_link_t *l, lora_link_state_t *out);
 /* Takes ownership of the fragments on success (0). -1, fragments untouched,
@@ -41,10 +42,13 @@ void lora_link_state(lora_link_t *l, lora_link_state_t *out);
 int lora_link_submit(lora_link_t *l, uint32_t dest, lora_frags_t *frags, bool want_ack);
 /* Moves up to max received frames out of the queue; returns how many. */
 size_t lora_link_poll_rx(lora_link_t *l, lora_link_rx_t *out, size_t max);
-/* Moves up to max finished-message results out, oldest first. */
+/* Moves up to max finished-message results out, oldest first. The queue holds
+ * LORA_LINK_JOBS_MAX * 2; a result finished while it is full is dropped. */
 size_t lora_link_poll_results(lora_link_t *l, lora_link_result_t *out, size_t max);
 /* Received frames dropped because the queue was full. */
 uint64_t lora_link_rx_dropped(lora_link_t *l);
+/* Results dropped because the result queue was full. */
+uint64_t lora_link_results_dropped(lora_link_t *l);
 
 typedef struct {
     void *ctx;
@@ -52,6 +56,7 @@ typedef struct {
     int (*submit)(void *ctx, uint32_t dest, lora_frags_t *frags, bool want_ack);
     size_t (*poll_rx)(void *ctx, lora_link_rx_t *out, size_t max);
     size_t (*poll_results)(void *ctx, lora_link_result_t *out, size_t max);
+    uint64_t (*results_dropped)(void *ctx);    /* may be NULL: nothing is dropped */
 } lora_link_ops_t;
 /* The same operations as a table, so the engine can run against a fake. */
 lora_link_ops_t lora_link_ops(lora_link_t *l);

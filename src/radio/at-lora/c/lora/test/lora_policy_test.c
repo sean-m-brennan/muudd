@@ -42,7 +42,7 @@ DEFINE_TEST(test_config_defaults_and_refusals)
     char field[64], why[160];
     ck_assert_int_eq(lora_config_parse("{\"port\": 10}", &c, field, sizeof(field), why, sizeof(why)), 0);
     ck_assert_str_eq(c.socket, "/run/muudd/radio.sock");
-    ck_assert_int_eq((int)c.ip_quiet_s, 90);
+    ck_assert_int_eq((int)c.ip_quiet_s, 65);
     ck_assert_int_eq((int)c.n_allow, 4);
     ck_assert(lora_config_allows(&c, "identity", "peer_dm"));
     ck_assert(!lora_config_allows(&c, "identity", "presence"));
@@ -59,7 +59,24 @@ DEFINE_TEST(test_config_defaults_and_refusals)
 }
 END_TEST_DEFINITION()
 
+DEFINE_TEST(test_allows_does_not_truncate)
+{
+    /* A 129-character entry (the longest) must not match a longer name that
+     * shares its first 129 characters. */
+    char a[65], b[65], json[512], over[66], field[64], why[160];
+    memset(a, 'a', 64); a[64] = '\0';
+    memset(b, 'b', 64); b[64] = '\0';
+    snprintf(over, sizeof(over), "%sc", b);
+    snprintf(json, sizeof(json), "{\"port\": 10, \"allow\": [\"%s/%s\"]}", a, b);
+    lora_cfg_t c;
+    ck_assert_int_eq(lora_config_parse(json, &c, field, sizeof(field), why, sizeof(why)), 0);
+    ck_assert(lora_config_allows(&c, a, b));
+    ck_assert(!lora_config_allows(&c, a, over));
+}
+END_TEST_DEFINITION()
+
 RUN_TESTS(LORA_POLICY,
           test_unicast_needs_every_condition,
           test_fanout_broadcast_ignores_format,
-          test_config_defaults_and_refusals)
+          test_config_defaults_and_refusals,
+          test_allows_does_not_truncate)

@@ -1,0 +1,26 @@
+# Copyright 2026 Sean M. Brennan and contributors
+# SPDX-License-Identifier: Apache-2.0
+schema_version: "1"
+kind: "scenario"
+protocol: "lora"
+name: "frame-nack-all-fragments"
+description: |
+  A NACK missing all sixteen fragments (0xFFFF) for message 0 encodes to five bytes.
+byte_pinning: false
+participants:
+  - id: "host"
+    role: "recipient"
+fixtures:
+  lora:
+    op: "nack"
+    msg_id: 0
+    missing: 65535
+steps:
+  - id: 1
+    from: "host"
+    to: "host"
+    function: "nack"
+    description: "trigger: nack"
+expected_state:
+  host:
+    hex: "140000ffff"

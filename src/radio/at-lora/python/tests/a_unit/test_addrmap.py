@@ -86,6 +86,39 @@ def test_load_rejects_out_of_range_and_wrong_types(tmp_path):
         assert m.snapshot() == [] and s == 3 and err is None and m.skipped == [A], body
 
 
+def test_load_refuses_a_file_with_an_integer_or_real_it_cannot_hold(tmp_path):
+    # C cannot parse these (jansson), so the whole file is refused there; so here.
+    path = tmp_path / 'p.json'
+    for bad in ('9223372036854775808', '-9223372036854775809', '1e400', 'NaN', 'Infinity'):
+        path.write_text('{"version":1,"self_issued_ms":3,"peers":{"%s":{"addr":1,"issued_ms":%s}}}'
+                        % (A, bad))
+        m, s, err = AddrMap.load(str(path))
+        assert m.snapshot() == [] and s == 0 and err, bad
+        path.write_text('{"version":1,"self_issued_ms":%s,"peers":{}}' % bad)
+        m, s, err = AddrMap.load(str(path))
+        assert s == 0 and err, bad
+
+
+def test_load_refuses_a_file_nested_past_2048_levels(tmp_path):
+    # jansson stops at 2048 levels and refuses the whole file, even when the
+    # depth sits in a key the map never reads; brackets inside a string do
+    # not count.
+    path = tmp_path / 'p.json'
+    good = '"%s":{"addr":4097,"issued_ms":5}' % A
+
+    def doc(extra):
+        return '{"version":1,"self_issued_ms":5,"x":%s,"peers":{%s}}' % (extra, good)
+    path.write_text(doc('[' * 2047 + ']' * 2047))       # 2048 with the root object
+    m, s, err = AddrMap.load(str(path))
+    assert err is None and s == 5 and m.addr_of(A) == 4097
+    path.write_text(doc('[' * 2048 + ']' * 2048))
+    m, s, err = AddrMap.load(str(path))
+    assert err and s == 0 and m.snapshot() == []
+    path.write_text(doc('"%s"' % ('[{' * 3000)))
+    m, s, err = AddrMap.load(str(path))
+    assert err is None and m.addr_of(A) == 4097
+
+
 def test_conflicting_entries_survive_save_load(tmp_path):
     path = str(tmp_path / 'p.json')
     m = AddrMap()
@@ -128,14 +161,26 @@ def test_load_skips_a_bad_entry_and_keeps_the_rest(tmp_path):
     assert sorted(m.skipped) == sorted([B, 'not-a-uuid'])
 
 
-def test_save_syncs_the_file_before_the_rename(tmp_path, monkeypatch):
+def test_save_syncs_the_file_then_renames_then_syncs_the_directory(tmp_path, monkeypatch):
     import os
-    synced = []
-    real = os.fsync
-    monkeypatch.setattr(os, 'fsync', lambda fd: synced.append(fd) or real(fd))
+    import stat
+    calls = []
+    real_fsync, real_replace = os.fsync, os.replace
+
+    def fsync(fd):
+        st = os.fstat(fd)
+        calls.append(('fsync dir' if stat.S_ISDIR(st.st_mode) else 'fsync file', st.st_ino))
+        return real_fsync(fd)
+
+    def replace(src, dst):
+        calls.append(('replace', os.stat(src).st_ino))
+        return real_replace(src, dst)
+    monkeypatch.setattr(os, 'fsync', fsync)
+    monkeypatch.setattr(os, 'replace', replace)
     path = str(tmp_path / 'p.json')
     m = AddrMap()
     m.announce(A, 0x3000, 5)
     m.save(path, 1)
-    assert len(synced) >= 1
+    file_ino, dir_ino = os.stat(path).st_ino, os.stat(str(tmp_path)).st_ino
+    assert calls == [('fsync file', file_ino), ('replace', file_ino), ('fsync dir', dir_ino)]
     assert AddrMap.load(path)[0].addr_of(A) == 0x3000

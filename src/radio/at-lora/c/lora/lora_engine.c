@@ -31,6 +31,18 @@
 
 typedef struct { char name[48]; uint64_t v; } counter_t;
 
+/* Why an arriving frame was dropped: its counter (lora.rx.<key>), the log
+ * text and level. Duplicates are expected (NACK resends, multipath), so they
+ * log at DEBUG; the rest WARN. */
+typedef enum { DROP_BAD, DROP_UNKNOWN, DROP_CONFLICT, DROP_FOREIGN, DROP_DUPLICATE, DROP_N } drop_t;
+static const struct { const char *key, *what; int level; } DROPS[DROP_N] = {
+    [DROP_BAD] = {"bad_frame", "a malformed frame", 1},
+    [DROP_UNKNOWN] = {"unknown_src", "a frame from an unmapped address", 1},
+    [DROP_CONFLICT] = {"conflict", "a frame from a conflicted address", 1},
+    [DROP_FOREIGN] = {"foreign_tag", "a frame with another group's tag", 1},
+    [DROP_DUPLICATE] = {"duplicate", "a duplicate frame", -1},
+};
+
 struct lora_engine {
     lora_cfg_t cfg;
     lora_link_ops_t link;
@@ -48,6 +60,7 @@ struct lora_engine {
     size_t n_announced_to;
     bool json_logged;
     double full_warned_at;         /* the address-map-full WARN */
+    double drop_warned_at[DROP_N]; /* the dropped-frame logs, one per reason */
     counter_t c[COUNTERS_MAX];
     size_t n_c;
     /* Scratch: the environment's roster, and it without us. */
@@ -140,6 +153,8 @@ lora_engine_t *lora_engine_new(const lora_cfg_t *cfg, lora_link_ops_t link, lora
         _logf(e, 1, "lora: %s: skipped %d bad entr%s (%s); kept the rest", e->path, loaded,
               loaded == 1 ? "y" : "ies", lora_addrmap_skipped(e->map));
     e->full_warned_at = -1e300;
+    for (size_t i = 0; i < DROP_N; i++)
+        e->drop_warned_at[i] = -1e300;
     e->msg_id = (uint16_t)randombytes_uniform(65536);
     e->last_announce = -1e300;
     e->last_summary = env.now(env.arg);
@@ -444,6 +459,21 @@ void lora_engine_announce_sent(lora_engine_t *e, uint32_t addr, uint64_t issued_
     _count(e, "lora.announce.sent", 1);
 }
 
+/* Count a frame from @p src dropped for @p why, and log it unless that reason
+ * was logged in the last WARN_EVERY_S. */
+static void _drop(lora_engine_t *e, drop_t why, uint32_t src, double now)
+{
+    char name[48];
+    snprintf(name, sizeof(name), "lora.rx.%s", DROPS[why].key);
+    _count(e, name, 1);
+    if (now - e->drop_warned_at[why] < WARN_EVERY_S)
+        return;
+    e->drop_warned_at[why] = now;
+    _logf(e, DROPS[why].level,
+          "lora: dropped %s from 0x%x (counted in %s; logged at most once a minute)",
+          DROPS[why].what, src, name);
+}
+
 /* Answer a NACK from @p src with the held fragments it is missing. */
 static void _serve_nack(lora_engine_t *e, uint32_t src, const lora_frame_t *f, double now)
 {
@@ -467,16 +497,16 @@ static bool _data(lora_engine_t *e, uint32_t src, const char *uuid, const lora_f
     uint8_t tag[4];
     if (f->type == LORA_T_GROUP
         && (!e->env.group_tag(e->env.arg, tag) || memcmp(f->tag, tag, 4) != 0)) {
-        _count(e, "lora.rx.foreign_tag", 1);
+        _drop(e, DROP_FOREIGN, src, now);
         return false;
     }
     uint8_t *msg = NULL;
     size_t len = 0;
     lora_rx_status_t st = lora_reasm_add(e->reasm, src, f, now, &msg, &len);
     if (st == LORA_RX_DUPLICATE) {
-        _count(e, "lora.rx.duplicate", 1);
+        _drop(e, DROP_DUPLICATE, src, now);
     } else if (st == LORA_RX_BAD) {
-        _count(e, "lora.rx.bad_frame", 1);
+        _drop(e, DROP_BAD, src, now);
     } else if (st == LORA_RX_COMPLETE) {
         _count(e, "lora.rx.delivered", 1);
         out->channel = f->type == LORA_T_PEER    ? LORA_DELIVER_PEER
@@ -503,6 +533,9 @@ size_t lora_engine_poll(lora_engine_t *e, lora_delivery_t *out, size_t max)
                          (int)sizeof(res[i].reason), res[i].reason);
                 _count(e, name, 1);
             }
+    /* Results the link had no room to queue: refusals the counters above miss. */
+    _set(e, "lora.tx.result_dropped",
+         e->link.results_dropped != NULL ? e->link.results_dropped(e->link.ctx) : 0);
     size_t n = 0;
     lora_link_rx_t rx[LORA_LINK_RX_MAX];
     /* At most @p max frames: each completes at most one message, so every
@@ -514,10 +547,10 @@ size_t lora_engine_poll(lora_engine_t *e, lora_delivery_t *out, size_t max)
         char uuid[37];
         _count(e, "lora.rx.frames", 1);
         if (r->via != 0 || lora_frame_decode(r->payload, r->len, &f) != 0) {
-            _count(e, "lora.rx.bad_frame", 1);
+            _drop(e, DROP_BAD, r->src, now);
         } else if (!lora_addrmap_uuid_of(e->map, r->src, uuid)) {
-            _count(e, lora_addrmap_addr_conflicted(e->map, r->src) ? "lora.rx.conflict"
-                                                                    : "lora.rx.unknown_src", 1);
+            _drop(e, lora_addrmap_addr_conflicted(e->map, r->src) ? DROP_CONFLICT : DROP_UNKNOWN,
+                  r->src, now);
         } else if (f.type == LORA_T_NACK) {
             _serve_nack(e, r->src, &f, now);
         } else {

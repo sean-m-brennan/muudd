@@ -6,6 +6,7 @@ It knows nothing of AT's processes: the glue hands it an environment
 (roster, transport quiet time, group format and tag, clocks). Twin of C
 lora_engine."""
 import collections
+import logging
 import random
 
 from . import frame as fr
@@ -18,6 +19,14 @@ MEMBER_ANNOUNCE_S = 60.0
 SUMMARY_S = 300.0
 WARN_EVERY_S = 60.0
 _CHANNEL = {fr.PEER: 'peer', fr.GROUP: 'group', fr.BCAST: 'broadcast'}
+# Why an arriving frame was dropped: its counter (lora.rx.<key>) -> the log
+# text and level. Duplicates are expected (NACK resends, multipath), so they
+# log at DEBUG; the rest WARN.
+_DROPS = {'bad_frame': ('a malformed frame', logging.WARNING),
+          'unknown_src': ('a frame from an unmapped address', logging.WARNING),
+          'conflict': ('a frame from a conflicted address', logging.WARNING),
+          'foreign_tag': ("a frame with another group's tag", logging.WARNING),
+          'duplicate': ('a duplicate frame', logging.DEBUG)}
 
 
 class Engine:
@@ -42,6 +51,7 @@ class Engine:
         self._was_down = False
         self._json_logged = False
         self._full_warned_at = float('-inf')
+        self._drop_warned_at = dict.fromkeys(_DROPS, float('-inf'))
         self._last_summary = env.now()
 
     # ---- helpers ----
@@ -73,6 +83,18 @@ class Engine:
         return [u for u in self._members()
                 if self.addrmap.addr_of(u) is not None
                 and self.env.quiet_for(u) >= self.cfg.ip_quiet_s]
+
+    def _drop(self, why, src, now):
+        """Count a frame from ``src`` dropped for ``why``, and log it unless
+        that reason was logged in the last WARN_EVERY_S."""
+        name = 'lora.rx.' + why
+        self.counters[name] += 1
+        if now - self._drop_warned_at[why] < WARN_EVERY_S:
+            return
+        self._drop_warned_at[why] = now
+        what, level = _DROPS[why]
+        self.logger.log(level, 'lora: dropped %s from 0x%x (counted in %s; logged at most once '
+                        'a minute)', what, src, name)
 
     def _submit(self, dest, frags, want_ack):
         if not self.link.submit(dest, frags, want_ack):
@@ -211,21 +233,23 @@ class Engine:
         for ok, reason, _sent, _total in self.link.poll_results():
             if not ok:
                 self.counters['lora.tx.refused.%s' % reason] += 1
+        # results the link had no room to queue: refusals the counters above miss
+        self.counters['lora.tx.result_dropped'] = self.link.results_dropped
         out = []
         for src, payload, via in self.link.poll_rx():
             self.counters['lora.rx.frames'] += 1
             if via != 0:
-                self.counters['lora.rx.bad_frame'] += 1
+                self._drop('bad_frame', src, now)
                 continue
             try:
                 f = fr.decode(payload)
             except fr.FrameError:
-                self.counters['lora.rx.bad_frame'] += 1
+                self._drop('bad_frame', src, now)
                 continue
             uuid = self.addrmap.uuid_of(src)
             if uuid is None:
-                key = 'conflict' if self.addrmap.addr_conflicted(src) else 'unknown_src'
-                self.counters['lora.rx.' + key] += 1
+                self._drop('conflict' if self.addrmap.addr_conflicted(src) else 'unknown_src',
+                           src, now)
                 continue
             if f.type == fr.NACK:
                 frames = self.hold.serve(src, f.msg_id, f.missing, now)
@@ -237,13 +261,13 @@ class Engine:
                         self.counters['lora.tx.abandoned'] += 1
                 continue
             if f.type == fr.GROUP and f.tag != self.env.group_tag():
-                self.counters['lora.rx.foreign_tag'] += 1
+                self._drop('foreign_tag', src, now)
                 continue
             status, msg = self.reasm.add(src, f, now)
             if status == 'duplicate':
-                self.counters['lora.rx.duplicate'] += 1
+                self._drop('duplicate', src, now)
             elif status == 'bad':
-                self.counters['lora.rx.bad_frame'] += 1
+                self._drop('bad_frame', src, now)
             elif status == 'complete':
                 self.counters['lora.rx.delivered'] += 1
                 out.append((_CHANNEL[f.type], uuid, msg))

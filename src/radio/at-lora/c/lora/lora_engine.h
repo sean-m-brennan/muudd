@@ -38,7 +38,7 @@ typedef struct {
     uint64_t (*wall_ms)(void *arg);
     /* Monotonic clock, seconds. */
     double (*now)(void *arg);
-    void (*log)(void *arg, int level, const char *msg);   /* 0 info, 1 warn, 2 error */
+    void (*log)(void *arg, int level, const char *msg);   /* -1 debug, 0 info, 1 warn, 2 error */
 } lora_env_t;
 
 #define LORA_DELIVER_PEER  0   /* the same values as AT's NET_CHAN_PEER/BROADCAST/GROUP */

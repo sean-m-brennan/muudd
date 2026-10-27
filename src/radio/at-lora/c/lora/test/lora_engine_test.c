@@ -35,6 +35,7 @@ static struct {
     size_t n_rx;
     lora_link_result_t res[8];
     size_t n_res;
+    uint64_t res_dropped;
 } L;
 
 static void fl_state(void *c, lora_link_state_t *o) { (void)c; *o = L.st; }
@@ -64,6 +65,7 @@ static size_t fl_res(void *c, lora_link_result_t *o, size_t m)
     L.n_res = 0;
     return n;
 }
+static uint64_t fl_res_dropped(void *c) { (void)c; return L.res_dropped; }
 static void _rx(uint32_t src, const uint8_t *p, size_t len, int via)
 {
     uint8_t *c = malloc(len);
@@ -130,7 +132,7 @@ static int _logged(int level, const char *needle)
     return n;
 }
 
-static const lora_link_ops_t OPS = {NULL, fl_state, fl_submit, fl_rx, fl_res};
+static const lora_link_ops_t OPS = {NULL, fl_state, fl_submit, fl_rx, fl_res, fl_res_dropped};
 static const lora_env_t ENV = {NULL, fe_me, fe_members, fe_quiet, fe_proto, fe_tag, fe_wall, fe_now, fe_log};
 
 static char g_path[] = "/tmp/lora_engine_testXXXXXX";
@@ -376,6 +378,46 @@ DEFINE_TEST(test_receive_side_refusals_are_counted)
     ck_assert_int_eq((int)lora_engine_counter(e, "lora.rx.frames"), 4);
     lora_frags_free(&good);
     lora_frags_free(&foreign);
+    _done(e);
+}
+END_TEST_DEFINITION()
+
+/* A dropped frame is logged as well as counted: one line per reason, at most
+ * once a minute; WARN, except a duplicate, which is expected and logs at DEBUG. */
+DEFINE_TEST(test_dropped_frames_warn_once_a_minute_per_reason)
+{
+    lora_engine_t *e = _engine(ALLOW, true);
+    const uint8_t x[1] = {'x'}, bad[1] = {0x99};
+    lora_frags_t good;
+    ck_assert_int_eq(lora_fragment(x, 1, LORA_T_PEER, 1, NULL, 233, 8, &good), 0);
+    lora_delivery_t d[4];
+    _rx(0xB02, bad, 1, 0);
+    _rx(0xB02, bad, 1, 0);
+    _rx(0xD04, good.buf[0], good.len[0], 0);
+    ck_assert_int_eq((int)lora_engine_poll(e, d, 4), 0);
+    ck_assert_int_eq(_logged(1, "lora: dropped a malformed frame from 0xb02 (counted in "
+                                "lora.rx.bad_frame; logged at most once a minute)"), 1);
+    ck_assert_int_eq(_logged(1, "dropped a frame from an unmapped address from 0xd04"), 1);
+    E.t += 30;
+    _rx(0xB02, bad, 1, 0);
+    ck_assert_int_eq((int)lora_engine_poll(e, d, 4), 0);
+    ck_assert_int_eq(_logged(1, "malformed"), 1);
+    E.t += 31;
+    _rx(0xB02, bad, 1, 0);
+    ck_assert_int_eq((int)lora_engine_poll(e, d, 4), 0);
+    ck_assert_int_eq(_logged(1, "malformed"), 2);
+    ck_assert_int_eq(_logged(1, "unmapped"), 1);
+    ck_assert_int_eq((int)lora_engine_counter(e, "lora.rx.bad_frame"), 4);
+    _rx(0xB02, good.buf[0], good.len[0], 0);
+    _rx(0xB02, good.buf[0], good.len[0], 0);
+    _rx(0xB02, good.buf[0], good.len[0], 0);
+    ck_assert_int_eq((int)lora_engine_poll(e, d, 4), 1);
+    free(d[0].msg);
+    ck_assert_int_eq((int)lora_engine_counter(e, "lora.rx.duplicate"), 2);
+    ck_assert_int_eq(_logged(-1, "lora: dropped a duplicate frame from 0xb02 (counted in "
+                                 "lora.rx.duplicate; logged at most once a minute)"), 1);
+    ck_assert_int_eq(_logged(1, "duplicate"), 0);
+    lora_frags_free(&good);
     _done(e);
 }
 END_TEST_DEFINITION()
@@ -682,6 +724,23 @@ DEFINE_TEST(test_refusals_from_the_link_are_counted_by_reason)
 }
 END_TEST_DEFINITION()
 
+DEFINE_TEST(test_results_the_link_dropped_are_counted)
+{
+    lora_engine_t *e = _engine(ALLOW, true);
+    lora_delivery_t d[4];
+    lora_engine_poll(e, d, 4);
+    ck_assert_int_eq((int)lora_engine_counter(e, "lora.tx.result_dropped"), 0);
+    L.res_dropped = 3;
+    lora_engine_poll(e, d, 4);
+    ck_assert_int_eq((int)lora_engine_counter(e, "lora.tx.result_dropped"), 3);
+    json_t *st = lora_engine_stats(e);
+    ck_assert_int_eq((int)json_integer_value(json_object_get(json_object_get(st, "counters"),
+                                                             "lora.tx.result_dropped")), 3);
+    json_decref(st);
+    _done(e);
+}
+END_TEST_DEFINITION()
+
 DEFINE_TEST(test_first_msg_id_is_random)
 {
     uint16_t ids[8];
@@ -804,6 +863,7 @@ int main(void)
     test_received_frames_are_delivered_once_on_their_channel();
     test_poll_takes_no_more_frames_than_it_can_return();
     test_receive_side_refusals_are_counted();
+    test_dropped_frames_warn_once_a_minute_per_reason();
     test_nack_is_sent_for_a_stalled_unicast();
     test_sent_nack_counts_a_frame();
     test_refused_nack_counts_abandoned();
@@ -820,6 +880,7 @@ int main(void)
     test_stats_shape();
     test_exclusion_removes_and_persists();
     test_refusals_from_the_link_are_counted_by_reason();
+    test_results_the_link_dropped_are_counted();
     test_first_msg_id_is_random();
     test_an_unverified_announcement_is_refused();
     test_a_full_map_makes_room_by_dropping_the_oldest_non_member();
