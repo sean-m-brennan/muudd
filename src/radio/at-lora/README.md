@@ -316,10 +316,6 @@ stop hook.
 
 ## Known issues
 
-- Python AT nodes cannot currently be admitted into a proto cohort over the live
-  handshake (an AT core issue). The integration test therefore seeds the cohort,
-  a shared group and each node's identity files on disk, instead of admitting
-  the second node.
 - The `muudd_radio` client inherits AT's process-wide 0.1 s socket timeout, so a
   Python AT node reconnects to radiod once at startup. The fix belongs in
   `client.py::_dial`.

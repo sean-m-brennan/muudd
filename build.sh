@@ -14,7 +14,8 @@
 #   limitations under the License.
 
 # Build every muudd component: autonomous_trust, ethne, kith-covenant, Agora,
-# Stele and the PDF edition. With --test, run each component's tests as well.
+# Stele and the PDF edition. With --test, then run test.sh for every
+# component's tests.
 #
 # Each component that has its own conda env (autonomous_trust, ethne,
 # kith-covenant) is built inside it when that env exists; otherwise the step
@@ -103,17 +104,9 @@ step "stele build"            "$STELE" ./build.sh
 step "PDF edition"            "$ROOT"  tools/pdf/build.sh
 
 # --- test --------------------------------------------------------------------
+# test.sh holds the list of every component's tests.
 if (( TEST )); then
-    step "autonomous_trust test" "$AT"    in_env autonomous_trust ./at test
-    step "ethne test"            "$ETHNE" in_env ethne ./run-tests.sh
-    step "kith-covenant test"    "$KC"    in_env kith-covenant ./run-tests.sh
-    step "agora test"            "$AGORA" ./test.sh
-    step "stele conformance"     "$STELE" at-stele/test-conformance.sh
-    # Each pytest directory holds its own `tests` package, so run them one at a time.
-    for d in at-stele/python/tests tools/tests verifier/tests viewer/tests; do
-        step "stele pytest $d"   "$STELE" in_env autonomous_trust python -m pytest "$d"
-    done
-    step "stele extension"       "$STELE" node --test extension/tests/panel.test.mjs extension/tests/background.test.mjs
+    step "tests (test.sh)" "$ROOT" ./test.sh
 fi
 
 echo ""

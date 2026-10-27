@@ -48,26 +48,24 @@ Record pass or fail for each step.
 Needs the at-lora extension (`src/radio/at-lora`) on both hosts. Each host runs
 radiod with the `at` port from the configuration above, and an AutonomousTrust
 node whose `lora.cfg.json` is `{"port": 10, "ip_quiet_s": 20}` (the default
-allowlist), both nodes in one proto-format cohort. `ip_quiet_s` is lowered from
-its default of 90 because, with the default timings, a peer becomes
-LoRa-eligible only once it is already absent (see Limits in the at-lora
-README). The two hosts reach each other over an IP link you can unplug. Record
-pass or fail for each step.
+allowlist), both nodes in one proto-format cohort: start the first node with
+`AT_NET_WIRE_MODE=proto` so the group it forms is proto, and let the second join
+it. `ip_quiet_s` is lowered from its default of 90 because, with the default
+timings, a peer becomes LoRa-eligible only once it is already absent (see Limits
+in the at-lora README). The two hosts reach each other over an IP link you can
+unplug. Record pass or fail for each step.
 
 9. [ ] With IP up, run both nodes for five minutes. `radioctl stats` on each
    host shows no airtime on port 10, and the node's 5-minute `lora: link ...`
    INFO summary line in its log shows `sent 0 msgs`.
 10. [ ] Unplug the IP link between the hosts and note the time. Wait 30 s
     (`ip_quiet_s` plus margin), then rotate the group key by admitting a third
-    node on one side. Admission into a proto cohort may be refused on Python
-    nodes (see Known issues in the at-lora README); use C nodes as the
-    admitting and joining side for this step, or seed the cohort as the
-    integration test does. A refused admission is not a LoRa fault. The other
-    host's node logs the key update, and `radioctl stats` there shows airtime
-    on port 10. Record the time from unplugging to the key update arriving.
+    node on one side. The other host's node logs the key update, and
+    `radioctl stats` there shows airtime on port 10. Record the time from
+    unplugging to the key update arriving.
 11. [ ] Run one host with the C AT node (`libat_lora` linked) and the other
-    with the Python node, and repeat step 10 in both directions, with the C
-    node as the admitting side. This is the full C to Python node check.
+    with the Python node, and repeat step 10 in both directions, admitting the
+    third node on each side in turn. This is the full C to Python node check.
 12. [ ] Plug IP back in. The IP copy of each message arrives, and airtime on
     port 10 stops once the peer has been heard over IP again (at most a few
     heartbeats).

@@ -1,6 +1,7 @@
 __pycache__/
 *.egg-info/
 .venv/
+/uv.lock
 .pytest_cache/
 *.db
 /config.toml

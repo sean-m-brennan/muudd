@@ -1,4 +1,4 @@
-[submodule "autonomous_trust"]
+[submodule "lib/autonomous_trust"]
         path = lib/autonomous_trust
         url = https://github.com/sean-m-brennan/autonomous-trust.git
 [submodule "apps/stele"]

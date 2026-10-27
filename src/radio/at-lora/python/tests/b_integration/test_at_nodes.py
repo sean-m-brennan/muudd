@@ -9,12 +9,9 @@ UDP broadcast does not work on loopback, so the nodes' UDP transport is
 patched (as AT's own two-node test does) to unicast to the other node, and
 the patch drops every send while the cut file exists.
 
-The two nodes start as one seeded proto-format cohort (a shared group and each
-other's identities on disk), because LoRa carries only proto cohorts and a
-node joining a proto cohort over the live admission handshake is refused by
-the core: the welcomer places the joiner in the group and sends it proto
-before the joiner holds the group, and a node holding no group reads JSON
-only."""
+Node A forms a proto-format group (AT_NET_WIRE_MODE=proto) and node B joins it
+over the live admission handshake, adopting the group's format, before any
+LoRa check starts: LoRa carries only proto cohorts."""
 import json
 import logging
 import multiprocessing
@@ -105,39 +102,36 @@ def _run_node(root, ip, peers, cut_file, runtime, log_file, env):
                         testing=False, silent=True).run_forever(q_in=q)
 
 
-def _seed_cohort(cfg_dirs):
-    """One proto-format group naming every node, and each node's peer set
-    holding the others' public identities."""
-    from autonomous_trust.core._python.config.configuration import (ConfigJSONEncoder,
-                                                                     config_json_decoder)
-    from autonomous_trust.core._python.identity.group import Group
-    from autonomous_trust.core._python.identity.history.history import IdentityHistory
-    from autonomous_trust.core._python.identity.peers import Peers
-    idents = {}
-    for name, cfg_dir in cfg_dirs.items():
-        with open(os.path.join(cfg_dir, 'identity.cfg.json')) as f:
-            idents[name] = json.load(f, object_hook=config_json_decoder)
-    with patch.dict(os.environ, {'AT_NET_WIRE_MODE': 'proto'}):
-        group = Group.initialize({i.uuid: i.address for i in idents.values()}, 'lora_cohort')
-    assert group.wire_format == 'proto'
-    for name, cfg_dir in cfg_dirs.items():
-        peers = Peers()
-        for other, ident in idents.items():
-            if other != name:
-                peers.add(ident.publish())
-        # The node's own starting history (just itself), as choose_group reads it:
-        # populate() rejects {} (no 'blacklist'), and the node would mint a group of its own.
-        history = IdentityHistory(idents[name], peers, queue.Queue()).to_dict()
-        for fname, obj in (('group.cfg.json', (group, history)), ('peers.cfg.json', peers)):
-            with open(os.path.join(cfg_dir, fname), 'w') as f:
-                json.dump(obj, f, cls=ConfigJSONEncoder, indent=2)
-
-
 def _read(path):
     try:
         return Path(path).read_text(errors='replace')
     except OSError:
         return ''
+
+
+def _group(node):
+    """The group a node has saved, as its raw JSON fields, or {}."""
+    try:
+        with open(os.path.join(node['root'], 'etc', 'at', 'group.cfg.json')) as f:
+            saved = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return saved[0] if isinstance(saved, list) and saved else {}
+
+
+def _one_cohort(nodes):
+    """Every node holds the same proto group, and its group names every other
+    node. Not itself: a joiner's group comes from the admitter's history, which
+    is taken before the admitter adds the joiner."""
+    groups = {name: _group(n) for name, n in nodes.items()}
+    if len({g.get('_uuid') for g in groups.values()}) != 1:
+        return False
+    for name, g in groups.items():
+        others = {n['ip'] for other, n in nodes.items() if other != name}
+        if g.get('_wire_format') != 'proto' or \
+                not others <= set((g.get('_address_map') or {}).values()):
+            return False
+    return True
 
 
 def _where(nodes, radios):
@@ -192,7 +186,6 @@ def cohort(tmp_path):
             log_dir.mkdir(parents=True, exist_ok=True)
             nodes[name] = {'root': str(root), 'ip': ip, 'log': str(log_dir / 'at.log'),
                            'data': Configuration.get_data_dir()}
-        _seed_cohort({name: os.path.join(n['root'], 'etc', 'at') for name, n in nodes.items()})
         peers = [ip for ip, _ in NODES.values()]
         for i, (name, n) in enumerate(nodes.items()):
             if i:
@@ -204,6 +197,9 @@ def cohort(tmp_path):
         assert wait_until(lambda: all('lora: connected to radiod' in _read(n['log'])
                                       for n in nodes.values()), 30, step=0.5), \
             'the lora extension did not start on both nodes;' + _where(nodes, radios)
+        # A admitted B over the live handshake, into A's proto group.
+        assert wait_until(lambda: _one_cohort(nodes), 90, step=1), \
+            'B was not admitted into A\'s proto cohort;' + _where(nodes, radios)
         yield nodes, radios, medium, cut
     finally:
         for p in procs.values():

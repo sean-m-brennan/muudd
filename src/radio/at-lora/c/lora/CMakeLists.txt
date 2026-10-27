@@ -6,9 +6,11 @@
 # AT_EXTERNAL_EXTENSIONS, so at_extension_library and the core's flags and
 # include directories apply as they do to an in-tree extension.
 
-# radiod's Apache-2.0 consumer client, built here from muudd's sources into a
-# position-independent private library: the client, its frame codec and the
-# protobuf-c messages generated from radio.proto.
+# radiod's Apache-2.0 consumer client, built here from muudd's sources as
+# position-independent objects: the client, its frame codec and the protobuf-c
+# messages generated from radio.proto. An OBJECT library, so the objects go
+# into libat_lora.so and libat_lora.a both; as a static library of its own it
+# was left out of libat_lora.a, which no static consumer could then link.
 if(NOT MUUDD_RADIO_DIR)
     get_filename_component(MUUDD_RADIO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
 endif()
@@ -24,7 +26,7 @@ add_custom_command(
             --c_out=${LORA_GEN} -I${MUUDD_RADIO_DIR}/proto radio.proto
     DEPENDS ${MUUDD_RADIO_DIR}/proto/radio.proto
     COMMENT "Generating protobuf-c sources for radio.proto (at-lora)")
-add_library(at_lora_radio STATIC
+add_library(at_lora_radio OBJECT
     ${MUUDD_RADIO_DIR}/client/c/mr_client.c
     ${MUUDD_RADIO_DIR}/radiod/mr_framing.c
     ${MUUDD_RADIO_DIR}/radiod/mr_common.c
